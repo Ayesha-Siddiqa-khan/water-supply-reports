@@ -47,6 +47,8 @@ def resource_path(*parts: str) -> str:
 
 
 def app_data_dir() -> str:
+    if os.environ.get("VERCEL") == "1":
+        return os.path.join("/tmp", "water-supply-report")
     if getattr(sys, "frozen", False):
         return os.path.abspath(os.path.dirname(sys.executable))
     return os.path.abspath(os.path.dirname(__file__))
