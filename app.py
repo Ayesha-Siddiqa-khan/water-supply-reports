@@ -60,6 +60,8 @@ RESULTS_CACHE = os.path.join(UPLOAD_FOLDER, "last_results.json")
 SAVED_DASHBOARD_CSV = os.path.join(UPLOAD_FOLDER, "saved_dashboard_data.csv")
 SAVED_DASHBOARD_META = os.path.join(UPLOAD_FOLDER, "saved_dashboard_meta.json")
 BILL_LIST_DB = os.path.join(BASE_DIR, "bill_list.sqlite3")
+SEED_ASSIGNMENTS_JSON = resource_path("seed", "staff_assignments.json")
+SEED_ASSIGNMENTS_CSV = resource_path("seed", "staff_assignments.csv")
 ALLOWED_EXTENSIONS = {".csv", ".xlsx"}
 
 app = Flask(
@@ -2092,6 +2094,7 @@ def init_bill_list_db() -> None:
         )
         apply_manual_zone_overrides(conn)
         seed_auto_assignment_rules(conn)
+        seed_staff_assignments_from_file(conn)
 
 
 def seed_auto_assignment_rules(conn) -> None:
@@ -2110,6 +2113,76 @@ def seed_auto_assignment_rules(conn) -> None:
         """CREATE UNIQUE INDEX IF NOT EXISTS idx_auto_unique
         ON auto_assignment_rules(sector, locality, connection_min, connection_max, staff_name)"""
     )
+
+
+def seed_staff_assignments_from_file(conn) -> None:
+    if os.environ.get("VERCEL") != "1":
+        return
+    existing = conn.execute("SELECT COUNT(*) AS cnt FROM staff_assignments").fetchone()
+    if existing and existing["cnt"] > 0:
+        return
+
+    seed_staff: list[str] = []
+    seed_assignments: list[dict] = []
+
+    if os.path.exists(SEED_ASSIGNMENTS_JSON):
+        try:
+            with open(SEED_ASSIGNMENTS_JSON, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+            seed_staff = [str(s).strip() for s in data.get("staff", []) if str(s).strip()]
+            seed_assignments = data.get("assignments", []) or []
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            return
+    elif os.path.exists(SEED_ASSIGNMENTS_CSV):
+        try:
+            with open(SEED_ASSIGNMENTS_CSV, "r", encoding="utf-8", newline="") as handle:
+                reader = csv.DictReader(handle)
+                for row in reader:
+                    seed_assignments.append(row)
+                    staff_name = (row.get("staff_name") or "").strip()
+                    if staff_name:
+                        seed_staff.append(staff_name)
+        except OSError:
+            return
+    else:
+        return
+
+    now = datetime.now().isoformat(timespec="seconds")
+    staff_names = sorted({name for name in seed_staff if name})
+    for name in staff_names:
+        conn.execute(
+            "INSERT OR IGNORE INTO staff (name, created_at) VALUES (?, ?)",
+            (name, now),
+        )
+
+    staff_map = {row["name"]: row["id"] for row in conn.execute("SELECT id, name FROM staff").fetchall()}
+
+    for item in seed_assignments:
+        staff_name = str(item.get("staff_name") or "").strip()
+        if not staff_name:
+            continue
+        staff_id = staff_map.get(staff_name)
+        if staff_id is None:
+            conn.execute(
+                "INSERT OR IGNORE INTO staff (name, created_at) VALUES (?, ?)",
+                (staff_name, now),
+            )
+            row = conn.execute("SELECT id FROM staff WHERE name = ?", (staff_name,)).fetchone()
+            if not row:
+                continue
+            staff_id = row["id"]
+            staff_map[staff_name] = staff_id
+
+        zone = str(item.get("zone") or "").strip() or "Unassigned"
+        sector = str(item.get("sector") or "").strip() or None
+        locality = str(item.get("locality") or "").strip() or None
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO staff_assignments (staff_id, zone, sector, locality, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (staff_id, zone, sector, locality, now),
+        )
 
 
 def backfill_bill_arrears(conn) -> None:

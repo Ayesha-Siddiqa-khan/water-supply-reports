@@ -1,0 +1,491 @@
+{
+  "staff": [
+    "ABDUL LATIF",
+    "MOUAZAM QADIR",
+    "MUHAMMAD ILYAS",
+    "MUHAMMAD IRFAN",
+    "MUHAMMAD JAVED",
+    "MUHAMMAD KASHIF",
+    "MUHAMMAD MURTAZA",
+    "MUHAMMAD TAHIR",
+    "MUHAMMAD ZAHEER",
+    "MUHAMMD KHALID",
+    "TAUSEEF"
+  ],
+  "assignments": [
+    {
+      "staff_name": "ABDUL LATIF",
+      "zone": "C",
+      "sector": "NoorPura",
+      "locality": ""
+    },
+    {
+      "staff_name": "ABDUL LATIF",
+      "zone": "C",
+      "sector": "Taqwa Colony near Tableghi Markaz",
+      "locality": ""
+    },
+    {
+      "staff_name": "ABDUL LATIF",
+      "zone": "C",
+      "sector": "Yasrab Colony, Sugar Mills Road",
+      "locality": ""
+    },
+    {
+      "staff_name": "ABDUL LATIF",
+      "zone": "C",
+      "sector": "Zimindara Colony(East)",
+      "locality": ""
+    },
+    {
+      "staff_name": "ABDUL LATIF",
+      "zone": "C",
+      "sector": "Zimindara Colony(West)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MOUAZAM QADIR",
+      "zone": "Commercial",
+      "sector": "COMMERCIAL",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD ILYAS",
+      "zone": "B",
+      "sector": "FATIMA COLONY ( WARIS COLONY)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD ILYAS",
+      "zone": "B",
+      "sector": "Fatima Plaza",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD ILYAS",
+      "zone": "B",
+      "sector": "GULSTAN TOWN 15/G ROAD",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD ILYAS",
+      "zone": "B",
+      "sector": "Ghareeb Mohallah",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD ILYAS",
+      "zone": "B",
+      "sector": "Gulshan-e-Iqbal Colony",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD ILYAS",
+      "zone": "B",
+      "sector": "Kanwar Colony, Pacca Karkhana",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD ILYAS",
+      "zone": "B",
+      "sector": "Mahboob Colony  (SHARQI)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD ILYAS",
+      "zone": "B",
+      "sector": "Mohajar Colony Zone-B",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD ILYAS",
+      "zone": "B",
+      "sector": "Waris Colony",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A",
+      "sector": "Al-Khair Colony (PRIVATE SOCIETY)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A",
+      "sector": "Baghdad Colony",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A",
+      "sector": "Bahadar Colony",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A",
+      "sector": "Bahu Chowk to Sabz mandi Road",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A",
+      "sector": "DREEM LAND PHASE 1(Private society)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A",
+      "sector": "Farooq Colony",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A",
+      "sector": "Ghala Mandi Chishtian",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A",
+      "sector": "Hussain Colony",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A",
+      "sector": "Itefaq City Qaziwala Road (PRIVATE SOCIETY)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A",
+      "sector": "MUHAMMAD CITY   (PRIVATE SOCIETY)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A",
+      "sector": "MUHAMMAD CITY (PRIVATE SOCIETY)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A",
+      "sector": "MUHAMMAD CITY ZONE ,,A,, (PRIVATE SOCIETY)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A",
+      "sector": "NAIKy WALA TIBA",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A",
+      "sector": "REHAN AVNUE (PRIVATE SOCIETY PHASE 1)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A",
+      "sector": "REHAN GARDEN(PRIVATE SOCIETY)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A",
+      "sector": "ZAIN CITY (PRIVATE SOCITIES)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD JAVED",
+      "zone": "C",
+      "sector": "Chak No. 4/F.W",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD JAVED",
+      "zone": "C",
+      "sector": "New Satellite Town",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD JAVED",
+      "zone": "C",
+      "sector": "Satellite Town",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD KASHIF",
+      "zone": "B",
+      "sector": "Islam Pura",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD KASHIF",
+      "zone": "B",
+      "sector": "Mahboob Colony  (SHUMALI GHARBI)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD MURTAZA",
+      "zone": "C",
+      "sector": "Basti Qadrabbad",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD MURTAZA",
+      "zone": "C",
+      "sector": "Nasirabbad",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD TAHIR",
+      "zone": "A",
+      "sector": "Gulberg Town 14/G",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD TAHIR",
+      "zone": "A",
+      "sector": "Madina Colony",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD TAHIR",
+      "zone": "A",
+      "sector": "Taj Pura",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD ZAHEER",
+      "zone": "C",
+      "sector": "Basti Feeder Daharanwala More Zone-C",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD ZAHEER",
+      "zone": "C",
+      "sector": "PURANI CHISHTIAN",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD ZAHEER",
+      "zone": "C",
+      "sector": "Taj Pura adjacent Taj Sarwar Colony",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD ZAHEER",
+      "zone": "C",
+      "sector": "Taj Sarwar Colony near Stadium",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMD KHALID",
+      "zone": "B",
+      "sector": "ALHARAM CITY",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMD KHALID",
+      "zone": "B",
+      "sector": "ARHAM TOWN 16/G ROAD",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMD KHALID",
+      "zone": "B",
+      "sector": "Chak No. 15/Gajjiani (Large)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMD KHALID",
+      "zone": "B",
+      "sector": "Chak No.15/G  (Small)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMD KHALID",
+      "zone": "B",
+      "sector": "Chak No.15/G (Small)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMD KHALID",
+      "zone": "B",
+      "sector": "Chak No.46/F",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMD KHALID",
+      "zone": "B",
+      "sector": "Chaki Gopi Raam",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMD KHALID",
+      "zone": "B",
+      "sector": "Dahranwala More",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMD KHALID",
+      "zone": "B",
+      "sector": "Iqbal Nager 46/F",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMD KHALID",
+      "zone": "B",
+      "sector": "JINAH TOWN",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMD KHALID",
+      "zone": "B",
+      "sector": "Khayaban Colony 1",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMD KHALID",
+      "zone": "B",
+      "sector": "Khayaban e Ameen 2",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMD KHALID",
+      "zone": "B",
+      "sector": "Mahboob Colony (Gharbi JanubI Butcher khana)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMD KHALID",
+      "zone": "B",
+      "sector": "NATIONAL TELE COMMUNICATION",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMD KHALID",
+      "zone": "B",
+      "sector": "SIDRA TOWN QAZI WALA ROAD  (PRIVATE SOCIETY)",
+      "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMD KHALID",
+      "zone": "B",
+      "sector": "SIDRA TOWN QAZI WALA ROAD (PRIVATE SOCIETY)",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "13 /G CHAK,   AZAFI BASTI,  MUZAFFAR COLONY",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "13 /G CHAK, AZAFI BASTI, MUZAFFAR COLONY",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "13 /G, AZAFI BASTI,MUZAFFAR COLONY,ALI TOWM",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "ALHARAM CITY",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "Ali Town",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "Alimia Colony",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "BATOOL GARDEN DUBAI VILLAZ ALHARAM CITY",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "BATOOL GARDEN,DUBAI VILLAZ,ALHARAM CITY(PRIVATE SO",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "Baldia Colony",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "Chishtia Park Colony",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "Ghani Akbar Town",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "Gulshan-e-Batool Colony (PRIVATE SOCIETY)",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "Hafiz Hotel to Bahawalnager Road",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "MUSLIM TOWN",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "Noor Mohalla Melad Chowk Mian Road",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "Noor Mohalla, Melad Chowk Mian Road Zone-1",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "Qaziwala Road To Hospital City area",
+      "locality": ""
+    },
+    {
+      "staff_name": "TAUSEEF",
+      "zone": "A",
+      "sector": "kIPS Academy to Gulshan -e-Batool main 13/G Road",
+      "locality": ""
+    }
+  ]
+}
