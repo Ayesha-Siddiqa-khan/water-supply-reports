@@ -1,7 +1,7 @@
 /* ============================================================
    WATER SUPPLY REPORT — Professional SaaS Dashboard Design
    ============================================================ */
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -298,18 +298,24 @@ body {
 .content { padding: 32px; max-width: 1120px; }
 
 /* ===================== PAGE HEADER ===================== */
-.page-header { margin-bottom: 32px; }
+.page-header { margin-bottom: 36px; }
 .page-tag {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.15em;
-  text-transform: uppercase; color: var(--teal); margin-bottom: 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--teal); margin-bottom: 10px;
 }
 .page-title {
-  font-size: 28px; font-weight: 800;
-  color: var(--text-primary); line-height: 1.1; margin-bottom: 8px;
+  font-family: 'Inter', 'Syne', system-ui, sans-serif;
+  font-size: 42px; font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1; margin-bottom: 12px;
+  background: linear-gradient(135deg, #ffffff 50%, #5eead4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 .page-subtitle {
-  font-size: 13px; color: var(--text-secondary);
-  max-width: 480px; line-height: 1.6;
+  font-size: 14.5px; color: var(--text-secondary);
+  max-width: 580px; line-height: 1.65;
 }
 .dashboard-title {
   font-family: "Inter", "Poppins", "Segoe UI", sans-serif;
@@ -821,7 +827,7 @@ body {
   .stat-value { font-size: 18px; }
   .upload-area { flex-direction: column; align-items: flex-start; }
   .upload-actions { margin-left: 0; width: 100%; }
-  .page-title { font-size: 22px; }
+  .page-title { font-size: 28px; letter-spacing: -0.01em; }
   .data-banner { flex-wrap: wrap; }
   .data-banner-clear { margin-left: 0; }
   .bills-grid { grid-template-columns: 1fr; }
@@ -837,8 +843,12 @@ body {
 @media (max-width: 768px) {
   .dashboard-title { font-size: 28px; }
   .dashboard-subtitle { font-size: 14px; max-width: 100%; }
+  .page-title { font-size: 26px; }
+  .page-subtitle { font-size: 13px; max-width: 100%; }
+  .page-header { margin-bottom: 28px; }
 }
 @media (max-width: 480px) {
   .stat-grid { grid-template-columns: 1fr; }
   .two-col { grid-template-columns: 1fr; }
+  .page-title { font-size: 22px; }
 }
