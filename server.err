@@ -1,0 +1,174 @@
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://127.0.0.1:5000
+Press CTRL+C to quit
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 407-144-900
+127.0.0.1 - - [07/May/2026 03:18:34] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:18:34] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:18:39] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:18:39] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:19:27] "POST /bill-list HTTP/1.1" 302 -
+127.0.0.1 - - [07/May/2026 03:19:27] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:19:27] "GET /static/styles.css HTTP/1.1" 304 -
+ * Detected change in 'F:\\github\\water suppy report\\app.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 407-144-900
+127.0.0.1 - - [07/May/2026 03:21:09] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:21:44] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:21:44] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:21:54] "POST /bill-list HTTP/1.1" 302 -
+127.0.0.1 - - [07/May/2026 03:21:55] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:21:55] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:23:33] "POST /bill-list HTTP/1.1" 302 -
+127.0.0.1 - - [07/May/2026 03:23:33] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:23:33] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:24:21] "POST /bill-list HTTP/1.1" 302 -
+127.0.0.1 - - [07/May/2026 03:24:21] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:24:21] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:24:42] "POST /bill-list HTTP/1.1" 302 -
+127.0.0.1 - - [07/May/2026 03:24:42] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:24:42] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:25:13] "POST /bill-list HTTP/1.1" 302 -
+127.0.0.1 - - [07/May/2026 03:25:13] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:25:13] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:25:52] "POST /bill-list HTTP/1.1" 302 -
+127.0.0.1 - - [07/May/2026 03:25:52] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:25:52] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:26:37] "POST /bill-list HTTP/1.1" 302 -
+127.0.0.1 - - [07/May/2026 03:26:37] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:26:37] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:27:12] "POST /bill-list HTTP/1.1" 302 -
+127.0.0.1 - - [07/May/2026 03:27:12] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:27:12] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:27:39] "POST /bill-list HTTP/1.1" 302 -
+127.0.0.1 - - [07/May/2026 03:27:39] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:27:39] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:27:53] "POST /bill-list HTTP/1.1" 302 -
+127.0.0.1 - - [07/May/2026 03:27:53] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:27:53] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:28:27] "POST /bill-list HTTP/1.1" 302 -
+127.0.0.1 - - [07/May/2026 03:28:27] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:28:27] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:28:40] "GET /bill-list/export/staff/pdf HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:28:42] "GET /bill-list/export/staff/pdf HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:30:23] "GET /bill-list/export/staff/pdf?staff_id=3 HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:30:23] "GET /bill-list/export/staff/pdf?staff_id=3 HTTP/1.1" 200 -
+ * Detected change in 'F:\\github\\water suppy report\\app.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 407-144-900
+127.0.0.1 - - [07/May/2026 03:30:38] "GET /bill-list/export/staff/pdf HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:33:38] "GET /bill-list/export/staff/pdf?staff_id=4 HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:33:38] "GET /bill-list/export/staff/pdf?staff_id=4 HTTP/1.1" 200 -
+ * Detected change in 'F:\\github\\water suppy report\\app.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 407-144-900
+127.0.0.1 - - [07/May/2026 03:34:39] "GET /bill-list/export/staff/pdf HTTP/1.1" 200 -
+ * Detected change in 'F:\\github\\water suppy report\\app.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 407-144-900
+127.0.0.1 - - [07/May/2026 03:36:00] "GET /bill-list/export/staff/pdf HTTP/1.1" 200 -
+ * Detected change in 'F:\\github\\water suppy report\\app.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 407-144-900
+127.0.0.1 - - [07/May/2026 03:37:40] "GET /bill-list/export/staff/pdf HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:38:01] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:38:01] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:38:12] "GET /bill-list/export/staff/pdf?staff_id=3 HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:38:14] "GET /bill-list/export/staff/pdf?staff_id=3 HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:40:03] "GET /bill-list/export/staff/pdf HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:40:06] "GET /bill-list/export/staff/pdf HTTP/1.1" 200 -
+ * Detected change in 'F:\\github\\water suppy report\\app.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 407-144-900
+127.0.0.1 - - [07/May/2026 03:43:02] "GET /bill-list/export/staff/pdf HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:43:24] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:43:24] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:43:26] "GET /bill-list/export/staff/pdf HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:43:29] "GET /bill-list/export/staff/pdf HTTP/1.1" 200 -
+ * Detected change in 'F:\\github\\water suppy report\\app.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 407-144-900
+127.0.0.1 - - [07/May/2026 03:45:35] "GET /bill-list/export/staff/pdf HTTP/1.1" 500 -
+Traceback (most recent call last):
+  File "F:\github\water suppy report\.uv-cache\archive-v0\q58rXB_GkscBtcS8ZbnUO\Lib\site-packages\flask\app.py", line 1498, in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\github\water suppy report\.uv-cache\archive-v0\q58rXB_GkscBtcS8ZbnUO\Lib\site-packages\flask\app.py", line 1476, in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\github\water suppy report\.uv-cache\archive-v0\q58rXB_GkscBtcS8ZbnUO\Lib\site-packages\flask\app.py", line 1473, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\github\water suppy report\.uv-cache\archive-v0\q58rXB_GkscBtcS8ZbnUO\Lib\site-packages\flask\app.py", line 882, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\github\water suppy report\.uv-cache\archive-v0\q58rXB_GkscBtcS8ZbnUO\Lib\site-packages\flask\app.py", line 880, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\github\water suppy report\.uv-cache\archive-v0\q58rXB_GkscBtcS8ZbnUO\Lib\site-packages\flask\app.py", line 865, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\github\water suppy report\app.py", line 2061, in export_bill_list_staff
+    headers, rows = bill_list_staff_export_rows(staff_id)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\github\water suppy report\app.py", line 1450, in bill_list_staff_export_rows
+    fmt(total_received_amount),
+        ^^^^^^^^^^^^^^^^^^^^^^^
+NameError: name 'total_received_amount' is not defined
+ * Detected change in 'F:\\github\\water suppy report\\app.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 407-144-900
+127.0.0.1 - - [07/May/2026 03:46:34] "GET /bill-list/export/staff/pdf HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:48:25] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:48:25] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:48:32] "GET /bill-list/export/staff/pdf HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:48:34] "GET /bill-list/export/staff/pdf HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:51:09] "GET /bill-list/export/zone/pdf?zone=All HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:51:11] "GET /bill-list/export/zone/pdf?zone=All HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:51:29] "GET /bill-list/export/zone/pdf?zone=All HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:51:31] "GET /bill-list/export/zone/pdf?zone=All HTTP/1.1" 200 -
+ * Detected change in 'F:\\github\\water suppy report\\app.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 407-144-900
+ * Detected change in 'F:\\github\\water suppy report\\app.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 407-144-900
+127.0.0.1 - - [07/May/2026 03:54:29] "GET /bill-list/export/zone/pdf?zone=All HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:55:17] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:55:17] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:55:23] "GET /bill-list/export/zone/pdf?zone=All HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:55:25] "GET /bill-list/export/zone/pdf?zone=All HTTP/1.1" 200 -
+ * Detected change in 'F:\\github\\water suppy report\\app.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 407-144-900
+127.0.0.1 - - [07/May/2026 03:57:32] "GET /bill-list/export/zone/pdf?zone=All HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:58:21] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:58:21] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 03:58:29] "GET /bill-list/export/zone/pdf?zone=All HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 03:58:31] "GET /bill-list/export/zone/pdf?zone=All HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 04:00:08] "GET /bill-list/export/zone/csv?zone=All HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 04:00:17] "GET /bill-list/export/staff/csv HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 04:03:57] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 04:04:23] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 04:04:23] "GET /static/styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 04:04:31] "POST /bill-list HTTP/1.1" 302 -
+127.0.0.1 - - [07/May/2026 04:04:32] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 04:04:32] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 04:06:55] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 04:06:55] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 04:07:04] "GET /bill-list HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 04:07:04] "GET /static/styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [07/May/2026 04:07:09] "GET /bill-list/export/staff/pdf HTTP/1.1" 200 -
+127.0.0.1 - - [07/May/2026 04:07:12] "GET /bill-list/export/staff/pdf HTTP/1.1" 200 -

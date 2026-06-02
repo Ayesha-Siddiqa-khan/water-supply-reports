@@ -1,0 +1,12 @@
+project_name             = "infra-dev"
+environment              = "dev"
+region                   = "us-east-1"
+public_subnet_cidrs      = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs     = ["10.0.3.0/24", "10.0.4.0/24"]
+key_pair_mode            = "existing"
+existing_key_pair_name   = "my-key"
+ecr_enabled              = true
+ecr_repository_mode      = "create"
+ecr_repository_name      = "infra-dev/backend-api"
+ecr_image_tag_mutability = "IMMUTABLE"
+ecr_scan_on_push         = true

@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.mypy_cache/
+.uv-cache/
+.uv-python/
+.venv/
+venv/
+
+# IDE
+.claude/
+.idea/
+.vscode/
+
+# Build artifacts
+build/
+dist/
+*.spec
+WaterSupplyReport-Portable/
+WaterSupplyReport-Portable.zip
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+
+# Database
+*.sqlite3
+
+# Uploads / data files
+uploads/
+files/
+*.csv
+received bills/
+
+# Logs
+*.log
+
+# Environment / secrets
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db

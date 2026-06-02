@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Water Supply Report{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}Upload, merge, and analyze water supply billing data.{% endblock %}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  {% block head_extra %}{% endblock %}
+</head>
+<body>
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <div class="logo-icon">💧</div>
+        <div>
+          <div class="logo-text">Water Supply</div>
+          <div class="logo-sub">Management System</div>
+        </div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Reports</div>
+      <a class="nav-item {% if active_page == 'dashboard' %}active{% endif %}" href="{{ url_for('index') }}">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/>
+          <rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/>
+        </svg>
+        <span>All Received Bills Report</span>
+      </a>
+      <a class="nav-item {% if active_page == 'bills' %}active{% endif %}" href="{{ url_for('bill_list') }}">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="2" width="14" height="17" rx="2"/><path d="M7 7h6M7 11h4"/>
+        </svg>
+        <span>Bills Reports</span>
+      </a>
+      <a class="nav-item {% if active_page == 'daily' %}active{% endif %}" href="{{ url_for('daily_staff_receive') }}">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="10" cy="10" r="8"/><path d="M10 6v4l3 2"/>
+        </svg>
+        <span>Daily Receiving</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-data-pill">
+        <div class="data-pill-dot"></div>
+        <div class="data-pill-label">
+          <strong>{% block pill_label %}Live Data{% endblock %}</strong>
+          {% block pill_detail %}System active{% endblock %}
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="topbar-breadcrumb">
+        <span>Water Supply</span>
+        <span class="breadcrumb-sep">›</span>
+        <span class="breadcrumb-current">{% block breadcrumb %}All Received Bills Report{% endblock %}</span>
+      </div>
+      <div class="topbar-right">
+        {% block topbar_actions %}{% endblock %}
+      </div>
+    </header>
+
+    <!-- FLASH NOTICES / TOAST -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div id="toast-container">
+          {% for category, message in messages %}
+            <div class="toast{% if category and category != 'message' %} {{ category }}{% endif %}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- PAGE CONTENT -->
+    {% block content %}{% endblock %}
+  </main>
+
+  <script>
+    // ── TOAST AUTO-DISMISS ──
+    document.addEventListener('DOMContentLoaded', function() {
+      var container = document.getElementById('toast-container');
+      if (container) {
+        setTimeout(function() {
+          container.classList.add('toast-exit');
+          setTimeout(function() { container.remove(); }, 400);
+        }, 2000);
+      }
+    });
+  </script>
+</body>
+</html>

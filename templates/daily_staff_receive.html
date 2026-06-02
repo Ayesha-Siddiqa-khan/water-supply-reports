@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+{% block title %}Water Supply Report — Daily Receiving{% endblock %}
+{% block meta_description %}Upload daily received amount files and generate staff recovery progress reports.{% endblock %}
+{% block active_page %}daily{% endblock %}
+{% block breadcrumb %}Daily Receiving{% endblock %}
+
+{% block topbar_actions %}
+  <form method="post" enctype="multipart/form-data" style="display:flex;gap:10px;align-items:center;margin:0;">
+    <label class="topbar-btn" style="cursor:pointer;">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 1v8M4 4l3-3 3 3M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2"/></svg>
+      <span>Upload Files</span>
+      <input type="file" name="files" multiple accept=".csv,.xlsx" style="display:none;" onchange="this.closest('form').submit();">
+    </label>
+    <button type="submit" class="topbar-btn primary">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="12" height="12" rx="2"/><path d="M4 5h6M4 7h4M4 9h5"/></svg>
+      <span>Generate Staff Report</span>
+    </button>
+  </form>
+{% endblock %}
+
+{% block pill_label %}Daily{% endblock %}
+{% block pill_detail %}
+  {% if report %}{{ report.summary_rows|length }} staff{% else %}Awaiting data{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="content">
+    <div class="page-header">
+      <div class="page-tag">Daily Receiving Amount Report</div>
+      <h1 class="page-title">Daily Receiving Report</h1>
+      <p class="page-subtitle">Upload CSV or Excel received-bill files, match them to saved staff assignments, and download progress reports.</p>
+    </div>
+
+    <!-- Upload Area -->
+    <form method="post" enctype="multipart/form-data" style="margin:0;">
+      <div class="upload-area" onclick="this.querySelector('input[type=file]').click();">
+        <div class="upload-icon-box">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+          </svg>
+        </div>
+        <div class="upload-text">
+          <strong>Upload Daily Received Files</strong>
+          <span>CSV or XLSX, multiple allowed. Include: Received Date, Sector, Locality, Arrears, Amount Received.</span>
+        </div>
+        <input type="file" name="files" multiple accept=".csv,.xlsx" style="display:none;" onchange="this.closest('form').submit();">
+        <div class="upload-actions">
+          <button type="submit" class="topbar-btn primary" onclick="event.stopPropagation();">&#128202; Generate Staff Report</button>
+        </div>
+      </div>
+    </form>
+
+    {% if report %}
+    <!-- STAT GRID -->
+    <div class="stat-grid">
+      <div class="stat-card teal">
+        <div class="stat-card-icon">&#128101;</div>
+        <div class="stat-label">Staff Members</div>
+        <div class="stat-value" data-count="{{ report.summary_rows|length }}">0</div>
+        <div class="stat-delta">Active staff</div>
+      </div>
+      {% set totals = namespace(bills=0, area=0, amount=0) %}
+      {% for row in report.summary_rows %}
+        {% set totals.bills = totals.bills + row.bills %}
+        {% set totals.area = totals.area + row.metric_total %}
+        {% set totals.amount = totals.amount + row.amount_total %}
+      {% endfor %}
+      <div class="stat-card coral">
+        <div class="stat-card-icon">&#128200;</div>
+        <div class="stat-label">Total Connections</div>
+        <div class="stat-value" data-count="{{ totals.bills }}">0</div>
+        <div class="stat-delta">Received bills</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-card-icon">&#128200;</div>
+        <div class="stat-label">Arrears Received</div>
+        <div class="stat-value" data-count="{{ totals.area }}" data-prefix="Rs. ">Rs. 0</div>
+        <div class="stat-delta">Carried-forward</div>
+      </div>
+      <div class="stat-card violet">
+        <div class="stat-card-icon">&#128176;</div>
+        <div class="stat-label">Amount Received</div>
+        <div class="stat-value" data-count="{{ totals.amount }}" data-prefix="Rs. ">Rs. 0</div>
+        <div class="stat-delta">Total collections</div>
+      </div>
+    </div>
+
+    <!-- Staff Daily Progress -->
+    <div class="section collapsed" id="sec-staff-progress">
+      <div class="section-header" onclick="toggleSection('sec-staff-progress')">
+        <div class="section-header-icon">&#128101;</div>
+        <div class="section-title">Staff Daily Progress</div>
+        <span class="section-badge">{{ report.summary_rows|length }} staff</span>
+      </div>
+      <div class="section-body">
+        {% if uploaded_names %}
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Uploaded: {{ uploaded_names | join(', ') }}</div>
+        {% endif %}
+        {% if report.date_range %}
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:16px;">Report date: {{ report.date_range }}</div>
+        {% endif %}
+
+        <div class="export-bar" style="margin-bottom:10px;" data-col-config="dailyStaffReceive">
+          <a class="chip" href="{{ url_for('export_daily_staff_receive', fmt_type='pdf') }}">&#11015; Download PDF</a>
+          <a class="chip" href="{{ url_for('export_daily_staff_receive', fmt_type='csv') }}">&#11015; Download CSV</a>
+          <a class="chip" href="{{ url_for('export_daily_staff_receive', fmt_type='xlsx') }}">&#11015; Download Excel</a>
+        </div>
+        <div class="col-select-area" style="margin-bottom:16px;">
+          <div class="col-select-label">
+            Select Columns for Report
+            <span class="column-actions" style="display:inline;margin-left:12px;">
+              <span class="mini-btn" data-col-action="selectAll" data-config="dailyStaffReceive" style="font-size:9px;">Select All</span>
+              <span class="mini-btn" data-col-action="unselectAll" data-config="dailyStaffReceive" style="font-size:9px;">Deselect All</span>
+              <span class="mini-btn" data-col-action="resetDefault" data-config="dailyStaffReceive" style="font-size:9px;">Reset</span>
+            </span>
+          </div>
+          <div class="col-chips" id="col-chips-dailyStaffReceive"></div>
+        </div>
+
+        {% if report.summary_rows %}
+        <!-- Staff Header Row -->
+        <div class="staff-header-row">
+          <div data-col="sr" style="width:24px">#</div>
+          <div data-col="avatar" style="width:34px"></div>
+          <div data-col="staffName" style="flex:1">Staff Name</div>
+          <div data-col="bills" style="width:80px;text-align:right">Bills</div>
+          <div data-col="arrears" style="width:110px;text-align:right">Arrears</div>
+          <div data-col="amount" style="width:110px;text-align:right">Amount</div>
+          <div data-col="perf" style="width:80px;text-align:right">Performance</div>
+        </div>
+        {% set max_amount = report.summary_rows | map(attribute='amount_total') | max %}
+        <div id="staff-list">
+          {% for row in report.summary_rows %}
+          {% set pct = (row.amount_total|default(0) / max_amount * 100) if max_amount > 0 else 0 %}
+          <div class="staff-row">
+            <div data-col="sr" class="staff-rank">{{ "{:02d}".format(loop.index) }}</div>
+            <div data-col="avatar" class="staff-avatar">{% set name_parts = row.staff_name.split() %}{{ name_parts[0][0] if name_parts else '' }}{{ name_parts[1][0] if name_parts|length > 1 else '' }}</div>
+            <div data-col="staffName" class="staff-name">{{ row.staff_name|staff_name_html }}</div>
+            <div data-col="bills" class="staff-bills">{{ "{:,}".format(row.bills) }}</div>
+            <div data-col="arrears" class="staff-amount" style="color:var(--amber)">{{ "{:,.0f}".format(row.metric_total|default(0)) }}</div>
+            <div data-col="amount" class="staff-amount" style="color:var(--teal)">{{ "{:,.0f}".format(row.amount_total|default(0)) }}</div>
+            <div data-col="perf" class="staff-perf-bar">
+              <div class="staff-perf-fill" style="width:{{ pct }}%"></div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if report.grouped_detail %}
+        <div class="section collapsed" id="sec-staff-detail" style="margin-top:20px;">
+          <div class="section-header" onclick="toggleSection('sec-staff-detail')">
+            <div class="section-header-icon">&#128196;</div>
+            <div class="section-title">Staff Detail Preview</div>
+            <span class="section-badge">{{ report.grouped_detail|length }} staff</span>
+            <span class="section-toggle">&#8964;</span>
+          </div>
+          <div class="section-body">
+            {% for group in report.grouped_detail %}
+            <div class="staff-detail-group" style="margin-bottom:16px;">
+              <h4 style="margin:0 0 4px 0;font-size:14px;">{{ group.staff_name|staff_name_html }}</h4>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr><th data-col="sr" style="width:50px">Sr</th><th data-col="zone" style="text-align:left">Zone</th><th data-col="sector" style="text-align:left">Sector</th><th data-col="locality" style="text-align:left">Locality</th><th data-col="bills" style="text-align:right">Bills</th><th data-col="arrears" style="text-align:right">Arrears Received</th><th data-col="amount" style="text-align:right">Amount Received</th></tr>
+                  </thead>
+                  <tbody>
+                    {% for sub in group.sub_rows %}
+                    <tr>
+                      <td data-col="sr" style="text-align:center">{{ loop.index }}</td>
+                      <td data-col="zone" style="text-align:left">{{ sub.zone }}</td>
+                      <td data-col="sector" style="text-align:left">{{ sub.sector }}</td>
+                      <td data-col="locality" style="text-align:left">{{ sub.locality }}</td>
+                      <td data-col="bills" class="mono" style="text-align:right">{{ "{:,}".format(sub.bills) }}</td>
+                      <td data-col="arrears" class="mono accent-amber" style="text-align:right">{{ "{:,.0f}".format(sub.metric_total|default(0)) }}</td>
+                      <td data-col="amount" class="mono accent-teal" style="text-align:right">{{ "{:,.0f}".format(sub.amount_total|default(0)) }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                  <tfoot>
+                    <tr style="font-weight:bold;border-top:2px solid var(--border-bright);">
+                      <td data-col="sr" colspan="1" style="text-align:right"></td>
+                      <td data-col="zone" style="text-align:right"></td>
+                      <td data-col="sector" style="text-align:right"></td>
+                      <td data-col="locality" style="text-align:right">Sub Total</td>
+                      <td data-col="bills" class="mono" style="text-align:right">{{ "{:,}".format(group.bills) }}</td>
+                      <td data-col="arrears" class="mono" style="text-align:right">{{ "{:,.0f}".format(group.metric_total|default(0)) }}</td>
+                      <td data-col="amount" class="mono" style="text-align:right">{{ "{:,.0f}".format(group.amount_total|default(0)) }}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  // ── SECTION TOGGLE ──
+  function toggleSection(id) {
+    document.getElementById(id).classList.toggle('collapsed');
+  }
+
+  // ── COUNT-UP ANIMATION ──
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[data-count]').forEach(function(el) {
+      var target = parseFloat(el.getAttribute('data-count').replace(/,/g,''));
+      if (isNaN(target)) return;
+      var prefix = el.getAttribute('data-prefix') || '';
+      var dur = 1200;
+      var start = performance.now();
+      function tick(now) {
+        var elapsed = now - start;
+        var progress = Math.min(elapsed / dur, 1);
+        var ease = 1 - Math.pow(1 - progress, 3);
+        var val = Math.round(target * ease);
+        el.textContent = prefix + val.toLocaleString();
+        if (progress < 1) requestAnimationFrame(tick);
+        else el.textContent = prefix + Math.round(target).toLocaleString();
+      }
+      requestAnimationFrame(tick);
+    });
+  });
+
+  // Initial initials
+  document.querySelectorAll('.staff-avatar').forEach(function(el) {
+    if (!el.textContent.trim()) {
+      var name = el.closest('.staff-row').querySelector('.staff-name').textContent;
+      el.textContent = name.split(' ').slice(0,2).map(function(w) { return w[0]; }).join('');
+    }
+  });
+
+  // ── COLUMN SELECTION ──
+  var dailyStaffReceiveCols = {
+    dailyStaffReceive: [
+      {key: "sr", label: "#", checked: true},
+      {key: "avatar", label: "", checked: true},
+      {key: "staffName", label: "Staff Name", checked: true},
+      {key: "bills", label: "Bills", checked: true},
+      {key: "arrears", label: "Arrears", checked: true},
+      {key: "amount", label: "Amount", checked: true},
+      {key: "perf", label: "Performance", checked: true},
+    ]
+  };
+
+  var dsConfigStates = {};
+  Object.keys(dailyStaffReceiveCols).forEach(function(configId) {
+    var saved = localStorage.getItem('dsColConfig_' + configId);
+    if (saved) {
+      try { dsConfigStates[configId] = JSON.parse(saved); } catch(e) { dsConfigStates[configId] = JSON.parse(JSON.stringify(dailyStaffReceiveCols[configId])); }
+    } else {
+      dsConfigStates[configId] = JSON.parse(JSON.stringify(dailyStaffReceiveCols[configId]));
+    }
+  });
+
+  function dsGetSelectedCols(configId) {
+    var cols = dsConfigStates[configId];
+    if (!cols) return '';
+    return cols.filter(function(c) { return c.checked; }).map(function(c) { return c.key; }).join(',');
+  }
+
+  function dsBuildColumnChips(configId) {
+    var container = document.getElementById('col-chips-' + configId);
+    if (!container) return;
+    var cols = dsConfigStates[configId];
+    if (!cols) return;
+    container.innerHTML = '';
+    cols.forEach(function(col, idx) {
+      if (!col.label) return;
+      var chip = document.createElement('span');
+      chip.className = 'col-chip' + (col.checked ? ' active' : '');
+      chip.textContent = col.label;
+      chip.dataset.idx = idx;
+      chip.dataset.config = configId;
+      chip.addEventListener('click', function() {
+        col.checked = !col.checked;
+        chip.classList.toggle('active');
+        localStorage.setItem('dsColConfig_' + configId, JSON.stringify(cols));
+        dsUpdateWebPreview(configId);
+        dsRefreshExportLinks();
+      });
+      container.appendChild(chip);
+    });
+  }
+
+  function toTitle(str) {
+    return str.replace(/([A-Z])/g, ' $1').replace(/^./, function(s) { return s.toUpperCase(); }).trim();
+  }
+
+  function dsUpdateWebPreview(configId) {
+    var cols = dsConfigStates[configId];
+    if (!cols) return;
+    var visible = {};
+    cols.forEach(function(c) { visible[c.key] = c.checked; });
+    document.querySelectorAll('[data-col]').forEach(function(el) {
+      var key = el.getAttribute('data-col');
+      if (key in visible) {
+        el.style.display = visible[key] ? '' : 'none';
+      }
+    });
+  }
+
+  function dsRefreshExportLinks() {
+    var cols = dsGetSelectedCols('dailyStaffReceive');
+    document.querySelectorAll('[data-col-config="dailyStaffReceive"] a.chip[href]').forEach(function(link) {
+      var href = link.getAttribute('href');
+      if (!href || href === '#') return;
+      try {
+        var url = new URL(href, window.location.origin);
+      } catch(e) { return; }
+      url.searchParams.set('cols', cols);
+      link.setAttribute('href', url.pathname + url.search);
+    });
+  }
+
+  dsBuildColumnChips('dailyStaffReceive');
+  dsUpdateWebPreview('dailyStaffReceive');
+  dsRefreshExportLinks();
+
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-col-action]');
+    if (!btn) return;
+    var configId = btn.getAttribute('data-config');
+    var action = btn.getAttribute('data-col-action');
+    var cols = dsConfigStates[configId];
+    if (!cols) return;
+    if (action === 'selectAll') cols.forEach(function(c) { c.checked = true; });
+    else if (action === 'unselectAll') cols.forEach(function(c) { c.checked = false; });
+    else if (action === 'resetDefault') {
+      dsConfigStates[configId] = JSON.parse(JSON.stringify(dailyStaffReceiveCols[configId]));
+      localStorage.removeItem('dsColConfig_' + configId);
+    }
+    dsBuildColumnChips(configId);
+    dsUpdateWebPreview(configId);
+    dsRefreshExportLinks();
+  });
+</script>
+{% endblock %}

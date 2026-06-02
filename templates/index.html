@@ -1,0 +1,846 @@
+{% extends "base.html" %}
+{% block title %}Water Supply Report — Dashboard{% endblock %}
+{% block meta_description %}Upload, merge, and analyze water supply billing data with monthly, daily, and sector breakdowns.{% endblock %}
+{% block active_page %}dashboard{% endblock %}
+{% block breadcrumb %}All Received Bills Report{% endblock %}
+
+{% block topbar_actions %}
+  <form method="post" enctype="multipart/form-data" style="display:flex;gap:10px;align-items:center;margin:0;">
+    <label class="topbar-btn" style="cursor:pointer;">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 1v8M4 4l3-3 3 3M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2"/></svg>
+      <span>Upload File</span>
+      <input type="file" name="files" multiple accept=".csv,.xlsx" style="display:none;" onchange="this.closest('form').querySelector('[name=action]').value='save_data';this.closest('form').submit();">
+    </label>
+    <button type="submit" name="action" value="save_data" class="topbar-btn">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10M4 7h6M6 10h2"/></svg>
+      <span>Save Data</span>
+    </button>
+    <button type="submit" name="action" value="generate_reports" class="topbar-btn primary">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="12" height="12" rx="2"/><path d="M4 5h6M4 7h4M4 9h5"/></svg>
+      <span>Generate Reports</span>
+    </button>
+  </form>
+{% endblock %}
+
+{% block pill_label %}Dashboard{% endblock %}
+{% block pill_detail %}
+  {% if results %}{{ "{:,}".format(results.row_count) }} rows{% else %}No data{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="content">
+    <div class="page-header">
+      <div class="page-tag">Water Supply Report</div>
+      <h1 class="dashboard-title">All Received Bills Report</h1>
+      <p class="dashboard-subtitle">Merge upload files, analyze monthly &amp; daily breakdowns, and export clean reports with a single click.</p>
+    </div>
+
+    <!-- Upload Area -->
+    <form method="post" enctype="multipart/form-data" style="margin:0;">
+      <div class="upload-area" onclick="this.querySelector('input[type=file]').click();">
+        <div class="upload-icon-box">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+          </svg>
+        </div>
+        <div class="upload-text">
+          <strong>Choose files</strong>
+          <span>CSV or XLSX &mdash; multiple files allowed</span>
+        </div>
+        <input type="file" name="files" multiple accept=".csv,.xlsx" style="display:none;" onchange="this.closest('form').querySelector('[name=action]').value='save_data';this.closest('form').submit();">
+        <div class="upload-actions">
+          <button type="submit" name="action" value="save_data" class="topbar-btn" onclick="event.stopPropagation();">&#128190; Save Data</button>
+          <button type="submit" name="action" value="generate_reports" class="topbar-btn primary" onclick="event.stopPropagation();">&#128202; Generate Reports</button>
+        </div>
+      </div>
+    </form>
+
+    <!-- Saved Data Banner -->
+    {% if saved_meta %}
+    <div class="data-banner">
+      <div class="data-banner-dot"></div>
+      <span class="data-banner-label">Saved data available</span>
+      <span class="data-banner-info">
+        File(s): {{ saved_meta.file_names | join(', ') }} &mdash;
+        Rows: {{ "{:,}".format(saved_meta.row_count) }} &mdash;
+        Last saved: {{ saved_meta.uploaded_at }}
+      </span>
+      <form method="post" style="margin:0;" onsubmit="return confirm('Clear saved dashboard data? You will need to upload files again.');">
+        <input type="hidden" name="action" value="clear_saved_data" />
+        <button type="submit" class="data-banner-clear">&#10005; Clear Saved Data</button>
+      </form>
+    </div>
+    {% endif %}
+
+    {% if results %}
+    <!-- STAT GRID -->
+    <div class="stat-grid">
+      <div class="stat-card teal">
+        <div class="stat-card-icon">&#128200;</div>
+        <div class="stat-label">Total Connections</div>
+        <div class="stat-value" data-count="{{ results.row_count }}">0</div>
+        <div class="stat-delta">Jul 2025 &ndash; May 2026</div>
+      </div>
+      <div class="stat-card coral">
+        <div class="stat-card-icon">&#128176;</div>
+        <div class="stat-label">Amount Received</div>
+        <div class="stat-value" data-count="{{ results.total_amount_raw|default(0) }}" data-prefix="Rs. ">Rs. 0</div>
+        <div class="stat-delta">{{ results.receipt_period_start or 'N/A' }} &ndash; {{ results.receipt_period_end or 'N/A' }}</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-card-icon">&#128200;</div>
+        <div class="stat-label">Arrears Received</div>
+        <div class="stat-value" data-count="{{ results.total_arrears_raw|default(0) }}" data-prefix="Rs. ">Rs. 0</div>
+        <div class="stat-delta">Carried-forward payments</div>
+      </div>
+      {% if results.total_areas_raw %}
+      <div class="stat-card violet">
+        <div class="stat-card-icon">&#127759;</div>
+        <div class="stat-label">Total Areas</div>
+        <div class="stat-value" data-count="{{ results.total_areas_raw }}">0</div>
+        <div class="stat-delta">Active sectors</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Download chips -->
+    <div class="export-bar" style="margin-bottom:24px;">
+      {% if results.merged_csv_name %}<a class="chip" href="{{ url_for('download_file', filename=results.merged_csv_name) }}">&#11015; Merged CSV</a>{% endif %}
+      {% if results.merged_xlsx_name %}<a class="chip" href="{{ url_for('download_file', filename=results.merged_xlsx_name) }}">&#11015; Merged Excel</a>{% endif %}
+    </div>
+
+    <!-- MONTHLY BREAKDOWN -->
+    <div class="section collapsed" id="sec-monthly">
+      <div class="section-header" onclick="toggleSection('sec-monthly')">
+        <div class="section-header-icon">&#128197;</div>
+        <div class="section-title">Monthly Breakdown</div>
+        {% if results.fiscal_row_count is not none %}<span class="section-badge">{{ results.fiscal_row_count }} records</span>{% endif %}
+        <span class="section-toggle">&#8964;</span>
+      </div>
+      <div class="section-body">
+        <div data-col-config="monthlyBreakdown">
+          <div class="export-bar">
+            <a class="dl-btn pdf" href="{{ url_for('download_card', card='monthly', fmt_type='pdf') }}">&#11015; PDF</a>
+            <a class="dl-btn csv" href="{{ url_for('download_card', card='monthly', fmt_type='csv') }}">&#11015; CSV</a>
+            <a class="dl-btn xlsx" href="{{ url_for('download_card', card='monthly', fmt_type='xlsx') }}">&#11015; Excel</a>
+          </div>
+        </div>
+        <div class="col-select-area">
+          <div class="col-select-label">Select Columns for Export</div>
+          <div class="col-chips" id="col-chips-monthlyBreakdown"></div>
+        </div>
+        <div class="column-selector-wrapper" data-col-config="monthlyBreakdown" style="display:none;"></div>
+        {% if results.monthly_rows %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>No. of Bills</th>
+                {% if results.has_arrears %}<th>Arrears Received</th>{% endif %}
+                <th>Current Amount Received</th>
+                {% if results.has_amount %}<th>Amount Received</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% set ns = namespace(tc=0, ta=0, tar=0, tcur=0) %}
+              {% set max_amount = results.monthly_rows | map(attribute='amount_total') | max %}
+              {% set max_arrears = results.monthly_rows | map(attribute='arrears_total') | max %}
+              {% set max_bills = results.monthly_rows | map(attribute='count') | max %}
+              {% set max_current = results.monthly_rows | map(attribute='amount_total') | max %}
+              {% for row in results.monthly_rows %}
+              {% set current = row.amount_total|default(0) - row.arrears_total|default(0) %}
+              <tr>
+                <td>{{ row.label }}</td>
+                <td class="mono">
+                  {% set pct = (row.count / max_bills * 100) if max_bills > 0 else 0 %}
+                  <span class="mini-bar-wrap">
+                    {{ "{:,}".format(row.count) }}
+                    <span class="mini-bar"><span class="mini-bar-fill" style="width:{{ pct }}%"></span></span>
+                  </span>
+                </td>
+                {% if results.has_arrears %}
+                <td class="mono accent-amber">
+                  {% set pct = (row.arrears_total|default(0) / max_arrears * 100) if max_arrears > 0 else 0 %}
+                  <span class="mini-bar-wrap">
+                    {{ "{:,.0f}".format(row.arrears_total|default(0)) }}
+                    <span class="mini-bar"><span class="mini-bar-fill amber" style="width:{{ pct }}%"></span></span>
+                  </span>
+                </td>
+                {% set ns.tar = ns.tar + row.arrears_total|default(0) %}
+                {% endif %}
+                <td class="mono accent-purple">
+                  {% set pct = (current / max_current * 100) if max_current > 0 else 0 %}
+                  <span class="mini-bar-wrap">
+                    {{ "{:,.0f}".format(current) }}
+                    <span class="mini-bar"><span class="mini-bar-fill purple" style="width:{{ pct }}%"></span></span>
+                  </span>
+                </td>
+                {% if results.has_amount %}
+                <td class="mono accent-teal">
+                  {% set pct = (row.amount_total|default(0) / max_amount * 100) if max_amount > 0 else 0 %}
+                  <span class="mini-bar-wrap">
+                    {{ "{:,.0f}".format(row.amount_total|default(0)) }}
+                    <span class="mini-bar"><span class="mini-bar-fill" style="width:{{ pct }}%"></span></span>
+                  </span>
+                </td>
+                {% set ns.ta = ns.ta + row.amount_total|default(0) %}
+                {% endif %}
+                {% set ns.tc = ns.tc + row.count %}
+                {% set ns.tcur = ns.tcur + current %}
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>Grand Total</td>
+                <td class="mono">{{ "{:,}".format(ns.tc) }}</td>
+                {% if results.has_arrears %}<td class="mono">{{ "{:,.0f}".format(ns.tar) }}</td>{% endif %}
+                <td class="mono">{{ "{:,.0f}".format(ns.tcur) }}</td>
+                {% if results.has_amount %}<td class="mono">{{ "{:,.0f}".format(ns.ta) }}</td>{% endif %}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        {% elif results.date_note %}
+        <p class="muted">{{ results.date_note }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- DATE BREAKDOWN -->
+    <div class="section collapsed" id="sec-daily">
+      <div class="section-header" onclick="toggleSection('sec-daily')">
+        <div class="section-header-icon">&#128467;</div>
+        <div class="section-title">Date Breakdown</div>
+        {% if results.daily_rows %}<span class="section-badge">{{ results.daily_rows|length }} days</span>{% endif %}
+        <span class="section-toggle">&#8964;</span>
+      </div>
+      <div class="section-body">
+        <div data-col-config="dateBreakdown">
+          <div class="export-bar">
+            <a class="dl-btn pdf" href="{{ url_for('download_card', card='daily', fmt_type='pdf') }}">&#11015; PDF</a>
+            <a class="dl-btn csv" href="{{ url_for('download_card', card='daily', fmt_type='csv') }}">&#11015; CSV</a>
+            <a class="dl-btn xlsx" href="{{ url_for('download_card', card='daily', fmt_type='xlsx') }}">&#11015; Excel</a>
+          </div>
+        </div>
+        <div class="col-select-area">
+          <div class="col-select-label">Select Columns for Export</div>
+          <div class="col-chips" id="col-chips-dateBreakdown"></div>
+        </div>
+        <div class="column-selector-wrapper" data-col-config="dateBreakdown" style="display:none;"></div>
+        {% if results.daily_rows %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>No. of Bills</th>
+                {% if results.has_arrears %}<th>Arrears Received</th>{% endif %}
+                {% if results.has_amount %}<th>Amount Received</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% set ds = namespace(tc=0, ta=0, tar=0) %}
+              {% set max_amount_d = results.daily_rows | map(attribute='amount_total') | max %}
+              {% set max_arrears_d = results.daily_rows | map(attribute='arrears_total') | max %}
+              {% set max_bills_d = results.daily_rows | map(attribute='count') | max %}
+              {% for row in results.daily_rows %}
+              <tr>
+                <td>{{ row.label }}</td>
+                <td class="mono">
+                  {% set pct = (row.count / max_bills_d * 100) if max_bills_d > 0 else 0 %}
+                  <span class="mini-bar-wrap">{{ "{:,}".format(row.count) }}<span class="mini-bar"><span class="mini-bar-fill" style="width:{{ pct }}%"></span></span></span>
+                </td>
+                {% if results.has_arrears %}
+                <td class="mono accent-amber">
+                  {% set pct = (row.arrears_total|default(0) / max_arrears_d * 100) if max_arrears_d > 0 else 0 %}
+                  <span class="mini-bar-wrap">{{ "{:,.0f}".format(row.arrears_total|default(0)) }}<span class="mini-bar"><span class="mini-bar-fill amber" style="width:{{ pct }}%"></span></span></span>
+                </td>
+                {% set ds.tar = ds.tar + row.arrears_total|default(0) %}
+                {% endif %}
+                {% if results.has_amount %}
+                <td class="mono accent-teal">
+                  {% set pct = (row.amount_total|default(0) / max_amount_d * 100) if max_amount_d > 0 else 0 %}
+                  <span class="mini-bar-wrap">{{ "{:,.0f}".format(row.amount_total|default(0)) }}<span class="mini-bar"><span class="mini-bar-fill" style="width:{{ pct }}%"></span></span></span>
+                </td>
+                {% set ds.ta = ds.ta + row.amount_total|default(0) %}
+                {% endif %}
+                {% set ds.tc = ds.tc + row.count %}
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>Grand Total</td>
+                <td class="mono">{{ "{:,}".format(ds.tc) }}</td>
+                {% if results.has_arrears %}<td class="mono">{{ "{:,.0f}".format(ds.tar) }}</td>{% endif %}
+                {% if results.has_amount %}<td class="mono">{{ "{:,.0f}".format(ds.ta) }}</td>{% endif %}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        {% elif results.date_note %}
+        <p class="muted">{{ results.date_note }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- SECTOR BREAKDOWN -->
+    <div class="section collapsed" id="sec-sector">
+      <div class="section-header" onclick="toggleSection('sec-sector')">
+        <div class="section-header-icon">&#127963;</div>
+        <div class="section-title">Sector Breakdown</div>
+        {% if results.sector_rows %}<span class="section-badge">{{ results.sector_rows|length }} sectors</span>{% endif %}
+        <span class="section-toggle">&#8964;</span>
+      </div>
+      <div class="section-body">
+        <div data-col-config="sectorBreakdown">
+          <div class="export-bar">
+            <a class="dl-btn pdf" href="{{ url_for('download_card', card='sector', fmt_type='pdf') }}">&#11015; PDF</a>
+            <a class="dl-btn csv" href="{{ url_for('download_card', card='sector', fmt_type='csv') }}">&#11015; CSV</a>
+            <a class="dl-btn xlsx" href="{{ url_for('download_card', card='sector', fmt_type='xlsx') }}">&#11015; Excel</a>
+          </div>
+        </div>
+        <div class="col-select-area">
+          <div class="col-select-label">Select Columns for Export</div>
+          <div class="col-chips" id="col-chips-sectorBreakdown"></div>
+        </div>
+        <div class="column-selector-wrapper" data-col-config="sectorBreakdown" style="display:none;"></div>
+        {% if results.sector_rows %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Sector</th>
+                {% if results.has_arrears %}<th>Arrears Received</th>{% endif %}
+                {% if results.has_amount %}<th>Amount Received</th>{% endif %}
+                {% if results.has_areas %}<th>Areas</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% set ss = namespace(ta=0, tar=0, tarea=0) %}
+              {% for row in results.sector_rows %}
+              <tr>
+                <td>{{ row.label }}</td>
+                {% if results.has_arrears %}<td class="mono accent-amber">{{ "{:,.0f}".format(row.arrears_total|default(0)) }}</td>{% set ss.tar = ss.tar + row.arrears_total|default(0) %}{% endif %}
+                {% if results.has_amount %}<td class="mono accent-teal">{{ "{:,.0f}".format(row.amount_total|default(0)) }}</td>{% set ss.ta = ss.ta + row.amount_total|default(0) %}{% endif %}
+                {% if results.has_areas %}<td class="mono">{{ "{:,.0f}".format(row.areas_total|default(0)) }}</td>{% set ss.tarea = ss.tarea + row.areas_total|default(0) %}{% endif %}
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>Grand Total</td>
+                {% if results.has_arrears %}<td class="mono">{{ "{:,.0f}".format(ss.tar) }}</td>{% endif %}
+                {% if results.has_amount %}<td class="mono">{{ "{:,.0f}".format(ss.ta) }}</td>{% endif %}
+                {% if results.has_areas %}<td class="mono">{{ "{:,.0f}".format(ss.tarea) }}</td>{% endif %}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        {% elif results.sector_note %}
+        <p class="muted">{{ results.sector_note }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- MONTH-WISE REPORT -->
+    {% if results.has_receipt_format and results.receipt_monthly_rows %}
+    <div class="section collapsed" id="sec-monthwise">
+      <div class="section-header" onclick="toggleSection('sec-monthwise')">
+        <div class="section-header-icon">&#128202;</div>
+        <div class="section-title">Month-wise Report</div>
+        {% if results.receipt_monthly_rows %}<span class="section-badge">{{ results.receipt_monthly_rows|length }} months</span>{% endif %}
+        <span class="section-toggle">&#8964;</span>
+      </div>
+      <div class="section-body">
+        <span class="page-period">Period: {{ results.receipt_period_start }} to {{ results.receipt_period_end }}</span>
+        <div class="two-col" style="margin-top:16px;">
+          <div class="metric-highlight">
+            <div class="metric-highlight-label">Total Amount Received</div>
+            <div class="metric-highlight-value" style="color:var(--teal)">Rs. {{ results.receipt_total_amount_fmt or '0' }}</div>
+          </div>
+          <div class="metric-highlight">
+            <div class="metric-highlight-label">Total Arrears Received</div>
+            <div class="metric-highlight-value" style="color:var(--amber)">Rs. {{ results.receipt_total_arrears_fmt or '0' }}</div>
+          </div>
+        </div>
+        <div data-col-config="monthWiseReport">
+          <div class="export-bar">
+            <a class="dl-btn pdf" href="{{ url_for('download_card', card='receipt-monthly', fmt_type='pdf') }}">&#11015; PDF</a>
+            <a class="dl-btn csv" href="{{ url_for('download_card', card='receipt-monthly', fmt_type='csv') }}">&#11015; CSV</a>
+            <a class="dl-btn xlsx" href="{{ url_for('download_card', card='receipt-monthly', fmt_type='xlsx') }}">&#11015; Excel</a>
+          </div>
+        </div>
+        <div class="col-select-area">
+          <div class="col-select-label">Select Columns for Export</div>
+          <div class="col-chips" id="col-chips-monthWiseReport"></div>
+        </div>
+        <div class="column-selector-wrapper" data-col-config="monthWiseReport" style="display:none;"></div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>No. of Bills</th>
+                <th>Arrears Received</th>
+                <th>Current Amount Received</th>
+                <th>Amount Received</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% set rm = namespace(tc=0, ta=0, tar=0, tcur=0) %}
+              {% set max_amt = results.receipt_monthly_rows | map(attribute='amount_total') | max %}
+              {% set max_arr = results.receipt_monthly_rows | map(attribute='arrears_total') | max %}
+              {% set max_cnt = results.receipt_monthly_rows | map(attribute='count') | max %}
+              {% set max_cur = results.receipt_monthly_rows | map(attribute='amount_total') | max %}
+              {% for row in results.receipt_monthly_rows %}
+              {% set current = row.amount_total|default(0) - row.arrears_total|default(0) %}
+              <tr>
+                <td>{{ row.label }}</td>
+                <td class="mono">
+                  {% set pct = (row.count|default(0) / max_cnt * 100) if max_cnt > 0 else 0 %}
+                  <span class="mini-bar-wrap">{{ "{:,}".format(row.count|default(0)) }}<span class="mini-bar"><span class="mini-bar-fill" style="width:{{ pct }}%"></span></span></span>
+                </td>
+                <td class="mono accent-amber">
+                  {% set pct = (row.arrears_total|default(0) / max_arr * 100) if max_arr > 0 else 0 %}
+                  <span class="mini-bar-wrap">{{ "{:,.0f}".format(row.arrears_total|default(0)) }}<span class="mini-bar"><span class="mini-bar-fill amber" style="width:{{ pct }}%"></span></span></span>
+                </td>
+                <td class="mono accent-purple">
+                  {% set pct = (current / max_cur * 100) if max_cur > 0 else 0 %}
+                  <span class="mini-bar-wrap">{{ "{:,.0f}".format(current) }}<span class="mini-bar"><span class="mini-bar-fill purple" style="width:{{ pct }}%"></span></span></span>
+                </td>
+                <td class="mono accent-teal">
+                  {% set pct = (row.amount_total|default(0) / max_amt * 100) if max_amt > 0 else 0 %}
+                  <span class="mini-bar-wrap">{{ "{:,.0f}".format(row.amount_total|default(0)) }}<span class="mini-bar"><span class="mini-bar-fill" style="width:{{ pct }}%"></span></span></span>
+                </td>
+              {% set rm.tc = rm.tc + row.count|default(0) %}
+              {% set rm.tar = rm.tar + row.arrears_total|default(0) %}
+              {% set rm.ta = rm.ta + row.amount_total|default(0) %}
+              {% set rm.tcur = rm.tcur + current %}
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>Grand Total</td>
+                <td class="mono">{{ "{:,}".format(rm.tc) }}</td>
+                <td class="mono">{{ "{:,.0f}".format(rm.tar) }}</td>
+                <td class="mono">{{ "{:,.0f}".format(rm.tcur) }}</td>
+                <td class="mono">{{ "{:,.0f}".format(rm.ta) }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- COMMERCIAL SECTIONS -->
+    {% if results.commercial_total is not none %}
+    <div class="section collapsed" id="sec-commercial-daily">
+      <div class="section-header" onclick="toggleSection('sec-commercial-daily')">
+        <div class="section-header-icon">&#127970;</div>
+        <div class="section-title">Daily Income for Commercials</div>
+        {% if results.commercial_daily_income %}<span class="section-badge">{{ results.commercial_daily_income|length }} records</span>{% endif %}
+        <span class="section-toggle">&#8964;</span>
+      </div>
+      <div class="section-body">
+        <div data-col-config="dailyIncomeCommercial">
+          <div class="export-bar">
+            <a class="dl-btn pdf" href="{{ url_for('download_card', card='commercial-daily-income', fmt_type='pdf') }}">&#11015; PDF</a>
+            <a class="dl-btn csv" href="{{ url_for('download_card', card='commercial-daily-income', fmt_type='csv') }}">&#11015; CSV</a>
+            <a class="dl-btn xlsx" href="{{ url_for('download_card', card='commercial-daily-income', fmt_type='xlsx') }}">&#11015; Excel</a>
+          </div>
+        </div>
+        <div class="col-select-area">
+          <div class="col-select-label">Select Columns for Export</div>
+          <div class="col-chips" id="col-chips-dailyIncomeCommercial"></div>
+        </div>
+        <div class="column-selector-wrapper" data-col-config="dailyIncomeCommercial" style="display:none;"></div>
+        {% if results.commercial_daily_income %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th><th>Consumer Name</th><th>Connection No</th><th>Sector</th><th>Locality</th>
+                <th>{{ results.commercial_daily_metric_label or 'Arrears Received' }}</th><th>Amount Received</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in results.commercial_daily_income[:50] %}
+              <tr>
+                <td>{{ row.date }}</td><td>{{ row.consumer_name }}</td><td>{{ row.connection_no }}</td>
+                <td>{{ row.sector }}</td><td>{{ row.locality }}</td>
+                <td class="mono">{{ "{:,.0f}".format(row.metric_total|default(0)) }}</td>
+                <td class="mono accent-teal">{{ "{:,.0f}".format(row.amount_total|default(0)) }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="muted">No daily commercial income data found.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="section collapsed" id="sec-commercial-total">
+      <div class="section-header" onclick="toggleSection('sec-commercial-total')">
+        <div class="section-header-icon">&#127970;</div>
+        <div class="section-title">Commercial Sector &mdash; Total Locality Breakdown</div>
+        {% if results.commercial_total %}<span class="section-badge">{{ results.commercial_total|length }} localities</span>{% endif %}
+        <span class="section-toggle">&#8964;</span>
+      </div>
+      <div class="section-body">
+        <div data-col-config="commercialSectorTotalLocalityBreakdown">
+          <div class="export-bar">
+            <a class="dl-btn pdf" href="{{ url_for('download_card', card='commercial-total', fmt_type='pdf') }}">&#11015; PDF</a>
+            <a class="dl-btn csv" href="{{ url_for('download_card', card='commercial-total', fmt_type='csv') }}">&#11015; CSV</a>
+            <a class="dl-btn xlsx" href="{{ url_for('download_card', card='commercial-total', fmt_type='xlsx') }}">&#11015; Excel</a>
+          </div>
+        </div>
+        <div class="col-select-area">
+          <div class="col-select-label">Select Columns for Export</div>
+          <div class="col-chips" id="col-chips-commercialSectorTotalLocalityBreakdown"></div>
+        </div>
+        <div class="column-selector-wrapper" data-col-config="commercialSectorTotalLocalityBreakdown" style="display:none;"></div>
+        {% if results.commercial_total %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr><th>Locality</th><th>No. of Bills</th>{% if results.has_arrears %}<th>Arrears Received</th>{% endif %}<th>Amount Received</th></tr>
+            </thead>
+            <tbody>
+              {% set cs = namespace(tc=0, ta=0, tar=0) %}
+              {% for row in results.commercial_total %}
+              <tr>
+                <td>{{ row.label }}</td><td class="mono">{{ "{:,}".format(row.count) }}</td>
+                {% if results.has_arrears %}<td class="mono accent-amber">{{ "{:,.0f}".format(row.arrears_total|default(0)) }}</td>{% set cs.tar = cs.tar + row.arrears_total|default(0) %}{% endif %}
+                <td class="mono accent-teal">{{ "{:,.0f}".format(row.amount_total|default(0)) }}</td>
+                {% set cs.tc = cs.tc + row.count %}{% set cs.ta = cs.ta + row.amount_total|default(0) %}
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr><td>Grand Total</td><td class="mono">{{ "{:,}".format(cs.tc) }}</td>{% if results.has_arrears %}<td class="mono">{{ "{:,.0f}".format(cs.tar) }}</td>{% endif %}<td class="mono">{{ "{:,.0f}".format(cs.ta) }}</td></tr>
+            </tfoot>
+          </table>
+        </div>
+        {% else %}
+        <p class="muted">No commercial sector data found.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="section collapsed" id="sec-commercial-monthly">
+      <div class="section-header" onclick="toggleSection('sec-commercial-monthly')">
+        <div class="section-header-icon">&#127970;</div>
+        <div class="section-title">Commercial Sector &mdash; Month-wise Locality Breakdown</div>
+        {% if results.commercial_monthly %}<span class="section-badge">{{ results.commercial_monthly|length }} months</span>{% endif %}
+        <span class="section-toggle">&#8964;</span>
+      </div>
+      <div class="section-body">
+        <div data-col-config="commercialSectorMonthWiseLocalityBreakdown">
+          <div class="export-bar">
+            <a class="dl-btn pdf" href="{{ url_for('download_card', card='commercial-monthly', fmt_type='pdf') }}">&#11015; PDF</a>
+            <a class="dl-btn csv" href="{{ url_for('download_card', card='commercial-monthly', fmt_type='csv') }}">&#11015; CSV</a>
+            <a class="dl-btn xlsx" href="{{ url_for('download_card', card='commercial-monthly', fmt_type='xlsx') }}">&#11015; Excel</a>
+          </div>
+        </div>
+        <div class="col-select-area">
+          <div class="col-select-label">Select Columns for Export</div>
+          <div class="col-chips" id="col-chips-commercialSectorMonthWiseLocalityBreakdown"></div>
+        </div>
+        <div class="column-selector-wrapper" data-col-config="commercialSectorMonthWiseLocalityBreakdown" style="display:none;"></div>
+        {% if results.commercial_monthly %}
+          {% for month, rows in results.commercial_monthly.items() %}
+          <h4 style="color:var(--teal);margin:16px 0 8px;font-size:13px;font-weight:700;">{{ month }}</h4>
+          <div class="table-wrapper" style="margin-bottom:12px;">
+            <table class="data-table">
+              <thead>
+                <tr><th>Locality</th><th>No. of Bills</th>{% if results.has_arrears %}<th>Arrears Received</th>{% endif %}<th>Amount Received</th></tr>
+              </thead>
+              <tbody>
+                {% for row in rows %}
+                <tr><td>{{ row.label }}</td><td class="mono">{{ "{:,}".format(row.count) }}</td>{% if results.has_arrears %}<td class="mono accent-amber">{{ "{:,.0f}".format(row.arrears_total|default(0)) }}</td>{% endif %}<td class="mono accent-teal">{{ "{:,.0f}".format(row.amount_total|default(0)) }}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endfor %}
+        {% else %}
+        <p class="muted">No month-wise commercial data.</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- SUMMARY -->
+    <div class="section collapsed" id="sec-summary">
+      <div class="section-header" onclick="toggleSection('sec-summary')">
+        <div class="section-header-icon">&#128202;</div>
+        <div class="section-title">Summary</div>
+        <span class="section-toggle">&#8964;</span>
+      </div>
+      <div class="section-body">
+        <div class="connection-type-toggle" style="margin-bottom:16px;">
+          <label>
+            <input type="checkbox" id="includeConnectionSummary">
+            Include Summary in Report
+          </label>
+        </div>
+        <div id="connectionSummaryContent">
+          <div data-col-config="connectionTypeSummary">
+            <div class="export-bar">
+              <a class="dl-btn pdf" href="{{ url_for('download_card', card='connection-type-summary', fmt_type='pdf') }}">&#11015; PDF</a>
+              <a class="dl-btn csv" href="{{ url_for('download_card', card='connection-type-summary', fmt_type='csv') }}">&#11015; CSV</a>
+              <a class="dl-btn xlsx" href="{{ url_for('download_card', card='connection-type-summary', fmt_type='xlsx') }}">&#11015; Excel</a>
+            </div>
+          </div>
+          <div class="col-select-area">
+            <div class="col-select-label">Select Columns for Export</div>
+            <div class="col-chips" id="col-chips-connectionTypeSummary"></div>
+          </div>
+          <div class="column-selector-wrapper" data-col-config="connectionTypeSummary" style="display:none;"></div>
+          {% set cs_overall = namespace(count=0, arrears=0, amount=0) %}
+          {% if results.receipt_monthly_rows %}
+            {% for row in results.receipt_monthly_rows %}
+              {% set cs_overall.count = cs_overall.count + row.count|default(0) %}
+              {% set cs_overall.arrears = cs_overall.arrears + row.arrears_total|default(0) %}
+              {% set cs_overall.amount = cs_overall.amount + row.amount_total|default(0) %}
+            {% endfor %}
+          {% elif results.monthly_rows %}
+            {% for row in results.monthly_rows %}
+              {% set cs_overall.count = cs_overall.count + row.count|default(0) %}
+              {% set cs_overall.arrears = cs_overall.arrears + row.arrears_total|default(0) %}
+              {% set cs_overall.amount = cs_overall.amount + row.amount_total|default(0) %}
+            {% endfor %}
+          {% endif %}
+          {% set cs_comm = namespace(count=0, arrears=0, amount=0) %}
+          {% if results.commercial_total %}
+            {% for row in results.commercial_total %}
+              {% set cs_comm.count = cs_comm.count + row.count|default(0) %}
+              {% set cs_comm.arrears = cs_comm.arrears + row.arrears_total|default(0) %}
+              {% set cs_comm.amount = cs_comm.amount + row.amount_total|default(0) %}
+            {% endfor %}
+          {% endif %}
+          {% set cs_res_count = cs_overall.count - cs_comm.count %}
+          {% set cs_res_arrears = cs_overall.arrears - cs_comm.arrears %}
+          {% set cs_res_amount = cs_overall.amount - cs_comm.amount %}
+          {% set cs_res_current = cs_res_amount - cs_res_arrears %}
+          {% set cs_comm_current = cs_comm.amount - cs_comm.arrears %}
+          {% set cs_overall_current = cs_overall.amount - cs_overall.arrears %}
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr><th>Name</th><th>No. of Bills</th><th>Arrears Received</th><th>Current Amount Received</th><th>Amount Received</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Normal / Residential Connections</td><td class="mono">{{ "{:,}".format(cs_res_count) }}</td><td class="mono accent-amber">{{ "{:,.0f}".format(cs_res_arrears) }}</td><td class="mono accent-purple">{{ "{:,.0f}".format(cs_res_current) }}</td><td class="mono accent-teal">{{ "{:,.0f}".format(cs_res_amount) }}</td></tr>
+                <tr><td>Commercial Connections</td><td class="mono">{{ "{:,}".format(cs_comm.count) }}</td><td class="mono accent-amber">{{ "{:,.0f}".format(cs_comm.arrears) }}</td><td class="mono accent-purple">{{ "{:,.0f}".format(cs_comm_current) }}</td><td class="mono accent-teal">{{ "{:,.0f}".format(cs_comm.amount) }}</td></tr>
+              </tbody>
+              <tfoot>
+                <tr><td>Grand Total</td><td class="mono">{{ "{:,}".format(cs_overall.count) }}</td><td class="mono">{{ "{:,.0f}".format(cs_overall.arrears) }}</td><td class="mono">{{ "{:,.0f}".format(cs_overall_current) }}</td><td class="mono">{{ "{:,.0f}".format(cs_overall.amount) }}</td></tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- META -->
+    <div class="meta">
+      <div><span class="label">Rows</span><span>{{ results.row_count }}</span></div>
+      {% if results.raw_row_count and results.duplicate_rows_removed %}
+      <div><span class="label">Uploaded Rows</span><span>{{ results.raw_row_count }}</span></div>
+      <div><span class="label">Duplicates Skipped</span><span>{{ results.duplicate_rows_removed }}</span></div>
+      {% endif %}
+      <div><span class="label">Date Column</span><span>{{ results.date_column or "Not found" }}</span></div>
+      <div><span class="label">Amount Column</span><span>{{ results.amount_column or "Not found" }}</span></div>
+      <div><span class="label">Arrears Column</span><span>{{ results.arrears_column or "Not found" }}</span></div>
+      <div><span class="label">Sector Column</span><span>{{ results.sector_column or "Not found" }}</span></div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  // ── SECTION TOGGLE ──
+  function toggleSection(id) {
+    document.getElementById(id).classList.toggle('collapsed');
+  }
+
+  // ── COUNT-UP ANIMATION ──
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[data-count]').forEach(function(el) {
+      var target = parseFloat(el.getAttribute('data-count').replace(/,/g,''));
+      if (isNaN(target)) return;
+      var prefix = el.getAttribute('data-prefix') || '';
+      var dur = 1200;
+      var start = performance.now();
+      function tick(now) {
+        var elapsed = now - start;
+        var progress = Math.min(elapsed / dur, 1);
+        var ease = 1 - Math.pow(1 - progress, 3);
+        var val = Math.round(target * ease);
+        el.textContent = prefix + val.toLocaleString();
+        if (progress < 1) requestAnimationFrame(tick);
+        else el.textContent = prefix + Math.round(target).toLocaleString();
+      }
+      requestAnimationFrame(tick);
+    });
+  });
+
+  // ── COLUMN SELECTION CHIPS ──
+  var dashboardReportColumns = {
+    monthlyBreakdown: [
+      { key: "month", label: "Month", checked: true },
+      { key: "count", label: "No. of Bills", checked: false },
+      { key: "arrearsReceived", label: "Arrears Received", checked: true },
+      { key: "currentAmountReceived", label: "Current Amount Received", checked: true },
+      { key: "amountReceived", label: "Amount Received", checked: true }
+    ],
+    dateBreakdown: [
+      { key: "date", label: "Date", checked: true },
+      { key: "count", label: "No. of Bills", checked: true },
+      { key: "arrearsReceived", label: "Arrears Received", checked: true },
+      { key: "amountReceived", label: "Amount Received", checked: true }
+    ],
+    sectorBreakdown: [
+      { key: "sector", label: "Sector", checked: true },
+      { key: "arrearsReceived", label: "Arrears Received", checked: true },
+      { key: "amountReceived", label: "Amount Received", checked: true }
+    ],
+    monthWiseReport: [
+      { key: "month", label: "Month", checked: true },
+      { key: "noOfBills", label: "No. of Bills", checked: true },
+      { key: "arrearsReceived", label: "Arrears Received", checked: true },
+      { key: "currentAmountReceived", label: "Current Amount Received", checked: true },
+      { key: "amountReceived", label: "Amount Received", checked: true }
+    ],
+    dailyIncomeCommercial: [
+      { key: "sr", label: "Sr", checked: true },
+      { key: "date", label: "Date", checked: true },
+      { key: "consumerName", label: "Consumer Name", checked: true },
+      { key: "connectionNo", label: "Connection No", checked: true },
+      { key: "sector", label: "Sector", checked: true },
+      { key: "locality", label: "Locality", checked: true },
+      { key: "arrearsReceived", label: "Arrears Received", checked: true },
+      { key: "amountReceived", label: "Amount Received", checked: true }
+    ],
+    commercialSectorTotalLocalityBreakdown: [
+      { key: "locality", label: "Locality", checked: true },
+      { key: "count", label: "No. of Bills", checked: true },
+      { key: "arrearsReceived", label: "Arrears Received", checked: true },
+      { key: "amountReceived", label: "Amount Received", checked: true }
+    ],
+    commercialSectorMonthWiseLocalityBreakdown: [
+      { key: "month", label: "Month", checked: true },
+      { key: "locality", label: "Locality", checked: true },
+      { key: "count", label: "No. of Bills", checked: true },
+      { key: "arrearsReceived", label: "Arrears Received", checked: true },
+      { key: "amountReceived", label: "Amount Received", checked: true }
+    ],
+    connectionTypeSummary: [
+      { key: "name", label: "Name", checked: true },
+      { key: "noOfBills", label: "No. of Bills", checked: false },
+      { key: "arrearsReceived", label: "Arrears Received", checked: true },
+      { key: "currentAmountReceived", label: "Current Amount Received", checked: true },
+      { key: "amountReceived", label: "Amount Received", checked: true }
+    ]
+  };
+
+  var configStates = {};
+  Object.keys(dashboardReportColumns).forEach(function(configId) {
+    configStates[configId] = JSON.parse(JSON.stringify(dashboardReportColumns[configId]));
+  });
+
+  function getSelectedCols(configId) {
+    var cols = configStates[configId];
+    if (!cols) return '';
+    return cols.filter(function(c) { return c.checked; }).map(function(c) { return c.key; }).join(',');
+  }
+
+  function buildColumnChips(configId) {
+    var container = document.getElementById('col-chips-' + configId);
+    if (!container) return;
+    var cols = configStates[configId];
+    if (!cols) return;
+    container.innerHTML = '';
+    cols.forEach(function(col, idx) {
+      var chip = document.createElement('span');
+      chip.className = 'col-chip' + (col.checked ? ' active' : '');
+      chip.textContent = col.label;
+      chip.dataset.idx = idx;
+      chip.dataset.config = configId;
+      chip.addEventListener('click', function() {
+        col.checked = !col.checked;
+        chip.classList.toggle('active');
+        updateDownloadParams();
+      });
+      container.appendChild(chip);
+    });
+  }
+
+  Object.keys(dashboardReportColumns).forEach(function(configId) {
+    buildColumnChips(configId);
+  });
+
+  // Delegate button clicks for all per-card selectors
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-col-action]');
+    if (!btn) return;
+    var configId = btn.getAttribute('data-config');
+    if (!configId) return;
+    var action = btn.getAttribute('data-col-action');
+    var cols = configStates[configId];
+    if (!cols) return;
+    if (action === 'selectAll') { cols.forEach(function(c) { c.checked = true; }); }
+    else if (action === 'unselectAll') { cols.forEach(function(c) { c.checked = false; }); }
+    else if (action === 'resetDefault') { configStates[configId] = JSON.parse(JSON.stringify(dashboardReportColumns[configId])); }
+    buildColumnChips(configId);
+    updateDownloadParams();
+  });
+
+  function updateDownloadParams() {
+    var includeCb = document.getElementById('includeConnectionSummary');
+    var connChecked = includeCb ? includeCb.checked : false;
+    document.querySelectorAll('a.dl-btn').forEach(function(link) {
+      var href = link.getAttribute('href');
+      if (!href || href === '#') return;
+      var url = new URL(href, window.location.origin);
+      var configParent = link.closest('[data-col-config]');
+      if (configParent) {
+        var configId = configParent.getAttribute('data-col-config');
+        var cols = getSelectedCols(configId);
+        if (cols) { url.searchParams.set('cols', cols); }
+        else { url.searchParams.delete('cols'); }
+      }
+      var cfg = configParent ? configParent.getAttribute('data-col-config') : null;
+      if (cfg && (cfg === 'monthWiseReport' || cfg === 'monthlyBreakdown') && connChecked) {
+        url.searchParams.set('include_connection_summary', 'true');
+        var connCols = getSelectedCols('connectionTypeSummary');
+        if (connCols) { url.searchParams.set('connection_cols', connCols); }
+        else { url.searchParams.delete('connection_cols'); }
+      } else {
+        url.searchParams.delete('include_connection_summary');
+        url.searchParams.delete('connection_cols');
+      }
+      link.setAttribute('href', url.pathname + url.search);
+    });
+  }
+
+  document.addEventListener('change', function(e) {
+    if (e.target.id === 'includeConnectionSummary') updateDownloadParams();
+  });
+
+  updateDownloadParams();
+
+  {% if results %}
+    history.replaceState(null, '', '{{ url_for("index") }}');
+  {% endif %}
+</script>
+{% endblock %}

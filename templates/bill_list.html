@@ -1,0 +1,1228 @@
+{% extends "base.html" %}
+{% block title %}Water Supply Report — Bills Reports{% endblock %}
+{% block meta_description %}Upload billing data, organize sectors by zone, assign staff, and export sector-wise reports.{% endblock %}
+{% block active_page %}bills{% endblock %}
+{% block breadcrumb %}Bills Reports{% endblock %}
+
+{% block topbar_actions %}
+  <form method="post" enctype="multipart/form-data" style="display:flex;gap:10px;align-items:center;margin:0;">
+    <label class="topbar-btn" style="cursor:pointer;">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 1v8M4 4l3-3 3 3M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2"/></svg>
+      <span>Upload Bill File</span>
+      <input type="file" name="bill_file" accept=".csv,.xlsx" style="display:none;" onchange="this.closest('form').querySelector('[name=action]').value='save_data';this.closest('form').submit();">
+    </label>
+    <button type="submit" name="action" value="save_data" class="topbar-btn">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10M4 7h6M6 10h2"/></svg>
+      <span>Save Data</span>
+    </button>
+    <button type="submit" name="action" value="generate_reports" class="topbar-btn primary">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="12" height="12" rx="2"/><path d="M4 5h6M4 7h4M4 9h5"/></svg>
+      <span>Generate Reports</span>
+    </button>
+  </form>
+{% endblock %}
+
+{% block pill_label %}Bills{% endblock %}
+{% block pill_detail %}
+  {{ "{:,}".format(summary.total_bills) if summary else 0 }} bills &middot; {{ zones|length }} zones
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="content">
+    <div class="page-header">
+      <div class="page-tag">Bills Reports</div>
+      <h1 class="page-title">Generated Bills Reports</h1>
+      <p class="page-subtitle">Upload billing files, save sector and locality data locally, assign field staff, and export sector-wise reports.</p>
+    </div>
+
+    <!-- Upload Area -->
+    <form method="post" enctype="multipart/form-data" style="margin:0;">
+      <div class="upload-area" onclick="this.querySelector('input[type=file]').click();">
+        <div class="upload-icon-box">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+          </svg>
+        </div>
+        <div class="upload-text">
+          <strong>Choose bill file</strong>
+          <span>CSV or XLSX &mdash; files must include Sector and Locality columns</span>
+        </div>
+        <input type="file" name="bill_file" accept=".csv,.xlsx" style="display:none;" onchange="this.closest('form').querySelector('[name=action]').value='save_data';this.closest('form').submit();">
+        <div class="upload-actions">
+          <button type="submit" name="action" value="save_data" class="topbar-btn" onclick="event.stopPropagation();">&#128190; Save Data</button>
+          <button type="submit" name="action" value="generate_reports" class="topbar-btn primary" onclick="event.stopPropagation();">&#128202; Generate Reports</button>
+        </div>
+      </div>
+    </form>
+    <form method="post" style="margin:0 0 32px 0;" onsubmit="return confirm('Remove uploaded bill rows and amounts? Staff, assignments, sectors, localities, and zones will be kept.');">
+      <input type="hidden" name="action" value="clear_bill_list_data" />
+      <button type="submit" class="btn btn-danger btn-sm" style="font-size:11px;">&#128465; Remove Bill Data Only</button>
+    </form>
+
+    <!-- ADVANCED FILTER -->
+    <div class="section collapsed" id="sec-advanced">
+      <div class="section-header" onclick="toggleSection('sec-advanced')">
+        <div class="section-header-icon">&#128269;</div>
+        <div class="section-title">Advanced Bill Checking &amp; Export</div>
+        <span class="section-toggle">&#8964;</span>
+      </div>
+      <div class="section-body">
+        <p style="color:var(--text-secondary);font-size:12px;margin-bottom:16px;">Filter bills by paid/unpaid status, outstanding amount, sector, zone, or staff, then export the detailed results.</p>
+        <div class="filter-grid">
+          <label class="field">
+            <span>Bill Status</span>
+            <select class="filter-select" id="filter-bill-status">
+              <option value="">All Bills</option>
+              <option value="paid">Paid Bills</option>
+              <option value="unpaid">Unpaid Bills</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Outstanding Amount</span>
+            <div style="display:flex;gap:8px;">
+              <select class="filter-select" id="filter-outstanding-operator" style="width:130px;">
+                <option value="gt">Greater Than</option>
+                <option value="lt">Less Than</option>
+              </select>
+              <input type="number" class="filter-select" id="filter-outstanding" placeholder="e.g. 10000" min="0" step="1" style="flex:1;" />
+            </div>
+          </label>
+          <label class="field">
+            <span>Sector</span>
+            <select class="filter-select" id="filter-sector">
+              <option value="">All Sectors</option>
+              {% for sector in sectors %}
+                <option value="{{ sector.sector }}">{{ sector.sector }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="field">
+            <span>Zone</span>
+            <select class="filter-select" id="filter-zone">
+              <option value="">All Zones</option>
+              {% for zone in zone_options %}
+                <option value="{{ zone }}">{{ zone }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="field">
+            <span>Staff</span>
+            <div class="ssd-wrap" id="ssd-filter-staff">
+              <select class="ssd-select" id="filter-staff" hidden>
+                <option value="">All Staff</option>
+                {% for person in staff %}
+                  <option value="{{ person.id }}">{{ person.name }}</option>
+                {% endfor %}
+              </select>
+              <div class="ssd-field" tabindex="0" role="button">
+                <span class="ssd-label">All Staff</span>
+                <span class="msd-arrow">&#9662;</span>
+              </div>
+              <div class="ssd-menu" style="display:none">
+                <div class="ssd-list"></div>
+              </div>
+            </div>
+          </label>
+        </div>
+        <label class="check-field" style="margin-bottom:12px;">
+          <input type="checkbox" id="show-summary-pdf" />
+          <span>Show Summary in PDF</span>
+        </label>
+        <div class="field" style="margin-bottom:12px;gap:6px;">
+          <span>Report View (PDF Grouping)</span>
+          <div class="col-chips" id="report-view-chips">
+            <span class="col-chip active" data-report-view="normal">Normal / Detailed</span>
+            <span class="col-chip" data-report-view="sector">Sector-wise</span>
+            <span class="col-chip" data-report-view="zone">Zone-wise</span>
+            <span class="col-chip" data-report-view="staff">Staff-wise</span>
+          </div>
+        </div>
+        <div class="export-bar" data-col-config="advanceBillChecking">
+          <a class="chip" id="advanced-export-pdf" href="#">&#11015; Download PDF</a>
+          <a class="chip" id="advanced-export-csv" href="#">&#11015; Download CSV</a>
+          <a class="chip" id="advanced-export-xlsx" href="#">&#11015; Download Excel</a>
+          <a class="chip disabled" id="advanced-export-zip" href="#" title="ZIP export is available for Sector-wise, Zone-wise, and Staff-wise reports only.">&#128230; Download ZIP PDFs</a>
+        </div>
+        <div id="advanced-filter-summary" class="filter-summary"></div>
+        <div class="col-select-area">
+          <div class="col-select-label">Select Columns for Export</div>
+          <div class="col-chips" id="col-chips-advanceBillChecking"></div>
+        </div>
+        <div class="column-selector-wrapper" data-col-config="advanceBillChecking" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- SUMMARY REPORTS -->
+    <div class="section collapsed" id="sec-summary-reports">
+      <div class="section-header" onclick="toggleSection('sec-summary-reports')">
+        <div class="section-header-icon">&#128200;</div>
+        <div class="section-title">Total Bills and Amount Summary Reports</div>
+        <span class="section-toggle">&#8964;</span>
+      </div>
+      <div class="section-body">
+        <p style="color:var(--text-secondary);font-size:12px;margin-bottom:16px;">Total bills and amount summary reports with count and total amount only. No detailed bill data.</p>
+        <div class="summary-tabs">
+            <div class="summary-tab collapsed" id="tab-zones-summary">
+              <div class="summary-tab-header" onclick="toggleSection('tab-zones-summary')">
+                <h3>All Zones Summary</h3>
+                <span class="summary-tab-count">{{ zones|length }} zones</span>
+                <span class="section-toggle">&#8964;</span>
+              </div>
+              <div class="summary-tab-body">
+                <p class="muted">Zone-wise count and total amount summary.</p>
+                <div class="export-bar" data-col-config="summaryReportZones">
+                  <a class="chip" href="{{ url_for('export_zones_summary', fmt_type='pdf') }}">&#11015; PDF</a>
+                  <a class="chip" href="{{ url_for('export_zones_summary', fmt_type='csv') }}">&#11015; CSV</a>
+                  <a class="chip" href="{{ url_for('export_zones_summary', fmt_type='xlsx') }}">&#11015; Excel</a>
+                </div>
+                <div class="col-select-area" style="margin-top:8px;">
+                  <div class="col-select-label">Select Columns</div>
+                  <div class="col-chips" id="col-chips-summaryReportZones"></div>
+                </div>
+                <div class="column-selector-wrapper" data-col-config="summaryReportZones" style="display:none;"></div>
+              </div>
+            </div>
+            <div class="summary-tab collapsed" id="tab-sectors-summary">
+              <div class="summary-tab-header" onclick="toggleSection('tab-sectors-summary')">
+                <h3>All Sectors Summary</h3>
+                <span class="summary-tab-count">{{ sectors|length }} sectors</span>
+                <span class="section-toggle">&#8964;</span>
+              </div>
+              <div class="summary-tab-body">
+                <p class="muted">Sector-wise count and total amount summary.</p>
+                <div class="export-bar" data-col-config="summaryReportSectors">
+                  <a class="chip" href="{{ url_for('export_sectors_summary', fmt_type='pdf') }}">&#11015; PDF</a>
+                  <a class="chip" href="{{ url_for('export_sectors_summary', fmt_type='csv') }}">&#11015; CSV</a>
+                  <a class="chip" href="{{ url_for('export_sectors_summary', fmt_type='xlsx') }}">&#11015; Excel</a>
+                </div>
+                <div class="col-select-area" style="margin-top:8px;">
+                  <div class="col-select-label">Select Columns</div>
+                  <div class="col-chips" id="col-chips-summaryReportSectors"></div>
+                </div>
+                <div class="column-selector-wrapper" data-col-config="summaryReportSectors" style="display:none;"></div>
+              </div>
+            </div>
+            <div class="summary-tab collapsed" id="tab-staff-summary">
+              <div class="summary-tab-header" onclick="toggleSection('tab-staff-summary')">
+                <h3>All Staff Summary</h3>
+                <span class="summary-tab-count">{{ staff|length }} staff</span>
+                <span class="section-toggle">&#8964;</span>
+              </div>
+              <div class="summary-tab-body">
+                <p class="muted">Staff-wise count and total amount summary.</p>
+                <div class="export-bar" data-col-config="summaryReportStaff">
+                  <a class="chip" href="{{ url_for('export_staff_summary', fmt_type='pdf') }}">&#11015; PDF</a>
+                  <a class="chip" href="{{ url_for('export_staff_summary', fmt_type='csv') }}">&#11015; CSV</a>
+                  <a class="chip" href="{{ url_for('export_staff_summary', fmt_type='xlsx') }}">&#11015; Excel</a>
+                </div>
+                <div class="col-select-area" style="margin-top:8px;">
+                  <div class="col-select-label">Select Columns</div>
+                  <div class="col-chips" id="col-chips-summaryReportStaff"></div>
+                </div>
+                <div class="column-selector-wrapper" data-col-config="summaryReportStaff" style="display:none;"></div>
+              </div>
+            </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GENERAL REPORT -->
+    <div class="section collapsed" id="sec-general">
+      <div class="section-header" onclick="toggleSection('sec-general')">
+        <div class="section-header-icon">&#128203;</div>
+        <div class="section-title">Sector Wise Report</div>
+        <span class="section-toggle">&#8964;</span>
+      </div>
+      <div class="section-body">
+        <div class="export-bar" data-col-config="generalReport">
+          <a class="chip" href="{{ url_for('export_bill_list', fmt_type='pdf') }}">&#11015; Download PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_list', fmt_type='csv') }}">&#11015; Download CSV</a>
+          <a class="chip" href="{{ url_for('export_bill_list', fmt_type='xlsx') }}">&#11015; Download Excel</a>
+        </div>
+        <div class="col-select-area">
+          <div class="col-select-label">Select Columns for Export</div>
+          <div class="col-chips" id="col-chips-generalReport"></div>
+        </div>
+        <div class="column-selector-wrapper" data-col-config="generalReport" style="display:none;"></div>
+
+        <div class="bills-grid">
+          <div class="bills-stat">
+            <div class="bills-stat-label">Total Bills</div>
+            <div class="bills-stat-value" style="color:var(--coral)">{{ "{:,}".format(summary.total_bills) }}</div>
+          </div>
+          <div class="bills-stat">
+            <div class="bills-stat-label">Received Bills</div>
+            <div class="bills-stat-value" style="color:var(--teal)">{{ "{:,}".format(summary.received_bills) }}</div>
+          </div>
+          <div class="bills-stat">
+            <div class="bills-stat-label">Remaining Bills</div>
+            <div class="bills-stat-value" style="color:var(--amber)">{{ "{:,}".format(summary.remaining_bills) }}</div>
+          </div>
+        </div>
+
+        <div class="general-summary">
+          <div class="general-stat-lg">
+            <div class="bills-stat-label" style="margin-bottom:8px">Total Received Amount</div>
+            <div style="font-family:var(--font-mono);font-size:26px;color:var(--teal);font-weight:700;">Rs. {{ "{:,.0f}".format(summary.total_received_amount) }}</div>
+          </div>
+          <div class="general-stat-lg">
+            <div class="bills-stat-label" style="margin-bottom:8px">Pending Amount</div>
+            <div style="font-family:var(--font-mono);font-size:26px;color:var(--coral);font-weight:700;">Rs. {{ "{:,.0f}".format(summary.remaining_amount) }}</div>
+          </div>
+        </div>
+
+        <!-- Collection Progress -->
+        <div style="margin-bottom:20px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px;">Collection Progress</div>
+          <div class="progress-row">
+            <span class="progress-label">Bills Collected</span>
+            <span class="progress-bar"><span class="progress-fill" style="width:{{ (summary.received_bills / (summary.total_bills or 1) * 100) | round(1) }}%;background:var(--teal)"></span></span>
+            <span class="progress-val" style="color:var(--teal)">{{ "{:,}".format(summary.received_bills) }} / {{ "{:,}".format(summary.total_bills) }}</span>
+          </div>
+          <div class="progress-row">
+            <span class="progress-label">Amount Collected</span>
+            <span class="progress-bar"><span class="progress-fill" style="width:{{ (summary.total_received_amount / ((summary.total_received_amount + summary.remaining_amount) or 1) * 100) | round(1) }}%;background:var(--amber)"></span></span>
+            <span class="progress-val" style="color:var(--amber)">Rs. {{ "{:,.0f}".format(summary.total_received_amount) }} / Rs. {{ "{:,.0f}".format(summary.total_received_amount + summary.remaining_amount) }}</span>
+          </div>
+        </div>
+
+        <div class="unpaid-block">
+          <div class="unpaid-header">
+            <div class="section-header-icon" style="background:var(--coral-dim)">&#9888;&#65039;</div>
+            <div>
+              <div class="unpaid-title">Unpaid &amp; Expired Bill Amounts</div>
+              <div class="unpaid-subtitle">Only bills with Unpaid, Un-Paid, or Expired status are included.</div>
+            </div>
+            <div class="unpaid-badge">{{ "{:,}".format(unpaid_amount_summary.total.bill_count) }} bills</div>
+          </div>
+          <div class="export-bar" data-col-config="unpaidExpired">
+            <a class="chip" href="{{ url_for('export_unpaid_amount_section', section_key='summary', fmt_type='pdf') }}">&#11015; Summary PDF</a>
+            <a class="chip" href="{{ url_for('export_unpaid_amount_section', section_key='summary', fmt_type='csv') }}">&#11015; Summary CSV</a>
+            <a class="chip" href="{{ url_for('export_unpaid_amount_section', section_key='summary', fmt_type='xlsx') }}">&#11015; Summary Excel</a>
+          </div>
+          <div class="col-select-area">
+            <div class="col-select-label">Select Columns for Export</div>
+            <div class="col-chips" id="col-chips-unpaidExpired"></div>
+          </div>
+          <div class="column-selector-wrapper" data-col-config="unpaidExpired" style="display:none;"></div>
+          <div class="unpaid-stats">
+            <div class="unpaid-stat">
+              <div class="unpaid-stat-label">Total Bill Amount</div>
+              <div class="unpaid-stat-value">Rs. {{ "{:,.0f}".format(unpaid_amount_summary.total.total_bill_amount) }}</div>
+            </div>
+            <div class="unpaid-stat">
+              <div class="unpaid-stat-label">Total Arrears Amount</div>
+              <div class="unpaid-stat-value">Rs. {{ "{:,.0f}".format(unpaid_amount_summary.total.total_arrears_amount) }}</div>
+            </div>
+            <div class="unpaid-stat">
+              <div class="unpaid-stat-label">Current Bill Amount</div>
+              <div class="unpaid-stat-value" style="color:var(--violet)">Rs. {{ "{:,.0f}".format(unpaid_amount_summary.total.current_bill_amount) }}</div>
+            </div>
+          </div>
+
+          {% set breakdowns = [
+            ('sector', 'Sector-wise', 'Sector', unpaid_amount_summary.sector_rows),
+            ('zone', 'Zone-wise', 'Zone', unpaid_amount_summary.zone_rows),
+            ('staff', 'Staff-wise', 'Staff Member', unpaid_amount_summary.staff_rows)
+          ] %}
+          <div class="amount-breakdowns" style="margin-top:16px;">
+            {% for section_key, title, label, rows in breakdowns %}
+              <details class="dropdown-panel amount-breakdown">
+                <summary style="display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;padding:8px 0;color:var(--text-secondary);font-size:13px;font-weight:600;">
+                  <span>{{ title }}</span>
+                  <span class="section-downloads" data-col-config="unpaidExpired" style="display:inline-flex;flex-wrap:wrap;gap:6px;">
+                    <a class="chip" href="{{ url_for('export_unpaid_amount_section', section_key=section_key, fmt_type='pdf') }}">&#11015; PDF</a>
+                    <a class="chip" href="{{ url_for('export_unpaid_amount_section', section_key=section_key, fmt_type='csv') }}">&#11015; CSV</a>
+                    <a class="chip" href="{{ url_for('export_unpaid_amount_section', section_key=section_key, fmt_type='xlsx') }}">&#11015; Excel</a>
+                  </span>
+                </summary>
+                <div class="table-wrapper">
+                  <table class="data-table">
+                    <thead>
+                      <tr><th>Sr</th><th>{{ label }}</th><th>Bills</th><th>Total Bill Amount</th><th>Total Arrears Amount</th><th>Current Bill Amount</th></tr>
+                    </thead>
+                    <tbody>
+                      {% for row in rows %}
+                        <tr><td>{{ row.sr }}</td><td>{{ row.name }}</td><td class="mono">{{ "{:,}".format(row.bill_count) }}</td><td class="mono">{{ "{:,.0f}".format(row.total_bill_amount) }}</td><td class="mono">{{ "{:,.0f}".format(row.total_arrears_amount) }}</td><td class="mono">{{ "{:,.0f}".format(row.current_bill_amount) }}</td></tr>
+                      {% else %}
+                        <tr><td colspan="6">No unpaid or expired bills found.</td></tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            {% endfor %}
+          </div>
+          <details class="dropdown-panel" style="margin-top:12px;">
+            <summary style="cursor:pointer;padding:8px 0;color:var(--text-secondary);font-size:13px;font-weight:600;list-style:none;">Sector-wise Details</summary>
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr><th>Sr</th><th>Sector</th><th>Total Bills</th><th>Received Bills</th><th>Remaining Bills</th><th>Total Received Amount</th><th>Pending Amount</th></tr>
+                </thead>
+                <tbody>
+                  {% for row in report_rows %}
+                    <tr><td>{{ row.sr }}</td><td>{{ row.sector }}</td><td class="mono">{{ "{:,}".format(row.total_bills) }}</td><td class="mono">{{ "{:,}".format(row.received_bills) }}</td><td class="mono">{{ "{:,}".format(row.remaining_bills) }}</td><td class="mono accent-teal">{{ "{:,.0f}".format(row.total_received_amount) }}</td><td class="mono accent-coral">{{ "{:,.0f}".format(row.remaining_amount) }}</td></tr>
+                  {% else %}
+                    <tr><td colspan="7">No bill data uploaded yet.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+
+    <!-- STAFF ASSIGNMENT -->
+    <div class="section collapsed" id="sec-staff">
+      <div class="section-header" onclick="toggleSection('sec-staff')">
+        <div class="section-header-icon">&#128101;</div>
+        <div class="section-title">Staff Assignment</div>
+        <span class="section-toggle">&#8964;</span>
+      </div>
+      <div class="section-body">
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+          <label class="field" style="min-width:200px;">
+            <span>Report Staff</span>
+            <div class="ssd-wrap" id="ssd-staff-report">
+              <select class="ssd-select" id="staff-report-select" hidden>
+                <option value="">All Staff</option>
+                {% for person in staff %}
+                  <option value="{{ person.id }}">{{ person.name }}</option>
+                {% endfor %}
+              </select>
+              <div class="ssd-field" tabindex="0" role="button">
+                <span class="ssd-label">All Staff</span>
+                <span class="msd-arrow">&#9662;</span>
+              </div>
+              <div class="ssd-menu" style="display:none">
+                <div class="ssd-list"></div>
+              </div>
+            </div>
+          </label>
+          <div class="export-bar" style="align-self:flex-end;" data-col-config="staffWise">
+            <a class="chip staff-export-link" data-format="pdf" href="{{ url_for('export_bill_list_staff', fmt_type='pdf') }}">&#11015; Staff PDF</a>
+            <a class="chip staff-export-link" data-format="csv" href="{{ url_for('export_bill_list_staff', fmt_type='csv') }}">&#11015; Staff CSV</a>
+            <a class="chip staff-export-link" data-format="xlsx" href="{{ url_for('export_bill_list_staff', fmt_type='xlsx') }}">&#11015; Staff Excel</a>
+          </div>
+        </div>
+        <div class="col-select-area">
+          <div class="col-select-label">Select Columns for Export</div>
+          <div class="col-chips" id="col-chips-staffWise"></div>
+        </div>
+        <div class="column-selector-wrapper" data-col-config="staffWise" style="display:none;"></div>
+        <div class="col-select-area" style="margin-top:12px;">
+          <div class="col-select-label">Select Staff Summary Columns for Export</div>
+          <div class="col-chips" id="col-chips-staffSummary"></div>
+        </div>
+        <div class="column-selector-wrapper" data-col-config="staffSummary" style="display:none;"></div>
+
+        <div class="form-grid" style="margin-bottom:24px;">
+          <form method="post">
+            <input type="hidden" name="action" value="add_staff" />
+            <label class="field">
+              <span>Staff Name</span>
+              <input type="text" name="staff_name" placeholder="Enter field staff name" required />
+            </label>
+            <button type="submit" class="btn btn-primary btn-sm">&#128190; Save Staff</button>
+          </form>
+          <form method="post">
+            <input type="hidden" name="action" value="assign_staff" />
+            <label class="field">
+              <span>Staff</span>
+              <div class="ssd-wrap" id="ssd-assignment-staff">
+                <select class="ssd-select" name="staff_id" id="assignment-staff" required hidden>
+                  <option value="">Choose staff</option>
+                  {% for person in staff %}
+                    <option value="{{ person.id }}">{{ person.name }}</option>
+                  {% endfor %}
+                </select>
+                <div class="ssd-field" tabindex="0" role="button">
+                  <span class="ssd-label">Choose staff</span>
+                  <span class="msd-arrow">&#9662;</span>
+                </div>
+                <div class="ssd-menu" style="display:none">
+                  <div class="ssd-list"></div>
+                </div>
+              </div>
+            </label>
+            <label class="field">
+              <span>Zone</span>
+              <select class="filter-select" name="zone" id="assignment-zone" required>
+                <option value="">Choose zone</option>
+                {% for zone in zone_options %}
+                  <option value="{{ zone }}">{{ zone }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label class="field">
+              <span>Sector</span>
+              <div class="msd-wrap" id="msd-assignment-sectors">
+                <select name="sectors" id="assignment-sectors" multiple hidden>
+                  {% for sector in sectors %}
+                    <option value="{{ sector.sector_values|join('|||') }}" data-zone="{{ sector.zone }}" data-assigned-staff-id="{{ sector.assigned_staff_id }}" data-assigned-to="{{ sector.assigned_to or '' }}">{{ sector.zone }} - {{ sector.sector }}</option>
+                  {% endfor %}
+                </select>
+                <div class="msd-field" tabindex="0" role="button">
+                  <div class="msd-chips" id="msd-chips-assignment"></div>
+                  <span class="msd-placeholder" id="msd-placeholder-assignment">Select sectors</span>
+                  <span class="msd-arrow">&#9662;</span>
+                </div>
+                <div class="msd-panel" id="msd-panel-assignment" style="display:none">
+                  <div class="msd-search-wrap">
+                    <input type="text" class="msd-search" id="msd-search-assignment" placeholder="Search sectors..." />
+                  </div>
+                  <label class="msd-sall"><input type="checkbox" class="msd-sall-cb" /> Select All</label>
+                  <div class="msd-list" id="msd-list-assignment"></div>
+                </div>
+              </div>
+              <small><strong id="selected-sector-count">0 selected, 0 assigned</strong>. Select a zone first, then pick sectors from the dropdown.</small>
+            </label>
+            <label class="field">
+              <span>Locality</span>
+              <div class="msd-wrap" id="msd-assignment-localities">
+                <select name="localities" id="assignment-localities" multiple hidden>
+                  {% for locality in localities %}
+                    <option value="{{ locality.sector }}||{{ locality.locality }}" data-zone="{{ locality.zone }}" data-sector="{{ locality.sector }}" data-assigned-staff-id="{{ locality.assigned_staff_id }}" data-assigned-to="{{ locality.assigned_to or '' }}">{{ locality.zone }} - {{ locality.sector }} - {{ locality.locality }}</option>
+                  {% endfor %}
+                </select>
+                <div class="msd-field" tabindex="0" role="button">
+                  <div class="msd-chips" id="msd-chips-localities"></div>
+                  <span class="msd-placeholder" id="msd-placeholder-localities">Select localities</span>
+                  <span class="msd-arrow">&#9662;</span>
+                </div>
+                <div class="msd-panel" id="msd-panel-localities" style="display:none">
+                  <div class="msd-search-wrap">
+                    <input type="text" class="msd-search" id="msd-search-localities" placeholder="Search localities..." />
+                  </div>
+                  <label class="msd-sall"><input type="checkbox" class="msd-sall-cb" /> Select All</label>
+                  <div class="msd-list" id="msd-list-localities"></div>
+                </div>
+              </div>
+              <small>Use localities when one sector must be split between staff, especially Commercial.</small>
+            </label>
+            <button type="submit" class="save-assignment-btn">&#128190; Save Assignment</button>
+          </form>
+        </div>
+
+        <div class="table-wrapper" style="max-height:260px;margin-bottom:16px;">
+          <table class="data-table">
+            <thead><tr><th>Staff Member</th><th>Action</th></tr></thead>
+            <tbody>
+              {% for person in staff %}
+                <tr>
+                  <td>{{ person.name|staff_name_html }}</td>
+                  <td>
+                    <button type="button" class="btn btn-sm" style="display:inline-flex;" data-target="staff-edit-{{ person.id }}">&#9998; Edit</button>
+                    <form method="post" class="inline-form" onsubmit="return confirm('Delete this staff member and remove their assignments?');" style="display:inline-flex;margin:0;">
+                      <input type="hidden" name="action" value="delete_staff" />
+                      <input type="hidden" name="staff_id" value="{{ person.id }}" />
+                      <button type="submit" class="btn btn-sm btn-danger">&#128465;</button>
+                    </form>
+                    <form method="post" class="staff-rename-form" id="staff-edit-{{ person.id }}" style="display:none;align-items:center;gap:6px;margin-top:4px;">
+                      <input type="hidden" name="action" value="update_staff" />
+                      <input type="hidden" name="staff_id" value="{{ person.id }}" />
+                      <input type="text" name="staff_name" value="{{ person.name }}" required style="border-radius:var(--radius-sm);border:1px solid var(--border-bright);background:var(--surface);color:var(--text-primary);padding:6px 10px;font:inherit;min-width:180px;" />
+                      <button type="submit" class="btn btn-sm">Save</button>
+                    </form>
+                  </td>
+                </tr>
+              {% else %}
+                <tr><td colspan="2">No staff members yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-wrapper" style="max-height:280px;">
+          <table class="data-table">
+            <thead><tr><th>Staff</th><th>Zone</th><th>Sector</th><th>Locality</th><th>Action</th></tr></thead>
+            <tbody>
+              {% for assignment in assignments %}
+                <tr data-staff-id="{{ assignment.staff_id }}">
+                  <td>{{ assignment.name }}</td><td>{{ assignment.zone }}</td><td>{{ assignment.sector }}</td><td>{{ assignment.locality or 'All localities' }}</td>
+                  <td>
+                    <form method="post" class="inline-form" style="margin:0;">
+                      <input type="hidden" name="action" value="delete_assignment" />
+                      <input type="hidden" name="assignment_id" value="{{ assignment.id }}" />
+                      <button type="submit" class="btn btn-sm btn-danger">&#128465; Remove</button>
+                    </form>
+                  </td>
+                </tr>
+              {% else %}
+                <tr><td colspan="5">No staff assignments yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIX MONTH SEASON -->
+    <div class="section collapsed" id="sec-six-month-pitch">
+      <div class="section-header" onclick="toggleSection('sec-six-month-pitch')">
+        <div class="section-header-icon">&#128202;</div>
+        <div class="section-title">Six Month Season Report</div>
+        <span class="section-toggle">&#8964;</span>
+      </div>
+      <div class="section-body">
+        <p class="muted" style="margin-bottom:16px;">
+          Merges Staff Assignment data with Unpaid &amp; Expired current bill amounts for the selected six-month season.
+        </p>
+        <div style="margin-bottom:16px;">
+          <label class="field" style="min-width:220px;">
+            <span>Select Season</span>
+            <select class="filter-select" id="season-select">
+              <option value="jan-jun">January to June</option>
+              <option value="jul-dec">July to December</option>
+            </select>
+          </label>
+        </div>
+        <div class="export-bar" data-col-config="sixMonthPitch">
+          <a class="chip" href="{{ url_for('export_six_month_pitch', fmt_type='pdf') }}">&#11015; Season PDF</a>
+          <a class="chip" href="{{ url_for('export_six_month_pitch', fmt_type='csv') }}">&#11015; Season CSV</a>
+          <a class="chip" href="{{ url_for('export_six_month_pitch', fmt_type='xlsx') }}">&#11015; Season Excel</a>
+        </div>
+        <div class="col-select-area">
+          <div class="col-select-label">Select Columns for Export</div>
+          <div class="col-chips" id="col-chips-sixMonthPitch"></div>
+        </div>
+        <div class="column-selector-wrapper" data-col-config="sixMonthPitch" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- ZONES -->
+    <div class="section collapsed" id="sec-zones">
+      <div class="section-header" onclick="toggleSection('sec-zones')">
+        <div class="section-header-icon">&#127758;</div>
+        <div class="section-title">Zones</div>
+        <span class="section-toggle">&#8964;</span>
+      </div>
+      <div class="section-body">
+        <p class="muted" style="margin-bottom:16px;">Sectors are organized under Zone A, Zone B, Zone C, Commercial, or Unassigned based on the locality and sector text.</p>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px;">
+          <label class="field" style="min-width:200px;">
+            <span>Report Zone</span>
+            <select class="filter-select" id="zone-report-select">
+              <option value="All">All</option>
+              {% for zone in zone_options %}
+                <option value="{{ zone }}">{{ zone }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <div class="export-bar" style="align-self:flex-end;" data-col-config="zoneWise">
+            <a class="chip zone-export-link" data-format="pdf" href="{{ url_for('export_bill_list_zone', fmt_type='pdf') }}?zone=All">&#11015; Zone PDF</a>
+            <a class="chip zone-export-link" data-format="csv" href="{{ url_for('export_bill_list_zone', fmt_type='csv') }}?zone=All">&#11015; Zone CSV</a>
+            <a class="chip zone-export-link" data-format="xlsx" href="{{ url_for('export_bill_list_zone', fmt_type='xlsx') }}?zone=All">&#11015; Zone Excel</a>
+          </div>
+        </div>
+        <div class="col-select-area">
+          <div class="col-select-label">Select Columns for Export</div>
+          <div class="col-chips" id="col-chips-zoneWise"></div>
+        </div>
+        <div class="column-selector-wrapper" data-col-config="zoneWise" style="display:none;"></div>
+
+        <form method="post" class="form-grid" style="margin-bottom:20px;">
+          <input type="hidden" name="action" value="update_sector_zone" />
+          <label class="field">
+            <span>Sector</span>
+            <div class="msd-wrap" id="msd-zone-sectors">
+              <select name="sectors" multiple hidden>
+                {% for sector in sectors %}
+                  <option value="{{ sector.sector_values|join('|||') }}" data-zone="{{ sector.zone }}">{{ sector.zone }} - {{ sector.sector }}</option>
+                {% endfor %}
+              </select>
+              <div class="msd-field" tabindex="0" role="button">
+                <div class="msd-chips" id="msd-chips-zone"></div>
+                <span class="msd-placeholder" id="msd-placeholder-zone">Select sectors</span>
+                <span class="msd-arrow">&#9662;</span>
+              </div>
+              <div class="msd-panel" id="msd-panel-zone" style="display:none">
+                <div class="msd-search-wrap">
+                  <input type="text" class="msd-search" id="msd-search-zone" placeholder="Search sectors..." />
+                </div>
+                <label class="msd-sall"><input type="checkbox" class="msd-sall-cb" /> Select All</label>
+                <div class="msd-list" id="msd-list-zone"></div>
+              </div>
+            </div>
+            <small>Search and select sectors, then choose the new zone.</small>
+          </label>
+          <label class="field">
+            <span>New Zone</span>
+            <select class="filter-select" name="zone" required>
+              <option value="">Choose zone</option>
+              {% for zone in zone_options %}
+                <option value="{{ zone }}">{{ zone }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <button type="submit" class="save-zone-btn">&#128190; Save Zone Change</button>
+        </form>
+
+        <div class="table-wrapper" style="margin-bottom:20px;">
+          <table class="data-table">
+            <thead><tr><th>Zone</th><th>Sector</th><th>Localities</th><th>Bills</th></tr></thead>
+            <tbody>
+              {% for row in zones %}
+                <tr><td>{{ row.zone }}</td><td>{{ row.sector }}</td><td class="mono">{{ "{:,}".format(row.locality_count) }}</td><td class="mono">{{ "{:,}".format(row.bill_count) }}</td></tr>
+              {% else %}
+                <tr><td colspan="4">No zone data yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:12px;">Saved Localities</div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead><tr><th>Zone</th><th>Sector</th><th>Locality</th></tr></thead>
+            <tbody>
+              {% for row in localities %}
+                <tr><td>{{ row.zone }}</td><td>{{ row.sector }}</td><td>{{ row.locality }}</td></tr>
+              {% else %}
+                <tr><td colspan="3">No locality data yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── SECTION TOGGLE ──
+  function toggleSection(id) {
+    document.getElementById(id).classList.toggle('collapsed');
+  }
+
+  // ── MULTI-SELECT DROPDOWN COMPONENT ──
+  function msdInit(wrapId) {
+    var wrap = document.getElementById(wrapId);
+    if (!wrap) return null;
+    var select = wrap.querySelector('select[multiple]');
+    var opts = Array.from(select.options);
+    var field = wrap.querySelector('.msd-field');
+    var panel = wrap.querySelector('.msd-panel');
+    var chips = wrap.querySelector('.msd-chips');
+    var ph = wrap.querySelector('.msd-placeholder');
+    var search = wrap.querySelector('.msd-search');
+    var sallCb = wrap.querySelector('.msd-sall-cb');
+    var list = wrap.querySelector('.msd-list');
+    var isSectors = wrapId === 'msd-assignment-sectors';
+    var isLocalities = wrapId === 'msd-assignment-localities';
+
+    function render() {
+      var filterText = search ? search.value : '';
+      var zf = '';
+      var sfNames = [];
+      if (isSectors || isLocalities) {
+        var zEl = document.getElementById('assignment-zone');
+        zf = zEl && zEl.value ? zEl.value : '';
+      }
+      if (isLocalities) {
+        var sEl = document.getElementById('assignment-sectors');
+        if (sEl) {
+          sfNames = Array.from(sEl.selectedOptions)
+            .flatMap(function(o) { return o.value.split('|||').map(function(v) { return v.trim(); }).filter(Boolean); });
+        }
+      }
+      list.innerHTML = '';
+      var visibleCount = 0;
+      var anyChecked = false;
+      var allChecked = true;
+      opts.forEach(function(opt, i) {
+        if (zf && opt.dataset.zone && opt.dataset.zone !== zf) return;
+        if (filterText && opt.text.toLowerCase().indexOf(filterText.toLowerCase()) === -1) return;
+        if (isLocalities && sfNames.length && opt.dataset.sector && sfNames.indexOf(opt.dataset.sector) === -1) return;
+        visibleCount++;
+        var lbl = document.createElement('label');
+        var isAssigned = Boolean(opt.dataset.assignedStaffId);
+        lbl.className = 'msd-opt';
+        if (isAssigned) lbl.classList.add('msd-disabled');
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = opt.selected || false;
+        cb.dataset.idx = i;
+        if (isAssigned) cb.disabled = true;
+        var txt = document.createElement('span');
+        var assignedTo = opt.dataset.assignedTo;
+        var labelText = opt.text;
+        if (isAssigned && assignedTo) labelText += ' (Assigned to ' + assignedTo + ')';
+        txt.textContent = labelText;
+        lbl.appendChild(cb); lbl.appendChild(txt);
+        list.appendChild(lbl);
+        if (cb.checked) anyChecked = true;
+        else if (!cb.disabled) allChecked = false;
+      });
+      if (sallCb) sallCb.checked = visibleCount > 0 && allChecked;
+      return visibleCount;
+    }
+
+    function sync() {
+      var cbs = list.querySelectorAll('input[type="checkbox"]');
+      cbs.forEach(function(cb) {
+        var idx = parseInt(cb.dataset.idx);
+        if (!isNaN(idx) && opts[idx]) opts[idx].selected = cb.checked;
+      });
+      var sel = opts.filter(function(o) { return o.selected; });
+      chips.innerHTML = '';
+      var maxChips = 3;
+      sel.slice(0, maxChips).forEach(function(o) {
+        var c = document.createElement('span'); c.className = 'msd-chip';
+        var parts = o.text.split(' - ');
+        c.textContent = parts[parts.length - 1] || o.text;
+        chips.appendChild(c);
+      });
+      if (sel.length > maxChips) {
+        var more = document.createElement('span'); more.className = 'msd-chip msd-more';
+        more.textContent = '+' + (sel.length - maxChips) + ' more';
+        chips.appendChild(more);
+      }
+      ph.style.display = sel.length ? 'none' : '';
+      if (isSectors) {
+        var ctr = document.getElementById('selected-sector-count');
+        var zEl = document.getElementById('assignment-zone');
+        var zf2 = zEl && zEl.value ? zEl.value : '';
+        var assigned = opts.filter(function(o) { return !zf2 || (o.dataset.zone === zf2); }).filter(function(o) { return o.dataset.assignedStaffId; }).length;
+        if (ctr) ctr.textContent = sel.length + ' selected, ' + assigned + ' assigned';
+      }
+    }
+
+    field.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var isOpen = panel.style.display === 'block';
+      document.querySelectorAll('.msd-panel').forEach(function(p) { if (p !== panel) p.style.display = 'none'; });
+      panel.style.display = isOpen ? 'none' : 'block';
+      if (!isOpen) { render(); if (search) { search.value = ''; setTimeout(function() { search.focus(); }, 50); } }
+    });
+
+    document.addEventListener('click', function(e) {
+      if (!wrap.contains(e.target)) panel.style.display = 'none';
+    });
+
+    if (search) search.addEventListener('input', render);
+
+    if (sallCb) sallCb.addEventListener('change', function() {
+      var cbs = list.querySelectorAll('input[type="checkbox"]');
+      cbs.forEach(function(cb) { if (!cb.disabled) cb.checked = sallCb.checked; });
+      sync();
+    });
+
+    list.addEventListener('change', function(e) { if (e.target.type === 'checkbox') sync(); });
+
+    render(); sync();
+
+    var ctrl = {
+      getSelectedNames: function() {
+        return Array.from(select.selectedOptions)
+          .flatMap(function(o) { return o.value.split('|||').map(function(v) { return v.trim(); }).filter(Boolean); });
+      },
+      getSelectedCount: function() { return opts.filter(function(o) { return o.selected; }).length; },
+      reFilter: function() { render(); sync(); }
+    };
+    wrap._msd = ctrl;
+    return ctrl;
+  }
+
+  // ── SINGLE-SELECT DROPDOWN (for staff selection with paired names) ──
+  function ssdInit(wrapId) {
+    var wrap = document.getElementById(wrapId);
+    if (!wrap) return null;
+    var select = wrap.querySelector('select');
+    var opts = Array.from(select.options);
+    var field = wrap.querySelector('.ssd-field');
+    var label = wrap.querySelector('.ssd-label');
+    var panel = wrap.querySelector('.ssd-menu');
+    var list = wrap.querySelector('.ssd-list');
+
+    function getDisplay(name) {
+      var pairs = {
+        "MUHAMMAD ILYAS": "MUHAMMAD ILYAS<br>MUHAMMAD NAEEM",
+        "MUHAMMAD IRFAN": "MUHAMMAD IRFAN<br>ZULFIQAR",
+        "MUHAMMAD KHALID": "MUHAMMAD KHALID<br>MUHAMMAD NAZAR",
+        "MUHAMMAD KASHIF": "MUHAMMAD KASHIF<br>MUHAMMAD SHAHID",
+        "TAUSEEF": "TAUSEEF<br>GOSHI IBRAHIM"
+      };
+      var norm = (name || '').trim().replace(/\s+/g, ' ').toUpperCase();
+      if (pairs[norm]) return pairs[norm];
+      // fuzzy match (Levenshtein distance <= 2)
+      var keys = Object.keys(pairs);
+      var bestKey = null, bestDist = 3;
+      for (var k = 0; k < keys.length; k++) {
+        var d = levenshtein(norm, keys[k]);
+        if (d < bestDist) { bestDist = d; bestKey = keys[k]; }
+      }
+      return bestKey ? pairs[bestKey] : name;
+    }
+    function levenshtein(a, b) {
+      var n = a.length, m = b.length;
+      if (n < m) { var t = a; a = b; b = t; var s = n; n = m; m = s; }
+      var prev = [];
+      for (var j = 0; j <= m; j++) prev[j] = j;
+      for (var i = 1; i <= n; i++) {
+        var curr = [i];
+        for (var j = 1; j <= m; j++) {
+          curr[j] = a[i-1] === b[j-1] ? prev[j-1] : (1 + Math.min(curr[j-1], prev[j], prev[j-1]));
+        }
+        prev = curr;
+      }
+      return prev[m];
+    }
+
+    function render() {
+      list.innerHTML = '';
+      opts.forEach(function(opt, i) {
+        var item = document.createElement('div');
+        item.className = 'ssd-opt';
+        if (opt.selected) item.classList.add('ssd-selected');
+        item.innerHTML = opt.value ? getDisplay(opt.text) : opt.text;
+        item.dataset.idx = i;
+        item.addEventListener('click', function(e) {
+          e.stopPropagation();
+          select.value = opt.value;
+          label.innerHTML = opt.value ? getDisplay(opt.text) : opt.text;
+          panel.style.display = 'none';
+          select.dispatchEvent(new Event('change', {bubbles: true}));
+        });
+        list.appendChild(item);
+      });
+    }
+
+    field.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var isOpen = panel.style.display === 'block';
+      document.querySelectorAll('.ssd-menu').forEach(function(m) { if (m !== panel) m.style.display = 'none'; });
+      panel.style.display = isOpen ? 'none' : 'block';
+      if (!isOpen) render();
+    });
+
+    document.addEventListener('click', function(e) {
+      if (!wrap.contains(e.target)) panel.style.display = 'none';
+    });
+
+    var initialOpt = opts[0];
+    label.textContent = initialOpt ? initialOpt.text : '';
+
+    return wrap;
+  }
+
+  // ── STAFF / ZONE / FILTER LOGIC ──
+  const staffSelect = document.getElementById('assignment-staff');
+  const zoneSelect = document.getElementById('assignment-zone');
+  const assignmentRows = document.querySelectorAll('.section-body tbody tr[data-staff-id]');
+  const zoneReportSelect = document.getElementById('zone-report-select');
+  const zoneExportLinks = document.querySelectorAll('.zone-export-link');
+  const staffReportSelect = document.getElementById('staff-report-select');
+  const staffExportLinks = document.querySelectorAll('.staff-export-link');
+
+  // Init multi-select dropdowns
+  var msdAssignment = msdInit('msd-assignment-sectors');
+  msdInit('msd-assignment-localities');
+  msdInit('msd-zone-sectors');
+
+  // Init single-select staff dropdowns (for paired name display)
+  ssdInit('ssd-staff-report');
+  ssdInit('ssd-assignment-staff');
+  ssdInit('ssd-filter-staff');
+
+  function filterAssignmentRows() {
+    const selectedStaff = staffSelect ? staffSelect.value : '';
+    assignmentRows.forEach(function(row) { row.hidden = Boolean(selectedStaff) && row.dataset.staffId !== selectedStaff; });
+  }
+
+  function reFilterAll() {
+    // Re-filter sector and locality dropdowns when zone/staff changes
+    document.querySelectorAll('.msd-wrap').forEach(function(w) {
+      if (w._msd && w._msd.reFilter) w._msd.reFilter();
+    });
+  }
+
+  if (zoneSelect) {
+    zoneSelect.addEventListener('change', reFilterAll);
+    setTimeout(reFilterAll, 10);
+  }
+  if (staffSelect) {
+    staffSelect.addEventListener('change', function() {
+      reFilterAll();
+      filterAssignmentRows();
+    });
+    filterAssignmentRows();
+  }
+
+  document.querySelectorAll('[data-target]').forEach(function(button) {
+    button.addEventListener('click', function() {
+      var form = document.getElementById(button.dataset.target);
+      if (!form) return;
+      document.querySelectorAll('.staff-rename-form').forEach(function(openForm) {
+        if (openForm !== form) openForm.style.display = 'none';
+      });
+      form.style.display = form.style.display === 'none' || form.style.display === '' ? 'flex' : 'none';
+    });
+  });
+
+  function updateZoneExportLinks() {
+    const selectedZone = encodeURIComponent(zoneReportSelect.value || 'All');
+    zoneExportLinks.forEach(function(link) {
+      const fmt = link.dataset.format;
+      link.href = '/bill-list/export/zone/' + fmt + '?zone=' + selectedZone;
+    });
+  }
+  if (zoneReportSelect) { zoneReportSelect.addEventListener('change', function() { updateZoneExportLinks(); updatePdfSummaryParam(); }); updateZoneExportLinks(); }
+
+  function updateStaffExportLinks() {
+    const selectedStaff = staffReportSelect ? staffReportSelect.value : '';
+    const query = selectedStaff ? '?staff_id=' + encodeURIComponent(selectedStaff) : '';
+    const sumCols = getSelectedCols('staffSummary');
+    staffExportLinks.forEach(function(link) {
+      const fmt = link.dataset.format;
+      let href = '/bill-list/export/staff/' + fmt + query;
+      if (sumCols) href += (query ? '&' : '?') + 'summary_cols=' + encodeURIComponent(sumCols);
+      link.href = href;
+    });
+  }
+  if (staffReportSelect) { staffReportSelect.addEventListener('change', function() { updateStaffExportLinks(); updatePdfSummaryParam(); }); }
+
+  // Advanced Filter
+  const filterBillStatus = document.getElementById('filter-bill-status');
+  const filterOutstandingOperator = document.getElementById('filter-outstanding-operator');
+  const filterOutstanding = document.getElementById('filter-outstanding');
+  const filterSector = document.getElementById('filter-sector');
+  const filterZone = document.getElementById('filter-zone');
+  const filterStaff = document.getElementById('filter-staff');
+  const advancedExportPdf = document.getElementById('advanced-export-pdf');
+  const advancedExportCsv = document.getElementById('advanced-export-csv');
+  const advancedExportXlsx = document.getElementById('advanced-export-xlsx');
+  const advancedExportZip = document.getElementById('advanced-export-zip');
+  const advancedFilterSummary = document.getElementById('advanced-filter-summary');
+
+  function buildAdvancedFilterQuery() {
+    const params = new URLSearchParams();
+    if (filterBillStatus && filterBillStatus.value) params.set('bill_status', filterBillStatus.value);
+    if (filterOutstanding && filterOutstanding.value) { params.set('outstanding_amount', filterOutstanding.value); params.set('outstanding_operator', filterOutstandingOperator ? filterOutstandingOperator.value : 'gt'); }
+    if (filterSector && filterSector.value) params.set('sector', filterSector.value);
+    if (filterZone && filterZone.value) params.set('zone', filterZone.value);
+    if (filterStaff && filterStaff.value) params.set('staff_id', filterStaff.value);
+    const query = params.toString();
+    return query ? '?' + query : '';
+  }
+
+  function updateAdvancedFilterSummary() {
+    const parts = [];
+    if (filterBillStatus && filterBillStatus.value) parts.push(filterBillStatus.value === 'paid' ? 'Paid' : 'Unpaid');
+    if (filterOutstanding && filterOutstanding.value) parts.push('Outstanding ' + (filterOutstandingOperator && filterOutstandingOperator.value === 'gt' ? '>' : '<') + ' ' + parseInt(filterOutstanding.value).toLocaleString());
+    if (filterSector && filterSector.value) parts.push('Sector: ' + filterSector.value);
+    if (filterZone && filterZone.value) parts.push('Zone: ' + filterZone.value);
+    if (filterStaff && filterStaff.value) parts.push('Staff: ' + filterStaff.options[filterStaff.selectedIndex].text);
+    if (advancedFilterSummary) advancedFilterSummary.textContent = parts.length ? 'Active filters: ' + parts.join(', ') : '';
+  }
+
+  // ── REPORT VIEW SELECTOR ──
+  let currentReportView = 'normal';
+  document.querySelectorAll('[data-report-view]').forEach(function(chip) {
+    chip.addEventListener('click', function() {
+      document.querySelectorAll('[data-report-view]').forEach(function(c) { c.classList.remove('active'); });
+      chip.classList.add('active');
+      currentReportView = chip.getAttribute('data-report-view');
+      updateAdvancedExportLinks();
+    });
+  });
+
+  function updateAdvancedExportLinks() {
+    const query = buildAdvancedFilterQuery();
+    const sep = query ? '&' : '?';
+    advancedExportPdf.href = '/bill-list/advanced-filter/pdf' + query + sep + 'group_by=' + currentReportView;
+    advancedExportCsv.href = '/bill-list/advanced-filter/csv' + query;
+    advancedExportXlsx.href = '/bill-list/advanced-filter/xlsx' + query;
+    if (currentReportView === 'normal') {
+      advancedExportZip.classList.add('disabled');
+      advancedExportZip.href = '#';
+      advancedExportZip.title = 'ZIP export is available for Sector-wise, Zone-wise, and Staff-wise reports only.';
+    } else {
+      advancedExportZip.classList.remove('disabled');
+      advancedExportZip.href = '/bill-list/advanced-filter/zip' + query + sep + 'group_by=' + currentReportView;
+      advancedExportZip.title = '';
+    }
+    updateAdvancedFilterSummary();
+  }
+
+  // ── COLUMN SELECTION CONFIGS ──
+  const reportColumnConfigs = {
+    generalReport: [
+      { key: "sr", label: "Sr", checked: true }, { key: "sector", label: "Sector", checked: true }, { key: "totalBills", label: "Total Bills", checked: true }, { key: "receivedBills", label: "Received Bills", checked: true }, { key: "remainingBills", label: "Remaining Bills", checked: true }, { key: "totalReceivedAmount", label: "Total Received Amount", checked: true }, { key: "pendingAmount", label: "Pending Amount", checked: true }
+    ],
+    unpaidExpired: [
+      { key: "sr", label: "Sr", checked: true }, { key: "name", label: "Name", checked: true }, { key: "bills", label: "Bills", checked: true }, { key: "totalBillAmount", label: "Total Bill Amount", checked: true }, { key: "totalArrearsAmount", label: "Total Arrears Amount", checked: true }, { key: "currentBillAmount", label: "Current Bill Amount", checked: true }
+    ],
+    zoneWise: [
+      { key: "sr", label: "Sr", checked: true }, { key: "zone", label: "Zone", checked: true }, { key: "sector", label: "Sector", checked: true }, { key: "totalBills", label: "Total Bills", checked: true }, { key: "receivedBills", label: "Received Bills", checked: true }, { key: "remainingBills", label: "Remaining Bills", checked: true }, { key: "totalReceivedAmount", label: "Amount Received", checked: true }, { key: "pendingAmount", label: "Pending Amount", checked: true }
+    ],
+    staffWise: [
+      { key: "sr", label: "Sr", checked: true }, { key: "staff", label: "Staff", checked: true }, { key: "zone", label: "Zone", checked: true }, { key: "sector", label: "Sector", checked: true }, { key: "locality", label: "Locality", checked: true }, { key: "totalBills", label: "Total Bills", checked: true }, { key: "receivedBills", label: "Received Bills", checked: true }, { key: "remainingBills", label: "Remaining Bills", checked: true }, { key: "totalReceivedAmount", label: "Amount Received", checked: true }, { key: "pendingAmount", label: "Pending Amount", checked: true }
+    ],
+    summaryReportZones: [
+      { key: "name", label: "Name", checked: true }, { key: "count", label: "Count", checked: true }, { key: "totalAmount", label: "Total Amount", checked: true }
+    ],
+    summaryReportSectors: [
+      { key: "name", label: "Name", checked: true }, { key: "count", label: "Count", checked: true }, { key: "totalAmount", label: "Total Amount", checked: true }
+    ],
+    summaryReportStaff: [
+      { key: "name", label: "Name", checked: true }, { key: "count", label: "Count", checked: true }, { key: "totalAmount", label: "Total Amount", checked: true }
+    ],
+    advanceBillChecking: [
+      { key: "sr", label: "Sr", checked: true },
+      { key: "connectionNo", label: "Connection No", checked: true },
+      { key: "consumerName", label: "Consumer Name", checked: true },
+      { key: "mobileNo", label: "Mobile No", checked: true },
+      { key: "locality", label: "Locality", checked: true },
+      { key: "totalBills", label: "Total Bill", checked: true },
+      { key: "arrearsReceived", label: "Arrears", checked: true },
+      { key: "outstanding", label: "Outstanding", checked: true },
+      { key: "billNo", label: "Bill No", checked: false },
+      { key: "referenceNo", label: "Reference No", checked: false },
+      { key: "sector", label: "Sector", checked: false },
+      { key: "zone", label: "Zone", checked: false },
+      { key: "totalReceivedAmount", label: "Amount Received", checked: false },
+      { key: "status", label: "Status", checked: false },
+    ],
+    staffSummary: [
+      { key: "sr", label: "Sr", checked: true },
+      { key: "staffName", label: "Staff Name", checked: true },
+      { key: "totalBills", label: "Total Bills", checked: true },
+      { key: "receivedBills", label: "Received Bills", checked: true },
+      { key: "remainingBills", label: "Remaining Bills", checked: true },
+      { key: "totalAmount", label: "Total Amount", checked: true },
+      { key: "amountReceived", label: "Amount Received", checked: true },
+      { key: "pendingAmount", label: "Pending Amount", checked: true }
+    ],
+    sixMonthPitch: [
+      { key: "sr", label: "Sr", checked: true },
+      { key: "staffName", label: "Staff Name", checked: true },
+      { key: "totalBills", label: "Total Bills", checked: true },
+      { key: "receivedBills", label: "Received Bills", checked: true },
+      { key: "remainingBills", label: "Remaining Bills", checked: true },
+      { key: "totalAmount", label: "Total Amount", checked: false },
+      { key: "amountReceived", label: "Amount Received", checked: true },
+      { key: "currentBillAmount", label: "Pending Amount", checked: true }
+    ]
+  };
+
+  const configStates = {};
+  Object.keys(reportColumnConfigs).forEach(function(configId) { configStates[configId] = JSON.parse(JSON.stringify(reportColumnConfigs[configId])); });
+
+  const showSummaryCheckbox = document.getElementById('show-summary-pdf');
+
+  function getSelectedCols(configId) {
+    const cols = configStates[configId];
+    if (!cols) return '';
+    return cols.filter(function(c) { return c.checked; }).map(function(c) { return c.key; }).join(',');
+  }
+
+  function buildColumnChips(configId) {
+    var container = document.getElementById('col-chips-' + configId);
+    if (!container) return;
+    var cols = configStates[configId];
+    if (!cols) return;
+    container.innerHTML = '';
+    cols.forEach(function(col, idx) {
+      var chip = document.createElement('span');
+      chip.className = 'col-chip' + (col.checked ? ' active' : '');
+      chip.textContent = col.label;
+      chip.dataset.idx = idx;
+      chip.dataset.config = configId;
+      chip.addEventListener('click', function() {
+        col.checked = !col.checked;
+        chip.classList.toggle('active');
+        refreshAllExportLinks();
+      });
+      container.appendChild(chip);
+    });
+  }
+
+  Object.keys(reportColumnConfigs).forEach(function(configId) { buildColumnChips(configId); });
+
+  document.addEventListener('click', function(e) {
+    const btn = e.target.closest('[data-col-action]');
+    if (!btn) return;
+    const configId = btn.getAttribute('data-config');
+    if (!configId) return;
+    const action = btn.getAttribute('data-col-action');
+    const cols = configStates[configId];
+    if (!cols) return;
+    if (action === 'selectAll') cols.forEach(function(c) { c.checked = true; });
+    else if (action === 'unselectAll') cols.forEach(function(c) { c.checked = false; });
+    else if (action === 'resetDefault') configStates[configId] = JSON.parse(JSON.stringify(reportColumnConfigs[configId]));
+    buildColumnChips(configId);
+    refreshAllExportLinks();
+  });
+
+  const seasonSelect = document.getElementById('season-select');
+
+  function updateDownloadParams() {
+    const show = showSummaryCheckbox ? showSummaryCheckbox.checked : false;
+    const sumCols = getSelectedCols('staffSummary');
+    const season = seasonSelect ? seasonSelect.value : '';
+    document.querySelectorAll('a.chip[href]:not([href="#"]):not([href=""])').forEach(function(link) {
+      let href = link.getAttribute('href');
+      if (!href || href === '#') return;
+      try {
+        var url = new URL(href, window.location.origin);
+      } catch(e) { return; }
+      var configParent = link.closest('[data-col-config]');
+      if (configParent) {
+        var configId = configParent.getAttribute('data-col-config');
+        var cols = getSelectedCols(configId);
+        if (cols) url.searchParams.set('cols', cols);
+        else url.searchParams.delete('cols');
+      }
+      // Add summary_cols for staff export links
+      if (link.classList.contains('staff-export-link') && sumCols) {
+        url.searchParams.set('summary_cols', sumCols);
+      }
+      if (show && link.closest('[data-col-config="advanceBillChecking"]')) {
+        url.searchParams.set('show_summary', '1');
+      } else {
+        url.searchParams.delete('show_summary');
+      }
+      // Add season param for six-month-pitch links
+      if (season && link.closest('#sec-six-month-pitch')) {
+        url.searchParams.set('season', season);
+      }
+      link.setAttribute('href', url.pathname + url.search);
+    });
+  }
+
+  function refreshAllExportLinks() {
+    updateZoneExportLinks();
+    updateStaffExportLinks();
+    updateAdvancedExportLinks();
+    updateDownloadParams();
+  }
+
+  function updatePdfSummaryParam() { updateDownloadParams(); }
+  if (zoneReportSelect) zoneReportSelect.addEventListener('change', function() { updateZoneExportLinks(); updateDownloadParams(); });
+  if (staffReportSelect) staffReportSelect.addEventListener('change', function() { updateStaffExportLinks(); updateDownloadParams(); });
+  function onAdvancedFilterChange() { updateAdvancedExportLinks(); updateDownloadParams(); }
+  if (filterBillStatus) filterBillStatus.addEventListener('change', onAdvancedFilterChange);
+  if (filterOutstandingOperator) filterOutstandingOperator.addEventListener('change', onAdvancedFilterChange);
+  if (filterOutstanding) filterOutstanding.addEventListener('input', onAdvancedFilterChange);
+  if (filterSector) filterSector.addEventListener('change', onAdvancedFilterChange);
+  if (filterZone) filterZone.addEventListener('change', onAdvancedFilterChange);
+  if (filterStaff) filterStaff.addEventListener('change', onAdvancedFilterChange);
+  onAdvancedFilterChange();
+  if (showSummaryCheckbox) showSummaryCheckbox.addEventListener('change', refreshAllExportLinks);
+
+  // Season selector: auto-detect default from current month
+  if (seasonSelect) {
+    var currentMonth = new Date().getMonth() + 1;
+    if (currentMonth >= 7) {
+      seasonSelect.value = 'jul-dec';
+    }
+    seasonSelect.addEventListener('change', refreshAllExportLinks);
+  }
+
+  refreshAllExportLinks();
+</script>
+{% endblock %}
