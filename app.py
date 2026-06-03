@@ -134,6 +134,131 @@ def _normalize_sector_locality(value: str) -> str:
     return text.strip()
 
 
+_UNMATCHED_LOG: list[dict] = []
+
+
+def get_unmatched_log() -> list[dict]:
+    return list(_UNMATCHED_LOG)
+
+
+def clear_unmatched_log() -> None:
+    _UNMATCHED_LOG.clear()
+
+
+def _deep_normalize_sector(value: str) -> str:
+    """Aggressively normalize a sector/locality name for robust matching."""
+    text = (value or "").strip().lower()
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"[,;:.()\[\]\{\}'\"`!@#$%^&*=+<>?/\\|~]", " ", text)
+    text = re.sub(r"[–—\-]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+
+    # Known spelling/canonical variants (both directions)
+    pairs = [
+        ("gulbarg", "gulberg"),
+        ("ghaziani", "g"),
+        ("ghazianai", "g"),
+        ("sabzi", "sabz"),
+        ("sabaz", "sabz"),
+        ("bagh", "bagh"),
+        ("mohallah", "mohalla"),
+        ("ghareeb", "ghareeb"),
+        ("sharqi", "sharqi"),
+        ("shumali", "shumali"),
+        ("gharbi", "gharbi"),
+        ("janubi", "janubi"),
+        ("janub", "janubi"),
+        ("colony", "colony"),
+        ("society", "society"),
+        ("private", "private"),
+        ("phase", "phase"),
+        ("town", "town"),
+        ("chak", "chak"),
+        ("nager", "nagar"),
+        ("road", "road"),
+        ("zone", "zone"),
+        ("basti", "basti"),
+        ("pura", "pura"),
+        ("puraa", "pura"),
+        ("pur", "pura"),
+        ("mehboob", "mehboob"),
+        ("mehbob", "mehboob"),
+        ("mahboob", "mehboob"),
+        ("mohajar", "mohajar"),
+        ("muhajir", "mohajar"),
+        ("mohajir", "mohajar"),
+        ("noorpura", "noor pura"),
+        ("noorpuraa", "noor pura"),
+        ("noorpura", "noor pura"),
+        ("kashmir", "kashmir"),
+        ("zimindara", "zimindara"),
+        ("zimandara", "zimindara"),
+        ("zimidara", "zimindara"),
+        ("zimmindara", "zimindara"),
+        ("purani", "purani"),
+        ("purany", "purani"),
+        ("chishtian", "chishtian"),
+        ("chistian", "chishtian"),
+        ("feeder", "feeder"),
+        ("fider", "feeder"),
+        ("qadrabbad", "qadrabbad"),
+        ("qadirabad", "qadrabbad"),
+        ("qadir abad", "qadrabbad"),
+        ("taqwa", "taqwa"),
+        ("takwa", "taqwa"),
+        ("takiya", "taqwa"),
+        ("nasirabad", "nasirabbad"),
+        ("nasirababad", "nasirabbad"),
+        ("satellite", "satellite"),
+        ("yasrab", "yasrab"),
+        ("yasir", "yasrab"),
+        ("tableghi", "tableghi"),
+        ("tablegi", "tableghi"),
+        ("markaz", "markaz"),
+        ("markez", "markaz"),
+        ("taj pura", "taj pura"),
+        ("sarwar", "sarwar"),
+        ("sarwer", "sarwar"),
+        ("stadium", "stadium"),
+    ]
+
+    for a, b in pairs:
+        # Replace word boundaries only to avoid partial matches
+        text = re.sub(rf"\b{re.escape(a)}\b", b, text)
+        text = re.sub(rf"\b{re.escape(b)}\b", b, text)
+
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def _keyword_set(value: str) -> set[str]:
+    """Extract significant keywords from a sector/locality name."""
+    text = (value or "").strip().lower()
+    text = re.sub(r"[,;:.()\[\]\{\}'\"`!@#$%^&*=+<>?/\\|~\-–—]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    words = text.split()
+    # Apply basic variant normalization to keywords
+    norm_pairs = [
+        ("sabzi", "sabz"), ("sabaz", "sabz"),
+        ("ghaziani", "g"), ("gulbarg", "gulberg"),
+        ("nager", "nagar"), ("mehbob", "mehboob"), ("mahboob", "mehboob"),
+        ("mohajir", "mohajar"), ("muhajir", "mohajar"),
+        ("zimandara", "zimindara"), ("zimidara", "zimindara"),
+        ("chistian", "chishtian"),
+    ]
+    normalized = []
+    for w in words:
+        for a, b in norm_pairs:
+            if w == a:
+                w = b
+                break
+        normalized.append(w)
+    stopwords = {"the", "a", "an", "and", "or", "of", "to", "in", "on", "at", "by", "for",
+                 "with", "without", "near", "adjacent", "main", "road", "zone", "area",
+                 "colony", "town", "city", "society", "private", "phase", "line", "connection"}
+    return {w for w in normalized if w not in stopwords and len(w) > 1 and not w.isdigit()}
+
+
 def _normalize_staff_name(name: str) -> str:
     return " ".join(name.split()).upper()
 
@@ -577,6 +702,44 @@ def build_commercial_rows(df: pd.DataFrame, dates: pd.Series, amount_col: str | 
     return total_rows, monthly_data
 
 
+def build_commercial_month_wise_summary(df: pd.DataFrame, dates: pd.Series, amount_col: str | None, arrears_col: str | None) -> list[dict]:
+    """Build commercial month-wise summary — one row per fiscal month (July to June)."""
+    mask = build_commercial_mask(df)
+    comm = df[mask].copy()
+    if comm.empty:
+        return []
+
+    comm_dates = dates.reindex(comm.index).dropna()
+    comm = comm.loc[comm_dates.index]
+    comm_dates = comm_dates.loc[comm.index]
+
+    metric_df = pd.DataFrame({"date": comm_dates})
+    if amount_col:
+        metric_df["amount"] = comm[amount_col].apply(clean_amount_value).reindex(comm_dates.index).fillna(0)
+    if arrears_col:
+        metric_df["arrears"] = comm[arrears_col].apply(clean_amount_value).reindex(comm_dates.index).fillna(0)
+
+    agg_dict = {"count": ("date", "size")}
+    if amount_col is not None:
+        agg_dict["amount"] = ("amount", "sum")
+    if arrears_col is not None:
+        agg_dict["arrears"] = ("arrears", "sum")
+    grouped = metric_df.groupby(metric_df["date"].dt.to_period("M")).agg(**agg_dict).sort_index()
+
+    fiscal_start, current_period = get_fiscal_window()
+    grouped = grouped.loc[(grouped.index >= fiscal_start) & (grouped.index <= current_period)]
+
+    rows = []
+    for label, row in grouped.iterrows():
+        item = {"label": format_fiscal_month(label), "count": int(row["count"])}
+        if "amount" in row:
+            item["amount_total"] = float(row["amount"])
+        if "arrears" in row:
+            item["arrears_total"] = float(row["arrears"])
+        rows.append(item)
+    return rows
+
+
 def build_commercial_daily_income_rows(
     df: pd.DataFrame,
     dates: pd.Series,
@@ -698,6 +861,12 @@ def match_staff_assignment(zone: str, sector: str, locality: str, assignments: l
     zone_key = match_key(zone)
     sector_key = match_key(sector)
     locality_key = match_key(locality)
+
+    deep_sector = _deep_normalize_sector(sector)
+    deep_locality = _deep_normalize_sector(locality) if locality else ''
+    sector_kw = _keyword_set(sector)
+
+    # Strategy 1: Exact zone+sector+locality match
     for assignment in assignments:
         if (
             match_key(assignment["zone"]) == zone_key
@@ -705,6 +874,8 @@ def match_staff_assignment(zone: str, sector: str, locality: str, assignments: l
             and match_key(assignment["locality"]) == locality_key
         ):
             return assignment
+
+    # Strategy 2: Exact zone+sector match (assignment has no locality)
     for assignment in assignments:
         if (
             match_key(assignment["zone"]) == zone_key
@@ -712,6 +883,8 @@ def match_staff_assignment(zone: str, sector: str, locality: str, assignments: l
             and not clean_cell(assignment["locality"])
         ):
             return assignment
+
+    # Strategy 3: Zone-only match (assignment has no sector or locality)
     for assignment in assignments:
         if (
             match_key(assignment["zone"]) == zone_key
@@ -719,6 +892,84 @@ def match_staff_assignment(zone: str, sector: str, locality: str, assignments: l
             and not clean_cell(assignment["locality"])
         ):
             return assignment
+
+    # Strategy 4: Deep-normalized sector match (with or without zone, ignore locality)
+    deep_zone = _deep_normalize_sector(zone)
+    for assignment in assignments:
+        assign_deep_sector = _deep_normalize_sector(assignment["sector"]) if assignment["sector"] else ''
+        if not assign_deep_sector:
+            continue
+        if deep_sector == assign_deep_sector:
+            if not clean_cell(assignment["zone"]) or _deep_normalize_sector(assignment["zone"]) == deep_zone:
+                return assignment
+
+    # Strategy 5: Deep-normalized match swapping sector and locality fields
+    if locality:
+        for assignment in assignments:
+            assign_deep_sector = _deep_normalize_sector(assignment["sector"]) if assignment["sector"] else ''
+            if not assign_deep_sector:
+                continue
+            if deep_locality == assign_deep_sector:
+                if not clean_cell(assignment["zone"]) or _deep_normalize_sector(assignment["zone"]) == deep_zone:
+                    return assignment
+
+    # Strategy 6: Same-zone keyword overlap on sector
+    best_sector = None
+    best_overlap = 0
+    if sector_kw:
+        for assignment in assignments:
+            assign_sector = clean_cell(assignment["sector"])
+            if not assign_sector:
+                continue
+            if clean_cell(assignment["zone"]) and match_key(assignment["zone"]) != zone_key:
+                continue
+            assign_kw = _keyword_set(assign_sector)
+            if not assign_kw:
+                continue
+            overlap = len(sector_kw & assign_kw)
+            if overlap > best_overlap:
+                best_overlap = overlap
+                best_sector = assign_sector
+            elif overlap == best_overlap and overlap > 0 and best_sector:
+                if len(assign_kw) < len(_keyword_set(best_sector)):
+                    best_sector = assign_sector
+        if best_overlap >= 2 and best_sector:
+            for assignment in assignments:
+                if match_key(assignment["sector"]) == match_key(best_sector):
+                    return assignment
+
+    # Strategy 7: Levenshtein fuzzy match on sector (same zone)
+    for assignment in assignments:
+        assign_sector = clean_cell(assignment["sector"])
+        if not assign_sector:
+            continue
+        if clean_cell(assignment["zone"]) and match_key(assignment["zone"]) != zone_key:
+            continue
+        sector_len = max(len(sector_key), len(match_key(assign_sector)))
+        max_dist = max(2, sector_len // 5)
+        if _levenshtein(sector_key, match_key(assign_sector)) <= max_dist:
+            return assignment
+
+    # Strategy 8: Levenshtein fuzzy match using deep-normalized forms
+    for assignment in assignments:
+        assign_deep = _deep_normalize_sector(assignment["sector"]) if assignment["sector"] else ''
+        if not assign_deep:
+            continue
+        if clean_cell(assignment["zone"]) and match_key(assignment["zone"]) != zone_key:
+            continue
+        max_dist = max(2, len(deep_sector) // 5)
+        if _levenshtein(deep_sector, assign_deep) <= max_dist:
+            return assignment
+
+    # Log unmatched record for debugging
+    _UNMATCHED_LOG.append({
+        "connection_no": connection_no or "",
+        "zone": zone,
+        "sector": sector,
+        "locality": locality,
+        "deep_sector": deep_sector,
+    })
+
     return None
 
 
@@ -761,6 +1012,7 @@ def build_daily_staff_receive_report(
     if not sector_col or not locality_col:
         return {"summary_rows": [], "detail_rows": [], "metric_label": "Area Received", "date_range": ""}
 
+    clear_unmatched_log()
     metric_col = arrears_col or areas_col
     connection_no_col = pick_column(columns, ["connection no", "connection number", "old connection no", "consumer no", "customer no", "connection id", "conn id"])
     staff, assignments = load_staff_assignment_rows()
@@ -813,10 +1065,16 @@ def build_daily_staff_receive_report(
         connection_no = clean_cell(row.get(connection_no_col)) if connection_no_col else None
         assignment = get_staff_by_connection_rule(sector, locality, connection_no, staff)
         if not assignment:
+            unmatched_before = len(get_unmatched_log())
             assignment = match_staff_assignment(zone, sector, locality, assignments, connection_no)
-        if assignment:
-            if "MAHBOOB" in sector.upper() or "NOOR" in sector.upper() or "MURTAZA" in assignment.get("staff_name", "").upper() or "LATIF" in assignment.get("staff_name", "").upper():
-                print(f"DEBUG_AUTO cn={connection_no} sector={sector!r} locality={locality!r} zone={zone!r} assigned={assignment['staff_name']!r}")
+            unmatched_after = len(get_unmatched_log())
+            if unmatched_after > unmatched_before:
+                for entry in get_unmatched_log()[unmatched_before:]:
+                    consumer_name_col = pick_column(columns, ["consumer name / f/h name", "consumer name", "name"])
+                    entry["consumer_name"] = clean_cell(row.get(consumer_name_col)) if consumer_name_col else ""
+                    entry["amount_received"] = amount_received
+                    entry["metric_total"] = metric_total
+                    entry["date"] = str(valid_dates.loc[idx])
         if assignment:
             staff_id = int(assignment["staff_id"])
             staff_name = assignment["staff_name"]
@@ -925,6 +1183,7 @@ def build_daily_staff_receive_report(
         "grouped_detail": grouped_detail,
         "metric_label": "Area Received",
         "date_range": date_range,
+        "unmatched_log": get_unmatched_log(),
     }
 
 
@@ -1063,6 +1322,7 @@ def summarize_dataframe(df: pd.DataFrame) -> dict:
     fiscal_row_count = None
     commercial_total, commercial_monthly = None, None
     commercial_daily_income, commercial_daily_metric_label = None, "Arrears Received" if arrears_col else "Areas Received"
+    commercial_month_wise_summary = []
     daily_staff_receive = {"summary_rows": [], "detail_rows": [], "metric_label": "Area Received", "date_range": ""}
     dates = None
 
@@ -1103,6 +1363,7 @@ def summarize_dataframe(df: pd.DataFrame) -> dict:
                 arrears_col,
                 areas_col,
             )
+            commercial_month_wise_summary = build_commercial_month_wise_summary(df, dates, amount_col, arrears_col)
             daily_staff_receive = build_daily_staff_receive_report(
                 df,
                 dates,
@@ -1173,6 +1434,7 @@ def summarize_dataframe(df: pd.DataFrame) -> dict:
         "commercial_monthly": commercial_monthly,
         "commercial_daily_income": commercial_daily_income,
         "commercial_daily_metric_label": commercial_daily_metric_label,
+        "commercial_month_wise_summary": commercial_month_wise_summary,
         "daily_staff_receive": daily_staff_receive,
         "has_receipt_format": has_receipt_format,
         "receipt_monthly_rows": (receipt_info or {}).get("rows", []),
@@ -1295,6 +1557,8 @@ def _get_card_col_map(card, r):
         if r.get("has_arrears"):
             return {"month": 0, "locality": 1, "count": 2, "arrearsReceived": 3, "amountReceived": 4}
         return {"month": 0, "locality": 1, "count": 2, "amountReceived": 3}
+    if card == "commercial-month-wise":
+        return {"month": 0, "noOfBills": 1, "arrearsReceived": 2, "currentAmountReceived": 3, "amountReceived": 4}
     return None
 
 def _filter_card_export(cols_param, col_map, headers, rows, grand=None):
@@ -6079,6 +6343,31 @@ def download_card(card: str, fmt_type: str):
             f"<b>Total Amount Received:</b> Rs. {grand[-1] if grand else '0'}",
         ]
 
+    elif card == "commercial-month-wise":
+        title = "Commercial Month-wise Report"
+        fiscal_start, current_period = get_fiscal_window()
+        period_str = f"{format_calendar_month(fiscal_start)} to {format_calendar_month(current_period)}"
+        headers = ["Month", "No. of Bills", "Arrears Received", "Current Amount Received", "Amount Received"]
+        rows = []
+        gt_count, gt_arrears, gt_amount = 0, 0, 0
+        for row in r.get("commercial_month_wise_summary", []):
+            c = row.get("count", 0)
+            ar = row.get("arrears_total", 0)
+            am = row.get("amount_total", 0)
+            current = am - ar
+            rows.append([row["label"], fmt(c), fmt(ar), fmt(current), fmt(am)])
+            gt_count += c
+            gt_arrears += ar
+            gt_amount += am
+        gt_current = gt_amount - gt_arrears
+        summary = [
+            f"<b>Period:</b> {period_str}",
+            f"<b>Total Amount Received:</b> Rs. {fmt(gt_amount)}",
+            f"<b>Total Arrears Received:</b> Rs. {fmt(gt_arrears)}",
+            f"<b>Total Current Amount Received:</b> Rs. {fmt(gt_current)}",
+        ]
+        grand = ["Grand Total", fmt(gt_count), fmt(gt_arrears), fmt(gt_current), fmt(gt_amount)]
+
     elif card == "daily-staff-receive":
         title = "Daily Receive Amount of Staff"
         summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(r)
@@ -6184,6 +6473,8 @@ def download_card(card: str, fmt_type: str):
             pdf_kwargs = {}
             pdf_headers, pdf_rows, pdf_grand = headers, rows, grand
             if card == "monthly":
+                pdf_rows = [[fiscal_label_to_calendar_label(row[0]), *row[1:]] for row in pdf_rows]
+            if card == "commercial-month-wise":
                 pdf_rows = [[fiscal_label_to_calendar_label(row[0]), *row[1:]] for row in pdf_rows]
             if card == "sector":
                 page_w = landscape(A4)[0] - 30 * mm
@@ -6329,8 +6620,9 @@ def download_card(card: str, fmt_type: str):
                     pdf_kwargs["extra_section"] = conn_summary
                     pdf_kwargs["compact"] = True
                 pdf_bytes = generate_card_pdf(title, summary, pdf_headers, pdf_rows, pdf_grand, **pdf_kwargs)
+        dl_filename = {"commercial-month-wise": "Commercial_Month_Wise_Report"}.get(card, card)
         return Response(pdf_bytes, mimetype="application/pdf",
-                        headers={"Content-Disposition": f"attachment; filename={card}_report.pdf"})
+                        headers={"Content-Disposition": f"attachment; filename={dl_filename}.pdf"})
     elif fmt_type == "csv":
         if card == "daily-staff-receive":
             summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(r)
@@ -6343,7 +6635,7 @@ def download_card(card: str, fmt_type: str):
             csv_rows.extend([["Details", *row] for row in detail_rows])
             csv_data = "\n".join(",".join(f'"{str(value).replace(chr(34), chr(34) + chr(34))}"' for value in row) for row in csv_rows)
             return Response(csv_data, mimetype="text/csv",
-                            headers={"Content-Disposition": f"attachment; filename={card}_report.csv"})
+                            headers={"Content-Disposition": f"attachment; filename={dl_filename}.csv"})
         all_rows = rows + [grand] if grand else rows
         if headers and headers[0] == "Month":
             out = io.StringIO()
@@ -6381,7 +6673,7 @@ def download_card(card: str, fmt_type: str):
             df = _card_rows_to_df(headers, all_rows)
             csv_data = df.to_csv(index=False)
         return Response(csv_data, mimetype="text/csv",
-                        headers={"Content-Disposition": f"attachment; filename={card}_report.csv"})
+                        headers={"Content-Disposition": f"attachment; filename={dl_filename}.csv"})
     elif fmt_type == "xlsx":
         if card == "daily-staff-receive":
             summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(r)
@@ -6391,34 +6683,10 @@ def download_card(card: str, fmt_type: str):
                 pd.DataFrame(detail_rows, columns=detail_headers).to_excel(writer, sheet_name="Details", index=False)
             buf.seek(0)
             return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            headers={"Content-Disposition": f"attachment; filename={card}_report.xlsx"})
-        all_rows = rows + [grand] if grand else rows
-        buf = io.BytesIO()
-        if headers and headers[0] == "Month":
-            import openpyxl
-            wb = openpyxl.Workbook()
-            ws = wb.active
-            ws.append(headers)
-            for row_data in all_rows:
-                ws.append(row_data)
-            for cell in ws["A"][1:]:
-                cell.number_format = "@"
-                cell.value = str(cell.value) if cell.value is not None else ""
-            # Append connection summary to monthly XLSX when included
-            if card in ("receipt-monthly", "monthly") and conn_summary is not None:
-                ws.append([])
-                ws.append(["Summary"])
-                ws.append(conn_summary["headers"])
-                conn_all_rows = conn_summary["rows"] + [conn_summary["grand"]]
-                for row_data in conn_all_rows:
-                    ws.append(row_data)
-            wb.save(buf)
-        else:
-            df = _card_rows_to_df(headers, all_rows)
-            df.to_excel(buf, index=False)
+                            headers={"Content-Disposition": f"attachment; filename={dl_filename}.xlsx"})
         buf.seek(0)
         return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        headers={"Content-Disposition": f"attachment; filename={card}_report.xlsx"})
+                        headers={"Content-Disposition": f"attachment; filename={dl_filename}.xlsx"})
 
     flash("Unknown format type.")
     return redirect(url_for("index"))

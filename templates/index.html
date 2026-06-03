@@ -576,6 +576,88 @@
         {% endif %}
       </div>
     </div>
+
+    <div class="section collapsed" id="sec-commercial-month-wise">
+      <div class="section-header" onclick="toggleSection('sec-commercial-month-wise')">
+        <div class="section-header-icon">&#127970;</div>
+        <div class="section-title">Commercial Month-wise Report</div>
+        {% if results.commercial_month_wise_summary %}<span class="section-badge">{{ results.commercial_month_wise_summary|length }} months</span>{% endif %}
+        <span class="section-toggle">&#8964;</span>
+      </div>
+      <div class="section-body">
+        {% if results.commercial_month_wise_summary %}
+        <div data-col-config="commercialMonthWiseReport">
+          <div class="export-bar">
+            <a class="dl-btn pdf" href="{{ url_for('download_card', card='commercial-month-wise', fmt_type='pdf') }}">&#11015; PDF</a>
+            <a class="dl-btn csv" href="{{ url_for('download_card', card='commercial-month-wise', fmt_type='csv') }}">&#11015; CSV</a>
+            <a class="dl-btn xlsx" href="{{ url_for('download_card', card='commercial-month-wise', fmt_type='xlsx') }}">&#11015; Excel</a>
+          </div>
+        </div>
+        <div class="col-select-area">
+          <div class="col-select-label">Select Columns for Export</div>
+          <div class="col-chips" id="col-chips-commercialMonthWiseReport"></div>
+        </div>
+        <div class="column-selector-wrapper" data-col-config="commercialMonthWiseReport" style="display:none;"></div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>No. of Bills</th>
+                <th>Arrears Received</th>
+                <th>Current Amount Received</th>
+                <th>Amount Received</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% set cm = namespace(tc=0, ta=0, tar=0, tcur=0) %}
+              {% set max_amt = results.commercial_month_wise_summary | map(attribute='amount_total') | max %}
+              {% set max_arr = results.commercial_month_wise_summary | map(attribute='arrears_total') | max %}
+              {% set max_cnt = results.commercial_month_wise_summary | map(attribute='count') | max %}
+              {% set max_cur = results.commercial_month_wise_summary | map(attribute='amount_total') | max %}
+              {% for row in results.commercial_month_wise_summary %}
+              {% set current = row.amount_total|default(0) - row.arrears_total|default(0) %}
+              <tr>
+                <td>{{ row.label }}</td>
+                <td class="mono">
+                  {% set pct = (row.count|default(0) / max_cnt * 100) if max_cnt > 0 else 0 %}
+                  <span class="mini-bar-wrap">{{ "{:,}".format(row.count|default(0)) }}<span class="mini-bar"><span class="mini-bar-fill" style="width:{{ pct }}%"></span></span></span>
+                </td>
+                <td class="mono accent-amber">
+                  {% set pct = (row.arrears_total|default(0) / max_arr * 100) if max_arr > 0 else 0 %}
+                  <span class="mini-bar-wrap">{{ "{:,.0f}".format(row.arrears_total|default(0)) }}<span class="mini-bar"><span class="mini-bar-fill amber" style="width:{{ pct }}%"></span></span></span>
+                </td>
+                <td class="mono accent-purple">
+                  {% set pct = (current / max_cur * 100) if max_cur > 0 else 0 %}
+                  <span class="mini-bar-wrap">{{ "{:,.0f}".format(current) }}<span class="mini-bar"><span class="mini-bar-fill purple" style="width:{{ pct }}%"></span></span></span>
+                </td>
+                <td class="mono accent-teal">
+                  {% set pct = (row.amount_total|default(0) / max_amt * 100) if max_amt > 0 else 0 %}
+                  <span class="mini-bar-wrap">{{ "{:,.0f}".format(row.amount_total|default(0)) }}<span class="mini-bar"><span class="mini-bar-fill" style="width:{{ pct }}%"></span></span></span>
+                </td>
+              {% set cm.tc = cm.tc + row.count|default(0) %}
+              {% set cm.tar = cm.tar + row.arrears_total|default(0) %}
+              {% set cm.ta = cm.ta + row.amount_total|default(0) %}
+              {% set cm.tcur = cm.tcur + current %}
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>Grand Total</td>
+                <td class="mono">{{ "{:,}".format(cm.tc) }}</td>
+                <td class="mono">{{ "{:,.0f}".format(cm.tar) }}</td>
+                <td class="mono">{{ "{:,.0f}".format(cm.tcur) }}</td>
+                <td class="mono">{{ "{:,.0f}".format(cm.ta) }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        {% else %}
+        <p class="muted">No commercial month-wise data found.</p>
+        {% endif %}
+      </div>
+    </div>
     {% endif %}
 
     <!-- SUMMARY -->
@@ -742,6 +824,13 @@
       { key: "locality", label: "Locality", checked: true },
       { key: "count", label: "No. of Bills", checked: true },
       { key: "arrearsReceived", label: "Arrears Received", checked: true },
+      { key: "amountReceived", label: "Amount Received", checked: true }
+    ],
+    commercialMonthWiseReport: [
+      { key: "month", label: "Month", checked: true },
+      { key: "noOfBills", label: "No. of Bills", checked: false },
+      { key: "arrearsReceived", label: "Arrears Received", checked: true },
+      { key: "currentAmountReceived", label: "Current Amount Received", checked: true },
       { key: "amountReceived", label: "Amount Received", checked: true }
     ],
     connectionTypeSummary: [
