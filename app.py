@@ -866,6 +866,16 @@ def match_staff_assignment(zone: str, sector: str, locality: str, assignments: l
     deep_locality = _deep_normalize_sector(locality) if locality else ''
     sector_kw = _keyword_set(sector)
 
+    alias_match = match_by_alias(sector, locality)
+    if alias_match:
+        for assignment in assignments:
+            if (
+                int(assignment.get("staff_id") or 0) == int(alias_match["staff_id"])
+                and match_key(assignment["zone"]) == match_key(alias_match["zone"])
+            ):
+                return assignment
+        return alias_match
+
     # Strategy 1: Exact zone+sector+locality match
     for assignment in assignments:
         if (
@@ -961,7 +971,37 @@ def match_staff_assignment(zone: str, sector: str, locality: str, assignments: l
         if _levenshtein(deep_sector, assign_deep) <= max_dist:
             return assignment
 
-    # Log unmatched record for debugging
+    best_assignment = None
+    best_distance = 999
+    for assignment in assignments:
+        assign_sector = clean_cell(assignment["sector"])
+        if not assign_sector:
+            continue
+        max_dist = max(2, len(deep_sector) // 4)
+        distance = _levenshtein(deep_sector, _deep_normalize_sector(assign_sector))
+        if distance <= max_dist and distance < best_distance:
+            best_distance = distance
+            best_assignment = assignment
+    if best_assignment is not None:
+        return best_assignment
+
+    if sector_kw:
+        best_assignment = None
+        best_overlap = 0
+        for assignment in assignments:
+            assign_sector = clean_cell(assignment["sector"])
+            if not assign_sector:
+                continue
+            assign_kw = _keyword_set(assign_sector)
+            if not assign_kw:
+                continue
+            overlap = len(sector_kw & assign_kw)
+            if overlap > best_overlap:
+                best_overlap = overlap
+                best_assignment = assignment
+        if best_overlap >= 2 and best_assignment is not None:
+            return best_assignment
+
     _UNMATCHED_LOG.append({
         "connection_no": connection_no or "",
         "zone": zone,
@@ -969,6 +1009,12 @@ def match_staff_assignment(zone: str, sector: str, locality: str, assignments: l
         "locality": locality,
         "deep_sector": deep_sector,
     })
+
+    if os.environ.get("FLASK_DEBUG") == "1" or os.environ.get("VERCEL") == "1":
+        print(
+            f"UNMATCHED_STAFF: conn={connection_no or ''} zone={zone!r} sector={sector!r} "
+            f"locality={locality!r} deep_sector={deep_sector!r}"
+        )
 
     return None
 
@@ -2379,15 +2425,86 @@ def seed_auto_assignment_rules(conn) -> None:
     )
 
 
+_ALIAS_RULES: list[dict] = []
+_ALIAS_RULES_LOADED = False
+
+
+def load_alias_rules(force_reload: bool = False) -> list[dict]:
+    global _ALIAS_RULES, _ALIAS_RULES_LOADED
+    if _ALIAS_RULES_LOADED and not force_reload:
+        return list(_ALIAS_RULES)
+    rules: list[dict] = []
+    if os.path.exists(SEED_ASSIGNMENTS_JSON):
+        try:
+            with open(SEED_ASSIGNMENTS_JSON, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+            for item in data.get("aliases", []) or []:
+                match = str(item.get("match") or "").strip()
+                if not match:
+                    continue
+                rules.append({
+                    "match": match,
+                    "match_key": match_key(match),
+                    "staff_name": str(item.get("staff_name") or "").strip(),
+                    "zone": str(item.get("zone") or "").strip() or "Unassigned",
+                })
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            rules = []
+    _ALIAS_RULES = rules
+    _ALIAS_RULES_LOADED = True
+    return list(_ALIAS_RULES)
+
+
+def match_by_alias(sector: str, locality: str) -> dict | None:
+    rules = load_alias_rules()
+    if not rules:
+        return None
+    sector_k = match_key(sector)
+    locality_k = match_key(locality) if locality else ""
+    haystack = f"{sector_k} {locality_k}".strip()
+    if not haystack:
+        return None
+    for rule in rules:
+        needle = rule["match_key"]
+        if not needle:
+            continue
+        if needle in haystack:
+            with get_db() as conn:
+                row = conn.execute(
+                    "SELECT id, name FROM staff WHERE name = ?",
+                    (rule["staff_name"],),
+                ).fetchone()
+            if row:
+                return {
+                    "staff_id": int(row["id"]),
+                    "staff_name": row["name"],
+                    "zone": rule["zone"],
+                    "sector": sector,
+                    "locality": locality,
+                }
+            return {
+                "staff_id": 0,
+                "staff_name": rule["staff_name"],
+                "zone": rule["zone"],
+                "sector": sector,
+                "locality": locality,
+            }
+    return None
+
+
 def seed_staff_assignments_from_file(conn) -> None:
     if os.environ.get("VERCEL") != "1":
+        load_alias_rules(force_reload=True)
         return
-    existing = conn.execute("SELECT COUNT(*) AS cnt FROM staff_assignments").fetchone()
-    if existing and existing["cnt"] > 0:
-        return
+    existing_assignments = conn.execute("SELECT COUNT(*) AS cnt FROM staff_assignments").fetchone()
+    existing_sectors = conn.execute("SELECT COUNT(*) AS cnt FROM sectors").fetchone()
+    existing_localities = conn.execute("SELECT COUNT(*) AS cnt FROM localities").fetchone()
+    seed_full = (not existing_sectors["cnt"]) or (not existing_localities["cnt"])
 
     seed_staff: list[str] = []
     seed_assignments: list[dict] = []
+    seed_sectors: list[dict] = []
+    seed_localities: list[dict] = []
 
     if os.path.exists(SEED_ASSIGNMENTS_JSON):
         try:
@@ -2395,6 +2512,8 @@ def seed_staff_assignments_from_file(conn) -> None:
                 data = json.load(handle)
             seed_staff = [str(s).strip() for s in data.get("staff", []) if str(s).strip()]
             seed_assignments = data.get("assignments", []) or []
+            seed_sectors = data.get("sectors", []) or []
+            seed_localities = data.get("localities", []) or []
         except (OSError, json.JSONDecodeError, TypeError, ValueError):
             return
     elif os.path.exists(SEED_ASSIGNMENTS_CSV):
@@ -2412,6 +2531,42 @@ def seed_staff_assignments_from_file(conn) -> None:
         return
 
     now = datetime.now().isoformat(timespec="seconds")
+
+    if seed_full:
+        seen_zones: set[str] = set()
+        for item in seed_sectors:
+            zone = str(item.get("zone") or "").strip() or "Unassigned"
+            if zone and zone not in seen_zones:
+                conn.execute("INSERT OR IGNORE INTO zones (name) VALUES (?)", (zone,))
+                seen_zones.add(zone)
+            name = str(item.get("name") or "").strip()
+            if name:
+                conn.execute(
+                    "INSERT OR IGNORE INTO sectors (name, zone) VALUES (?, ?)",
+                    (name, zone),
+                )
+        for item in seed_localities:
+            sector_name = str(item.get("sector") or "").strip()
+            locality_name = str(item.get("locality") or "").strip()
+            zone = str(item.get("zone") or "").strip() or "Unassigned"
+            if not sector_name or not locality_name:
+                continue
+            if zone and zone not in seen_zones:
+                conn.execute("INSERT OR IGNORE INTO zones (name) VALUES (?)", (zone,))
+                seen_zones.add(zone)
+            conn.execute(
+                "INSERT OR IGNORE INTO localities (sector, locality, zone) VALUES (?, ?, ?)",
+                (sector_name, locality_name, zone),
+            )
+            conn.execute(
+                "INSERT OR IGNORE INTO sectors (name, zone) VALUES (?, ?)",
+                (sector_name, zone),
+            )
+
+    if existing_assignments["cnt"] > 0:
+        load_alias_rules(force_reload=True)
+        return
+
     staff_names = sorted({name for name in seed_staff if name})
     for name in staff_names:
         conn.execute(
@@ -2447,6 +2602,8 @@ def seed_staff_assignments_from_file(conn) -> None:
             """,
             (staff_id, zone, sector, locality, now),
         )
+
+    load_alias_rules(force_reload=True)
 
 
 def backfill_bill_arrears(conn) -> None:

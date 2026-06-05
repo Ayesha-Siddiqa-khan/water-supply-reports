@@ -487,5 +487,1141 @@
       "sector": "kIPS Academy to Gulshan -e-Batool main 13/G Road",
       "locality": ""
     }
+  ],
+  "sectors": [
+    {
+      "name": "13 /G CHAK,   AZAFI BASTI,  MUZAFFAR COLONY",
+      "zone": "A"
+    },
+    {
+      "name": "13 /G CHAK, AZAFI BASTI, MUZAFFAR COLONY",
+      "zone": "A"
+    },
+    {
+      "name": "13 /G, AZAFI BASTI,MUZAFFAR COLONY,ALI TOWM",
+      "zone": "A"
+    },
+    {
+      "name": "Al-Khair Colony (PRIVATE SOCIETY)",
+      "zone": "A"
+    },
+    {
+      "name": "Ali Town",
+      "zone": "A"
+    },
+    {
+      "name": "Alimia Colony",
+      "zone": "A"
+    },
+    {
+      "name": "BATOOL GARDEN DUBAI VILLAZ ALHARAM CITY",
+      "zone": "A"
+    },
+    {
+      "name": "BATOOL GARDEN,DUBAI VILLAZ,ALHARAM CITY(PRIVATE SO",
+      "zone": "A"
+    },
+    {
+      "name": "Baghdad Colony",
+      "zone": "A"
+    },
+    {
+      "name": "Bahadar Colony",
+      "zone": "A"
+    },
+    {
+      "name": "Bahu Chowk to Sabz mandi Road",
+      "zone": "A"
+    },
+    {
+      "name": "Baldia Colony",
+      "zone": "A"
+    },
+    {
+      "name": "Chishtia Park Colony",
+      "zone": "A"
+    },
+    {
+      "name": "DREEM LAND PHASE 1(Private society)",
+      "zone": "A"
+    },
+    {
+      "name": "Farooq Colony",
+      "zone": "A"
+    },
+    {
+      "name": "Ghala Mandi Chishtian",
+      "zone": "A"
+    },
+    {
+      "name": "Ghani Akbar Town",
+      "zone": "A"
+    },
+    {
+      "name": "Gulberg Town 14/G",
+      "zone": "A"
+    },
+    {
+      "name": "Gulshan-e-Batool Colony (PRIVATE SOCIETY)",
+      "zone": "A"
+    },
+    {
+      "name": "Hafiz Hotel to Bahawalnager Road",
+      "zone": "A"
+    },
+    {
+      "name": "Hussain Colony",
+      "zone": "A"
+    },
+    {
+      "name": "Itefaq City Qaziwala Road (PRIVATE SOCIETY)",
+      "zone": "A"
+    },
+    {
+      "name": "MUHAMMAD CITY   (PRIVATE SOCIETY)",
+      "zone": "A"
+    },
+    {
+      "name": "MUHAMMAD CITY (PRIVATE SOCIETY)",
+      "zone": "A"
+    },
+    {
+      "name": "MUHAMMAD CITY ZONE ,,A,, (PRIVATE SOCIETY)",
+      "zone": "A"
+    },
+    {
+      "name": "MUSLIM TOWN",
+      "zone": "A"
+    },
+    {
+      "name": "Madina Colony",
+      "zone": "A"
+    },
+    {
+      "name": "NAIKy WALA TIBA",
+      "zone": "A"
+    },
+    {
+      "name": "Noor Mohalla Melad Chowk Mian Road",
+      "zone": "A"
+    },
+    {
+      "name": "Noor Mohalla, Melad Chowk Mian Road Zone-1",
+      "zone": "A"
+    },
+    {
+      "name": "Qaziwala Road To Hospital City area",
+      "zone": "A"
+    },
+    {
+      "name": "REHAN AVNUE (PRIVATE SOCIETY PHASE 1)",
+      "zone": "A"
+    },
+    {
+      "name": "REHAN GARDEN(PRIVATE SOCIETY)",
+      "zone": "A"
+    },
+    {
+      "name": "Taj Pura",
+      "zone": "A"
+    },
+    {
+      "name": "ZAIN CITY (PRIVATE SOCITIES)",
+      "zone": "A"
+    },
+    {
+      "name": "kIPS Academy to Gulshan -e-Batool main 13/G Road",
+      "zone": "A"
+    },
+    {
+      "name": "ALHARAM CITY",
+      "zone": "B"
+    },
+    {
+      "name": "ARHAM TOWN 16/G ROAD",
+      "zone": "B"
+    },
+    {
+      "name": "Chak No. 15/Gajjiani (Large)",
+      "zone": "B"
+    },
+    {
+      "name": "Chak No.15/G  (Small)",
+      "zone": "B"
+    },
+    {
+      "name": "Chak No.15/G (Small)",
+      "zone": "B"
+    },
+    {
+      "name": "Chak No.46/F",
+      "zone": "B"
+    },
+    {
+      "name": "Chaki Gopi Raam",
+      "zone": "B"
+    },
+    {
+      "name": "Dahranwala More",
+      "zone": "B"
+    },
+    {
+      "name": "FATIMA COLONY ( WARIS COLONY)",
+      "zone": "B"
+    },
+    {
+      "name": "Fatima Plaza",
+      "zone": "B"
+    },
+    {
+      "name": "GULSTAN TOWN 15/G ROAD",
+      "zone": "B"
+    },
+    {
+      "name": "Ghareeb Mohallah",
+      "zone": "B"
+    },
+    {
+      "name": "Gulshan-e-Iqbal Colony",
+      "zone": "B"
+    },
+    {
+      "name": "Iqbal Nager 46/F",
+      "zone": "B"
+    },
+    {
+      "name": "Islam Pura",
+      "zone": "B"
+    },
+    {
+      "name": "JINAH TOWN",
+      "zone": "B"
+    },
+    {
+      "name": "Kanwar Colony, Pacca Karkhana",
+      "zone": "B"
+    },
+    {
+      "name": "Khayaban Colony 1",
+      "zone": "B"
+    },
+    {
+      "name": "Khayaban e Ameen 2",
+      "zone": "B"
+    },
+    {
+      "name": "Mahboob Colony  (SHARQI)",
+      "zone": "B"
+    },
+    {
+      "name": "Mahboob Colony  (SHUMALI GHARBI)",
+      "zone": "B"
+    },
+    {
+      "name": "Mahboob Colony (Gharbi JanubI Butcher khana)",
+      "zone": "B"
+    },
+    {
+      "name": "Mahboob Colony (SHARQI)",
+      "zone": "B"
+    },
+    {
+      "name": "Mahboob Colony (SHUMALI GHARBI)",
+      "zone": "B"
+    },
+    {
+      "name": "Mohajar Colony Zone-B",
+      "zone": "B"
+    },
+    {
+      "name": "NATIONAL TELE COMMUNICATION",
+      "zone": "B"
+    },
+    {
+      "name": "SIDRA TOWN QAZI WALA ROAD  (PRIVATE SOCIETY)",
+      "zone": "B"
+    },
+    {
+      "name": "SIDRA TOWN QAZI WALA ROAD (PRIVATE SOCIETY)",
+      "zone": "B"
+    },
+    {
+      "name": "Waris Colony",
+      "zone": "B"
+    },
+    {
+      "name": "Basti Feeder Daharanwala More Zone-C",
+      "zone": "C"
+    },
+    {
+      "name": "Basti Qadrabbad",
+      "zone": "C"
+    },
+    {
+      "name": "Chak No. 4/F.W",
+      "zone": "C"
+    },
+    {
+      "name": "Nasirabbad",
+      "zone": "C"
+    },
+    {
+      "name": "New Satellite Town",
+      "zone": "C"
+    },
+    {
+      "name": "NoorPura",
+      "zone": "C"
+    },
+    {
+      "name": "PURANI CHISHTIAN",
+      "zone": "C"
+    },
+    {
+      "name": "Satellite Town",
+      "zone": "C"
+    },
+    {
+      "name": "Taj Pura adjacent Taj Sarwar Colony",
+      "zone": "C"
+    },
+    {
+      "name": "Taj Sarwar Colony near Stadium",
+      "zone": "C"
+    },
+    {
+      "name": "Taqwa Colony near Tableghi Markaz",
+      "zone": "C"
+    },
+    {
+      "name": "Yasrab Colony, Sugar Mills Road",
+      "zone": "C"
+    },
+    {
+      "name": "Zimindara Colony(East)",
+      "zone": "C"
+    },
+    {
+      "name": "Zimindara Colony(West)",
+      "zone": "C"
+    },
+    {
+      "name": "COMMERCIAL",
+      "zone": "Commercial"
+    }
+  ],
+  "localities": [
+    {
+      "sector": "13 /G CHAK,   AZAFI BASTI,  MUZAFFAR COLONY",
+      "locality": "Azafi Basti Chak No.13/G Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "13 /G CHAK, AZAFI BASTI, MUZAFFAR COLONY",
+      "locality": "Azafi Basti Chak No.13/G Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "13 /G CHAK, AZAFI BASTI, MUZAFFAR COLONY",
+      "locality": "Chak No.13/G",
+      "zone": "A"
+    },
+    {
+      "sector": "13 /G CHAK, AZAFI BASTI, MUZAFFAR COLONY",
+      "locality": "Chak No.13/G Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "13 /G CHAK, AZAFI BASTI, MUZAFFAR COLONY",
+      "locality": "Muzzafar Colony",
+      "zone": "A"
+    },
+    {
+      "sector": "13 /G CHAK, AZAFI BASTI, MUZAFFAR COLONY",
+      "locality": "Muzzafar Colony Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "13 /G, AZAFI BASTI,MUZAFFAR COLONY,ALI TOWM",
+      "locality": "Zone A Chak No.13/G",
+      "zone": "A"
+    },
+    {
+      "sector": "Al-Khair Colony (PRIVATE SOCIETY)",
+      "locality": "Al-Khair Colony Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Ali Town",
+      "locality": "Ali town",
+      "zone": "A"
+    },
+    {
+      "sector": "Ali Town",
+      "locality": "Ali town Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Alimia Colony",
+      "locality": "ALIMIA COLONY",
+      "zone": "A"
+    },
+    {
+      "sector": "Alimia Colony",
+      "locality": "ALIMIA COLONY Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "BATOOL GARDEN DUBAI VILLAZ ALHARAM CITY",
+      "locality": "Batool Gadran Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "BATOOL GARDEN,DUBAI VILLAZ,ALHARAM CITY(PRIVATE SO",
+      "locality": "Batool Gadran Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Baghdad Colony",
+      "locality": "Baghdad Colony Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Bahadar Colony",
+      "locality": "Bahadar Colony Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Bahu Chowk to Sabz mandi Road",
+      "locality": "67-Bahu Chowk, Sabzi  Mandi Road,Faisal Colony Zon",
+      "zone": "A"
+    },
+    {
+      "sector": "Bahu Chowk to Sabz mandi Road",
+      "locality": "67-Bahu Chowk, Sabzi Mandi Road,Faisal Colony Zon",
+      "zone": "A"
+    },
+    {
+      "sector": "Baldia Colony",
+      "locality": "BALDIA COLONY ZONE NO. 1",
+      "zone": "A"
+    },
+    {
+      "sector": "Baldia Colony",
+      "locality": "BALDIA COLONY Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Chishtia Park Colony",
+      "locality": "Chishtia Park Colony ZONE-1",
+      "zone": "A"
+    },
+    {
+      "sector": "Chishtia Park Colony",
+      "locality": "Chishtia Park Colony Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "DREEM LAND PHASE 1(Private society)",
+      "locality": "DREEM LAND PHASE 1 Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Farooq Colony",
+      "locality": "Farooq Colony",
+      "zone": "A"
+    },
+    {
+      "sector": "Farooq Colony",
+      "locality": "Farooq Colony Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Ghala Mandi Chishtian",
+      "locality": "Ghala Mandi Chishtian",
+      "zone": "A"
+    },
+    {
+      "sector": "Ghala Mandi Chishtian",
+      "locality": "Ghala Mandi Chishtian Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Ghani Akbar Town",
+      "locality": "Ghani Akbar Town 13/G",
+      "zone": "A"
+    },
+    {
+      "sector": "Ghani Akbar Town",
+      "locality": "Ghani Akbar Town Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Gulberg Town 14/G",
+      "locality": "Gulbarg Town 14/G",
+      "zone": "A"
+    },
+    {
+      "sector": "Gulberg Town 14/G",
+      "locality": "Gulbarg Town 14/G Zone B",
+      "zone": "A"
+    },
+    {
+      "sector": "Gulshan-e-Batool Colony (PRIVATE SOCIETY)",
+      "locality": "Gulshan-e-Batool",
+      "zone": "A"
+    },
+    {
+      "sector": "Gulshan-e-Batool Colony (PRIVATE SOCIETY)",
+      "locality": "Gulshan-e-Batool Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Hafiz Hotel to Bahawalnager Road",
+      "locality": "Chungi No.4 to Khatam-e-Nabuwat Chowk",
+      "zone": "A"
+    },
+    {
+      "sector": "Hafiz Hotel to Bahawalnager Road",
+      "locality": "Chungi No.4 to Khatam-e-Nabuwat Chowk Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Hussain Colony",
+      "locality": "HUSSAIN COLONY",
+      "zone": "A"
+    },
+    {
+      "sector": "Hussain Colony",
+      "locality": "HUSSAIN COLONY Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Itefaq City Qaziwala Road (PRIVATE SOCIETY)",
+      "locality": "Itefaq City",
+      "zone": "A"
+    },
+    {
+      "sector": "Itefaq City Qaziwala Road (PRIVATE SOCIETY)",
+      "locality": "Itefaq City Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "MUHAMMAD CITY   (PRIVATE SOCIETY)",
+      "locality": "MUHAMMAD CITY Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "MUHAMMAD CITY (PRIVATE SOCIETY)",
+      "locality": "MUHAMMAD CITY Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "MUHAMMAD CITY ZONE ,,A,, (PRIVATE SOCIETY)",
+      "locality": "MUHAMMAD CITY",
+      "zone": "A"
+    },
+    {
+      "sector": "MUHAMMAD CITY ZONE ,,A,, (PRIVATE SOCIETY)",
+      "locality": "MUHAMMAD CITY Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "MUSLIM TOWN",
+      "locality": "MUSLIM TOWN",
+      "zone": "A"
+    },
+    {
+      "sector": "MUSLIM TOWN",
+      "locality": "MUSLIM TOWN Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Madina Colony",
+      "locality": "MADINA COLONY",
+      "zone": "A"
+    },
+    {
+      "sector": "Madina Colony",
+      "locality": "MADINA COLONY Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "NAIKy WALA TIBA",
+      "locality": "NAIK WALA TIBA Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Noor Mohalla Melad Chowk Mian Road",
+      "locality": "Noor Mohalla Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Noor Mohalla, Melad Chowk Mian Road Zone-1",
+      "locality": "Noor Mohalla Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Noor Mohalla, Melad Chowk Mian Road Zone-1",
+      "locality": "Noor Mohalla, Melad Chowk Main Road",
+      "zone": "A"
+    },
+    {
+      "sector": "Qaziwala Road To Hospital City area",
+      "locality": "CITY AREA",
+      "zone": "A"
+    },
+    {
+      "sector": "Qaziwala Road To Hospital City area",
+      "locality": "CITY AREA Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "REHAN AVNUE (PRIVATE SOCIETY PHASE 1)",
+      "locality": "REHAN AVNUE Zone A (PHASE 1)",
+      "zone": "A"
+    },
+    {
+      "sector": "REHAN GARDEN(PRIVATE SOCIETY)",
+      "locality": "REHAN GARDEN Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "Taj Pura",
+      "locality": "TAJ PURA ZONE-1",
+      "zone": "A"
+    },
+    {
+      "sector": "Taj Pura",
+      "locality": "TAJ PURA Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "ZAIN CITY (PRIVATE SOCITIES)",
+      "locality": "ZAIN CITY Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "kIPS Academy to Gulshan -e-Batool main 13/G Road",
+      "locality": "Adjacent Gulshan-e-Batool 13/G Road",
+      "zone": "A"
+    },
+    {
+      "sector": "kIPS Academy to Gulshan -e-Batool main 13/G Road",
+      "locality": "Adjacent Gulshan-e-Batool 13/G Road Zone A",
+      "zone": "A"
+    },
+    {
+      "sector": "ALHARAM CITY",
+      "locality": "ALHARAM CITY Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "ARHAM TOWN 16/G ROAD",
+      "locality": "ARHAM TOWN Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Chak No. 15/Gajjiani (Large)",
+      "locality": "Chak No 15/G",
+      "zone": "B"
+    },
+    {
+      "sector": "Chak No. 15/Gajjiani (Large)",
+      "locality": "Chak No 15/G Zone A",
+      "zone": "B"
+    },
+    {
+      "sector": "Chak No.15/G  (Small)",
+      "locality": "Chak No. 15/G Small Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Chak No.15/G (Small)",
+      "locality": "Chak No. 15/G Small Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Chak No.46/F",
+      "locality": "Chak No. 46-F",
+      "zone": "B"
+    },
+    {
+      "sector": "Chak No.46/F",
+      "locality": "Chak No. 46-F Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Chaki Gopi Raam",
+      "locality": "Chaki Gopi Raam Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Dahranwala More",
+      "locality": "Dahranwala More",
+      "zone": "B"
+    },
+    {
+      "sector": "Dahranwala More",
+      "locality": "Dahranwala More Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "FATIMA COLONY ( WARIS COLONY)",
+      "locality": "FATIMA COLONY",
+      "zone": "B"
+    },
+    {
+      "sector": "FATIMA COLONY ( WARIS COLONY)",
+      "locality": "FATIMA COLONY Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Fatima Plaza",
+      "locality": "Fatima Plaza",
+      "zone": "B"
+    },
+    {
+      "sector": "Fatima Plaza",
+      "locality": "Fatima Plaza Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "GULSTAN TOWN 15/G ROAD",
+      "locality": "GULSTAN TOWN 15/G ROAD",
+      "zone": "B"
+    },
+    {
+      "sector": "GULSTAN TOWN 15/G ROAD",
+      "locality": "GULSTAN TOWN 15/G ROAD Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Ghareeb Mohallah",
+      "locality": "GHAREEB MOHALLAH",
+      "zone": "B"
+    },
+    {
+      "sector": "Ghareeb Mohallah",
+      "locality": "GHAREEB MOHALLAH Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Gulshan-e-Iqbal Colony",
+      "locality": "GULSHAN IQBAL",
+      "zone": "B"
+    },
+    {
+      "sector": "Gulshan-e-Iqbal Colony",
+      "locality": "GULSHAN IQBAL Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Iqbal Nager 46/F",
+      "locality": "Iqbal Nagar",
+      "zone": "B"
+    },
+    {
+      "sector": "Iqbal Nager 46/F",
+      "locality": "Iqbal Nagar Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Islam Pura",
+      "locality": "Islam Pura (41)",
+      "zone": "B"
+    },
+    {
+      "sector": "Islam Pura",
+      "locality": "Islam Pura Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "JINAH TOWN",
+      "locality": "JINHAH TOWN",
+      "zone": "B"
+    },
+    {
+      "sector": "JINAH TOWN",
+      "locality": "JINHAH TOWN Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Kanwar Colony, Pacca Karkhana",
+      "locality": "Kanwar Colony",
+      "zone": "B"
+    },
+    {
+      "sector": "Kanwar Colony, Pacca Karkhana",
+      "locality": "Kanwar Colony Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Khayaban Colony 1",
+      "locality": "khayaban Colony",
+      "zone": "B"
+    },
+    {
+      "sector": "Khayaban Colony 1",
+      "locality": "khayaban Colony 1 Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Khayaban e Ameen 2",
+      "locality": "Khayaban e Ameen -2",
+      "zone": "B"
+    },
+    {
+      "sector": "Khayaban e Ameen 2",
+      "locality": "Khayaban e Ameen -2 Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Mahboob Colony  (SHARQI)",
+      "locality": "Mehbob Colony SHARQI Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Mahboob Colony  (SHUMALI GHARBI)",
+      "locality": "Mehboob Colony Zone B (shumali gharbi disposal sid",
+      "zone": "B"
+    },
+    {
+      "sector": "Mahboob Colony (Gharbi JanubI Butcher khana)",
+      "locality": "Mahboob Colony Gharbi Janubi Zone B (Butcher khana",
+      "zone": "B"
+    },
+    {
+      "sector": "Mahboob Colony (SHARQI)",
+      "locality": "Mehbob Colony SHARQI",
+      "zone": "B"
+    },
+    {
+      "sector": "Mahboob Colony (SHARQI)",
+      "locality": "Mehbob Colony SHARQI Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Mahboob Colony (SHUMALI GHARBI)",
+      "locality": "Mehboob Colony (shumali gharbi disposal side)",
+      "zone": "B"
+    },
+    {
+      "sector": "Mahboob Colony (SHUMALI GHARBI)",
+      "locality": "Mehboob Colony Zone B (shumali gharbi disposal sid",
+      "zone": "B"
+    },
+    {
+      "sector": "Mohajar Colony Zone-B",
+      "locality": "Mohajar Colony 1",
+      "zone": "B"
+    },
+    {
+      "sector": "Mohajar Colony Zone-B",
+      "locality": "Mohajar Colony 1 Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Mohajar Colony Zone-B",
+      "locality": "Mohajar Colony 2",
+      "zone": "B"
+    },
+    {
+      "sector": "Mohajar Colony Zone-B",
+      "locality": "Mohajar Colony 2 Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "NATIONAL TELE COMMUNICATION",
+      "locality": "NATIONAL TELE COMMUNICATION",
+      "zone": "B"
+    },
+    {
+      "sector": "SIDRA TOWN QAZI WALA ROAD  (PRIVATE SOCIETY)",
+      "locality": "SIDRA TOWN Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "SIDRA TOWN QAZI WALA ROAD (PRIVATE SOCIETY)",
+      "locality": "SIDRA TOWN Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Waris Colony",
+      "locality": "WARIS COLONY",
+      "zone": "B"
+    },
+    {
+      "sector": "Waris Colony",
+      "locality": "WARIS COLONY Zone B",
+      "zone": "B"
+    },
+    {
+      "sector": "Basti Feeder Daharanwala More Zone-C",
+      "locality": "Basti Feeder",
+      "zone": "C"
+    },
+    {
+      "sector": "Basti Feeder Daharanwala More Zone-C",
+      "locality": "Basti Feeder Zone C",
+      "zone": "C"
+    },
+    {
+      "sector": "Basti Qadrabbad",
+      "locality": "Basti Qadir Abad 57",
+      "zone": "C"
+    },
+    {
+      "sector": "Basti Qadrabbad",
+      "locality": "Basti Qadir Abad 57 Zone C",
+      "zone": "C"
+    },
+    {
+      "sector": "Chak No. 4/F.W",
+      "locality": "Chak No.4/F.W Chishtian",
+      "zone": "C"
+    },
+    {
+      "sector": "Chak No. 4/F.W",
+      "locality": "Chak No.4/F.W Zone C",
+      "zone": "C"
+    },
+    {
+      "sector": "Nasirabbad",
+      "locality": "Nasirabbad",
+      "zone": "C"
+    },
+    {
+      "sector": "Nasirabbad",
+      "locality": "Nasirabbad Zone C",
+      "zone": "C"
+    },
+    {
+      "sector": "New Satellite Town",
+      "locality": "New satellite Town",
+      "zone": "C"
+    },
+    {
+      "sector": "New Satellite Town",
+      "locality": "New satellite Town Zone C",
+      "zone": "C"
+    },
+    {
+      "sector": "NoorPura",
+      "locality": "Noor Pura",
+      "zone": "C"
+    },
+    {
+      "sector": "NoorPura",
+      "locality": "Noor Pura Zone C",
+      "zone": "C"
+    },
+    {
+      "sector": "PURANI CHISHTIAN",
+      "locality": "Purani Chishtian",
+      "zone": "C"
+    },
+    {
+      "sector": "PURANI CHISHTIAN",
+      "locality": "Purani Chishtian Zone C",
+      "zone": "C"
+    },
+    {
+      "sector": "Satellite Town",
+      "locality": "Satellite Town",
+      "zone": "C"
+    },
+    {
+      "sector": "Satellite Town",
+      "locality": "Satellite Town Zone C",
+      "zone": "C"
+    },
+    {
+      "sector": "Taj Pura adjacent Taj Sarwar Colony",
+      "locality": "Taj Pura",
+      "zone": "C"
+    },
+    {
+      "sector": "Taj Pura adjacent Taj Sarwar Colony",
+      "locality": "Taj Pura Zone A",
+      "zone": "C"
+    },
+    {
+      "sector": "Taj Sarwar Colony near Stadium",
+      "locality": "Taj Sarwar Colony",
+      "zone": "C"
+    },
+    {
+      "sector": "Taj Sarwar Colony near Stadium",
+      "locality": "Taj Sarwar Colony Zone C",
+      "zone": "C"
+    },
+    {
+      "sector": "Taqwa Colony near Tableghi Markaz",
+      "locality": "Taqwa Colony Zone C",
+      "zone": "C"
+    },
+    {
+      "sector": "Yasrab Colony, Sugar Mills Road",
+      "locality": "Yasrab Colony Zone C",
+      "zone": "C"
+    },
+    {
+      "sector": "Yasrab Colony, Sugar Mills Road",
+      "locality": "Yasrab Colony-Zone (C)",
+      "zone": "C"
+    },
+    {
+      "sector": "Zimindara Colony(East)",
+      "locality": "Zimandara Colony EAST",
+      "zone": "C"
+    },
+    {
+      "sector": "Zimindara Colony(East)",
+      "locality": "Zimandara Colony EAST Zone C",
+      "zone": "C"
+    },
+    {
+      "sector": "Zimindara Colony(West)",
+      "locality": "Zimindara Colony Zone B (West)",
+      "zone": "C"
+    },
+    {
+      "sector": "Zimindara Colony(West)",
+      "locality": "Zimindara Colony(West)",
+      "zone": "C"
+    },
+    {
+      "sector": "COMMERCIAL",
+      "locality": "3\" line connection",
+      "zone": "Commercial"
+    },
+    {
+      "sector": "COMMERCIAL",
+      "locality": "ACADEMY",
+      "zone": "Commercial"
+    },
+    {
+      "sector": "COMMERCIAL",
+      "locality": "BAKERIES",
+      "zone": "Commercial"
+    },
+    {
+      "sector": "COMMERCIAL",
+      "locality": "BANK , OFFICE",
+      "zone": "Commercial"
+    },
+    {
+      "sector": "COMMERCIAL",
+      "locality": "CLINIC",
+      "zone": "Commercial"
+    },
+    {
+      "sector": "COMMERCIAL",
+      "locality": "COLLEGE",
+      "zone": "Commercial"
+    },
+    {
+      "sector": "COMMERCIAL",
+      "locality": "FACTORY",
+      "zone": "Commercial"
+    },
+    {
+      "sector": "COMMERCIAL",
+      "locality": "HAMAM",
+      "zone": "Commercial"
+    },
+    {
+      "sector": "COMMERCIAL",
+      "locality": "HOSPITAL",
+      "zone": "Commercial"
+    },
+    {
+      "sector": "COMMERCIAL",
+      "locality": "HOTEL,DARA",
+      "zone": "Commercial"
+    },
+    {
+      "sector": "COMMERCIAL",
+      "locality": "ICE FACTORY",
+      "zone": "Commercial"
+    },
+    {
+      "sector": "COMMERCIAL",
+      "locality": "Marriage Hall",
+      "zone": "Commercial"
+    },
+    {
+      "sector": "COMMERCIAL",
+      "locality": "NURSERY ,POULTRY,CATTLE FARM",
+      "zone": "Commercial"
+    },
+    {
+      "sector": "COMMERCIAL",
+      "locality": "PETROL PUMPs",
+      "zone": "Commercial"
+    },
+    {
+      "sector": "COMMERCIAL",
+      "locality": "SABZI / GRAIN MARKET",
+      "zone": "Commercial"
+    },
+    {
+      "sector": "COMMERCIAL",
+      "locality": "SCHOOL",
+      "zone": "Commercial"
+    },
+    {
+      "sector": "COMMERCIAL",
+      "locality": "SHOP",
+      "zone": "Commercial"
+    }
+  ],
+  "aliases": [
+    {
+      "match": "gulberg town",
+      "staff_name": "MUHAMMAD TAHIR",
+      "zone": "A"
+    },
+    {
+      "match": "14 ghaziani",
+      "staff_name": "MUHAMMAD TAHIR",
+      "zone": "A"
+    },
+    {
+      "match": "gulbarg",
+      "staff_name": "MUHAMMAD TAHIR",
+      "zone": "A"
+    },
+    {
+      "match": "bahu chowk to sabzi mandi",
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A"
+    },
+    {
+      "match": "bahu chowk",
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A"
+    },
+    {
+      "match": "sabzi mandi",
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A"
+    },
+    {
+      "match": "sabz mandi",
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A"
+    },
+    {
+      "match": "67-bahu chowk",
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A"
+    },
+    {
+      "match": "faisal colony",
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A"
+    }
   ]
 }
