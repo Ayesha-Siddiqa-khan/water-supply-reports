@@ -42,14 +42,19 @@
         </div>
         <div class="upload-text">
           <strong>Upload Daily Received Files</strong>
-          <span>CSV or XLSX, multiple allowed. Include: Received Date, Sector, Locality, Arrears, Amount Received.</span>
+          <span>CSV or XLSX, multiple allowed. Include: Received Date, Sector, Locality, Arrears, Amount Received. Use topbar button to generate report.</span>
         </div>
         <input type="file" name="files" multiple accept=".csv,.xlsx" style="display:none;" onchange="this.closest('form').submit();">
-        <div class="upload-actions">
-          <button type="submit" class="topbar-btn primary" onclick="event.stopPropagation();">&#128202; Generate Staff Report</button>
-        </div>
       </div>
     </form>
+
+    {% if not report %}
+    <div class="empty-state">
+      <div class="empty-state-icon">&#128101;</div>
+      <div class="empty-state-title">No daily report generated</div>
+      <div class="empty-state-desc">Upload CSV or Excel files with daily received amounts, then click <strong>Generate Staff Report</strong> in the top bar to see staff recovery progress.</div>
+    </div>
+    {% endif %}
 
     {% if report %}
     <!-- STAT GRID -->
@@ -154,7 +159,7 @@
             <div class="section-header-icon">&#128196;</div>
             <div class="section-title">Staff Detail Preview</div>
             <span class="section-badge">{{ report.grouped_detail|length }} staff</span>
-            <span class="section-toggle">&#8964;</span>
+            <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
           </div>
           <div class="section-body">
             {% for group in report.grouped_detail %}

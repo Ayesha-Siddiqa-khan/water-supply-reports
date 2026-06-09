@@ -45,14 +45,10 @@
           </svg>
         </div>
         <div class="upload-text">
-          <strong>Choose bill file</strong>
-          <span>CSV or XLSX &mdash; files must include Sector and Locality columns</span>
+          <strong>Choose bill file to upload</strong>
+          <span>CSV or XLSX &mdash; files must include Sector and Locality columns. Use topbar buttons to save or generate.</span>
         </div>
         <input type="file" name="bill_file" accept=".csv,.xlsx" style="display:none;" onchange="this.closest('form').querySelector('[name=action]').value='save_data';this.closest('form').submit();">
-        <div class="upload-actions">
-          <button type="submit" name="action" value="save_data" class="topbar-btn" onclick="event.stopPropagation();">&#128190; Save Data</button>
-          <button type="submit" name="action" value="generate_reports" class="topbar-btn primary" onclick="event.stopPropagation();">&#128202; Generate Reports</button>
-        </div>
       </div>
     </form>
     <form method="post" style="margin:0 0 32px 0;" onsubmit="return confirm('Remove uploaded bill rows and amounts? Staff, assignments, sectors, localities, and zones will be kept.');">
@@ -65,7 +61,7 @@
       <div class="section-header" onclick="toggleSection('sec-advanced')">
         <div class="section-header-icon">&#128269;</div>
         <div class="section-title">Advanced Bill Checking &amp; Export</div>
-        <span class="section-toggle">&#8964;</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
         <p style="color:var(--text-secondary);font-size:12px;margin-bottom:16px;">Filter bills by paid/unpaid status, outstanding amount, sector, zone, or staff, then export the detailed results.</p>
@@ -158,7 +154,7 @@
       <div class="section-header" onclick="toggleSection('sec-summary-reports')">
         <div class="section-header-icon">&#128200;</div>
         <div class="section-title">Total Bills and Amount Summary Reports</div>
-        <span class="section-toggle">&#8964;</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
         <p style="color:var(--text-secondary);font-size:12px;margin-bottom:16px;">Total bills and amount summary reports with count and total amount only. No detailed bill data.</p>
@@ -167,7 +163,7 @@
               <div class="summary-tab-header" onclick="toggleSection('tab-zones-summary')">
                 <h3>All Zones Summary</h3>
                 <span class="summary-tab-count">{{ zones|length }} zones</span>
-                <span class="section-toggle">&#8964;</span>
+                <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
               </div>
               <div class="summary-tab-body">
                 <p class="muted">Zone-wise count and total amount summary.</p>
@@ -187,7 +183,7 @@
               <div class="summary-tab-header" onclick="toggleSection('tab-sectors-summary')">
                 <h3>All Sectors Summary</h3>
                 <span class="summary-tab-count">{{ sectors|length }} sectors</span>
-                <span class="section-toggle">&#8964;</span>
+                <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
               </div>
               <div class="summary-tab-body">
                 <p class="muted">Sector-wise count and total amount summary.</p>
@@ -207,7 +203,7 @@
               <div class="summary-tab-header" onclick="toggleSection('tab-staff-summary')">
                 <h3>All Staff Summary</h3>
                 <span class="summary-tab-count">{{ staff|length }} staff</span>
-                <span class="section-toggle">&#8964;</span>
+                <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
               </div>
               <div class="summary-tab-body">
                 <p class="muted">Staff-wise count and total amount summary.</p>
@@ -232,7 +228,7 @@
       <div class="section-header" onclick="toggleSection('sec-general')">
         <div class="section-header-icon">&#128203;</div>
         <div class="section-title">Sector Wise Report</div>
-        <span class="section-toggle">&#8964;</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
         <div class="export-bar" data-col-config="generalReport">
@@ -380,7 +376,7 @@
       <div class="section-header" onclick="toggleSection('sec-staff')">
         <div class="section-header-icon">&#128101;</div>
         <div class="section-title">Staff Assignment</div>
-        <span class="section-toggle">&#8964;</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
         <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
@@ -565,7 +561,7 @@
       <div class="section-header" onclick="toggleSection('sec-six-month-pitch')">
         <div class="section-header-icon">&#128202;</div>
         <div class="section-title">Six Month Season Report</div>
-        <span class="section-toggle">&#8964;</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
         <p class="muted" style="margin-bottom:16px;">
@@ -598,7 +594,7 @@
       <div class="section-header" onclick="toggleSection('sec-zones')">
         <div class="section-header-icon">&#127758;</div>
         <div class="section-title">Zones</div>
-        <span class="section-toggle">&#8964;</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
         <p class="muted" style="margin-bottom:16px;">Sectors are organized under Zone A, Zone B, Zone C, Commercial, or Unassigned based on the locality and sector text.</p>

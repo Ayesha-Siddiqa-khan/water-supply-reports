@@ -45,14 +45,10 @@
           </svg>
         </div>
         <div class="upload-text">
-          <strong>Choose files</strong>
-          <span>CSV or XLSX &mdash; multiple files allowed</span>
+          <strong>Choose files to upload</strong>
+          <span>CSV or XLSX &mdash; multiple files allowed. Use topbar buttons to save or generate reports.</span>
         </div>
         <input type="file" name="files" multiple accept=".csv,.xlsx" style="display:none;" onchange="this.closest('form').querySelector('[name=action]').value='save_data';this.closest('form').submit();">
-        <div class="upload-actions">
-          <button type="submit" name="action" value="save_data" class="topbar-btn" onclick="event.stopPropagation();">&#128190; Save Data</button>
-          <button type="submit" name="action" value="generate_reports" class="topbar-btn primary" onclick="event.stopPropagation();">&#128202; Generate Reports</button>
-        </div>
       </div>
     </form>
 
@@ -70,6 +66,14 @@
         <input type="hidden" name="action" value="clear_saved_data" />
         <button type="submit" class="data-banner-clear">&#10005; Clear Saved Data</button>
       </form>
+    </div>
+    {% endif %}
+
+    {% if not results %}
+    <div class="empty-state">
+      <div class="empty-state-icon">&#128202;</div>
+      <div class="empty-state-title">No data uploaded yet</div>
+      <div class="empty-state-desc">Upload CSV or Excel files containing water supply billing data, then click <strong>Generate Reports</strong> in the top bar to see your dashboard.</div>
     </div>
     {% endif %}
 
@@ -116,7 +120,7 @@
         <div class="section-header-icon">&#128197;</div>
         <div class="section-title">Monthly Breakdown</div>
         {% if results.fiscal_row_count is not none %}<span class="section-badge">{{ results.fiscal_row_count }} records</span>{% endif %}
-        <span class="section-toggle">&#8964;</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
         <div data-col-config="monthlyBreakdown">
@@ -215,7 +219,7 @@
         <div class="section-header-icon">&#128467;</div>
         <div class="section-title">Date Breakdown</div>
         {% if results.daily_rows %}<span class="section-badge">{{ results.daily_rows|length }} days</span>{% endif %}
-        <span class="section-toggle">&#8964;</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
         <div data-col-config="dateBreakdown">
@@ -293,7 +297,7 @@
         <div class="section-header-icon">&#127963;</div>
         <div class="section-title">Sector Breakdown</div>
         {% if results.sector_rows %}<span class="section-badge">{{ results.sector_rows|length }} sectors</span>{% endif %}
-        <span class="section-toggle">&#8964;</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
         <div data-col-config="sectorBreakdown">
@@ -353,7 +357,7 @@
         <div class="section-header-icon">&#128202;</div>
         <div class="section-title">Month-wise Report</div>
         {% if results.receipt_monthly_rows %}<span class="section-badge">{{ results.receipt_monthly_rows|length }} months</span>{% endif %}
-        <span class="section-toggle">&#8964;</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
         <span class="page-period">Period: {{ results.receipt_period_start }} to {{ results.receipt_period_end }}</span>
@@ -445,7 +449,7 @@
         <div class="section-header-icon">&#127970;</div>
         <div class="section-title">Daily Income for Commercials</div>
         {% if results.commercial_daily_income %}<span class="section-badge">{{ results.commercial_daily_income|length }} records</span>{% endif %}
-        <span class="section-toggle">&#8964;</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
         <div data-col-config="dailyIncomeCommercial">
@@ -492,7 +496,7 @@
         <div class="section-header-icon">&#127970;</div>
         <div class="section-title">Commercial Sector &mdash; Total Locality Breakdown</div>
         {% if results.commercial_total %}<span class="section-badge">{{ results.commercial_total|length }} localities</span>{% endif %}
-        <span class="section-toggle">&#8964;</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
         <div data-col-config="commercialSectorTotalLocalityBreakdown">
@@ -540,7 +544,7 @@
         <div class="section-header-icon">&#127970;</div>
         <div class="section-title">Commercial Sector &mdash; Month-wise Locality Breakdown</div>
         {% if results.commercial_monthly %}<span class="section-badge">{{ results.commercial_monthly|length }} months</span>{% endif %}
-        <span class="section-toggle">&#8964;</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
         <div data-col-config="commercialSectorMonthWiseLocalityBreakdown">
@@ -582,7 +586,7 @@
         <div class="section-header-icon">&#127970;</div>
         <div class="section-title">Commercial Month-wise Report</div>
         {% if results.commercial_month_wise_summary %}<span class="section-badge">{{ results.commercial_month_wise_summary|length }} months</span>{% endif %}
-        <span class="section-toggle">&#8964;</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
         {% if results.commercial_month_wise_summary %}
@@ -665,7 +669,7 @@
       <div class="section-header" onclick="toggleSection('sec-summary')">
         <div class="section-header-icon">&#128202;</div>
         <div class="section-title">Summary</div>
-        <span class="section-toggle">&#8964;</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
         <div class="connection-type-toggle" style="margin-bottom:16px;">
