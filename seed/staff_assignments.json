@@ -486,6 +486,12 @@
       "zone": "A",
       "sector": "kIPS Academy to Gulshan -e-Batool main 13/G Road",
       "locality": ""
+    },
+    {
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A",
+      "sector": "SUKH CHAIN COLONY",
+      "locality": ""
     }
   ],
   "sectors": [
@@ -808,6 +814,10 @@
     {
       "name": "COMMERCIAL",
       "zone": "Commercial"
+    },
+    {
+      "name": "SUKH CHAIN COLONY",
+      "zone": "A"
     }
   ],
   "localities": [
@@ -1575,6 +1585,11 @@
       "sector": "COMMERCIAL",
       "locality": "SHOP",
       "zone": "Commercial"
+    },
+    {
+      "sector": "SUKH CHAIN COLONY",
+      "locality": "SUKH CHAIN COLONY Zone A (PRIVATE SOCIETY)",
+      "zone": "A"
     }
   ],
   "aliases": [
@@ -1620,6 +1635,11 @@
     },
     {
       "match": "faisal colony",
+      "staff_name": "MUHAMMAD IRFAN",
+      "zone": "A"
+    },
+    {
+      "match": "sukh chain colony",
       "staff_name": "MUHAMMAD IRFAN",
       "zone": "A"
     }

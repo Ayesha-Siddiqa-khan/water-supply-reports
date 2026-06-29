@@ -5173,10 +5173,14 @@ def daily_staff_receive():
             uploaded_names=uploaded_names,
         )
 
+    sort_order = request.args.get("sort", "default")
+    if sort_order not in ("default", "asc", "desc"):
+        sort_order = "default"
     return render_template(
         "daily_staff_receive.html",
         report=(_last_daily_staff_results or {}).get("daily_staff_receive"),
         uploaded_names=_last_daily_staff_uploaded_names,
+        sort_order=sort_order,
     )
 
 
@@ -6145,16 +6149,22 @@ def commercial_daily_income_export_rows(results: dict):
     return headers, rows, grand
 
 
-def daily_staff_receive_export_tables(results: dict):
+def daily_staff_receive_export_tables(results: dict, sort_order: str = "default"):
     report = results.get("daily_staff_receive") or {}
     summary_headers = ["Sr", "Staff Name", "No. of Bills Received", "Arrears Received", "Total Amount Received"]
     detail_headers = ["Staff Name", "Zone", "Sr", "Sector", "Locality", "Bills", "Arrears Received", "Received Amount"]
+
+    summary_rows_data = list(report.get("summary_rows") or [])
+    if sort_order == "desc":
+        summary_rows_data.sort(key=lambda r: r.get("amount_total", 0), reverse=True)
+    elif sort_order == "asc":
+        summary_rows_data.sort(key=lambda r: r.get("amount_total", 0), reverse=False)
 
     summary_rows = []
     total_bills = 0
     total_metric = 0
     total_amount = 0
-    for idx, row in enumerate(report.get("summary_rows") or [], start=1):
+    for idx, row in enumerate(summary_rows_data, start=1):
         bills = row.get("bills", 0)
         metric_total = row.get("metric_total", 0)
         amount_total = row.get("amount_total", 0)
@@ -6184,8 +6194,8 @@ def daily_staff_receive_export_tables(results: dict):
     return summary_headers, summary_rows, summary_grand, detail_headers, detail_rows
 
 
-def generate_daily_staff_receive_pdf(results: dict) -> bytes:
-    summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(results)
+def generate_daily_staff_receive_pdf(results: dict, sort_order: str = "default") -> bytes:
+    summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(results, sort_order=sort_order)
     report = results.get("daily_staff_receive") or {}
     buf = io.BytesIO()
 
@@ -6328,8 +6338,8 @@ def generate_daily_staff_receive_pdf(results: dict) -> bytes:
     return buf.getvalue()
 
 
-def daily_staff_receive_export_response(fmt_type: str, results: dict, cols: str = "", detail_cols: str = ""):
-    summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(results)
+def daily_staff_receive_export_response(fmt_type: str, results: dict, cols: str = "", detail_cols: str = "", sort_order: str = "default"):
+    summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(results, sort_order=sort_order)
     if cols:
         summary_headers, summary_rows = parse_export_cols(cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, summary_rows)
         if summary_grand:
@@ -6340,7 +6350,7 @@ def daily_staff_receive_export_response(fmt_type: str, results: dict, cols: str 
     filename = "daily_staff_receive_report"
     if fmt_type == "pdf":
         return Response(
-            generate_daily_staff_receive_pdf(results),
+            generate_daily_staff_receive_pdf(results, sort_order=sort_order),
             mimetype="application/pdf",
             headers={"Content-Disposition": f"attachment; filename={filename}.pdf"},
         )
@@ -6382,6 +6392,10 @@ def download_card(card: str, fmt_type: str):
     if not r:
         flash("No data available. Please upload files first.")
         return redirect(url_for("index"))
+
+    sort_order = request.args.get("sort", "default")
+    if sort_order not in ("default", "asc", "desc"):
+        sort_order = "default"
 
     if card == "monthly":
         title = "Month-wise Report"
@@ -6527,7 +6541,7 @@ def download_card(card: str, fmt_type: str):
 
     elif card == "daily-staff-receive":
         title = "Daily Receive Amount of Staff"
-        summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(r)
+        summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(r, sort_order=sort_order)
         headers = ["Section", *summary_headers]
         rows = [["Summary", *row] for row in summary_rows]
         grand = ["Summary", *summary_grand] if summary_grand else None
@@ -6768,7 +6782,7 @@ def download_card(card: str, fmt_type: str):
                     "left_cols": [0],
                 }
             if card == "daily-staff-receive":
-                pdf_bytes = generate_daily_staff_receive_pdf(r)
+                pdf_bytes = generate_daily_staff_receive_pdf(r, sort_order=sort_order)
             elif card == "commercial-monthly":
                 pass
             else:
@@ -6782,7 +6796,7 @@ def download_card(card: str, fmt_type: str):
                         headers={"Content-Disposition": f"attachment; filename={dl_filename}.pdf"})
     elif fmt_type == "csv":
         if card == "daily-staff-receive":
-            summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(r)
+            summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(r, sort_order=sort_order)
             csv_rows = [["Summary", *summary_headers]]
             csv_rows.extend([["Summary", *row] for row in summary_rows])
             if summary_grand:
@@ -6833,7 +6847,7 @@ def download_card(card: str, fmt_type: str):
                         headers={"Content-Disposition": f"attachment; filename={dl_filename}.csv"})
     elif fmt_type == "xlsx":
         if card == "daily-staff-receive":
-            summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(r)
+            summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(r, sort_order=sort_order)
             buf = io.BytesIO()
             with pd.ExcelWriter(buf, engine="openpyxl") as writer:
                 pd.DataFrame(summary_rows + ([summary_grand] if summary_grand else []), columns=summary_headers).to_excel(writer, sheet_name="Summary", index=False)
@@ -6856,7 +6870,10 @@ def export_daily_staff_receive(fmt_type: str):
         return redirect(url_for("daily_staff_receive"))
     cols = request.args.get("cols", "")
     detail_cols = request.args.get("detail_cols", "")
-    return daily_staff_receive_export_response(fmt_type, _last_daily_staff_results, cols=cols, detail_cols=detail_cols)
+    sort_order = request.args.get("sort", "default")
+    if sort_order not in ("default", "asc", "desc"):
+        sort_order = "default"
+    return daily_staff_receive_export_response(fmt_type, _last_daily_staff_results, cols=cols, detail_cols=detail_cols, sort_order=sort_order)
 
 
 if __name__ == "__main__":

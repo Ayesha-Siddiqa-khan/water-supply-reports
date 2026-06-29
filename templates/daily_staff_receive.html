@@ -110,6 +110,14 @@
           <a class="chip" href="{{ url_for('export_daily_staff_receive', fmt_type='pdf') }}">&#11015; Download PDF</a>
           <a class="chip" href="{{ url_for('export_daily_staff_receive', fmt_type='csv') }}">&#11015; Download CSV</a>
           <a class="chip" href="{{ url_for('export_daily_staff_receive', fmt_type='xlsx') }}">&#11015; Download Excel</a>
+          <label style="display:inline-flex;align-items:center;gap:6px;margin-left:12px;font-size:12px;color:var(--text-muted);">
+            Sort by Amount:
+            <select id="sort-select" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg-card);color:var(--text);">
+              <option value="default"{% if sort_order == 'default' %} selected{% endif %}>Default</option>
+              <option value="desc"{% if sort_order == 'desc' %} selected{% endif %}>Highest First</option>
+              <option value="asc"{% if sort_order == 'asc' %} selected{% endif %}>Lowest First</option>
+            </select>
+          </label>
         </div>
         <div class="col-select-area" style="margin-bottom:16px;">
           <div class="col-select-label">
@@ -314,6 +322,7 @@
 
   function dsRefreshExportLinks() {
     var cols = dsGetSelectedCols('dailyStaffReceive');
+    var sortVal = localStorage.getItem('dsSortOrder') || 'default';
     document.querySelectorAll('[data-col-config="dailyStaffReceive"] a.chip[href]').forEach(function(link) {
       var href = link.getAttribute('href');
       if (!href || href === '#') return;
@@ -321,6 +330,11 @@
         var url = new URL(href, window.location.origin);
       } catch(e) { return; }
       url.searchParams.set('cols', cols);
+      if (sortVal && sortVal !== 'default') {
+        url.searchParams.set('sort', sortVal);
+      } else {
+        url.searchParams.delete('sort');
+      }
       link.setAttribute('href', url.pathname + url.search);
     });
   }
@@ -328,6 +342,68 @@
   dsBuildColumnChips('dailyStaffReceive');
   dsUpdateWebPreview('dailyStaffReceive');
   dsRefreshExportLinks();
+
+  // ── SORT FUNCTIONALITY ──
+  function dsApplySort() {
+    var sortSelect = document.getElementById('sort-select');
+    if (!sortSelect) return;
+    var sortVal = sortSelect.value;
+    localStorage.setItem('dsSortOrder', sortVal);
+    // Update export links with sort param
+    document.querySelectorAll('[data-col-config="dailyStaffReceive"] a.chip[href]').forEach(function(link) {
+      var href = link.getAttribute('href');
+      if (!href || href === '#') return;
+      try {
+        var url = new URL(href, window.location.origin);
+      } catch(e) { return; }
+      if (sortVal && sortVal !== 'default') {
+        url.searchParams.set('sort', sortVal);
+      } else {
+        url.searchParams.delete('sort');
+      }
+      link.setAttribute('href', url.pathname + url.search);
+    });
+    // Sort the web view staff rows
+    var staffList = document.getElementById('staff-list');
+    if (!staffList) return;
+    var rows = Array.prototype.slice.call(staffList.querySelectorAll('.staff-row'));
+    if (!rows.length || sortVal === 'default') return;
+    rows.sort(function(a, b) {
+      var amtA = parseFloat(a.querySelector('[data-col="amount"]').textContent.replace(/,/g, '')) || 0;
+      var amtB = parseFloat(b.querySelector('[data-col="amount"]').textContent.replace(/,/g, '')) || 0;
+      return sortVal === 'desc' ? amtB - amtA : amtA - amtB;
+    });
+    // Re-append rows in sorted order and re-number
+    rows.forEach(function(row, i) {
+      staffList.appendChild(row);
+      var rankEl = row.querySelector('[data-col="sr"]');
+      if (rankEl) rankEl.textContent = String(i + 1).padStart(2, '0');
+    });
+  }
+
+  var sortSelect = document.getElementById('sort-select');
+  if (sortSelect) {
+    // Restore from localStorage if no server-side sort
+    var savedSort = localStorage.getItem('dsSortOrder');
+    if (savedSort && sortSelect.value === 'default') {
+      sortSelect.value = savedSort;
+    }
+    // Always apply client-side sort on load if a non-default sort is active
+    if (sortSelect.value !== 'default') {
+      dsApplySort();
+    }
+    sortSelect.addEventListener('change', function() {
+      // Navigate with sort param so export also respects it
+      var params = new URLSearchParams(window.location.search);
+      if (sortSelect.value === 'default') {
+        params.delete('sort');
+      } else {
+        params.set('sort', sortSelect.value);
+      }
+      localStorage.setItem('dsSortOrder', sortSelect.value);
+      window.location.search = params.toString();
+    });
+  }
 
   document.addEventListener('click', function(e) {
     var btn = e.target.closest('[data-col-action]');
