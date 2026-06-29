@@ -6863,6 +6863,91 @@ def download_card(card: str, fmt_type: str):
     return redirect(url_for("index"))
 
 
+def generate_daily_staff_receive_summary_pdf(results: dict, sort_order: str = "default") -> bytes:
+    summary_headers, summary_rows, summary_grand, _, _ = daily_staff_receive_export_tables(results, sort_order=sort_order)
+    report = results.get("daily_staff_receive") or {}
+    buf = io.BytesIO()
+
+    portrait_size = A4
+    portrait_frame = Frame(15 * mm, 15 * mm, portrait_size[0] - 30 * mm, portrait_size[1] - 30 * mm, id="portrait")
+    doc = BaseDocTemplate(
+        buf,
+        pagesize=portrait_size,
+        pageTemplates=[
+            PageTemplate(id="portrait", frames=[portrait_frame], pagesize=portrait_size),
+        ],
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("DailyStaffTitle", parent=styles["Heading1"], fontSize=19, textColor=ACCENT, alignment=1, spaceAfter=5 * mm, fontName="Helvetica-Bold")
+    summary_style = ParagraphStyle("DailyStaffSummary", parent=styles["Normal"], fontSize=11, leading=15, spaceAfter=2 * mm)
+    progress_style_small = ParagraphStyle(
+        "DailyStaffProgressSmall",
+        parent=styles["Normal"],
+        fontSize=9,
+        leading=13,
+        spaceBefore=1 * mm,
+        spaceAfter=3 * mm,
+        textColor=colors.HexColor("#222222"),
+    )
+
+    elements = [
+        Paragraph("Daily Receive Amount of Staff", title_style),
+        Paragraph(f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}", summary_style),
+    ]
+    if report.get("date_range"):
+        elements.append(Paragraph(f"<b>Report Date:</b> {report['date_range']}", summary_style))
+
+    page_w = portrait_size[0] - 30 * mm
+    report_total_bills = report_total_metric = report_total_amount = 0
+    for row in report.get("summary_rows") or []:
+        report_total_bills += row.get("bills", 0)
+        report_total_metric += row.get("metric_total", 0)
+        report_total_amount += row.get("amount_total", 0)
+    elements.append(Spacer(1, 3 * mm))
+    elements.append(Paragraph(
+        f"<b>Total Received Connections:</b> {fmt(report_total_bills)} &nbsp;&nbsp;&nbsp; "
+        f"<b>Arrears Received:</b> {fmt(report_total_metric)} &nbsp;&nbsp;&nbsp; "
+        f"<b>Total Amount Received:</b> {fmt(report_total_amount)}",
+        progress_style_small,
+    ))
+    elements.append(Spacer(1, 5 * mm))
+
+    summary_data = [wrap_pdf_header_cells(summary_headers, font_size=11)] + wrap_pdf_body_cells(summary_rows, font_size=10, left_columns={1})
+    if summary_grand:
+        summary_data.append(wrap_pdf_body_cells([summary_grand], font_size=10, left_columns={1})[0])
+    elements.append(
+        _make_pdf_table(
+            summary_data,
+            col_widths=[page_w * 0.06, page_w * 0.30, page_w * 0.22, page_w * 0.20, page_w * 0.22],
+            first_col_left=False,
+            left_cols=[1],
+            header_font_size=11,
+            body_font_size=10,
+            cell_padding=4,
+        )
+    )
+
+    doc.build(elements)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+@app.route("/daily-staff-receive/export/summary-pdf")
+def export_daily_staff_receive_summary_pdf():
+    if not _last_daily_staff_results:
+        flash("No daily staff report is available. Please upload files first.")
+        return redirect(url_for("daily_staff_receive"))
+    sort_order = request.args.get("sort", "default")
+    if sort_order not in ("default", "asc", "desc"):
+        sort_order = "default"
+    pdf_bytes = generate_daily_staff_receive_summary_pdf(_last_daily_staff_results, sort_order=sort_order)
+    return Response(
+        pdf_bytes,
+        mimetype="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=daily_staff_receive_summary.pdf"},
+    )
+
+
 @app.route("/daily-staff-receive/export/<fmt_type>")
 def export_daily_staff_receive(fmt_type: str):
     if not _last_daily_staff_results:
