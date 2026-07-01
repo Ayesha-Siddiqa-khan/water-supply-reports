@@ -6869,7 +6869,11 @@ def generate_daily_staff_receive_summary_pdf(results: dict, sort_order: str = "d
     buf = io.BytesIO()
 
     portrait_size = A4
-    portrait_frame = Frame(15 * mm, 15 * mm, portrait_size[0] - 30 * mm, portrait_size[1] - 30 * mm, id="portrait")
+    top_margin = 15 * mm
+    bottom_margin = 15 * mm
+    left_margin = 15 * mm
+    right_margin = 15 * mm
+    portrait_frame = Frame(left_margin, bottom_margin, portrait_size[0] - left_margin - right_margin, portrait_size[1] - top_margin - bottom_margin, id="portrait")
     doc = BaseDocTemplate(
         buf,
         pagesize=portrait_size,
@@ -6897,7 +6901,7 @@ def generate_daily_staff_receive_summary_pdf(results: dict, sort_order: str = "d
     if report.get("date_range"):
         elements.append(Paragraph(f"<b>Report Date:</b> {report['date_range']}", summary_style))
 
-    page_w = portrait_size[0] - 30 * mm
+    page_w = portrait_size[0] - left_margin - right_margin
     report_total_bills = report_total_metric = report_total_amount = 0
     for row in report.get("summary_rows") or []:
         report_total_bills += row.get("bills", 0)
@@ -6912,20 +6916,71 @@ def generate_daily_staff_receive_summary_pdf(results: dict, sort_order: str = "d
     ))
     elements.append(Spacer(1, 5 * mm))
 
+    num_rows = len(summary_rows) + (1 if summary_grand else 0)
+    num_table_rows = 1 + num_rows  # header + data + grand total
+
+    # Calculate available height for the table to fill the A4 page
+    total_page_h = portrait_size[1]
+    available_h = total_page_h - top_margin - bottom_margin
+    # Header content uses ~85mm (title + dates + totals + spacers)
+    header_content_h = 85 * mm
+    table_target_h = available_h - header_content_h
+    if table_target_h < 100 * mm:
+        table_target_h = 100 * mm
+
+    row_h = table_target_h / num_table_rows
+    row_h = max(row_h, 12 * mm)
+    row_h = min(row_h, 35 * mm)
+
+    # Set explicit row heights on all rows
+    row_heights = [row_h] * num_table_rows
+
     summary_data = [wrap_pdf_header_cells(summary_headers, font_size=11)] + wrap_pdf_body_cells(summary_rows, font_size=10, left_columns={1})
     if summary_grand:
         summary_data.append(wrap_pdf_body_cells([summary_grand], font_size=10, left_columns={1})[0])
-    elements.append(
-        _make_pdf_table(
-            summary_data,
-            col_widths=[page_w * 0.06, page_w * 0.30, page_w * 0.22, page_w * 0.20, page_w * 0.22],
-            first_col_left=False,
-            left_cols=[1],
-            header_font_size=11,
-            body_font_size=10,
-            cell_padding=4,
-        )
-    )
+
+    col_widths = [page_w * 0.06, page_w * 0.30, page_w * 0.22, page_w * 0.20, page_w * 0.22]
+    t = Table(summary_data, colWidths=col_widths, repeatRows=1, rowHeights=row_heights)
+
+    cell_pad = max(4, int((row_h - 10) / 2))
+    table_style_cmds = [
+        ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
+        ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 11),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 1), (-1, -1), 10),
+        ("GRID", (0, 0), (-1, -1), 0.5, BORDER_CLR),
+        ("TOPPADDING", (0, 0), (-1, -1), cell_pad),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), cell_pad),
+        ("LEFTPADDING", (0, 0), (-1, -1), max(3, cell_pad - 2)),
+        ("RIGHTPADDING", (0, 0), (-1, -1), max(3, cell_pad - 2)),
+    ]
+    # Alternate row colors
+    for i in range(1, num_table_rows):
+        if i % 2 == 0:
+            table_style_cmds.append(("BACKGROUND", (0, i), (-1, i), ALT_ROW))
+    # Bold grand total row (last row)
+    if num_table_rows > 2:
+        last = num_table_rows - 1
+        table_style_cmds.append(("FONTNAME", (0, last), (-1, last), "Helvetica-Bold"))
+        table_style_cmds.append(("FONTSIZE", (0, last), (-1, last), 10))
+        table_style_cmds.append(("BACKGROUND", (0, last), (-1, last), colors.HexColor("#e6d8c8")))
+    # Bold any intermediate total rows
+    for idx in range(1, num_table_rows):
+        row_text = " ".join(str(cell) for cell in summary_data[idx])
+        if " Total" in row_text or "Grand Total" in row_text:
+            table_style_cmds.append(("FONTNAME", (0, idx), (-1, idx), "Helvetica-Bold"))
+            table_style_cmds.append(("FONTSIZE", (0, idx), (-1, idx), 10))
+            table_style_cmds.append(("BACKGROUND", (0, idx), (-1, idx), colors.HexColor("#e6d8c8")))
+            table_style_cmds.append(("TEXTCOLOR", (0, idx), (-1, idx), colors.black))
+    # Left-align staff name column
+    table_style_cmds.append(("ALIGN", (1, 1), (1, -1), "LEFT"))
+
+    t.setStyle(TableStyle(table_style_cmds))
+    elements.append(t)
 
     doc.build(elements)
     buf.seek(0)
