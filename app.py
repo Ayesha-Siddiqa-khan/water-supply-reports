@@ -6194,13 +6194,80 @@ def daily_staff_receive_export_tables(results: dict, sort_order: str = "default"
     return summary_headers, summary_rows, summary_grand, detail_headers, detail_rows
 
 
-def generate_daily_staff_receive_pdf(results: dict, sort_order: str = "default") -> bytes:
+def _calc_daily_summary_col_widths(page_w, n_cols):
+    """Calculate column widths for the daily staff receive summary table."""
+    if n_cols == 5:
+        return [page_w * 0.08, page_w * 0.27, page_w * 0.19, page_w * 0.22, page_w * 0.24]
+    elif n_cols == 4:
+        return [page_w * 0.10, page_w * 0.30, page_w * 0.25, page_w * 0.35]
+    elif n_cols == 3:
+        return [page_w * 0.12, page_w * 0.38, page_w * 0.50]
+    elif n_cols == 2:
+        return [page_w * 0.40, page_w * 0.60]
+    elif n_cols == 1:
+        return [page_w]
+    else:
+        return [page_w / n_cols] * n_cols
+
+
+def _calc_daily_detail_col_widths(page_w, display_headers):
+    """Calculate column widths for the daily staff receive detail table.
+
+    Layout strategy based on which columns are visible:
+    - Sr (narrow), Sector/Locality (wide, left-aligned), numeric cols (equal share).
+    """
+    n = len(display_headers)
+    if n == 0:
+        return []
+
+    has_sr = "Sr" in display_headers
+    has_sector = "Sector" in display_headers
+    has_locality = "Locality" in display_headers
+    has_bills = "Bills" in display_headers
+    has_arrears = "Arrears Received" in display_headers
+    has_amount = "Received Amount" in display_headers
+
+    numeric_count = sum(1 for h in display_headers if h in ("Bills", "Arrears Received", "Received Amount"))
+
+    if n == 6:
+        return [page_w * 0.06, page_w * 0.22, page_w * 0.27, page_w * 0.10, page_w * 0.15, page_w * 0.20]
+    elif n == 5:
+        return [page_w * 0.07, page_w * 0.25, page_w * 0.30, page_w * 0.14, page_w * 0.24]
+    elif n == 4:
+        return [page_w * 0.08, page_w * 0.30, page_w * 0.30, page_w * 0.32]
+    elif n == 3:
+        return [page_w * 0.10, page_w * 0.40, page_w * 0.50]
+    elif n == 2:
+        return [page_w * 0.40, page_w * 0.60]
+    elif n == 1:
+        return [page_w]
+    else:
+        return [page_w / n] * n
+
+
+def generate_daily_staff_receive_pdf(results: dict, sort_order: str = "default", summary_cols: str = "", detail_cols: str = "") -> bytes:
     summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(results, sort_order=sort_order)
+
+    # Apply column selection filtering for summary (skip UI-only keys like "avatar", "perf")
+    if summary_cols:
+        summary_headers, summary_rows = parse_export_cols(summary_cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, summary_rows)
+        if summary_grand:
+            _, g = parse_export_cols(summary_cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, [summary_grand])
+            summary_grand = g[0] if g else summary_grand
+
+    # Apply column selection filtering for detail (skip UI-only keys like "avatar", "perf")
+    if detail_cols:
+        detail_headers, detail_rows = parse_export_cols(detail_cols, DAILY_STAFF_RECEIVE_DETAIL_COL_MAP, detail_headers, detail_rows)
+
     report = results.get("daily_staff_receive") or {}
     buf = io.BytesIO()
 
     portrait_size = A4
-    portrait_frame = Frame(15 * mm, 15 * mm, portrait_size[0] - 30 * mm, portrait_size[1] - 30 * mm, id="portrait")
+    top_margin = 15 * mm
+    bottom_margin = 15 * mm
+    left_margin = 15 * mm
+    right_margin = 15 * mm
+    portrait_frame = Frame(left_margin, bottom_margin, portrait_size[0] - left_margin - right_margin, portrait_size[1] - top_margin - bottom_margin, id="portrait")
     doc = BaseDocTemplate(
         buf,
         pagesize=portrait_size,
@@ -6212,24 +6279,6 @@ def generate_daily_staff_receive_pdf(results: dict, sort_order: str = "default")
     title_style = ParagraphStyle("DailyStaffTitle", parent=styles["Heading1"], fontSize=19, textColor=ACCENT, alignment=1, spaceAfter=5 * mm, fontName="Helvetica-Bold")
     summary_style = ParagraphStyle("DailyStaffSummary", parent=styles["Normal"], fontSize=11, leading=15, spaceAfter=2 * mm)
     group_style = ParagraphStyle("DailyStaffGroup", parent=styles["Heading3"], fontSize=13, leading=16, spaceBefore=5 * mm, spaceAfter=2 * mm, fontName="Helvetica-Bold")
-    staff_progress_style = ParagraphStyle(
-        "DailyStaffProgress",
-        parent=styles["Normal"],
-        fontSize=12,
-        leading=16,
-        spaceBefore=1 * mm,
-        spaceAfter=3 * mm,
-        textColor=colors.HexColor("#222222"),
-    )
-
-    def make_progress_summary(total_bills, total_metric, total_amount):
-        return Paragraph(
-            f"<b>Total Received Connections:</b> {fmt(total_bills)} &nbsp;&nbsp;&nbsp; "
-            f"<b>Arrears Received:</b> {fmt(total_metric)} &nbsp;&nbsp;&nbsp; "
-            f"<b>Total Amount Received:</b> {fmt(total_amount)}",
-            staff_progress_style,
-        )
-
     progress_style_small = ParagraphStyle(
         "DailyStaffProgressSmall",
         parent=styles["Normal"],
@@ -6247,7 +6296,7 @@ def generate_daily_staff_receive_pdf(results: dict, sort_order: str = "default")
     if report.get("date_range"):
         elements.append(Paragraph(f"<b>Report Date:</b> {report['date_range']}", summary_style))
 
-    page_w = portrait_size[0] - 30 * mm
+    page_w = portrait_size[0] - left_margin - right_margin
     report_total_bills = report_total_metric = report_total_amount = 0
     for row in report.get("summary_rows") or []:
         report_total_bills += row.get("bills", 0)
@@ -6262,60 +6311,189 @@ def generate_daily_staff_receive_pdf(results: dict, sort_order: str = "default")
     ))
     elements.append(Spacer(1, 5 * mm))
 
-    summary_data = [wrap_pdf_header_cells(summary_headers, font_size=11)] + wrap_pdf_body_cells(summary_rows, font_size=10, left_columns={1})
+    # ── FIRST PAGE: Summary table with full-page layout ──
+    summary_data = [wrap_pdf_header_cells(summary_headers, font_size=10)] + wrap_pdf_body_cells(summary_rows, font_size=10, left_columns={1})
     if summary_grand:
         summary_data.append(wrap_pdf_body_cells([summary_grand], font_size=10, left_columns={1})[0])
-    elements.append(
-        _make_pdf_table(
-            summary_data,
-            col_widths=[page_w * 0.06, page_w * 0.30, page_w * 0.22, page_w * 0.20, page_w * 0.22],
-            first_col_left=False,
-            left_cols=[1],
-            header_font_size=11,
-            body_font_size=10,
-            cell_padding=4,
-        )
-    )
 
+    n_summary_cols = len(summary_headers)
+    summary_col_widths = _calc_daily_summary_col_widths(page_w, n_summary_cols)
+
+    # Find staff name column index for left-alignment
+    summary_left_cols = []
+    for key, idx in DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP.items():
+        if key == "staffName" and idx < n_summary_cols:
+            summary_left_cols.append(idx)
+
+    # Calculate row heights to fill the A4 page (same approach as summary PDF)
+    num_summary_rows = len(summary_data)
+    total_page_h = portrait_size[1]
+    available_h = total_page_h - top_margin - bottom_margin
+    header_content_h = 85 * mm
+    table_target_h = available_h - header_content_h
+    if table_target_h < 100 * mm:
+        table_target_h = 100 * mm
+    row_h = table_target_h / num_summary_rows
+    row_h = max(row_h, 12 * mm)
+    row_h = min(row_h, 35 * mm)
+    row_heights = [row_h] * num_summary_rows
+
+    t = Table(summary_data, colWidths=summary_col_widths, repeatRows=1, rowHeights=row_heights)
+
+    cell_pad = max(4, int((row_h - 10) / 2))
+    table_style_cmds = [
+        ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
+        ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 10),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 1), (-1, -1), 10),
+        ("GRID", (0, 0), (-1, -1), 0.5, BORDER_CLR),
+        ("TOPPADDING", (0, 0), (-1, -1), cell_pad),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), cell_pad),
+        ("LEFTPADDING", (0, 0), (-1, -1), max(3, cell_pad - 2)),
+        ("RIGHTPADDING", (0, 0), (-1, -1), max(3, cell_pad - 2)),
+    ]
+    for i in range(1, num_summary_rows):
+        if i % 2 == 0:
+            table_style_cmds.append(("BACKGROUND", (0, i), (-1, i), ALT_ROW))
+    if num_summary_rows > 2:
+        last = num_summary_rows - 1
+        table_style_cmds.append(("FONTNAME", (0, last), (-1, last), "Helvetica-Bold"))
+        table_style_cmds.append(("FONTSIZE", (0, last), (-1, last), 10))
+        table_style_cmds.append(("BACKGROUND", (0, last), (-1, last), colors.HexColor("#e6d8c8")))
+    for idx in range(1, num_summary_rows):
+        row_text = " ".join(str(cell) for cell in summary_data[idx])
+        if " Total" in row_text or "Grand Total" in row_text:
+            table_style_cmds.append(("FONTNAME", (0, idx), (-1, idx), "Helvetica-Bold"))
+            table_style_cmds.append(("FONTSIZE", (0, idx), (-1, idx), 10))
+            table_style_cmds.append(("BACKGROUND", (0, idx), (-1, idx), colors.HexColor("#e6d8c8")))
+            table_style_cmds.append(("TEXTCOLOR", (0, idx), (-1, idx), colors.black))
+    if summary_left_cols:
+        for lc in summary_left_cols:
+            table_style_cmds.append(("ALIGN", (lc, 1), (lc, -1), "LEFT"))
+
+    t.setStyle(TableStyle(table_style_cmds))
+    elements.append(t)
+
+    # ── DETAIL PAGES: One page per staff ──
     if detail_rows:
+        detail_page_w = portrait_size[0] - left_margin - right_margin
+        n_detail_cols = len(detail_headers)
+
+        # Build a map from header name to column index for safe lookups
+        detail_header_idx = {h: i for i, h in enumerate(detail_headers)}
+
+        # Identify key column indices by header name (safe even after filtering)
+        idx_staff_name = detail_header_idx.get("Staff Name")
+        idx_zone = detail_header_idx.get("Zone")
+        idx_sr = detail_header_idx.get("Sr")
+        idx_sector = detail_header_idx.get("Sector")
+        idx_locality = detail_header_idx.get("Locality")
+        idx_bills = detail_header_idx.get("Bills")
+        idx_arrears = detail_header_idx.get("Arrears Received")
+        idx_amount = detail_header_idx.get("Received Amount")
+
+        # Detail columns to display (everything except Staff Name and Zone which are shown in the group header)
+        detail_display_indices = [i for i, h in enumerate(detail_headers) if h not in ("Staff Name", "Zone")]
+        detail_display_headers = [detail_headers[i] for i in detail_display_indices]
+        n_display_cols = len(detail_display_headers)
+
+        # Determine left-aligned column indices in the display table
+        display_left_cols = []
+        for display_i, orig_i in enumerate(detail_display_indices):
+            if detail_headers[orig_i] in ("Sector", "Locality"):
+                display_left_cols.append(display_i)
+
+        # Map numeric column positions in the display table for summing
+        display_bills_pos = None
+        display_arrears_pos = None
+        display_amount_pos = None
+        for display_i, orig_i in enumerate(detail_display_indices):
+            h = detail_headers[orig_i]
+            if h == "Bills":
+                display_bills_pos = display_i
+            elif h == "Arrears Received":
+                display_arrears_pos = display_i
+            elif h == "Received Amount":
+                display_amount_pos = display_i
+
+        # Detail column widths: distribute proportionally based on column count and content type
+        detail_col_widths = _calc_daily_detail_col_widths(detail_page_w, detail_display_headers)
+
         elements.append(PageBreak())
-        detail_page_w = portrait_size[0] - 30 * mm
-        detail_table_headers = detail_headers[2:]
         current_group = None
         group_rows = []
 
         def flush_group():
             if not group_rows or current_group is None:
                 return
-            staff_name = current_group
             staff_elements = [
-                Paragraph(f"Staff: {fmt_staff_name(staff_name).replace(chr(10), '<br/>')}", group_style),
+                Paragraph(f"Staff: {fmt_staff_name(current_group).replace(chr(10), '<br/>')}", group_style),
             ]
             data_rows = []
             total_bills = total_metric = total_amount = 0
             for row in group_rows:
-                data_rows.append([row[2], row[3], row[4], row[5], row[6], row[7]])
-                total_bills += parse_number(str(row[5]).replace(",", ""))
-                total_metric += parse_number(str(row[6]).replace(",", ""))
-                total_amount += parse_number(str(row[7]).replace(",", ""))
-            staff_elements.append(
-                Paragraph(
-                    f"<b>Total Received Connections:</b> {fmt(total_bills)} &nbsp;&nbsp; "
-                    f"<b>Arrears Received:</b> {fmt(total_metric)} &nbsp;&nbsp; "
-                    f"<b>Total Amount Received:</b> {fmt(total_amount)}",
-                    progress_style_small,
-                )
-            )
+                # Build display row from filtered columns
+                display_row = [row[i] for i in detail_display_indices]
+                data_rows.append(display_row)
+                # Safely sum numeric totals using the display positions
+                if display_bills_pos is not None and display_bills_pos < len(row):
+                    total_bills += parse_number(str(row[detail_display_indices[display_bills_pos]]).replace(",", ""))
+                if display_arrears_pos is not None and display_arrears_pos < len(row):
+                    total_metric += parse_number(str(row[detail_display_indices[display_arrears_pos]]).replace(",", ""))
+                if display_amount_pos is not None and display_amount_pos < len(row):
+                    total_amount += parse_number(str(row[detail_display_indices[display_amount_pos]]).replace(",", ""))
+
+            # Progress summary line: only include totals for visible numeric columns
+            progress_parts = []
+            if display_bills_pos is not None:
+                progress_parts.append(f"<b>Total Received Connections:</b> {fmt(total_bills)}")
+            if display_arrears_pos is not None:
+                progress_parts.append(f"<b>Arrears Received:</b> {fmt(total_metric)}")
+            if display_amount_pos is not None:
+                progress_parts.append(f"<b>Total Amount Received:</b> {fmt(total_amount)}")
+            if progress_parts:
+                staff_elements.append(Paragraph(" &nbsp;&nbsp;&nbsp; ".join(progress_parts), progress_style_small))
             staff_elements.append(Spacer(1, 3 * mm))
-            data_rows.append(["", "Grand Total", "", fmt(total_bills), fmt(total_metric), fmt(total_amount)])
+
+            # Grand Total row: empty cells for text cols, totals for numeric cols
+            grand_row = [""] * n_display_cols
+            if display_bills_pos is not None:
+                grand_row[display_bills_pos] = fmt(total_bills)
+            if display_arrears_pos is not None:
+                grand_row[display_arrears_pos] = fmt(total_metric)
+            if display_amount_pos is not None:
+                grand_row[display_amount_pos] = fmt(total_amount)
+            # Insert "Grand Total" label after the first text column or at position 0
+            label_pos = 0
+            for ci, orig_i in enumerate(detail_display_indices):
+                if detail_headers[orig_i] not in ("Bills", "Arrears Received", "Received Amount"):
+                    label_pos = ci
+                    break
+            grand_row[label_pos] = "Grand Total"
+            data_rows.append(grand_row)
+
+            # Wrap text cells for PDF rendering
             wrapped_rows = []
-            for row in data_rows:
-                wrapped_rows.append([row[0], *wrap_pdf_table_cells([row[1:3]], font_size=10)[0], row[3], row[4], row[5]])
+            for ri, row in enumerate(data_rows):
+                wrapped = []
+                for ci, val in enumerate(row):
+                    orig_i = detail_display_indices[ci]
+                    h = detail_headers[orig_i]
+                    if h in ("Sector", "Locality") and ri < len(data_rows) - 1:
+                        wrapped.append(wrap_pdf_table_cells([[val]], font_size=10)[0][0])
+                    else:
+                        wrapped.append(val)
+                wrapped_rows.append(wrapped)
+
             staff_elements.append(
                 _make_pdf_table(
-                    [wrap_pdf_header_cells(detail_table_headers, font_size=11)] + wrapped_rows,
-                    col_widths=[detail_page_w * 0.06, detail_page_w * 0.27, detail_page_w * 0.27, detail_page_w * 0.10, detail_page_w * 0.15, detail_page_w * 0.15],
-                    left_cols=[1, 2],
+                    [wrap_pdf_header_cells(detail_display_headers, font_size=11)] + wrapped_rows,
+                    col_widths=detail_col_widths,
+                    left_cols=display_left_cols,
                     header_font_size=11,
                     body_font_size=10,
                     cell_padding=3,
@@ -6325,7 +6503,7 @@ def generate_daily_staff_receive_pdf(results: dict, sort_order: str = "default")
             elements.append(KeepTogether(staff_elements))
 
         for row in detail_rows:
-            group = row[0]
+            group = row[0] if row else ""
             if current_group is not None and group != current_group:
                 flush_group()
                 group_rows = []
@@ -6350,7 +6528,7 @@ def daily_staff_receive_export_response(fmt_type: str, results: dict, cols: str 
     filename = "daily_staff_receive_report"
     if fmt_type == "pdf":
         return Response(
-            generate_daily_staff_receive_pdf(results, sort_order=sort_order),
+            generate_daily_staff_receive_pdf(results, sort_order=sort_order, summary_cols=cols, detail_cols=detail_cols),
             mimetype="application/pdf",
             headers={"Content-Disposition": f"attachment; filename={filename}.pdf"},
         )
@@ -6782,7 +6960,9 @@ def download_card(card: str, fmt_type: str):
                     "left_cols": [0],
                 }
             if card == "daily-staff-receive":
-                pdf_bytes = generate_daily_staff_receive_pdf(r, sort_order=sort_order)
+                ds_cols = request.args.get("cols", "")
+                ds_detail_cols = request.args.get("detail_cols", "")
+                pdf_bytes = generate_daily_staff_receive_pdf(r, sort_order=sort_order, summary_cols=ds_cols, detail_cols=ds_detail_cols)
             elif card == "commercial-monthly":
                 pass
             else:
@@ -6796,7 +6976,16 @@ def download_card(card: str, fmt_type: str):
                         headers={"Content-Disposition": f"attachment; filename={dl_filename}.pdf"})
     elif fmt_type == "csv":
         if card == "daily-staff-receive":
+            ds_cols = request.args.get("cols", "")
+            ds_detail_cols = request.args.get("detail_cols", "")
             summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(r, sort_order=sort_order)
+            if ds_cols:
+                summary_headers, summary_rows = parse_export_cols(ds_cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, summary_rows)
+                if summary_grand:
+                    _, g = parse_export_cols(ds_cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, [summary_grand])
+                    summary_grand = g[0] if g else summary_grand
+            if ds_detail_cols:
+                detail_headers, detail_rows = parse_export_cols(ds_detail_cols, DAILY_STAFF_RECEIVE_DETAIL_COL_MAP, detail_headers, detail_rows)
             csv_rows = [["Summary", *summary_headers]]
             csv_rows.extend([["Summary", *row] for row in summary_rows])
             if summary_grand:
@@ -6847,7 +7036,16 @@ def download_card(card: str, fmt_type: str):
                         headers={"Content-Disposition": f"attachment; filename={dl_filename}.csv"})
     elif fmt_type == "xlsx":
         if card == "daily-staff-receive":
+            ds_cols = request.args.get("cols", "")
+            ds_detail_cols = request.args.get("detail_cols", "")
             summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(r, sort_order=sort_order)
+            if ds_cols:
+                summary_headers, summary_rows = parse_export_cols(ds_cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, summary_rows)
+                if summary_grand:
+                    _, g = parse_export_cols(ds_cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, [summary_grand])
+                    summary_grand = g[0] if g else summary_grand
+            if ds_detail_cols:
+                detail_headers, detail_rows = parse_export_cols(ds_detail_cols, DAILY_STAFF_RECEIVE_DETAIL_COL_MAP, detail_headers, detail_rows)
             buf = io.BytesIO()
             with pd.ExcelWriter(buf, engine="openpyxl") as writer:
                 pd.DataFrame(summary_rows + ([summary_grand] if summary_grand else []), columns=summary_headers).to_excel(writer, sheet_name="Summary", index=False)
@@ -6863,8 +7061,16 @@ def download_card(card: str, fmt_type: str):
     return redirect(url_for("index"))
 
 
-def generate_daily_staff_receive_summary_pdf(results: dict, sort_order: str = "default") -> bytes:
+def generate_daily_staff_receive_summary_pdf(results: dict, sort_order: str = "default", cols: str = "") -> bytes:
     summary_headers, summary_rows, summary_grand, _, _ = daily_staff_receive_export_tables(results, sort_order=sort_order)
+
+    # Apply column selection filtering
+    if cols:
+        summary_headers, summary_rows = parse_export_cols(cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, summary_rows)
+        if summary_grand:
+            _, g = parse_export_cols(cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, [summary_grand])
+            summary_grand = g[0] if g else summary_grand
+
     report = results.get("daily_staff_receive") or {}
     buf = io.BytesIO()
 
@@ -6939,7 +7145,28 @@ def generate_daily_staff_receive_summary_pdf(results: dict, sort_order: str = "d
     if summary_grand:
         summary_data.append(wrap_pdf_body_cells([summary_grand], font_size=10, left_columns={1})[0])
 
-    col_widths = [page_w * 0.08, page_w * 0.27, page_w * 0.19, page_w * 0.22, page_w * 0.24]
+    # Calculate column widths dynamically based on visible columns
+    n_cols = len(summary_headers)
+    # Find the index of the staff name column (key "staffName" = index 1 in full map)
+    staff_name_idx = None
+    for key, idx in DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP.items():
+        if key == "staffName" and idx < n_cols:
+            staff_name_idx = idx
+            break
+
+    if n_cols == 5:
+        col_widths = [page_w * 0.08, page_w * 0.27, page_w * 0.19, page_w * 0.22, page_w * 0.24]
+    elif n_cols == 4:
+        col_widths = [page_w * 0.10, page_w * 0.30, page_w * 0.25, page_w * 0.35]
+    elif n_cols == 3:
+        col_widths = [page_w * 0.12, page_w * 0.38, page_w * 0.50]
+    elif n_cols == 2:
+        col_widths = [page_w * 0.40, page_w * 0.60]
+    elif n_cols == 1:
+        col_widths = [page_w]
+    else:
+        col_widths = [page_w / n_cols] * n_cols
+
     t = Table(summary_data, colWidths=col_widths, repeatRows=1, rowHeights=row_heights)
 
     cell_pad = max(4, int((row_h - 10) / 2))
@@ -6976,8 +7203,9 @@ def generate_daily_staff_receive_summary_pdf(results: dict, sort_order: str = "d
             table_style_cmds.append(("FONTSIZE", (0, idx), (-1, idx), 10))
             table_style_cmds.append(("BACKGROUND", (0, idx), (-1, idx), colors.HexColor("#e6d8c8")))
             table_style_cmds.append(("TEXTCOLOR", (0, idx), (-1, idx), colors.black))
-    # Left-align staff name column
-    table_style_cmds.append(("ALIGN", (1, 1), (1, -1), "LEFT"))
+    # Left-align staff name column when visible
+    if staff_name_idx is not None:
+        table_style_cmds.append(("ALIGN", (staff_name_idx, 1), (staff_name_idx, -1), "LEFT"))
 
     t.setStyle(TableStyle(table_style_cmds))
     elements.append(t)
@@ -6995,7 +7223,8 @@ def export_daily_staff_receive_summary_pdf():
     sort_order = request.args.get("sort", "default")
     if sort_order not in ("default", "asc", "desc"):
         sort_order = "default"
-    pdf_bytes = generate_daily_staff_receive_summary_pdf(_last_daily_staff_results, sort_order=sort_order)
+    cols = request.args.get("cols", "")
+    pdf_bytes = generate_daily_staff_receive_summary_pdf(_last_daily_staff_results, sort_order=sort_order, cols=cols)
     return Response(
         pdf_bytes,
         mimetype="application/pdf",
