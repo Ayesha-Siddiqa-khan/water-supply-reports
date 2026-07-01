@@ -1174,7 +1174,7 @@ def build_daily_staff_receive_report(
         group["bills"] += 1
         group["metric_total"] += metric_total
         group["amount_total"] += amount_received
-        sub_key = (assigned_zone, sector, locality)
+        sub_key = normalise_sector(sector)
         sub = group["sub_rows"].setdefault(
             sub_key,
             {
@@ -1668,6 +1668,69 @@ DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP = {"sr": 0, "staffName": 1, "bills": 2, "arr
 
 # Daily Staff Receive detail: Staff Name, Zone, Sr, Sector, Locality, Bills, Arrears Received, Received Amount
 DAILY_STAFF_RECEIVE_DETAIL_COL_MAP = {"staffName": 0, "zone": 1, "sr": 2, "sector": 3, "locality": 4, "bills": 5, "arrears": 6, "amount": 7}
+
+
+def normalise_sector(name: str) -> str:
+    """Normalise a sector name for grouping: trim, lowercase, collapse spaces."""
+    return " ".join((name or "").strip().lower().split())
+
+
+def merge_sector_rows(rows: list[dict], sector_key: str = "sector", locality_key: str = "locality",
+                      bills_key: str = "bills", metric_key: str = "metric_total", amount_key: str = "amount_total") -> list[dict]:
+    """Merge rows that share the same normalised sector name.
+
+    For each unique sector:
+    - Keeps the first locality as representative text
+    - Sums bills, metric_total, amount_total
+    - Returns one merged row per unique sector
+    """
+    merged: dict[str, dict] = {}
+    for row in rows:
+        norm = normalise_sector(row.get(sector_key) or "")
+        if norm not in merged:
+            merged[norm] = {
+                "_sector": row.get(sector_key) or "",
+                "_locality": row.get(locality_key) or "",
+                "_bills": 0,
+                "_metric": 0.0,
+                "_amount": 0.0,
+            }
+        m = merged[norm]
+        m["_bills"] += row.get(bills_key, 0) if isinstance(row.get(bills_key), (int, float)) else parse_number(str(row.get(bills_key, 0)).replace(",", ""))
+        m["_metric"] += row.get(metric_key, 0) if isinstance(row.get(metric_key), (int, float)) else parse_number(str(row.get(metric_key, 0)).replace(",", ""))
+        m["_amount"] += row.get(amount_key, 0) if isinstance(row.get(amount_key), (int, float)) else parse_number(str(row.get(amount_key, 0)).replace(",", ""))
+    result = []
+    for norm, m in merged.items():
+        result.append({
+            "sector": m["_sector"],
+            "locality": m["_locality"],
+            "bills": m["_bills"],
+            "metric_total": m["_metric"],
+            "amount_total": m["_amount"],
+        })
+    return result
+
+
+def merge_sector_list_rows(rows: list[list], sector_idx: int, locality_idx: int,
+                           numeric_indices: list[int]) -> list[list]:
+    """Merge list-of-lists rows by normalised sector. Keeps first locality, sums numeric columns."""
+    merged: dict[str, dict] = {}
+    for row in rows:
+        norm = normalise_sector(str(row[sector_idx]) if sector_idx < len(row) else "")
+        if norm not in merged:
+            merged[norm] = {"_row": list(row), "_seen": True}
+        m = merged[norm]
+        for ni in numeric_indices:
+            if ni < len(row):
+                m["_row"][ni] = parse_number(str(m["_row"][ni]).replace(",", "")) + parse_number(str(row[ni]).replace(",", ""))
+    result = []
+    for m in merged.values():
+        out = list(m["_row"])
+        for ni in numeric_indices:
+            if ni < len(out):
+                out[ni] = fmt(out[ni]) if isinstance(out[ni], (int, float)) else out[ni]
+        result.append(out)
+    return result
 
 
 def build_connection_summary(r):
@@ -6178,24 +6241,9 @@ def daily_staff_receive_export_tables(results: dict, sort_order: str = "default"
     for group in report.get("grouped_detail") or []:
         staff_name = fmt_staff_name(group.get("staff_name", ""))
         zone = group.get("zone", "")
-        # Group sub_rows by normalised sector to merge same-sector entries
-        sector_map: dict[str, dict] = {}
-        for sub in group.get("sub_rows") or []:
-            raw_sector = (sub.get("sector") or "").strip()
-            sector_key = " ".join(raw_sector.lower().split())
-            if sector_key not in sector_map:
-                sector_map[sector_key] = {
-                    "sector": raw_sector,
-                    "locality": sub.get("locality", ""),
-                    "bills": 0,
-                    "metric_total": 0,
-                    "amount_total": 0,
-                }
-            merged = sector_map[sector_key]
-            merged["bills"] += sub.get("bills", 0)
-            merged["metric_total"] += sub.get("metric_total", 0)
-            merged["amount_total"] += sub.get("amount_total", 0)
-        for idx, (sector_key, merged) in enumerate(sector_map.items(), start=1):
+        # Merge sub_rows by normalised sector using shared helper
+        merged_subs = merge_sector_rows(group.get("sub_rows") or [])
+        for idx, merged in enumerate(merged_subs, start=1):
             detail_rows.append(
                 [
                     staff_name,
