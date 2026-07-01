@@ -6535,12 +6535,19 @@ def generate_daily_staff_receive_pdf(results: dict, sort_order: str = "default",
                 grand_row[display_arrears_pos] = fmt(total_metric)
             if display_amount_pos is not None:
                 grand_row[display_amount_pos] = fmt(total_amount)
-            # Insert "Grand Total" label after the first text column or at position 0
+            # Place "Grand Total" label in the Locality column; fall back to
+            # the previous text column if Locality is filtered out.
             label_pos = 0
+            prev_text_col = 0
             for ci, orig_i in enumerate(detail_display_indices):
-                if detail_headers[orig_i] not in ("Bills", "Arrears Received", "Received Amount"):
-                    label_pos = ci
-                    break
+                h = detail_headers[orig_i]
+                if h not in ("Bills", "Arrears Received", "Received Amount"):
+                    if h == "Locality":
+                        label_pos = ci
+                        break
+                    prev_text_col = ci
+            if label_pos == 0 and prev_text_col != 0:
+                label_pos = prev_text_col
             grand_row[label_pos] = "Grand Total"
             data_rows.append(grand_row)
 
