@@ -82,6 +82,7 @@
     {% block content %}{% endblock %}
   </main>
 
+  <script src="{{ url_for('static', filename='upload-progress.js') }}"></script>
   <script>
     // ── TOAST AUTO-DISMISS ──
     document.addEventListener('DOMContentLoaded', function() {

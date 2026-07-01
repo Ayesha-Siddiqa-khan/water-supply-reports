@@ -5,16 +5,13 @@
 {% block breadcrumb %}All Received Bills Report{% endblock %}
 
 {% block topbar_actions %}
-  <form method="post" enctype="multipart/form-data" style="display:flex;gap:10px;align-items:center;margin:0;">
+  <form method="post" enctype="multipart/form-data" data-upload-progress="true" action="{{ url_for('index') }}" style="display:flex;gap:10px;align-items:center;margin:0;">
     <label class="topbar-btn" style="cursor:pointer;">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 1v8M4 4l3-3 3 3M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2"/></svg>
       <span>Upload File</span>
-      <input type="file" name="files" multiple accept=".csv,.xlsx" style="display:none;" onchange="this.closest('form').querySelector('[name=action]').value='save_data';this.closest('form').submit();">
+      <input type="file" name="files" multiple accept=".csv,.xlsx" style="display:none;">
     </label>
-    <button type="submit" name="action" value="save_data" class="topbar-btn">
-      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10M4 7h6M6 10h2"/></svg>
-      <span>Save Data</span>
-    </button>
+    <input type="hidden" name="action" value="save_data">
     <button type="submit" name="action" value="generate_reports" class="topbar-btn primary">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="12" height="12" rx="2"/><path d="M4 5h6M4 7h4M4 9h5"/></svg>
       <span>Generate Reports</span>
@@ -37,7 +34,8 @@
     </div>
 
     <!-- Upload Area -->
-    <form method="post" enctype="multipart/form-data" style="margin:0;">
+    <form method="post" enctype="multipart/form-data" data-upload-progress="true" action="{{ url_for('index') }}" style="margin:0;">
+      <input type="hidden" name="action" value="save_data">
       <div class="upload-area" onclick="this.querySelector('input[type=file]').click();">
         <div class="upload-icon-box">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -48,7 +46,7 @@
           <strong>Choose files to upload</strong>
           <span>CSV or XLSX &mdash; multiple files allowed. Use topbar buttons to save or generate reports.</span>
         </div>
-        <input type="file" name="files" multiple accept=".csv,.xlsx" style="display:none;" onchange="this.closest('form').querySelector('[name=action]').value='save_data';this.closest('form').submit();">
+        <input type="file" name="files" multiple accept=".csv,.xlsx" style="display:none;">
       </div>
     </form>
 

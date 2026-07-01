@@ -956,6 +956,116 @@ body {
 }
 
 /* ============================================================
+   UPLOAD PROGRESS OVERLAY
+   ============================================================ */
+.upload-progress-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.upload-progress-overlay.visible {
+  opacity: 1;
+}
+.upload-progress-card {
+  background: var(--card, #1a1f2e);
+  border: 1px solid var(--border, #2a3042);
+  border-radius: var(--radius-lg, 12px);
+  padding: 32px 40px;
+  min-width: 380px;
+  max-width: 480px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.upload-progress-icon {
+  width: 48px; height: 48px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.upload-progress-icon.uploading {
+  background: rgba(15, 212, 176, 0.15);
+  border: 2px solid rgba(15, 212, 176, 0.4);
+}
+.upload-progress-icon.processing {
+  background: rgba(59, 130, 246, 0.15);
+  border: 2px solid rgba(59, 130, 246, 0.4);
+}
+.upload-progress-icon.success {
+  background: rgba(34, 197, 94, 0.15);
+  border: 2px solid rgba(34, 197, 94, 0.4);
+}
+.upload-progress-icon.error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 2px solid rgba(239, 68, 68, 0.4);
+}
+.upload-progress-icon svg {
+  width: 24px; height: 24px;
+}
+.upload-progress-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #e2e8f0);
+  margin-bottom: 4px;
+}
+.upload-progress-status {
+  font-size: 12px;
+  color: var(--text-secondary, #94a3b8);
+  margin-bottom: 16px;
+  min-height: 18px;
+}
+.upload-progress-bar-track {
+  width: 100%;
+  height: 6px;
+  background: var(--border, #2a3042);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.upload-progress-bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+  background: linear-gradient(90deg, #0fd4b0, #06b6d4);
+}
+.upload-progress-bar-fill.indeterminate {
+  width: 100%;
+  background: linear-gradient(90deg, transparent, #0fd4b0, transparent);
+  animation: indeterminate 1.4s ease-in-out infinite;
+}
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.upload-progress-percent {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+  min-height: 16px;
+}
+.upload-progress-spinner {
+  display: inline-block;
+  width: 20px; height: 20px;
+  border: 2.5px solid rgba(15, 212, 176, 0.25);
+  border-top-color: #0fd4b0;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.upload-progress-overlay.disabled {
+  pointer-events: none;
+}
+
+/* ============================================================
    FUTURE NOTE — React component reuse
    ============================================================
    The design reference bundle (Enhance Dashboard UI Design/)

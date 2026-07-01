@@ -5,11 +5,11 @@
 {% block breadcrumb %}Daily Receiving{% endblock %}
 
 {% block topbar_actions %}
-  <form method="post" enctype="multipart/form-data" style="display:flex;gap:10px;align-items:center;margin:0;">
+  <form method="post" enctype="multipart/form-data" data-upload-progress="true" action="{{ url_for('daily_staff_receive') }}" style="display:flex;gap:10px;align-items:center;margin:0;">
     <label class="topbar-btn" style="cursor:pointer;">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 1v8M4 4l3-3 3 3M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2"/></svg>
       <span>Upload Files</span>
-      <input type="file" name="files" multiple accept=".csv,.xlsx" style="display:none;" onchange="this.closest('form').submit();">
+      <input type="file" name="files" multiple accept=".csv,.xlsx" style="display:none;">
     </label>
     <button type="submit" class="topbar-btn primary">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="12" height="12" rx="2"/><path d="M4 5h6M4 7h4M4 9h5"/></svg>
@@ -33,7 +33,7 @@
     </div>
 
     <!-- Upload Area -->
-    <form method="post" enctype="multipart/form-data" style="margin:0;">
+    <form method="post" enctype="multipart/form-data" data-upload-progress="true" action="{{ url_for('daily_staff_receive') }}" style="margin:0;">
       <div class="upload-area" onclick="this.querySelector('input[type=file]').click();">
         <div class="upload-icon-box">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -44,7 +44,7 @@
           <strong>Upload Daily Received Files</strong>
           <span>CSV or XLSX, multiple allowed. Include: Received Date, Sector, Locality, Arrears, Amount Received. Use topbar button to generate report.</span>
         </div>
-        <input type="file" name="files" multiple accept=".csv,.xlsx" style="display:none;" onchange="this.closest('form').submit();">
+        <input type="file" name="files" multiple accept=".csv,.xlsx" style="display:none;">
       </div>
     </form>
 

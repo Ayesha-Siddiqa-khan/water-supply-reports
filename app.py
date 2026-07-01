@@ -316,6 +316,23 @@ def allowed_file(filename: str) -> bool:
     return ext.lower() in ALLOWED_EXTENSIONS
 
 
+def is_ajax() -> bool:
+    return request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+
+def ajax_ok(message: str = "", redirect_url: str = ""):
+    from flask import jsonify
+    payload = {"ok": True, "message": message}
+    if redirect_url:
+        payload["redirect"] = redirect_url
+    return jsonify(payload)
+
+
+def ajax_error(message: str):
+    from flask import jsonify
+    return jsonify({"ok": False, "error": message})
+
+
 def read_dataframe(path: str) -> pd.DataFrame:
     _, ext = os.path.splitext(path)
     if ext.lower() == ".csv":
@@ -5085,11 +5102,15 @@ def index():
         if action == "save_data":
             files = request.files.getlist("files")
             if not files or all(not f.filename for f in files):
+                if is_ajax():
+                    return ajax_error("Please choose a CSV or Excel file first.")
                 flash("Please choose a CSV or Excel file first.")
                 return redirect(url_for("index"))
 
             merged, uploaded_names = read_and_merge_uploaded_files(files)
             if merged is None:
+                if is_ajax():
+                    return ajax_error("No valid files were processed.")
                 flash("No valid files were processed.")
                 return redirect(url_for("index"))
 
@@ -5105,6 +5126,11 @@ def index():
 
             _last_merged_df = merged.copy()
             _last_uploaded_names = uploaded_names
+            if is_ajax():
+                return ajax_ok(
+                    message=f"Data saved successfully. {len(merged):,} rows from {len(uploaded_names)} file(s).",
+                    redirect_url=url_for("index"),
+                )
             flash("Data saved successfully.")
             return render_template("index.html", results=None, uploaded_names=uploaded_names,
                                    saved_meta={
@@ -5219,17 +5245,27 @@ def daily_staff_receive():
     if request.method == "POST":
         files = request.files.getlist("files")
         if not files or all(not f.filename for f in files):
+            if is_ajax():
+                return ajax_error("Please choose at least one CSV or Excel file.")
             flash("Please choose at least one CSV or Excel file.")
             return redirect(url_for("daily_staff_receive"))
 
         merged, uploaded_names = read_and_merge_uploaded_files(files)
         if merged is None:
+            if is_ajax():
+                return ajax_error("No valid files were processed.")
             flash("No valid files were processed.")
             return redirect(url_for("daily_staff_receive"))
 
         results = summarize_dataframe(merged)
         _last_daily_staff_results = {"daily_staff_receive": results.get("daily_staff_receive") or {}}
         _last_daily_staff_uploaded_names = uploaded_names
+        if is_ajax():
+            staff_count = len((_last_daily_staff_results["daily_staff_receive"] or {}).get("summary_rows") or [])
+            return ajax_ok(
+                message=f"Report generated. {staff_count} staff member(s) found.",
+                redirect_url=url_for("daily_staff_receive"),
+            )
         return render_template(
             "daily_staff_receive.html",
             report=_last_daily_staff_results["daily_staff_receive"],
@@ -5262,9 +5298,13 @@ def bill_list():
         if action == "save_data":
             file = request.files.get("bill_file")
             if not file or not file.filename:
+                if is_ajax():
+                    return ajax_error("Please choose a bill file first.")
                 flash("Please choose a bill file first.")
                 return redirect(url_for("bill_list"))
             if not allowed_file(file.filename):
+                if is_ajax():
+                    return ajax_error(f"Unsupported file type: {file.filename}")
                 flash(f"Unsupported file type: {file.filename}")
                 return redirect(url_for("bill_list"))
 
@@ -5275,10 +5315,15 @@ def bill_list():
             try:
                 df = read_dataframe(save_path)
                 imported, duplicates = import_bill_list_dataframe(df)
-                flash(f"Bill data saved successfully. Imported {imported:,} row(s).")
+                msg = f"Bill data saved. Imported {imported:,} row(s)."
                 if duplicates:
-                    flash(f"Skipped {duplicates:,} duplicate row(s) inside the uploaded file.")
+                    msg += f" Skipped {duplicates:,} duplicate(s)."
+                if is_ajax():
+                    return ajax_ok(message=msg, redirect_url=url_for("bill_list"))
+                flash(msg)
             except Exception as exc:
+                if is_ajax():
+                    return ajax_error(f"Failed to import file: {exc}")
                 flash(f"Failed to import Bill List file: {exc}")
             return redirect(url_for("bill_list"))
 
