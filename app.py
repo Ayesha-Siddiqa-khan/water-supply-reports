@@ -6249,13 +6249,16 @@ def generate_daily_staff_receive_pdf(results: dict, sort_order: str = "default",
     summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(results, sort_order=sort_order)
 
     # Apply column selection filtering for summary (skip UI-only keys like "avatar", "perf")
+    # Save original headers before filtering so grand total can be filtered correctly
+    orig_summary_headers = summary_headers
     if summary_cols:
         summary_headers, summary_rows = parse_export_cols(summary_cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, summary_rows)
         if summary_grand:
-            _, g = parse_export_cols(summary_cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, [summary_grand])
+            _, g = parse_export_cols(summary_cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, orig_summary_headers, [summary_grand])
             summary_grand = g[0] if g else summary_grand
 
     # Apply column selection filtering for detail (skip UI-only keys like "avatar", "perf")
+    orig_detail_headers = detail_headers
     if detail_cols:
         detail_headers, detail_rows = parse_export_cols(detail_cols, DAILY_STAFF_RECEIVE_DETAIL_COL_MAP, detail_headers, detail_rows)
 
@@ -6340,7 +6343,7 @@ def generate_daily_staff_receive_pdf(results: dict, sort_order: str = "default",
 
     t = Table(summary_data, colWidths=summary_col_widths, repeatRows=1, rowHeights=row_heights)
 
-    cell_pad = max(4, int((row_h - 10) / 2))
+    cell_pad = min(6, max(4, int((row_h - 10) / 2)))
     table_style_cmds = [
         ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
         ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
@@ -6518,13 +6521,15 @@ def generate_daily_staff_receive_pdf(results: dict, sort_order: str = "default",
 
 def daily_staff_receive_export_response(fmt_type: str, results: dict, cols: str = "", detail_cols: str = "", sort_order: str = "default"):
     summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(results, sort_order=sort_order)
+    orig_summary_headers = summary_headers
+    orig_detail_headers = detail_headers
     if cols:
         summary_headers, summary_rows = parse_export_cols(cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, summary_rows)
         if summary_grand:
-            _, g = parse_export_cols(cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, [summary_grand])
+            _, g = parse_export_cols(cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, orig_summary_headers, [summary_grand])
             summary_grand = g[0] if g else summary_grand
     if detail_cols:
-        detail_headers, detail_rows = parse_export_cols(detail_cols, DAILY_STAFF_RECEIVE_DETAIL_COL_MAP, detail_headers, detail_rows)
+        detail_headers, detail_rows = parse_export_cols(detail_cols, DAILY_STAFF_RECEIVE_DETAIL_COL_MAP, orig_detail_headers, detail_rows)
     filename = "daily_staff_receive_report"
     if fmt_type == "pdf":
         return Response(
@@ -6979,13 +6984,15 @@ def download_card(card: str, fmt_type: str):
             ds_cols = request.args.get("cols", "")
             ds_detail_cols = request.args.get("detail_cols", "")
             summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(r, sort_order=sort_order)
+            orig_sh = summary_headers
+            orig_dh = detail_headers
             if ds_cols:
                 summary_headers, summary_rows = parse_export_cols(ds_cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, summary_rows)
                 if summary_grand:
-                    _, g = parse_export_cols(ds_cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, [summary_grand])
+                    _, g = parse_export_cols(ds_cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, orig_sh, [summary_grand])
                     summary_grand = g[0] if g else summary_grand
             if ds_detail_cols:
-                detail_headers, detail_rows = parse_export_cols(ds_detail_cols, DAILY_STAFF_RECEIVE_DETAIL_COL_MAP, detail_headers, detail_rows)
+                detail_headers, detail_rows = parse_export_cols(ds_detail_cols, DAILY_STAFF_RECEIVE_DETAIL_COL_MAP, orig_dh, detail_rows)
             csv_rows = [["Summary", *summary_headers]]
             csv_rows.extend([["Summary", *row] for row in summary_rows])
             if summary_grand:
@@ -7039,13 +7046,15 @@ def download_card(card: str, fmt_type: str):
             ds_cols = request.args.get("cols", "")
             ds_detail_cols = request.args.get("detail_cols", "")
             summary_headers, summary_rows, summary_grand, detail_headers, detail_rows = daily_staff_receive_export_tables(r, sort_order=sort_order)
+            orig_sh = summary_headers
+            orig_dh = detail_headers
             if ds_cols:
                 summary_headers, summary_rows = parse_export_cols(ds_cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, summary_rows)
                 if summary_grand:
-                    _, g = parse_export_cols(ds_cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, [summary_grand])
+                    _, g = parse_export_cols(ds_cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, orig_sh, [summary_grand])
                     summary_grand = g[0] if g else summary_grand
             if ds_detail_cols:
-                detail_headers, detail_rows = parse_export_cols(ds_detail_cols, DAILY_STAFF_RECEIVE_DETAIL_COL_MAP, detail_headers, detail_rows)
+                detail_headers, detail_rows = parse_export_cols(ds_detail_cols, DAILY_STAFF_RECEIVE_DETAIL_COL_MAP, orig_dh, detail_rows)
             buf = io.BytesIO()
             with pd.ExcelWriter(buf, engine="openpyxl") as writer:
                 pd.DataFrame(summary_rows + ([summary_grand] if summary_grand else []), columns=summary_headers).to_excel(writer, sheet_name="Summary", index=False)
@@ -7064,11 +7073,12 @@ def download_card(card: str, fmt_type: str):
 def generate_daily_staff_receive_summary_pdf(results: dict, sort_order: str = "default", cols: str = "") -> bytes:
     summary_headers, summary_rows, summary_grand, _, _ = daily_staff_receive_export_tables(results, sort_order=sort_order)
 
-    # Apply column selection filtering
+    # Apply column selection filtering - save original headers for grand total
+    orig_summary_headers = summary_headers
     if cols:
         summary_headers, summary_rows = parse_export_cols(cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, summary_rows)
         if summary_grand:
-            _, g = parse_export_cols(cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, summary_headers, [summary_grand])
+            _, g = parse_export_cols(cols, DAILY_STAFF_RECEIVE_SUMMARY_COL_MAP, orig_summary_headers, [summary_grand])
             summary_grand = g[0] if g else summary_grand
 
     report = results.get("daily_staff_receive") or {}
@@ -7169,7 +7179,7 @@ def generate_daily_staff_receive_summary_pdf(results: dict, sort_order: str = "d
 
     t = Table(summary_data, colWidths=col_widths, repeatRows=1, rowHeights=row_heights)
 
-    cell_pad = max(4, int((row_h - 10) / 2))
+    cell_pad = min(6, max(4, int((row_h - 10) / 2)))
     table_style_cmds = [
         ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
         ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
