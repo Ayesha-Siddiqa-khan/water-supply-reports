@@ -1969,32 +1969,79 @@ def is_large_pdf_text(value, threshold: int = 22) -> bool:
     return len(text) > threshold or "\n" in text
 
 
+_BRACKET_RE = re.compile(r"(\([^()]+\))")
+
+
+def _bracket_rich_text(text: str, base_style: ParagraphStyle, small_size: int) -> list:
+    """Split text into normal and bracket segments for rich text rendering.
+
+    Returns a list of (text, style) tuples.  Text inside (...) is rendered
+    at *small_size* while the rest uses *base_style*.
+    """
+    parts = _BRACKET_RE.split(text)
+    segments = []
+    for part in parts:
+        if not part:
+            continue
+        if part.startswith("(") and part.endswith(")"):
+            small_style = ParagraphStyle(
+                "BracketSmall",
+                parent=base_style,
+                fontSize=small_size,
+                leading=small_size + 1,
+            )
+            segments.append((part, small_style))
+        else:
+            segments.append((part, base_style))
+    return segments
+
+
 def wrap_pdf_body_cells(
     rows: list[list],
     font_size: int = 8,
     large_text_threshold: int = 22,
     left_columns: set[int] | None = None,
+    bold_rows: set[int] | None = None,
+    bracket_cols: set[int] | None = None,
 ) -> list[list]:
     styles = getSampleStyleSheet()
     wrapped = []
     left_columns = left_columns or set()
-    for row in rows:
+    bold_rows = bold_rows or set()
+    bracket_cols = bracket_cols or set()
+    for ri, row in enumerate(rows):
         wrapped_row = []
         for col_idx, value in enumerate(row):
             if isinstance(value, Paragraph):
                 wrapped_row.append(value)
                 continue
+            is_bold = ri in bold_rows
             align = 0 if col_idx in left_columns or is_large_pdf_text(value, large_text_threshold) else 1
+            font_name = "Helvetica-Bold" if is_bold else "Helvetica"
             cell_style = ParagraphStyle(
                 "PDFBodyCellLeft" if align == 0 else "PDFBodyCellCenter",
                 parent=styles["Normal"],
+                fontName=font_name,
                 fontSize=font_size,
                 leading=font_size + 1,
                 alignment=align,
                 wordWrap="CJK",
             )
             cell_text = str(value or "").replace("\n", "<br/>")
-            wrapped_row.append(Paragraph(cell_text, cell_style))
+            # Render bracket text at a smaller font size for Sector/Locality columns
+            if bracket_cols and col_idx in bracket_cols and "(" in cell_text:
+                segments = _bracket_rich_text(cell_text, cell_style, max(7, font_size - 2))
+                # Build a mini-ParagraphStyle that supports mixed font sizes
+                # by concatenating with <font> tags
+                rich_parts = []
+                for seg_text, seg_style in segments:
+                    if seg_style.fontName == "Helvetica-Bold":
+                        rich_parts.append(f'<b><font size="{seg_style.fontSize}">{seg_text}</font></b>')
+                    else:
+                        rich_parts.append(f'<font size="{seg_style.fontSize}">{seg_text}</font>')
+                wrapped_row.append(Paragraph("".join(rich_parts), cell_style))
+            else:
+                wrapped_row.append(Paragraph(cell_text, cell_style))
         wrapped.append(wrapped_row)
     return wrapped
 
@@ -6597,17 +6644,23 @@ def generate_daily_staff_receive_pdf(results: dict, sort_order: str = "default",
             data_rows.append(grand_row)
 
             # Wrap all cells for PDF rendering
-            wrapped_rows = []
-            for ri, row in enumerate(data_rows):
-                wrapped = []
-                for ci, val in enumerate(row):
-                    orig_i = detail_display_indices[ci]
-                    h = detail_headers[orig_i]
-                    if h in ("Sector", "Locality"):
-                        wrapped.append(wrap_pdf_table_cells([[val]], font_size=10)[0][0])
-                    else:
-                        wrapped.append(val)
-                wrapped_rows.append(wrapped)
+            # Grand Total is always the last row
+            grand_row_idx = len(data_rows) - 1 if data_rows else -1
+            # Identify Sector/Locality column positions in the display table
+            bracket_col_indices = set()
+            for ci, orig_i in enumerate(detail_display_indices):
+                if detail_headers[orig_i] in ("Sector", "Locality"):
+                    bracket_col_indices.add(ci)
+            # Use wrap_pdf_body_cells for consistent styling with bold Grand Total
+            # and bracket text rendering for Sector/Locality columns
+            text_row_indices = set(range(len(data_rows)))
+            wrapped_rows = wrap_pdf_body_cells(
+                data_rows,
+                font_size=10,
+                left_columns=display_left_cols,
+                bold_rows={grand_row_idx} if grand_row_idx >= 0 else set(),
+                bracket_cols=bracket_col_indices,
+            )
 
             staff_elements.append(
                 _make_pdf_table(
