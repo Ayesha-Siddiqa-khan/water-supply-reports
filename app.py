@@ -6178,17 +6178,34 @@ def daily_staff_receive_export_tables(results: dict, sort_order: str = "default"
     for group in report.get("grouped_detail") or []:
         staff_name = fmt_staff_name(group.get("staff_name", ""))
         zone = group.get("zone", "")
-        for idx, sub in enumerate(group.get("sub_rows") or [], start=1):
+        # Group sub_rows by normalised sector to merge same-sector entries
+        sector_map: dict[str, dict] = {}
+        for sub in group.get("sub_rows") or []:
+            raw_sector = (sub.get("sector") or "").strip()
+            sector_key = " ".join(raw_sector.lower().split())
+            if sector_key not in sector_map:
+                sector_map[sector_key] = {
+                    "sector": raw_sector,
+                    "locality": sub.get("locality", ""),
+                    "bills": 0,
+                    "metric_total": 0,
+                    "amount_total": 0,
+                }
+            merged = sector_map[sector_key]
+            merged["bills"] += sub.get("bills", 0)
+            merged["metric_total"] += sub.get("metric_total", 0)
+            merged["amount_total"] += sub.get("amount_total", 0)
+        for idx, (sector_key, merged) in enumerate(sector_map.items(), start=1):
             detail_rows.append(
                 [
                     staff_name,
                     zone,
                     idx,
-                    sub.get("sector", ""),
-                    sub.get("locality", ""),
-                    fmt(sub.get("bills", 0)),
-                    fmt(sub.get("metric_total", 0)),
-                    fmt(sub.get("amount_total", 0)),
+                    merged["sector"],
+                    merged["locality"],
+                    fmt(merged["bills"]),
+                    fmt(merged["metric_total"]),
+                    fmt(merged["amount_total"]),
                 ]
             )
     return summary_headers, summary_rows, summary_grand, detail_headers, detail_rows
@@ -6479,14 +6496,14 @@ def generate_daily_staff_receive_pdf(results: dict, sort_order: str = "default",
             grand_row[label_pos] = "Grand Total"
             data_rows.append(grand_row)
 
-            # Wrap text cells for PDF rendering
+            # Wrap all cells for PDF rendering
             wrapped_rows = []
             for ri, row in enumerate(data_rows):
                 wrapped = []
                 for ci, val in enumerate(row):
                     orig_i = detail_display_indices[ci]
                     h = detail_headers[orig_i]
-                    if h in ("Sector", "Locality") and ri < len(data_rows) - 1:
+                    if h in ("Sector", "Locality"):
                         wrapped.append(wrap_pdf_table_cells([[val]], font_size=10)[0][0])
                     else:
                         wrapped.append(val)
