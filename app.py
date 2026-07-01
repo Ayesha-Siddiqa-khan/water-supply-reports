@@ -6935,11 +6935,11 @@ def generate_daily_staff_receive_summary_pdf(results: dict, sort_order: str = "d
     # Set explicit row heights on all rows
     row_heights = [row_h] * num_table_rows
 
-    summary_data = [wrap_pdf_header_cells(summary_headers, font_size=11)] + wrap_pdf_body_cells(summary_rows, font_size=10, left_columns={1})
+    summary_data = [wrap_pdf_header_cells(summary_headers, font_size=10)] + wrap_pdf_body_cells(summary_rows, font_size=10, left_columns={1})
     if summary_grand:
         summary_data.append(wrap_pdf_body_cells([summary_grand], font_size=10, left_columns={1})[0])
 
-    col_widths = [page_w * 0.06, page_w * 0.30, page_w * 0.22, page_w * 0.20, page_w * 0.22]
+    col_widths = [page_w * 0.08, page_w * 0.27, page_w * 0.19, page_w * 0.22, page_w * 0.24]
     t = Table(summary_data, colWidths=col_widths, repeatRows=1, rowHeights=row_heights)
 
     cell_pad = max(4, int((row_h - 10) / 2))
@@ -6947,7 +6947,7 @@ def generate_daily_staff_receive_summary_pdf(results: dict, sort_order: str = "d
         ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
         ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, 0), 11),
+        ("FONTSIZE", (0, 0), (-1, 0), 10),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
