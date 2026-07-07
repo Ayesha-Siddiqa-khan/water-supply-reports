@@ -70,7 +70,17 @@ app = Flask(
     static_folder=resource_path("static"),
 )
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 200 MB
+
+
+# Handle 413 Payload Too Large errors gracefully instead of crashing
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    msg = "File is too large. Maximum upload size is 200 MB."
+    if is_ajax():
+        return ajax_error(msg)
+    flash(msg)
+    return redirect(request.referrer or url_for("consumer_report"))
 app.secret_key = "dev-secret"
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
