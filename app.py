@@ -7547,6 +7547,14 @@ def _clean_rate_type_name(value: str) -> str:
     return text[:120]
 
 
+def _add_rate_alias(lookup: dict, alias: str, target: str) -> None:
+    """Map known legacy consumer rate labels to the active rate title."""
+    alias_key = _normalize_rate_title(alias)
+    target_key = _normalize_rate_title(target)
+    if alias_key and target_key and target_key in lookup and alias_key not in lookup:
+        lookup[alias_key] = lookup[target_key]
+
+
 def _parse_consumer_csv(file_storage) -> tuple[list[dict], list[str]]:
     """Read uploaded CSV/XLSX and return (rows, errors).
     Uses flexible column matching so files with varying header names work."""
@@ -7587,10 +7595,11 @@ def _parse_consumer_csv(file_storage) -> tuple[list[dict], list[str]]:
                 _normalize_consumer_col(_get(row, "rate_type", "")) == "rate type":
             continue
 
-        # For connection_status, prefer 'Status' column; fall back to 'Consumer Status'
-        status_val = _get(row, "connection_status", "")
+        # Prefer Consumer Status because it is the clean Active/In-Active flag;
+        # fall back to Status for files that do not include Consumer Status.
+        status_val = _get(row, "consumer_status", "")
         if not status_val.strip():
-            status_val = _get(row, "consumer_status", "")
+            status_val = _get(row, "connection_status", "")
         rows.append({
             "serial_number": _get(row, "serial"),
             "consumer_name": _get(row, "consumer_name"),
@@ -7669,6 +7678,8 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
                 rate = 0
             if title_key and rate > 0 and title_key not in lookup:
                 lookup[title_key] = {"period": period, "rate": rate, "title": title}
+        _add_rate_alias(lookup, 'PRIVATE SOCIETY(3" DIA)NEW CONNECTION',
+                        '3" Dia Connection For Private Socities (New Connection)')
         return lookup
 
     # --- Annual budget multiplier based on Billing Period ---

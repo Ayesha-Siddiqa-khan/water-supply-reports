@@ -423,6 +423,16 @@
       return text.slice(0, 120);
     }
 
+    function addRateAlias(lookup, alias, target) {
+      // Fix: some consumer exports use an older 3-inch private society label
+      // while the active payable rate is stored under the longer rate title.
+      var aliasKey = normalizeRateTitle(alias);
+      var targetKey = normalizeRateTitle(target);
+      if (aliasKey && targetKey && lookup[targetKey] && !lookup[aliasKey]) {
+        lookup[aliasKey] = lookup[targetKey];
+      }
+    }
+
     function syncServerSummaryToStorage(key, summary) {
       // Fix: server-rendered uploads/cached GETs must seed localStorage so
       // app-browser CSV/Excel/PDF clicks export the same rows shown on screen.
@@ -449,6 +459,7 @@
           }
         }
       });
+      addRateAlias(lookup, 'PRIVATE SOCIETY(3" DIA)NEW CONNECTION', '3" Dia Connection For Private Socities (New Connection)');
       return lookup;
     }
 
@@ -477,16 +488,31 @@
         if (inQuotes) {
           if (ch === '"') {
             if (i + 1 < line.length && line[i+1] === '"') { current += '"'; i++; }
-            else { inQuotes = false; }
+            else if (i + 1 === line.length || line[i+1] === ',') { inQuotes = false; }
+            else { current += ch; }
           } else { current += ch; }
         } else {
-          if (ch === '"') { inQuotes = true; }
+          // Fix: only a quote at the start of a CSV field opens a quoted
+          // value.  Literal inch marks such as 3" Line Connection must stay
+          // inside the field and must not corrupt the remaining columns.
+          if (ch === '"' && current.length === 0) { inQuotes = true; }
           else if (ch === ',') { result.push(current); current = ''; }
           else { current += ch; }
         }
       }
       result.push(current);
       return result;
+    }
+
+    function classifyRowStatus(fields, colMap) {
+      // Prefer Consumer Status when present because it is the clean Active /
+      // In-Active flag.  Fall back to Status for files without that column.
+      var consumerStatus = '';
+      if (colMap.consumer_status !== undefined) consumerStatus = fields[colMap.consumer_status] || '';
+      if (consumerStatus && consumerStatus.trim()) return classifyStatus(consumerStatus);
+      var statusVal = '';
+      if (colMap.connection_status !== undefined) statusVal = fields[colMap.connection_status] || '';
+      return classifyStatus(statusVal);
     }
 
     function processCSV(text) {
@@ -568,9 +594,7 @@
 
         var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
         var locality = (fields[colMap.locality] || '').trim() || 'Unspecified';
-        var statusVal = '';
-        if (colMap.connection_status !== undefined) statusVal = fields[colMap.connection_status] || '';
-        var status = classifyStatus(statusVal);
+        var status = classifyRowStatus(fields, colMap);
 
         // --- BUDGET: only Active records contribute to annual budget ---
         // Closed/inactive/disconnected records get budget = 0.
@@ -665,9 +689,7 @@
 
         var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
         var locality = (fields[colMap.locality] || '').trim() || 'Unspecified';
-        var statusVal = '';
-        if (colMap.connection_status !== undefined) statusVal = fields[colMap.connection_status] || '';
-        var status = classifyStatus(statusVal);
+        var status = classifyRowStatus(fields, colMap);
 
         if (sector.toUpperCase().indexOf('COMMERCIAL') !== 0) continue;
 
