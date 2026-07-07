@@ -7524,12 +7524,27 @@ def _resolve_consumer_columns(columns: list[str]) -> dict[str, str]:
 def _classify_connection_status(value: str) -> str:
     """Classify both 'Status' column values and 'Consumer Status' into Active/Closed."""
     text = str(value or "").strip().lower()
-    if text in ("closed", "c", "close", "inactive", "disconnected", "terminated", "in-active"):
+    # Fix: keep the backend status classifier aligned with the browser parser
+    # so Suspended/Dead rows do not receive active-only budget.
+    if text in ("closed", "c", "close", "inactive", "disconnected", "terminated", "in-active", "dead", "suspended"):
         return "Closed"
     if text in ("active", "a", "open", "connected", "live", "running", "regular connection",
                 "new connection", "regular", "new"):
         return "Active"
     return "Active"
+
+
+def _normalize_rate_title(value: str) -> str:
+    """Canonical key for rate matching; tolerates case/spacing drift without changing display text."""
+    return " ".join(str(value or "").strip().split()).upper()
+
+
+def _clean_rate_type_name(value: str) -> str:
+    """Return only the rate type label for warnings, never a mixed/full CSV row."""
+    text = " ".join(str(value or "").replace("\r", " ").replace("\n", " ").split()).strip(" ,")
+    if not text or text.lower().replace(" ", "") == "ratetype":
+        return ""
+    return text[:120]
 
 
 def _parse_consumer_csv(file_storage) -> tuple[list[dict], list[str]]:
@@ -7566,6 +7581,12 @@ def _parse_consumer_csv(file_storage) -> tuple[list[dict], list[str]]:
 
     rows: list[dict] = []
     for _, row in df.iterrows():
+        # Fix: joined exports can contain repeated header rows; skip them so
+        # they do not become fake sectors or unmatched "Rate Type" warnings.
+        if _normalize_consumer_col(_get(row, "sector", "")) == "sector" or \
+                _normalize_consumer_col(_get(row, "rate_type", "")) == "rate type":
+            continue
+
         # For connection_status, prefer 'Status' column; fall back to 'Consumer Status'
         status_val = _get(row, "connection_status", "")
         if not status_val.strip():
@@ -7639,14 +7660,15 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
         lookup = {}
         for r in rates:
             title = (r.get("Rate Title") or "").strip()
+            title_key = _normalize_rate_title(title)
             period = (r.get("Billing Period") or "").strip().lower()
             rate_str = (r.get("Water Rate (Rs.)") or "0").replace(",", "").strip()
             try:
                 rate = float(rate_str)
             except (ValueError, TypeError):
                 rate = 0
-            if title and rate > 0 and title not in lookup:
-                lookup[title] = {"period": period, "rate": rate}
+            if title_key and rate > 0 and title_key not in lookup:
+                lookup[title_key] = {"period": period, "rate": rate, "title": title}
         return lookup
 
     # --- Annual budget multiplier based on Billing Period ---
@@ -7666,12 +7688,20 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
 
     # sector_map: normalized_key → { original, localities_set, closed, active, budget }
     sector_map: OrderedDict[str, dict] = OrderedDict()
+    commercial_locality_map: OrderedDict[str, dict] = OrderedDict()
+    unmatched_rate_types: list[str] = []
+    unmatched_budget_count = 0
 
     for row in rows:
         sector_raw = (row.get("sector") or "Unspecified").strip()
         locality_raw = (row.get("locality") or "Unspecified").strip()
         status = row.get("connection_status", "Active")
         rate_type = (row.get("rate_type") or "").strip()
+
+        # Fix: protect this summary builder from repeated CSV header rows too,
+        # because cached/raw rows can reach this path outside _parse_consumer_csv.
+        if _normalize_consumer_col(sector_raw) == "sector" or _normalize_consumer_col(rate_type) == "rate type":
+            continue
 
         norm_key = _normalize_sector(sector_raw)
 
@@ -7709,15 +7739,42 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
                     existing.append(locality_raw)
                 sector_map[norm_key]["localities"] = existing
 
+        # Fix: calculate the per-row annual budget once from the consumer
+        # Rate Type -> rate-list Rate Title match, and apply it only to Active rows.
+        row_budget = 0.0
+        clean_rate_type = _clean_rate_type_name(rate_type)
+        rate_key = _normalize_rate_title(rate_type)
+        if status == "Active" and rate_key and rate_key in rate_lookup:
+            rl = rate_lookup[rate_key]
+            row_budget = _calc_annual_budget(rl["rate"], rl["period"])
+        elif status == "Active" and clean_rate_type:
+            if clean_rate_type not in unmatched_rate_types:
+                unmatched_rate_types.append(clean_rate_type)
+            unmatched_budget_count += 1
+
         if status == "Closed":
             sector_map[norm_key]["closed"] += 1
         else:
             sector_map[norm_key]["active"] += 1
+        sector_map[norm_key]["budget"] += row_budget
 
-        # --- BUDGET: only Active records contribute to annual budget ---
-        if status == "Active" and rate_type and rate_type in rate_lookup:
-            rl = rate_lookup[rate_type]
-            sector_map[norm_key]["budget"] += _calc_annual_budget(rl["rate"], rl["period"])
+        # Fix: commercial records also keep a locality-level map so they never
+        # collapse into one COMMERCIAL row in the Commercial tab or exports.
+        if sector_raw.upper().startswith("COMMERCIAL"):
+            loc_key = norm_key + "|||" + _normalize_sector(locality_raw)
+            if loc_key not in commercial_locality_map:
+                commercial_locality_map[loc_key] = {
+                    "sector": sector_raw,
+                    "locality": locality_raw,
+                    "closed": 0,
+                    "active": 0,
+                    "budget": 0.0,
+                }
+            if status == "Closed":
+                commercial_locality_map[loc_key]["closed"] += 1
+            else:
+                commercial_locality_map[loc_key]["active"] += 1
+            commercial_locality_map[loc_key]["budget"] += row_budget
 
     # Build summary rows — one row per normalized sector
     summary_rows: list[dict] = []
@@ -7731,10 +7788,10 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
         active = s_data["active"]
         total = closed + active
         budget = s_data["budget"]
+        original_sector = s_data["original"]
         # Combine localities into comma-separated string.
         # Fallback: if no locality found, use the sector name itself.
         locality_str = ", ".join(s_data["localities"]) if s_data["localities"] else original_sector
-        original_sector = s_data["original"]
 
         summary_rows.append({
             "serial": serial,
@@ -7750,6 +7807,28 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
         grand_active += active
         grand_budget += budget
 
+    # Fix: expose commercial locality rows to the tab and export pipeline so
+    # commercial localities remain separate after server-side uploads/caches.
+    commercial_detailed_rows: list[dict] = []
+    commercial_closed = commercial_active = 0
+    commercial_budget = 0.0
+    for i, c_data in enumerate(commercial_locality_map.values(), 1):
+        c_closed = c_data["closed"]
+        c_active = c_data["active"]
+        c_budget = c_data["budget"]
+        commercial_detailed_rows.append({
+            "serial": i,
+            "sector": c_data["sector"],
+            "locality": c_data["locality"],
+            "closed": c_closed,
+            "active": c_active,
+            "total": c_closed + c_active,
+            "budget": c_budget,
+        })
+        commercial_closed += c_closed
+        commercial_active += c_active
+        commercial_budget += c_budget
+
     return {
         "summary_rows": summary_rows,
         "sector_totals": sector_totals,
@@ -7762,6 +7841,16 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
         "sector_count": len(sector_map),
         "locality_count": len(summary_rows),
         "total_connections": grand_closed + grand_active,
+        "total_budget": grand_budget,
+        "commercial_detailed_rows": commercial_detailed_rows,
+        "commercial_grand_total": {
+            "closed": commercial_closed,
+            "active": commercial_active,
+            "total": commercial_closed + commercial_active,
+            "budget": commercial_budget,
+        },
+        "unmatched_rate_types": unmatched_rate_types,
+        "unmatched_budget_count": unmatched_budget_count,
     }
 
 
@@ -7771,6 +7860,78 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
 # the consumer_report.html template.  Used by the GET handler to render two
 # sub-tabs: one for normal sectors, one for COMMERCIAL.
 # ---------------------------------------------------------------------------
+def _sort_summary_rows(rows: list[dict], sort_priority: str, sort_order: str) -> list[dict]:
+    """Shared sorting for the Consumer Sector Report (preview, PDF, CSV, Excel).
+
+    Applies the user's PRIORITY (active_first | closed_first) and ORDER
+    (desc = Highest→Lowest, asc = Lowest→Highest) to EVERY row using its own
+    count — never a sector-averaged value.  sector then locality are stable
+    secondary keys so the result is deterministic.
+
+    Commercial locality rows stay separate (never merged); they are simply
+    reordered by their individual counts.  Returns a NEW list with serial
+    numbers re-assigned in the final sorted order.
+    """
+    if sort_priority not in ("active_first", "closed_first"):
+        sort_priority = "active_first"
+    if sort_order not in ("desc", "asc"):
+        sort_order = "desc"
+
+    sort_key_field = "active" if sort_priority == "active_first" else "closed"
+    primary_sign = -1 if sort_order == "desc" else 1
+
+    def _key(r):
+        return (primary_sign * (r.get(sort_key_field) or 0),
+                (r.get("sector") or ""),
+                (r.get("locality") or ""))
+
+    final = sorted(rows, key=_key)
+    for i, r in enumerate(final, 1):
+        r["serial"] = i
+    return final
+
+
+def _filter_active_rows(summary: dict) -> dict:
+    """Return a copy of `summary` with all rows having zero active
+    connections removed.  Applies to both `summary_rows` and
+    `commercial_detailed_rows`, and recomputes the affected grand totals.
+
+    This keeps the preview tables, checkbox selection, grand totals, and all
+    export formats consistent: only rows with Active > 0 are ever shown.
+    """
+    if not summary:
+        return summary
+    out = dict(summary)
+
+    def _keep(rows):
+        return [r for r in (rows or []) if (r.get("active") or 0) > 0]
+
+    out["summary_rows"] = _keep(summary.get("summary_rows", []))
+    out["commercial_detailed_rows"] = _keep(summary.get("commercial_detailed_rows", []))
+
+    # Recompute grand totals strictly from surviving rows.
+    gt = summary.get("grand_total", {})
+    out["grand_total"] = {
+        "closed": sum(r.get("closed", 0) for r in out["summary_rows"]),
+        "active": sum(r.get("active", 0) for r in out["summary_rows"]),
+        "total": sum(r.get("total", 0) for r in out["summary_rows"]),
+        "budget": sum(r.get("budget", 0) for r in out["summary_rows"]),
+    }
+    if "commercial_grand_total" in summary:
+        cdr = out["commercial_detailed_rows"]
+        out["commercial_grand_total"] = {
+            "closed": sum(r.get("closed", 0) for r in cdr),
+            "active": sum(r.get("active", 0) for r in cdr),
+            "total": sum(r.get("total", 0) for r in cdr),
+            "budget": sum(r.get("budget", 0) for r in cdr),
+        }
+    out["total_connections"] = out["grand_total"]["total"]
+    out["total_budget"] = out["grand_total"]["budget"]
+    out["sector_count"] = len(out["summary_rows"])
+    out["locality_count"] = len(out["summary_rows"])
+    return out
+
+
 def _split_summary_by_type(summary: dict) -> tuple[dict, dict]:
     """Split a summary dict into (normal_summary, commercial_summary).
 
@@ -7781,6 +7942,9 @@ def _split_summary_by_type(summary: dict) -> tuple[dict, dict]:
     """
     if not summary:
         return ({}, {})
+
+    # Exclude rows with zero active connections from the displayed/split view.
+    summary = _filter_active_rows(summary)
 
     all_rows = summary.get("summary_rows", [])
 
@@ -7859,20 +8023,56 @@ def _split_summary_by_type(summary: dict) -> tuple[dict, dict]:
 
 
 def _load_rates_csv() -> list[dict]:
-    """Load rate data from the bundled rates.json file.
+    """Load rate data from the provided rates CSV or bundled rates.json.
 
-    rates.json is a fixed, version-controlled data file containing all 44
-    active water rates.  It is generated from rates.csv and checked into the
-    repository so that Vercel deployments never need a CSV upload for rates.
+    RATE SOURCE PRIORITY:
+    1. User-provided rates CSV at USER_RATES_CSV_PATH (e.g. C:\\Users\\Rising\\Downloads\\rates.csv)
+    2. Bundled rates.json (version-controlled, ships with app for Vercel)
+    3. Bundled rates.csv (local development fallback)
 
     Each dict has keys: Rate Title, Connection Type, Billing Period,
     Water Rate (Rs.), Status — matching the CSV headers the client expects.
 
-    The function first tries rates.json; if missing it falls back to
-    rates.csv for local development.
+    RATE MATCHING:
+    - Consumer's "Rate Type" field is matched against "Rate Title" using
+      exact string comparison (trimmed of whitespace).
+    - Only Active connections contribute to budget calculation.
+
+    ANNUAL BUDGET CALCULATION:
+    - Monthly   -> Water Rate x 12
+    - Quarterly -> Water Rate x 4
+    - Six Month -> Water Rate x 2
+    - Yearly    -> Water Rate x 1
     """
     import json as _json
-    # --- Primary: load from the bundled JSON data file ---
+    import csv as _csv
+
+    # --- Priority 1: User-provided rates CSV ---
+    # This is the main source for rate values when available.
+    user_rates_path = r"C:\Users\Rising\Downloads\rates.csv"
+    if os.path.exists(user_rates_path):
+        try:
+            with open(user_rates_path, "r", encoding="utf-8-sig") as f:
+                reader = _csv.DictReader(f)
+                rows = []
+                for row in reader:
+                    title = (row.get("Rate Title") or "").strip()
+                    if not title:
+                        continue
+                    # Normalize Water Rate: remove commas, strip whitespace
+                    rate_str = (row.get("Water Rate (Rs.)") or "0").replace(",", "").strip()
+                    try:
+                        rate_val = float(rate_str)
+                    except (ValueError, TypeError):
+                        rate_val = 0
+                    row["Water Rate (Rs.)"] = str(int(rate_val)) if rate_val == int(rate_val) else str(rate_val)
+                    rows.append(row)
+                if rows:
+                    return rows
+        except Exception:
+            pass  # Fall through to bundled sources
+
+    # --- Priority 2: Bundled rates.json (Vercel deployments) ---
     json_path = os.path.join(os.path.dirname(__file__), "rates.json")
     if os.path.exists(json_path):
         with open(json_path, "r", encoding="utf-8") as f:
@@ -7885,8 +8085,7 @@ def _load_rates_csv() -> list[dict]:
                 row["Water Rate (Rs.)"] = str(int(rate_val)) if rate_val == int(rate_val) else str(rate_val)
         return [row for row in data if (row.get("Rate Title") or "").strip()]
 
-    # --- Fallback: load from rates.csv (local development only) ---
-    import csv as _csv
+    # --- Priority 3: Bundled rates.csv (local development fallback) ---
     rates_path = os.path.join(os.path.dirname(__file__), "rates.csv")
     if not os.path.exists(rates_path):
         return []
@@ -7934,6 +8133,9 @@ def consumer_report():
                 "unmatched_rate_types": data.get("unmatched_rate_types", []),
                 "unmatched_budget_count": data.get("unmatched_budget_count", 0),
             }
+            # Exclude rows with zero active connections from the stored summary
+            # so every downstream view/export is consistent.
+            summary = _filter_active_rows(summary)
             _last_consumer_summary = summary
             # Persist to disk so the data survives Vercel serverless cold starts
             _save_consumer_summary_cache(summary, _consumer_report_filename, data.get("total_rows", 0))
@@ -7981,6 +8183,11 @@ def consumer_report():
             _consumer_report_filename = secure_filename(file.filename or "upload.csv")
 
             summary = _build_consumer_sector_summary(rows)
+            # Fix: form uploads must update the same filtered cache as browser
+            # JSON uploads; otherwise GET/export can reuse an older report.
+            summary = _filter_active_rows(summary)
+            _last_consumer_summary = summary
+            _save_consumer_summary_cache(summary, _consumer_report_filename, len(rows))
             msg = f"File uploaded. Found {summary['total_connections']:,} connections across {summary['sector_count']} sectors."
             if is_ajax():
                 return ajax_ok(message=msg, redirect_url=url_for("consumer_report"))
@@ -8036,10 +8243,17 @@ def export_consumer_report(fmt_type: str):
                     summary = {
                         "summary_rows": payload.get("summary_rows", []),
                         "sector_totals": payload.get("sector_totals", {}),
-                        "grand_total": payload.get("grand_total", {"closed": 0, "active": 0, "total": 0}),
+                        "grand_total": payload.get("grand_total", {"closed": 0, "active": 0, "total": 0, "budget": 0}),
                         "sector_count": payload.get("sector_count", 0),
                         "locality_count": payload.get("locality_count", 0),
                         "total_connections": payload.get("total_connections", 0),
+                        # Fix: keep export POST payloads lossless so commercial
+                        # locality rows, budgets, and warnings survive downloads.
+                        "total_budget": payload.get("total_budget", 0),
+                        "commercial_detailed_rows": payload.get("commercial_detailed_rows", []),
+                        "commercial_grand_total": payload.get("commercial_grand_total", {"closed": 0, "active": 0, "total": 0, "budget": 0}),
+                        "unmatched_rate_types": payload.get("unmatched_rate_types", []),
+                        "unmatched_budget_count": payload.get("unmatched_budget_count", 0),
                     }
                     _last_consumer_summary = summary
                     _consumer_report_filename = payload.get("filename", "upload.csv")
@@ -8063,11 +8277,19 @@ def export_consumer_report(fmt_type: str):
         return redirect(url_for("consumer_report"))
 
     # -----------------------------------------------------------------------
-    # Sorting: read priority and order from query params.
-    # priority = "active_first" | "closed_first"
-    # order    = "desc" (highest first) | "asc" (lowest first)
-    # Applied to locality rows; sectors are re-grouped after sorting.
+    # UNIFIED EXPORT PIPELINE
+    # All export formats (PDF, Commercial PDF, CSV, Excel) use ONE shared,
+    # fully-filtered dataset so that row counts and grand totals match across
+    # every output.  The pipeline applies, in order:
+    #   1. Report scope (domestic vs commercial) based on fmt_type / tab param
+    #   2. Active > 0 filter  (rows with 0 active connections are excluded)
+    #   3. Sorting (priority + order)
+    #   4. Column visibility (selected columns only)
+    # Checkbox selection is already applied client-side and POSTed as the
+    # filtered `summary_data`, so it is respected automatically.
     # -----------------------------------------------------------------------
+    from collections import OrderedDict
+
     sort_priority = request.args.get("priority", "active_first")
     sort_order = request.args.get("order", "desc")
     if sort_priority not in ("active_first", "closed_first"):
@@ -8075,52 +8297,46 @@ def export_consumer_report(fmt_type: str):
     if sort_order not in ("desc", "asc"):
         sort_order = "desc"
 
+    tab_param = request.args.get("tab", "normal")
+    if tab_param not in ("normal", "commercial"):
+        tab_param = "normal"
+
     # `summary` is already resolved above (from POST data, cache, or raw data).
     # Do NOT rebuild here — `_consumer_report_data` may already be summary rows.
     if "summary_rows" not in summary:
         summary = _build_consumer_sector_summary(_consumer_report_data)
 
-    # -- Apply sorting to summary rows --
-    # Sort key: the count matching the selected priority direction
-    sort_key_field = "active" if sort_priority == "active_first" else "closed"
-    reverse = sort_order == "desc"
-
-    sorted_rows = sorted(
-        summary["summary_rows"],
-        key=lambda r: (r["sector"], r[sort_key_field]),
-    )
-    # Re-group by sector after sorting: sort sectors by their total priority count
-    from collections import OrderedDict
-    sector_order: list[str] = []
-    sector_priority_sum: dict[str, int] = {}
-    for r in sorted_rows:
-        s = r["sector"]
-        if s not in sector_priority_sum:
-            sector_order.append(s)
-            sector_priority_sum[s] = 0
-        sector_priority_sum[s] += r[sort_key_field]
-    # Sort sector names by their cumulative priority count
-    sector_order.sort(key=lambda s: sector_priority_sum[s], reverse=reverse)
-
-    # Rebuild sorted_rows in sector-grouped order
-    rows_by_sector: dict[str, list[dict]] = OrderedDict()
-    for r in sorted_rows:
-        rows_by_sector.setdefault(r["sector"], []).append(r)
-    final_sorted: list[dict] = []
-    for s in sector_order:
-        final_sorted.extend(rows_by_sector[s])
-
-    # Re-assign serial numbers after sorting
-    for i, r in enumerate(final_sorted, 1):
-        r["serial"] = i
-
-    # Rebuild sector_totals from the sorted rows (order may change but totals stay the same)
-    summary["summary_rows"] = final_sorted
+    # -----------------------------------------------------------------------
+    # STEP 1 — Report scope: choose the base row set.
+    #   - commercial-pdf OR tab=commercial  -> COMMERCIAL rows (locality-level)
+    #   - everything else                   -> DOMESTIC (non-COMMERCIAL) rows
+    # -----------------------------------------------------------------------
+    if fmt_type == "commercial-pdf" or tab_param == "commercial":
+        detailed = summary.get("commercial_detailed_rows", [])
+        if detailed:
+            base_rows = list(detailed)
+        else:
+            base_rows = [r for r in summary["summary_rows"] if r["sector"].upper().startswith("COMMERCIAL")]
+        scope_label = "commercial"
+    else:
+        base_rows = [r for r in summary["summary_rows"] if not r["sector"].upper().startswith("COMMERCIAL")]
+        scope_label = "domestic"
 
     # -----------------------------------------------------------------------
-    # Column visibility: read which columns to include in the PDF.
-    # cols = comma-separated list of column keys: sr,sector,locality,closed,active,total,budget
-    # If not specified, all columns including budget are included.
+    # STEP 2 — Active > 0 filter.
+    # A row is excluded when it has zero active connections.
+    # -----------------------------------------------------------------------
+    filtered_rows = [r for r in base_rows if (r.get("active") or 0) > 0]
+
+    # -----------------------------------------------------------------------
+    # STEP 3 — Shared sorting logic (used by preview, PDF, CSV, and Excel).
+    # Delegated to _sort_summary_rows so the exact same ordering is guaranteed
+    # across every output format.  See _sort_summary_rows for the full rules.
+    # -----------------------------------------------------------------------
+    final_sorted = _sort_summary_rows(filtered_rows, sort_priority, sort_order)
+
+    # -----------------------------------------------------------------------
+    # STEP 4 — Column visibility.
     # -----------------------------------------------------------------------
     cols_param = request.args.get("cols", "")
     if cols_param:
@@ -8128,8 +8344,6 @@ def export_consumer_report(fmt_type: str):
     else:
         selected_cols = ["sr", "sector", "locality", "closed", "active", "total", "budget"]
 
-    # Build headers and row data based on selected columns
-    # Column definitions: key → (header_label, row_extractor, width_mm)
     COL_DEFS = {
         "sr":     ("SR",     lambda r: r["serial"],             12),
         "sector": ("Sector", lambda r: r["sector"],             58),
@@ -8140,18 +8354,25 @@ def export_consumer_report(fmt_type: str):
         "budget": ("Budget (Rs.)", lambda r: r.get("budget", 0), 22),
     }
 
-    # Filter to only selected columns that exist
     active_cols = [c for c in ["sr", "sector", "locality", "closed", "active", "total", "budget"] if c in selected_cols]
 
+    # -----------------------------------------------------------------------
+    # Shared export dataset: headers, rows, and grand total computed ONLY from
+    # the final filtered/sorted rows so CSV/Excel/PDF all agree.
+    # -----------------------------------------------------------------------
     headers = [COL_DEFS[c][0] for c in active_cols]
     rows = [
         [COL_DEFS[c][1](r) for c in active_cols]
-        for r in summary["summary_rows"]
+        for r in final_sorted
     ]
 
-    # Grand total: only include numeric columns that are selected
-    gt = summary["grand_total"]
-    gt_vals = {"closed": gt["closed"], "active": gt["active"], "total": gt["total"], "budget": gt.get("budget", 0)}
+    # Grand total derived strictly from visible/filtered rows.
+    gt_vals = {
+        "closed": sum(r.get("closed", 0) for r in final_sorted),
+        "active": sum(r.get("active", 0) for r in final_sorted),
+        "total":  sum(r.get("total", 0) for r in final_sorted),
+        "budget": sum(r.get("budget", 0) for r in final_sorted),
+    }
     grand = []
     for c in active_cols:
         if c == "sr":
@@ -8165,7 +8386,7 @@ def export_consumer_report(fmt_type: str):
         else:
             grand.append(gt_vals.get(c, 0))
 
-    filename = "consumer_sector_report"
+    filename = "commercial_sector_report" if scope_label == "commercial" else "consumer_sector_report"
 
     # -----------------------------------------------------------------------
     # PDF export — Professional A4 portrait print layout with light colours
@@ -8267,8 +8488,8 @@ def export_consumer_report(fmt_type: str):
             report_subtitle_style,
         ))
 
-        # -- Filter out COMMERCIAL rows from normal PDF (they have their own separate report) --
-        non_commercial_rows = [r for r in summary["summary_rows"] if not r["sector"].upper().startswith("COMMERCIAL")]
+        # -- Shared filtered dataset is already domestic + Active>0 + sorted --
+        non_commercial_rows = final_sorted
 
         # -- Metadata: only Sectors, Localities, Total Connections + Generated by AI --
         # Count non-commercial rows for metadata
@@ -8396,18 +8617,13 @@ def export_consumer_report(fmt_type: str):
         # Falls back to sector-aggregated summary rows for backward compat.
         # Each commercial locality appears as a separate row in the PDF.
         # ---------------------------------------------------------------
-        detailed = summary.get("commercial_detailed_rows", [])
-        if detailed:
-            # Use locality-level rows from client-side processing
-            commercial_rows = detailed
-        else:
-            # Fallback: filter from sector-aggregated summary_rows
-            commercial_rows = [r for r in summary["summary_rows"] if r["sector"].upper().startswith("COMMERCIAL")]
+        # Shared filtered dataset is already commercial + Active>0 + sorted
+        commercial_rows = final_sorted
         if not commercial_rows:
             flash("No COMMERCIAL records found in the report data.")
             return redirect(url_for("consumer_report"))
 
-        # Compute commercial-specific totals
+        # Compute commercial-specific totals (from the shared filtered rows)
         commercial_closed = sum(r["closed"] for r in commercial_rows)
         commercial_active = sum(r["active"] for r in commercial_rows)
         commercial_total = commercial_closed + commercial_active

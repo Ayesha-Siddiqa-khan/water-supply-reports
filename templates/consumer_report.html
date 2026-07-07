@@ -108,10 +108,13 @@
         </div>
         {% endif %}
 
-        <!-- Shared export bar: CSV/Excel always available -->
+        <!-- Shared export bar: CSV/Excel always available.
+             These POST the same filtered localStorage dataset as the PDFs,
+             so Active>0 filtering, checkbox selection, column visibility,
+             sorting, and tab scope are applied consistently to every export. -->
         <div class="export-bar" style="margin-bottom:10px;">
-          <a class="chip export-link" href="{{ url_for('export_consumer_report', fmt_type='csv') }}">&#11015; Download CSV</a>
-          <a class="chip export-link" href="{{ url_for('export_consumer_report', fmt_type='xlsx') }}">&#11015; Download Excel</a>
+          <a class="chip export-link" data-fmt="normal" href="{{ url_for('export_consumer_report', fmt_type='csv') }}">&#11015; Download CSV</a>
+          <a class="chip export-link" data-fmt="normal" href="{{ url_for('export_consumer_report', fmt_type='xlsx') }}">&#11015; Download Excel</a>
         </div>
 
         <!-- ================================================================
@@ -206,7 +209,7 @@
               </thead>
               <tbody>
                 {% for row in normal_summary.summary_rows %}
-                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}">
+                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}" data-sector="{{ row.sector }}" data-locality="{{ row.locality }}">
                   <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="normal" data-serial="{{ row.serial }}" checked></td>
                   <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
                   <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
@@ -229,7 +232,7 @@
           </div>
           {% else %}
           <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">
-            No non-commercial sector data found.
+            No active connections found for this report.
           </div>
           {% endif %}
         </div>
@@ -256,7 +259,7 @@
               </thead>
               <tbody>
                 {% for row in commercial_summary.summary_rows %}
-                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}">
+                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}" data-sector="{{ row.sector }}" data-locality="{{ row.locality }}">
                   <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="commercial" data-serial="{{ row.serial }}" checked></td>
                   <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
                   <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
@@ -279,7 +282,7 @@
           </div>
           {% else %}
           <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">
-            No COMMERCIAL sector data found in this report.
+            No active connections found for this report.
           </div>
           {% endif %}
         </div>
@@ -312,33 +315,52 @@
      ================================================================ */
   (function() {
     // Column alias map: normalised name → canonical key
+    // PRIORITY ORDER matters: first match wins for each key.
+    // Use exact match preferred, then partial match as fallback.
     var COL_ALIASES = {
       serial:        ['sr #','sr#','serial','s no','s.no','serial no','serial number','sr no'],
-      consumer_name: ['consumer name','consumer','name'],
+      consumer_name: ['consumer name / f/h name','consumer name','consumer','name'],
       father_name:   ['f/h name','f h name','father name','father','f/h','guardian'],
       mobile:        ['mobile','phone','cell','contact'],
       sector:        ['sector'],
       locality:      ['locality'],
       address:       ['address'],
-      order_number:  ['order no','order number','register no','order no. / register no','register'],
-      rate_type:     ['rate type','rate'],
-      connection:    ['connection no','connection no.','connection number','connection'],
-      old_connection:['old connection no','old connection no.','old connection number','old connection'],
+      order_number:  ['order no. / register no','order no','order number','register no','register'],
+      rate_type:     ['rate type','rate type'],
+      connection:    ['connection no.','connection no','connection number','connection'],
+      old_connection:['old connection no.','old connection no','old connection number','old connection'],
       connection_status: ['status','connection status','conn status'],
       consumer_status:   ['consumer status'],
       action:        ['action','actions']
     };
 
-    function normCol(n) { return n.trim().toLowerCase().replace(/_/g,' ').replace(/\s+/g,' '); }
+    function normCol(n) { return n.trim().toLowerCase().replace(/_/g,' ').replace(/\s+/g,' ').replace(/[()]/g,'').trim(); }
 
     function resolveColumns(headers) {
       var norm = headers.map(normCol);
       var resolved = {};
+      // Pass 1: exact match (normalized header == normalized alias)
       Object.keys(COL_ALIASES).forEach(function(key) {
+        if (resolved[key] !== undefined) return;
         COL_ALIASES[key].forEach(function(alias) {
-          if (resolved[key]) return;
+          if (resolved[key] !== undefined) return;
+          var normAlias = normCol(alias);
           for (var i = 0; i < norm.length; i++) {
-            if (norm[i].indexOf(alias) !== -1) {
+            if (norm[i] === normAlias) {
+              resolved[key] = i;
+              break;
+            }
+          }
+        });
+      });
+      // Pass 2: partial match (alias is contained in header) — fallback only
+      Object.keys(COL_ALIASES).forEach(function(key) {
+        if (resolved[key] !== undefined) return;
+        COL_ALIASES[key].forEach(function(alias) {
+          if (resolved[key] !== undefined) return;
+          var normAlias = normCol(alias);
+          for (var i = 0; i < norm.length; i++) {
+            if (norm[i].indexOf(normAlias) !== -1 && normAlias.length >= 3) {
               resolved[key] = i;
               break;
             }
@@ -350,8 +372,22 @@
 
     function classifyStatus(val) {
       var t = (val || '').trim().toLowerCase();
-      if (['closed','c','close','inactive','disconnected','terminated','in-active'].indexOf(t) !== -1) return 'Closed';
+      // Only exact closed/inactive statuses map to Closed; everything else is Active
+      if (['closed','c','close','inactive','disconnected','terminated','in-active','dead','suspended'].indexOf(t) !== -1) return 'Closed';
       return 'Active';
+    }
+
+    // Detect duplicate header rows — skip rows where Rate Type == "Rate Type"
+    function isHeaderRow(fields, colMap) {
+      if (colMap.rate_type !== undefined) {
+        var rt = (fields[colMap.rate_type] || '').trim().toLowerCase();
+        if (rt === 'rate type' || rt === 'ratetype') return true;
+      }
+      if (colMap.sector !== undefined) {
+        var sec = (fields[colMap.sector] || '').trim().toLowerCase();
+        if (sec === 'sector') return true;
+      }
+      return false;
     }
 
     // ================================================================
@@ -372,18 +408,44 @@
     // ================================================================
     var RATES_DATA = {{ rates_json|safe }};
 
+    var SERVER_NORMAL_SUMMARY = {{ (normal_summary or {})|tojson }};
+    var SERVER_COMMERCIAL_SUMMARY = {{ (commercial_summary or {})|tojson }};
+    var SERVER_FILENAME = {{ (filename or '')|tojson }};
+    var SERVER_TOTAL_ROWS = {{ (total_rows or 0)|tojson }};
+
+    function normalizeRateTitle(value) {
+      return (value || '').trim().replace(/\s+/g, ' ').toUpperCase();
+    }
+
+    function cleanRateTypeName(value) {
+      var text = (value || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').replace(/^[,\s]+|[,\s]+$/g, '');
+      if (!text || text.toLowerCase().replace(/\s+/g, '') === 'ratetype') return '';
+      return text.slice(0, 120);
+    }
+
+    function syncServerSummaryToStorage(key, summary) {
+      // Fix: server-rendered uploads/cached GETs must seed localStorage so
+      // app-browser CSV/Excel/PDF clicks export the same rows shown on screen.
+      if (!summary || !summary.summary_rows || !summary.summary_rows.length) return;
+      var copy = JSON.parse(JSON.stringify(summary));
+      copy.filename = SERVER_FILENAME;
+      copy.total_rows = SERVER_TOTAL_ROWS;
+      try { localStorage.setItem(key, JSON.stringify(copy)); } catch(e) {}
+    }
+
     // --- Build rate lookup map from rates.json data ---
     // Only the first entry per Rate Title is used (deduplicates by title).
     function buildRateLookup() {
       var lookup = {};
       RATES_DATA.forEach(function(row) {
         var title = (row['Rate Title'] || '').trim();
+        var titleKey = normalizeRateTitle(title);
         var period = (row['Billing Period'] || '').trim().toLowerCase();
         var rateStr = (row['Water Rate (Rs.)'] || '0').replace(/,/g, '').trim();
         var rate = parseFloat(rateStr) || 0;
-        if (title && rate > 0) {
-          if (!lookup[title]) {
-            lookup[title] = { period: period, rate: rate };
+        if (titleKey && rate > 0) {
+          if (!lookup[titleKey]) {
+            lookup[titleKey] = { period: period, rate: rate, title: title };
           }
         }
       });
@@ -500,6 +562,10 @@
 
       for (var i = 1; i < lines.length; i++) {
         var fields = parseCSVLine(lines[i]);
+        // Fix: joined CSV files can include repeated header rows; skip them so
+        // they do not appear as fake sectors or dirty unmatched-rate warnings.
+        if (isHeaderRow(fields, colMap)) continue;
+
         var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
         var locality = (fields[colMap.locality] || '').trim() || 'Unspecified';
         var statusVal = '';
@@ -511,13 +577,16 @@
         var rateType = '';
         if (colMap.rate_type !== undefined) rateType = (fields[colMap.rate_type] || '').trim();
         var rowBudget = 0;
-        if (status === 'Active' && rateType && rateLookup[rateType]) {
-          var rl = rateLookup[rateType];
+        var cleanRateType = cleanRateTypeName(rateType);
+        var rateKey = normalizeRateTitle(rateType);
+        if (status === 'Active' && rateKey && rateLookup[rateKey]) {
+          var rl = rateLookup[rateKey];
           rowBudget = calcAnnualBudget(rl.rate, rl.period);
           totalMatchedBudget += rowBudget;
-        } else if (rateType && !rateLookup[rateType]) {
-          // Track unmatched rate types for warning display
-          if (unmatchedRateTypes.indexOf(rateType) === -1) unmatchedRateTypes.push(rateType);
+        } else if (status === 'Active' && cleanRateType) {
+          // Fix: warn only for active rows that need a budget, and show just
+          // the clean Rate Type value instead of a mixed/full row string.
+          if (unmatchedRateTypes.indexOf(cleanRateType) === -1) unmatchedRateTypes.push(cleanRateType);
           totalUnmatchedBudget++;
         }
 
@@ -591,6 +660,9 @@
 
       for (var i = 1; i < lines.length; i++) {
         var fields = parseCSVLine(lines[i]);
+        // Fix: keep duplicate header rows out of the commercial locality pass too.
+        if (isHeaderRow(fields, colMap)) continue;
+
         var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
         var locality = (fields[colMap.locality] || '').trim() || 'Unspecified';
         var statusVal = '';
@@ -611,8 +683,9 @@
         // Calculate budget for this commercial row — only Active records contribute
         var rateType = '';
         if (colMap.rate_type !== undefined) rateType = (fields[colMap.rate_type] || '').trim();
-        if (status === 'Active' && rateType && rateLookup[rateType]) {
-          var rl = rateLookup[rateType];
+        var rateKey = normalizeRateTitle(rateType);
+        if (status === 'Active' && rateKey && rateLookup[rateKey]) {
+          var rl = rateLookup[rateKey];
           commercialLocalityMap[locKey].budget += calcAnnualBudget(rl.rate, rl.period);
         }
       }
@@ -792,6 +865,8 @@
         });
         var activePanel = document.getElementById('tab-panel-' + tab);
         if (activePanel) activePanel.style.display = '';
+        // Re-sort the newly active tab's preview to match the export sort.
+        applyPreviewSort(tab);
         // Recompute grand total for the newly active tab
         recomputeGrandTotalForTab(tab);
       };
@@ -835,8 +910,17 @@
       }
 
       if (priorityEl && orderEl && pdfBtn) {
-        priorityEl.addEventListener('change', updatePdfLink);
-        orderEl.addEventListener('change', updatePdfLink);
+        // Changing sort settings must reorder BOTH the preview table and the
+        // export URLs so they stay in sync.
+        priorityEl.addEventListener('change', function() {
+          // Fix: sort both tab previews whenever settings change so hidden
+          // Commercial/Domestic tables match exports before the user switches.
+          updatePdfLink(); applyPreviewSort('normal'); applyPreviewSort('commercial');
+        });
+        orderEl.addEventListener('change', function() {
+          // Fix: keep preview, PDF, CSV, and Excel order aligned for both tabs.
+          updatePdfLink(); applyPreviewSort('normal'); applyPreviewSort('commercial');
+        });
         colToggles.forEach(function(cb) {
           cb.addEventListener('change', updatePdfLink);
         });
@@ -851,19 +935,38 @@
       document.querySelectorAll('a.export-link, a#commercial-pdf-download-btn').forEach(function(link) {
         link.addEventListener('click', function(e) {
           e.preventDefault();
-          var storageKey = 'consumer_report_summary';
-          if (link.id === 'commercial-pdf-download-btn') {
-            storageKey = 'consumer_report_commercial';
+          // Determine which dataset + scope to export based on the link type
+          // and the currently active sub-tab. All exports share the same
+          // filtered/sorted dataset so row counts and totals always match.
+          var fmt = link.getAttribute('data-fmt') || 'normal';
+          var isCommercial = (link.id === 'commercial-pdf-download-btn') || (link.id === 'commercial-pdf-topbar-btn') || (fmt === 'commercial');
+          if (isCommercial) {
+            fmt = 'commercial';
+          } else if (activeTab === 'commercial') {
+            // CSV/Excel clicked while on the Commercial tab -> commercial scope
+            fmt = 'commercial';
+          } else {
+            fmt = 'normal';
           }
+          var storageKey = (fmt === 'commercial') ? 'consumer_report_commercial' : 'consumer_report_summary';
           var stored = null;
           try { stored = localStorage.getItem(storageKey); } catch(err) {}
           if (!stored) {
             alert('Please upload a CSV file first to generate a report.');
             return;
           }
+          // Fix: every export request carries the current sort settings, so
+          // preview, PDF, CSV, and Excel all use the same row order.
+          var exportUrl = new URL(link.href, window.location.origin);
+          exportUrl.searchParams.set('priority', (priorityEl && priorityEl.value) || 'active_first');
+          exportUrl.searchParams.set('order', (orderEl && orderEl.value) || 'desc');
+          if (fmt === 'commercial') exportUrl.searchParams.set('tab', 'commercial');
+          var cols = getSelectedColumns();
+          if (cols) exportUrl.searchParams.set('cols', cols);
+          var url = exportUrl.toString();
           var form = document.createElement('form');
           form.method = 'POST';
-          form.action = link.href;
+          form.action = url;
           form.style.display = 'none';
           var input = document.createElement('input');
           input.type = 'hidden';
@@ -883,6 +986,8 @@
       // ================================================================
       var summaryDataNormal = null;
       var summaryDataCommercial = null;
+      syncServerSummaryToStorage('consumer_report_summary', SERVER_NORMAL_SUMMARY);
+      syncServerSummaryToStorage('consumer_report_commercial', SERVER_COMMERCIAL_SUMMARY);
       try { summaryDataNormal = JSON.parse(localStorage.getItem('consumer_report_summary')); } catch(e) {}
       try { summaryDataCommercial = JSON.parse(localStorage.getItem('consumer_report_commercial')); } catch(e) {}
 
@@ -913,6 +1018,63 @@
         if (scEl) scEl.textContent = selectedCount < checkboxes.length ? '(' + selectedCount + ' of ' + checkboxes.length + ' selected)' : '';
       }
 
+      // ================================================================
+      // SHARED PREVIEW SORTING
+      // Reorders the visible preview <tr> rows to EXACTLY match the order the
+      // server produces for PDF / CSV / Excel exports.  The server sort uses
+      // the same priority + order parameters, so the preview table and every
+      // export always agree.
+      //
+      // Sort rule (mirrors app.py export_consumer_report STEP 3):
+      //   - priority "active_first" -> primary key = Active count
+      //   - priority "closed_first" -> primary key = Closed count
+      //   - order "desc" -> highest count first; "asc" -> lowest first
+      //   - sector then locality as stable secondary keys (natural order)
+      // Commercial locality rows stay separate (never merged) — they are just
+      // reordered by their own counts.
+      // ================================================================
+      function applyPreviewSort(tab) {
+        var tableId = (tab === 'commercial') ? 'commercial-summary-table' : 'normal-summary-table';
+        var table = document.getElementById(tableId);
+        if (!table) return;
+        var tbody = table.querySelector('tbody');
+        if (!tbody) return;
+        var prio = (priorityEl && priorityEl.value) || 'active_first';
+        var ord = (orderEl && orderEl.value) || 'desc';
+        var sign = (ord === 'desc') ? -1 : 1;
+        var keyField = (prio === 'active_first') ? 'data-active' : 'data-closed';
+
+        // Collect data rows (skip the GRAND TOTAL row).
+        var rows = [];
+        tbody.querySelectorAll('tr').forEach(function(tr) {
+          if (tr.classList.contains('grand-total-row')) return;
+          rows.push(tr);
+        });
+
+        rows.sort(function(a, b) {
+          var ka = sign * (parseInt(a.getAttribute(keyField)) || 0);
+          var kb = sign * (parseInt(b.getAttribute(keyField)) || 0);
+          if (ka !== kb) return ka - kb;
+          var sa = (a.getAttribute('data-sector') || '').toLowerCase();
+          var sb = (b.getAttribute('data-sector') || '').toLowerCase();
+          if (sa !== sb) return sa < sb ? -1 : 1;
+          var la = (a.getAttribute('data-locality') || '').toLowerCase();
+          var lb = (b.getAttribute('data-locality') || '').toLowerCase();
+          return la < lb ? -1 : (la > lb ? 1 : 0);
+        });
+
+        // Re-append in sorted order and renumber the SR column.
+        rows.forEach(function(tr, idx) {
+          var srCell = tr.querySelector('td:nth-child(2)');
+          if (srCell) srCell.textContent = (idx + 1);
+          tbody.appendChild(tr);
+        });
+        // Re-append the grand total row so it stays last.
+        var gtRow = tbody.querySelector('tr.grand-total-row');
+        if (gtRow) tbody.appendChild(gtRow);
+        recomputeGrandTotalForTab(tab);
+      }
+
       // Update localStorage for a tab's checked rows
       function updateLocalStorageForTab(tab) {
         var summaryData = (tab === 'commercial') ? summaryDataCommercial : summaryDataNormal;
@@ -924,21 +1086,25 @@
         });
         var selectedSet = new Set(selectedSerials);
         var filteredRows = summaryData.summary_rows.filter(function(r) { return selectedSet.has(r.serial); });
-        var newGrandClosed = 0, newGrandActive = 0;
+        var newGrandClosed = 0, newGrandActive = 0, newGrandBudget = 0;
         var newSectorTotals = {};
         filteredRows.forEach(function(r) {
           newGrandClosed += r.closed;
           newGrandActive += r.active;
-          if (!newSectorTotals[r.sector]) newSectorTotals[r.sector] = {closed: 0, active: 0, total: 0};
+          newGrandBudget += parseFloat(r.budget) || 0;
+          // Fix: selection-scoped exports must preserve budget totals too.
+          if (!newSectorTotals[r.sector]) newSectorTotals[r.sector] = {closed: 0, active: 0, total: 0, budget: 0};
           newSectorTotals[r.sector].closed += r.closed;
           newSectorTotals[r.sector].active += r.active;
           newSectorTotals[r.sector].total += r.total;
+          newSectorTotals[r.sector].budget += parseFloat(r.budget) || 0;
         });
         summaryData.summary_rows = filteredRows;
-        summaryData.grand_total = { closed: newGrandClosed, active: newGrandActive, total: newGrandClosed + newGrandActive };
+        summaryData.grand_total = { closed: newGrandClosed, active: newGrandActive, total: newGrandClosed + newGrandActive, budget: newGrandBudget };
         summaryData.sector_totals = newSectorTotals;
         summaryData.sector_count = Object.keys(newSectorTotals).length;
         summaryData.total_connections = newGrandClosed + newGrandActive;
+        summaryData.total_budget = newGrandBudget;
         var storageKey = (tab === 'commercial') ? 'consumer_report_commercial' : 'consumer_report_summary';
         try { localStorage.setItem(storageKey, JSON.stringify(summaryData)); } catch(e) {}
       }
@@ -990,8 +1156,16 @@
           if (progress < 1) requestAnimationFrame(tick);
           else el.textContent = prefix + Math.round(target).toLocaleString();
         }
+        // Kick off the count-up animation loop once tick() is defined.
         requestAnimationFrame(tick);
       });
+
+      // ----------------------------------------------------------------
+      // Initial sort: make the preview table match the default export sort
+      // (Active First / Highest to Lowest) on first render.
+      // ----------------------------------------------------------------
+      applyPreviewSort('normal');
+      applyPreviewSort('commercial');
     });
   })();
 </script>

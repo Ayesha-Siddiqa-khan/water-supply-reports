@@ -45,3 +45,12 @@ received bills/
 # OS
 .DS_Store
 Thumbs.db
+
+# Dev artifacts / screenshots / debug scripts
+*.png
+*.err
+command.txt
+debug_*.js
+test_*.js
+.opencode/
+.playwright-mcp/
