@@ -7,15 +7,15 @@
 {% block topbar_actions %}
   {% if summary %}
   <div style="display:flex;gap:8px;align-items:center;">
-    <a class="topbar-btn" href="{{ url_for('export_consumer_report', fmt_type='csv') }}">
+    <a class="topbar-btn export-link" href="{{ url_for('export_consumer_report', fmt_type='csv') }}">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 6l3 3 3-3"/></svg>
       <span>CSV</span>
     </a>
-    <a class="topbar-btn" href="{{ url_for('export_consumer_report', fmt_type='xlsx') }}">
+    <a class="topbar-btn export-link" href="{{ url_for('export_consumer_report', fmt_type='xlsx') }}">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 6l3 3 3-3"/></svg>
       <span>Excel</span>
     </a>
-    <a class="topbar-btn" href="{{ url_for('export_consumer_report', fmt_type='pdf') }}">
+    <a class="topbar-btn export-link" href="{{ url_for('export_consumer_report', fmt_type='pdf') }}">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 6l3 3 3-3"/></svg>
       <span>PDF</span>
     </a>
@@ -105,8 +105,8 @@
         {% endif %}
 
         <div class="export-bar" style="margin-bottom:10px;">
-          <a class="chip" href="{{ url_for('export_consumer_report', fmt_type='csv') }}">&#11015; Download CSV</a>
-          <a class="chip" href="{{ url_for('export_consumer_report', fmt_type='xlsx') }}">&#11015; Download Excel</a>
+          <a class="chip export-link" href="{{ url_for('export_consumer_report', fmt_type='csv') }}">&#11015; Download CSV</a>
+          <a class="chip export-link" href="{{ url_for('export_consumer_report', fmt_type='xlsx') }}">&#11015; Download Excel</a>
         </div>
 
         <!-- Sort controls for PDF export -->
@@ -346,6 +346,10 @@
         total_connections: grandClosed + grandActive
       };
 
+      // Persist payload in browser localStorage so exports work across
+      // Vercel serverless invocations (global state is not kept between requests)
+      try { localStorage.setItem('consumer_report_summary', JSON.stringify(payload)); } catch(e) {}
+
       // Send summary JSON to server (tiny payload, bypasses Vercel limit)
       showStatus('Parsed ' + totalRows.toLocaleString() + ' rows. Sending summary to server...');
       fetch('{{ url_for("consumer_report") }}', {
@@ -412,6 +416,32 @@
         priorityEl.addEventListener('change', updatePdfLink);
         orderEl.addEventListener('change', updatePdfLink);
       }
+
+      // -- Export links: POST the cached summary from localStorage --
+      // Vercel serverless functions are stateless, so we send the data
+      // with each export request instead of relying on server-side state.
+      document.querySelectorAll('a.export-link').forEach(function(link) {
+        link.addEventListener('click', function(e) {
+          e.preventDefault();
+          var stored = null;
+          try { stored = localStorage.getItem('consumer_report_summary'); } catch(err) {}
+          if (!stored) {
+            alert('Please upload a CSV file first to generate a report.');
+            return;
+          }
+          var form = document.createElement('form');
+          form.method = 'POST';
+          form.action = link.href;
+          form.style.display = 'none';
+          var input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = 'summary_data';
+          input.value = stored;
+          form.appendChild(input);
+          document.body.appendChild(form);
+          form.submit();
+        });
+      });
 
       // -- Count-up animation --
       document.querySelectorAll('[data-count]').forEach(function(el) {

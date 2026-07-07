@@ -7743,15 +7743,47 @@ def consumer_report():
     return render_template("consumer_report.html", summary=None, filename=None, total_rows=0)
 
 
-@app.route("/consumer-report/export/<fmt_type>")
+@app.route("/consumer-report/export/<fmt_type>", methods=["GET", "POST"])
 def export_consumer_report(fmt_type: str):
-    # Support both raw-data uploads and pre-computed summary (JSON) uploads.
-    # Load from disk cache so exports work even after a serverless cold start.
-    cached_summary, cached_filename, cached_rows = _load_consumer_summary_cache()
-    if cached_summary:
-        _last_consumer_summary = cached_summary
-        _consumer_report_filename = cached_filename
-    if not _consumer_report_data and not _last_consumer_summary:
+    global _last_consumer_summary, _consumer_report_filename, _consumer_report_data
+    # -------------------------------------------------------------------------
+    # Vercel serverless functions are stateless: the summary parsed in the browser
+    # is POSTed back with each export request as `summary_data` (JSON string).
+    # If present, use it directly. Otherwise fall back to disk cache / in-memory.
+    # -------------------------------------------------------------------------
+    summary = None
+    if request.method == "POST":
+        raw = request.form.get("summary_data") or ""
+        if raw:
+            try:
+                payload = json.loads(raw)
+                if isinstance(payload, dict) and "summary_rows" in payload:
+                    summary = {
+                        "summary_rows": payload.get("summary_rows", []),
+                        "sector_totals": payload.get("sector_totals", {}),
+                        "grand_total": payload.get("grand_total", {"closed": 0, "active": 0, "total": 0}),
+                        "sector_count": payload.get("sector_count", 0),
+                        "locality_count": payload.get("locality_count", 0),
+                        "total_connections": payload.get("total_connections", 0),
+                    }
+                    _last_consumer_summary = summary
+                    _consumer_report_filename = payload.get("filename", "upload.csv")
+                    _consumer_report_data = payload.get("summary_rows", [])
+            except Exception:
+                summary = None
+
+    # Fall back to disk cache so exports also work after a serverless cold start
+    if summary is None:
+        cached_summary, cached_filename, _ = _load_consumer_summary_cache()
+        if cached_summary:
+            summary = cached_summary
+            _last_consumer_summary = cached_summary
+            _consumer_report_filename = cached_filename
+
+    if summary is None and _consumer_report_data is not None:
+        summary = _build_consumer_sector_summary(_consumer_report_data)
+
+    if summary is None:
         flash("No consumer report data available. Please upload a file first.")
         return redirect(url_for("consumer_report"))
 
@@ -7768,7 +7800,10 @@ def export_consumer_report(fmt_type: str):
     if sort_order not in ("desc", "asc"):
         sort_order = "desc"
 
-    summary = _build_consumer_sector_summary(_consumer_report_data)
+    # `summary` is already resolved above (from POST data, cache, or raw data).
+    # Do NOT rebuild here — `_consumer_report_data` may already be summary rows.
+    if "summary_rows" not in summary:
+        summary = _build_consumer_sector_summary(_consumer_report_data)
 
     # -- Apply sorting to summary rows --
     # Sort key: the count matching the selected priority direction
