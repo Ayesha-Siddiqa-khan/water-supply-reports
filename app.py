@@ -59,6 +59,9 @@ UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 RESULTS_CACHE = os.path.join(UPLOAD_FOLDER, "last_results.json")
 SAVED_DASHBOARD_CSV = os.path.join(UPLOAD_FOLDER, "saved_dashboard_data.csv")
 SAVED_DASHBOARD_META = os.path.join(UPLOAD_FOLDER, "saved_dashboard_meta.json")
+# Persistent cache for the Consumer Sector Report summary so it survives across
+# serverless function invocations on Vercel (global state is not kept between requests)
+CONSUMER_REPORT_CACHE = os.path.join(UPLOAD_FOLDER, "consumer_report_cache.json")
 BILL_LIST_DB = os.path.join(BASE_DIR, "bill_list.sqlite3")
 SEED_ASSIGNMENTS_JSON = resource_path("seed", "staff_assignments.json")
 SEED_ASSIGNMENTS_CSV = resource_path("seed", "staff_assignments.csv")
@@ -7443,6 +7446,42 @@ _consumer_report_data: list[dict] | None = None
 _consumer_report_filename: str | None = None
 _last_consumer_summary: dict | None = None
 
+
+def _save_consumer_summary_cache(summary: dict, filename: str | None, total_rows: int = 0) -> None:
+    """Persist the consumer summary to disk so it survives serverless cold starts.
+    Vercel keeps /tmp between invocations of the same function instance."""
+    try:
+        os.makedirs(os.path.dirname(CONSUMER_REPORT_CACHE), exist_ok=True)
+        payload = {
+            "summary": summary,
+            "filename": filename,
+            "total_rows": total_rows,
+        }
+        with open(CONSUMER_REPORT_CACHE, "w") as f:
+            json.dump(payload, f)
+    except Exception:
+        pass  # Non-fatal: in-memory state still works for same-instance requests
+
+
+def _load_consumer_summary_cache() -> tuple[dict | None, str | None, int]:
+    """Load a previously saved consumer summary from disk. Returns (summary, filename, total_rows)."""
+    try:
+        if os.path.exists(CONSUMER_REPORT_CACHE):
+            with open(CONSUMER_REPORT_CACHE) as f:
+                payload = json.load(f)
+            return payload.get("summary"), payload.get("filename"), payload.get("total_rows", 0)
+    except Exception:
+        pass
+    return None, None, 0
+
+
+def _clear_consumer_summary_cache() -> None:
+    try:
+        if os.path.exists(CONSUMER_REPORT_CACHE):
+            os.remove(CONSUMER_REPORT_CACHE)
+    except Exception:
+        pass
+
 # Flexible column aliases: maps a canonical key to a list of normalised
 # substrings that identify the column.  The first match wins.
 _CONSUMER_COL_ALIASES: dict[str, list[str]] = {
@@ -7643,6 +7682,8 @@ def consumer_report():
                 "total_connections": data.get("total_connections", 0),
             }
             _last_consumer_summary = summary
+            # Persist to disk so the data survives Vercel serverless cold starts
+            _save_consumer_summary_cache(summary, _consumer_report_filename, data.get("total_rows", 0))
 
             msg = f"File uploaded. Found {summary['total_connections']:,} connections across {summary['sector_count']} sectors."
             if is_ajax():
@@ -7654,6 +7695,7 @@ def consumer_report():
             _consumer_report_data = None
             _consumer_report_filename = None
             _last_consumer_summary = None
+            _clear_consumer_summary_cache()
             flash("Consumer report data cleared.")
             return redirect(url_for("consumer_report"))
 
@@ -7688,7 +7730,11 @@ def consumer_report():
             flash(msg)
             return render_template("consumer_report.html", summary=summary, filename=_consumer_report_filename, total_rows=len(rows))
 
-    # GET — restore from cached summary (JSON upload) or raw data (form upload)
+    # GET — restore from cached summary (JSON upload) or raw data (form upload).
+    # Load from disk cache first so data survives Vercel serverless cold starts.
+    cached_summary, cached_filename, cached_rows = _load_consumer_summary_cache()
+    if cached_summary:
+        return render_template("consumer_report.html", summary=cached_summary, filename=cached_filename, total_rows=cached_rows)
     if _last_consumer_summary:
         return render_template("consumer_report.html", summary=_last_consumer_summary, filename=_consumer_report_filename, total_rows=_last_consumer_summary.get("total_rows", 0))
     if _consumer_report_data:
@@ -7699,7 +7745,12 @@ def consumer_report():
 
 @app.route("/consumer-report/export/<fmt_type>")
 def export_consumer_report(fmt_type: str):
-    # Support both raw-data uploads and pre-computed summary (JSON) uploads
+    # Support both raw-data uploads and pre-computed summary (JSON) uploads.
+    # Load from disk cache so exports work even after a serverless cold start.
+    cached_summary, cached_filename, cached_rows = _load_consumer_summary_cache()
+    if cached_summary:
+        _last_consumer_summary = cached_summary
+        _consumer_report_filename = cached_filename
     if not _consumer_report_data and not _last_consumer_summary:
         flash("No consumer report data available. Please upload a file first.")
         return redirect(url_for("consumer_report"))
