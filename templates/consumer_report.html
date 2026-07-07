@@ -932,7 +932,7 @@
       // Normal PDF uses consumer_report_summary; Commercial PDF uses
       // consumer_report_commercial from localStorage.
       // ================================================================
-      document.querySelectorAll('a.export-link, a#commercial-pdf-download-btn').forEach(function(link) {
+      document.querySelectorAll('a.export-link, a#pdf-download-btn, a#commercial-pdf-download-btn').forEach(function(link) {
         link.addEventListener('click', function(e) {
           e.preventDefault();
           // Determine which dataset + scope to export based on the link type
@@ -948,10 +948,11 @@
           } else {
             fmt = 'normal';
           }
-          var storageKey = (fmt === 'commercial') ? 'consumer_report_commercial' : 'consumer_report_summary';
-          var stored = null;
-          try { stored = localStorage.getItem(storageKey); } catch(err) {}
-          if (!stored) {
+          // Fix: exports must be built from the selected/visible final rows at
+          // click time.  This prevents unchecked rows from leaking into PDF,
+          // Excel, or CSV through stale localStorage or cached server summaries.
+          var selectedPayload = buildSelectedExportPayload(fmt);
+          if (!selectedPayload) {
             alert('Please upload a CSV file first to generate a report.');
             return;
           }
@@ -971,7 +972,7 @@
           var input = document.createElement('input');
           input.type = 'hidden';
           input.name = 'summary_data';
-          input.value = stored;
+          input.value = JSON.stringify(selectedPayload);
           form.appendChild(input);
           document.body.appendChild(form);
           form.submit();
@@ -1016,6 +1017,61 @@
         if (gtEl) gtEl.textContent = gtTotal.toLocaleString();
         if (gbEl) gbEl.textContent = Math.round(gtBudget).toLocaleString();
         if (scEl) scEl.textContent = selectedCount < checkboxes.length ? '(' + selectedCount + ' of ' + checkboxes.length + ' selected)' : '';
+      }
+
+      function buildSelectedExportPayload(tab) {
+        var tableId = (tab === 'commercial') ? 'commercial-summary-table' : 'normal-summary-table';
+        var table = document.getElementById(tableId);
+        if (!table) return null;
+
+        // Export rule: start from the currently rendered grouped rows after
+        // Active>0, tab scope, and sorting, then keep only checked rows.  This
+        // final selected dataset is the only source for PDF, Excel, and CSV.
+        var selectedRows = [];
+        table.querySelectorAll('tbody tr:not(.grand-total-row)').forEach(function(tr) {
+          var cb = tr.querySelector('.row-checkbox');
+          if (!cb || !cb.checked) return;
+          selectedRows.push({
+            serial: selectedRows.length + 1,
+            sector: tr.getAttribute('data-sector') || '',
+            locality: tr.getAttribute('data-locality') || '',
+            closed: parseInt(tr.getAttribute('data-closed')) || 0,
+            active: parseInt(tr.getAttribute('data-active')) || 0,
+            total: parseInt(tr.getAttribute('data-total')) || 0,
+            budget: parseFloat(tr.getAttribute('data-budget')) || 0
+          });
+        });
+
+        var sectorTotals = {};
+        var grandClosed = 0, grandActive = 0, grandTotal = 0, grandBudget = 0;
+        selectedRows.forEach(function(r) {
+          grandClosed += r.closed;
+          grandActive += r.active;
+          grandTotal += r.total;
+          grandBudget += r.budget;
+          if (!sectorTotals[r.sector]) sectorTotals[r.sector] = { closed: 0, active: 0, total: 0, budget: 0 };
+          sectorTotals[r.sector].closed += r.closed;
+          sectorTotals[r.sector].active += r.active;
+          sectorTotals[r.sector].total += r.total;
+          sectorTotals[r.sector].budget += r.budget;
+        });
+
+        var payload = {
+          filename: SERVER_FILENAME,
+          total_rows: SERVER_TOTAL_ROWS,
+          summary_rows: selectedRows,
+          sector_totals: sectorTotals,
+          grand_total: { closed: grandClosed, active: grandActive, total: grandTotal, budget: grandBudget },
+          sector_count: Object.keys(sectorTotals).length,
+          locality_count: selectedRows.length,
+          total_connections: grandTotal,
+          total_budget: grandBudget
+        };
+        if (tab === 'commercial') {
+          payload.commercial_detailed_rows = selectedRows;
+          payload.commercial_grand_total = payload.grand_total;
+        }
+        return payload;
       }
 
       // ================================================================
@@ -1077,34 +1133,10 @@
 
       // Update localStorage for a tab's checked rows
       function updateLocalStorageForTab(tab) {
-        var summaryData = (tab === 'commercial') ? summaryDataCommercial : summaryDataNormal;
-        if (!summaryData || !summaryData.summary_rows) return;
-        var checkboxes = document.querySelectorAll('.row-checkbox[data-tab="' + tab + '"]');
-        var selectedSerials = [];
-        checkboxes.forEach(function(cb) {
-          if (cb.checked) selectedSerials.push(parseInt(cb.getAttribute('data-serial')));
-        });
-        var selectedSet = new Set(selectedSerials);
-        var filteredRows = summaryData.summary_rows.filter(function(r) { return selectedSet.has(r.serial); });
-        var newGrandClosed = 0, newGrandActive = 0, newGrandBudget = 0;
-        var newSectorTotals = {};
-        filteredRows.forEach(function(r) {
-          newGrandClosed += r.closed;
-          newGrandActive += r.active;
-          newGrandBudget += parseFloat(r.budget) || 0;
-          // Fix: selection-scoped exports must preserve budget totals too.
-          if (!newSectorTotals[r.sector]) newSectorTotals[r.sector] = {closed: 0, active: 0, total: 0, budget: 0};
-          newSectorTotals[r.sector].closed += r.closed;
-          newSectorTotals[r.sector].active += r.active;
-          newSectorTotals[r.sector].total += r.total;
-          newSectorTotals[r.sector].budget += parseFloat(r.budget) || 0;
-        });
-        summaryData.summary_rows = filteredRows;
-        summaryData.grand_total = { closed: newGrandClosed, active: newGrandActive, total: newGrandClosed + newGrandActive, budget: newGrandBudget };
-        summaryData.sector_totals = newSectorTotals;
-        summaryData.sector_count = Object.keys(newSectorTotals).length;
-        summaryData.total_connections = newGrandClosed + newGrandActive;
-        summaryData.total_budget = newGrandBudget;
+        // Keep localStorage aligned with the same selected/visible final rows
+        // used by exports; do not mutate the original full report in memory.
+        var summaryData = buildSelectedExportPayload(tab);
+        if (!summaryData) return;
         var storageKey = (tab === 'commercial') ? 'consumer_report_commercial' : 'consumer_report_summary';
         try { localStorage.setItem(storageKey, JSON.stringify(summaryData)); } catch(e) {}
       }

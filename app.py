@@ -8284,9 +8284,11 @@ def export_consumer_report(fmt_type: str):
     #   1. Report scope (domestic vs commercial) based on fmt_type / tab param
     #   2. Active > 0 filter  (rows with 0 active connections are excluded)
     #   3. Sorting (priority + order)
-    #   4. Column visibility (selected columns only)
-    # Checkbox selection is already applied client-side and POSTed as the
-    # filtered `summary_data`, so it is respected automatically.
+    #   4. Row checkbox selection
+    #   5. Column visibility (selected columns only)
+    # Checkbox selection is applied client-side from the visible sorted table
+    # and POSTed as `summary_data`; never rebuild exports from the full cache
+    # when selected rows were provided.
     # -----------------------------------------------------------------------
     from collections import OrderedDict
 
@@ -8404,12 +8406,14 @@ def export_consumer_report(fmt_type: str):
         PDF_GRID = colors.HexColor("#c8e6e0")
         PDF_BODY_FG = colors.HexColor("#2c3e50")
 
-        # -- Page setup: A4 portrait with standard print margins --
+        # -- Page setup: A4 portrait with tighter side margins --
+        # Fix: Domestic/Consumer PDF uses the real printable width so the table
+        # feels wider while still staying inside the A4 page.
         page_w, page_h = A4
-        top_m = 18 * mm
-        bottom_m = 15 * mm
-        left_m = 15 * mm
-        right_m = 15 * mm
+        top_m = 14 * mm
+        bottom_m = 12 * mm
+        left_m = 8 * mm
+        right_m = 8 * mm
         usable_w = page_w - left_m - right_m
 
         buf = io.BytesIO()
@@ -8457,18 +8461,20 @@ def export_consumer_report(fmt_type: str):
         cell_wrap_style = ParagraphStyle(
             "CellWrap",
             parent=styles["Normal"],
-            fontSize=8,
+            fontSize=8.2,
             fontName="Helvetica",
             textColor=PDF_BODY_FG,
-            leading=10,
+            leading=10.8,
+            alignment=0,
         )
         cell_center_style = ParagraphStyle(
             "CellCenter",
             parent=styles["Normal"],
-            fontSize=8,
+            fontSize=8.2,
             fontName="Helvetica",
             textColor=PDF_BODY_FG,
             alignment=1,
+            leading=10.8,
         )
         header_cell_style = ParagraphStyle(
             "HeaderCell",
@@ -8520,7 +8526,7 @@ def export_consumer_report(fmt_type: str):
             "closed": cell_center_style,
             "active": cell_center_style,
             "total": cell_center_style,
-            "budget": ParagraphStyle("CellBudget", parent=cell_center_style, alignment=2),
+            "budget": ParagraphStyle("CellBudget", parent=cell_center_style, alignment=1),
         }
 
         # Header row — only include selected columns
@@ -8559,17 +8565,25 @@ def export_consumer_report(fmt_type: str):
         # -- Column widths (mm) — dynamic based on selected columns --
         # Available width: 180mm (A4 with 15mm margins on each side)
         # Distribute extra space proportionally to flexible columns
-        total_fixed = sum(COL_DEFS[c][2] for c in active_cols)
-        usable_mm = 180  # usable width in mm
-        if total_fixed > 0 and total_fixed < usable_mm:
-            # Scale up flexible columns (sector, locality) to fill space
-            scale = usable_mm / total_fixed
-            col_widths = [COL_DEFS[c][2] * scale * mm for c in active_cols]
-        else:
-            col_widths = [COL_DEFS[c][2] * mm for c in active_cols]
+        # Fix: use the full A4 printable width without overflow. Text columns
+        # get most of the room for wrapping; numeric columns stay compact.
+        consumer_col_weights = {
+            "sr": 11,
+            "sector": 56,
+            "locality": 64,
+            "closed": 16,
+            "active": 16,
+            "total": 21,
+            "budget": 28,
+        }
+        total_weight = sum(consumer_col_weights.get(c, COL_DEFS[c][2]) for c in active_cols)
+        col_widths = [
+            usable_w * (consumer_col_weights.get(c, COL_DEFS[c][2]) / total_weight)
+            for c in active_cols
+        ]
 
         # -- Create table --
-        t = Table(table_data, colWidths=col_widths, repeatRows=1)
+        t = Table(table_data, colWidths=col_widths, repeatRows=1, hAlign="CENTER")
 
         # -- Build table style commands --
         style_cmds = [
@@ -8579,10 +8593,11 @@ def export_consumer_report(fmt_type: str):
             # Grid lines (subtle light teal)
             ("GRID", (0, 0), (-1, -1), 0.4, PDF_GRID),
             # Padding for all cells
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            # More padding gives wrapped text breathing room and avoids a tight grid.
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 5),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
         ]
 
         # -- Alternate row backgrounds for data rows only --
@@ -8619,9 +8634,9 @@ def export_consumer_report(fmt_type: str):
         # ---------------------------------------------------------------
         # Shared filtered dataset is already commercial + Active>0 + sorted
         commercial_rows = final_sorted
-        if not commercial_rows:
-            flash("No COMMERCIAL records found in the report data.")
-            return redirect(url_for("consumer_report"))
+        # Selection rule: if every commercial row is unchecked, the POSTed
+        # selected dataset is empty.  Still generate the report shell and zero
+        # grand total rather than falling back to cached/full rows.
 
         # Compute commercial-specific totals (from the shared filtered rows)
         commercial_closed = sum(r["closed"] for r in commercial_rows)
