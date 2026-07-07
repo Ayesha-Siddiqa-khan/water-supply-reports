@@ -93,7 +93,7 @@
       </div>
     </div>
 
-    <!-- Sector Summary Section -->
+    <!-- Sector Summary Section — now with sub-tabs for Normal vs Commercial -->
     <div class="section collapsed" id="sec-sector-summary">
       <div class="section-header" onclick="toggleSection('sec-sector-summary')">
         <div class="section-header-icon">&#128202;</div>
@@ -108,11 +108,33 @@
         </div>
         {% endif %}
 
+        <!-- Shared export bar: CSV/Excel always available -->
         <div class="export-bar" style="margin-bottom:10px;">
           <a class="chip export-link" href="{{ url_for('export_consumer_report', fmt_type='csv') }}">&#11015; Download CSV</a>
           <a class="chip export-link" href="{{ url_for('export_consumer_report', fmt_type='xlsx') }}">&#11015; Download Excel</a>
         </div>
 
+        <!-- ================================================================
+             SUB-TAB BUTTONS: Switch between Normal Sectors and Commercial.
+             "active" class controls which tab panel is visible.
+             ================================================================ -->
+        <div id="sub-tab-bar" style="display:flex;gap:0;margin-bottom:14px;border-bottom:2px solid var(--border);">
+          <button type="button" class="sub-tab-btn active" data-tab="normal"
+                  onclick="switchTab('normal')"
+                  style="padding:8px 20px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--bg);color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
+            Sector-Wise Summary {% if normal_summary %}<span style="font-size:11px;font-weight:400;opacity:.7;">({{ normal_summary.sector_count }})</span>{% endif %}
+          </button>
+          <button type="button" class="sub-tab-btn" data-tab="commercial"
+                  onclick="switchTab('commercial')"
+                  style="padding:8px 20px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--bg);color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
+            Commercial {% if commercial_summary %}<span style="font-size:11px;font-weight:400;opacity:.7;">({{ commercial_summary.sector_count }})</span>{% endif %}
+          </button>
+        </div>
+
+        <!-- ================================================================
+             SORT CONTROLS & COLUMN VISIBILITY — shared across both tabs.
+             PDF download links are updated by JS to include tab= param.
+             ================================================================ -->
         <!-- Sort controls for PDF export -->
         <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);">
           <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">PDF Sort Settings:</span>
@@ -130,46 +152,129 @@
               <option value="asc">Lowest to Highest</option>
             </select>
           </label>
+          <!-- Download PDF: always generates the NORMAL (non-commercial) PDF -->
           <a id="pdf-download-btn" class="chip" href="{{ url_for('export_consumer_report', fmt_type='pdf', priority='active_first', order='desc') }}">&#11015; Download PDF</a>
+          <!-- Download Commercial PDF: always generates the COMMERCIAL-only PDF -->
           <a id="commercial-pdf-download-btn" class="chip" style="background:var(--teal);color:white;border-color:var(--teal);" href="{{ url_for('export_consumer_report', fmt_type='commercial-pdf', priority='active_first', order='desc') }}">&#11015; Download Commercial PDF</a>
         </div>
 
-        <div class="table-wrapper">
-          <table class="data-table" id="consumer-summary-table">
-            <thead>
-              <tr>
-                <th style="width:40px;text-align:center"><input type="checkbox" id="select-all" checked title="Select/Deselect All"></th>
-                <th style="width:50px;text-align:center">SR</th>
-                <th style="text-align:left">Sector</th>
-                <th style="text-align:left">Locality</th>
-                <th style="width:80px;text-align:center">Closed</th>
-                <th style="width:80px;text-align:center">Active</th>
-                <th style="width:100px;text-align:center">Total Connections</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in summary.summary_rows %}
-              <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-active="{{ row.active }}" data-total="{{ row.total }}">
-                <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-serial="{{ row.serial }}" checked></td>
-                <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
-                <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
-                <td style="text-align:left;">{{ row.locality }}</td>
-                <td style="text-align:center;color:var(--coral);">{{ row.closed }}</td>
-                <td style="text-align:center;color:var(--teal);">{{ row.active }}</td>
-                <td style="text-align:center;font-weight:600;">{{ row.total }}</td>
-              </tr>
-              {% endfor %}
-              {% if summary.summary_rows %}
-              <tr id="grand-total-row" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
-                <td colspan="4" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL <span id="selected-count" style="font-size:11px;font-weight:400;color:var(--text-muted);"></span></td>
-                <td id="gt-closed" style="text-align:center;font-weight:700;color:var(--coral);font-size:15px;">{{ summary.grand_total.closed }}</td>
-                <td id="gt-active" style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ summary.grand_total.active }}</td>
-                <td id="gt-total" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ summary.grand_total.total }}</td>
-              </tr>
-              {% endif %}
-            </tbody>
-          </table>
+        <!-- PDF Column Visibility — choose which columns appear in the PDF -->
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);">
+          <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">PDF Columns:</span>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="sr" checked> SR
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="sector" checked> Sector
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="locality" checked> Locality
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="closed" checked> Closed
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="active" checked> Active
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="total" checked> Total Connections
+          </label>
         </div>
+
+        <!-- ================================================================
+             TAB PANEL: NORMAL SECTORS
+             Shows only non-COMMERCIAL sector rows.
+             ================================================================ -->
+        <div id="tab-panel-normal" class="tab-panel" style="">
+          {% if normal_summary and normal_summary.summary_rows %}
+          <div class="table-wrapper">
+            <table class="data-table" id="normal-summary-table">
+              <thead>
+                <tr>
+                  <th style="width:40px;text-align:center"><input type="checkbox" id="select-all-normal" class="select-all-cb" data-tab="normal" checked title="Select/Deselect All"></th>
+                  <th style="width:50px;text-align:center">SR</th>
+                  <th style="text-align:left">Sector</th>
+                  <th style="text-align:left">Locality</th>
+                  <th style="width:80px;text-align:center">Closed</th>
+                  <th style="width:80px;text-align:center">Active</th>
+                  <th style="width:100px;text-align:center">Total Connections</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in normal_summary.summary_rows %}
+                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-active="{{ row.active }}" data-total="{{ row.total }}">
+                  <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="normal" data-serial="{{ row.serial }}" checked></td>
+                  <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
+                  <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
+                  <td style="text-align:left;">{{ row.locality }}</td>
+                  <td style="text-align:center;color:var(--coral);">{{ row.closed }}</td>
+                  <td style="text-align:center;color:var(--teal);">{{ row.active }}</td>
+                  <td style="text-align:center;font-weight:600;">{{ row.total }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="grand-total-row" data-gt-for="normal" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
+                  <td colspan="4" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL <span class="selected-count" data-gt-for="normal" style="font-size:11px;font-weight:400;color:var(--text-muted);"></span></td>
+                  <td class="gt-closed" data-gt-for="normal" style="text-align:center;font-weight:700;color:var(--coral);font-size:15px;">{{ normal_summary.grand_total.closed }}</td>
+                  <td class="gt-active" data-gt-for="normal" style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ normal_summary.grand_total.active }}</td>
+                  <td class="gt-total" data-gt-for="normal" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ normal_summary.grand_total.total }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">
+            No non-commercial sector data found.
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- ================================================================
+             TAB PANEL: COMMERCIAL
+             Shows only COMMERCIAL sector rows (separate from main list).
+             ================================================================ -->
+        <div id="tab-panel-commercial" class="tab-panel" style="display:none;">
+          {% if commercial_summary and commercial_summary.summary_rows %}
+          <div class="table-wrapper">
+            <table class="data-table" id="commercial-summary-table">
+              <thead>
+                <tr>
+                  <th style="width:40px;text-align:center"><input type="checkbox" id="select-all-commercial" class="select-all-cb" data-tab="commercial" checked title="Select/Deselect All"></th>
+                  <th style="width:50px;text-align:center">SR</th>
+                  <th style="text-align:left">Sector</th>
+                  <th style="text-align:left">Locality</th>
+                  <th style="width:80px;text-align:center">Closed</th>
+                  <th style="width:80px;text-align:center">Active</th>
+                  <th style="width:100px;text-align:center">Total Connections</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in commercial_summary.summary_rows %}
+                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-active="{{ row.active }}" data-total="{{ row.total }}">
+                  <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="commercial" data-serial="{{ row.serial }}" checked></td>
+                  <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
+                  <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
+                  <td style="text-align:left;">{{ row.locality }}</td>
+                  <td style="text-align:center;color:var(--coral);">{{ row.closed }}</td>
+                  <td style="text-align:center;color:var(--teal);">{{ row.active }}</td>
+                  <td style="text-align:center;font-weight:600;">{{ row.total }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="grand-total-row" data-gt-for="commercial" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
+                  <td colspan="4" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL <span class="selected-count" data-gt-for="commercial" style="font-size:11px;font-weight:400;color:var(--text-muted);"></span></td>
+                  <td class="gt-closed" data-gt-for="commercial" style="text-align:center;font-weight:700;color:var(--coral);font-size:15px;">{{ commercial_summary.grand_total.closed }}</td>
+                  <td class="gt-active" data-gt-for="commercial" style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ commercial_summary.grand_total.active }}</td>
+                  <td class="gt-total" data-gt-for="commercial" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ commercial_summary.grand_total.total }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">
+            No COMMERCIAL sector data found in this report.
+          </div>
+          {% endif %}
+        </div>
+
       </div>
     </div>
 
@@ -276,8 +381,31 @@
       });
       if (missing.length) { showError('Missing required columns: ' + missing.join(', ')); return; }
 
-      // Parse all data rows → compute sector summary
-      var sectorMap = {};  // sector → locality → {closed, active}
+      // ================================================================
+      // SECTOR NORMALIZATION AND GROUPING
+      // Groups all rows by normalized sector name so that variations in
+      // spacing, capitalization, or minor spelling differences are merged
+      // into a single sector row. Localities are combined into a single
+      // comma-separated value.
+      // ================================================================
+
+      // Normalize sector name: trim, lowercase, remove extra spaces
+      function normalizeSector(name) {
+        return (name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      }
+
+      // Merge localities: collect unique names, show combined value
+      function mergeLocalities(existing, newLoc) {
+        if (!existing) return newLoc;
+        var parts = existing.split(',').map(function(s) { return s.trim(); });
+        var normalizedNew = newLoc.trim().toLowerCase();
+        var exists = parts.some(function(p) { return p.trim().toLowerCase() === normalizedNew; });
+        if (!exists && newLoc.trim()) parts.push(newLoc.trim());
+        return parts.join(', ');
+      }
+
+      // Build sector map: normalized_sector → { original, localities, closed, active }
+      var sectorMap = {};
       var totalRows = 0;
 
       for (var i = 1; i < lines.length; i++) {
@@ -288,56 +416,111 @@
         if (colMap.connection_status !== undefined) statusVal = fields[colMap.connection_status] || '';
         var status = classifyStatus(statusVal);
 
-        if (!sectorMap[sector]) sectorMap[sector] = {};
-        if (!sectorMap[sector][locality]) sectorMap[sector][locality] = {closed: 0, active: 0};
+        var normKey = normalizeSector(sector);
 
-        if (status === 'Closed') sectorMap[sector][locality].closed++;
-        else sectorMap[sector][locality].active++;
+        if (!sectorMap[normKey]) {
+          sectorMap[normKey] = { original: sector, localities: '', closed: 0, active: 0 };
+        }
+        if (sector.length < sectorMap[normKey].original.length) {
+          sectorMap[normKey].original = sector;
+        }
+
+        sectorMap[normKey].localities = mergeLocalities(sectorMap[normKey].localities, locality);
+
+        if (status === 'Closed') sectorMap[normKey].closed++;
+        else sectorMap[normKey].active++;
 
         totalRows++;
       }
 
-      // Build summary rows
-      var summaryRows = [];
-      var sectorTotals = {};
-      var grandClosed = 0, grandActive = 0;
-      var serial = 0;
+      // ================================================================
+      // SPLIT into NORMAL and COMMERCIAL rows.
+      // COMMERCIAL rows are those whose sector name starts with
+      // 'COMMERCIAL' (case-insensitive).  Each group gets its own
+      // serial numbering, grand totals, and localStorage entry.
+      // ================================================================
+      var normalSummaryRows = [];
+      var commercialSummaryRows = [];
+      var normalSectorTotals = {};
+      var commercialSectorTotals = {};
+      var normalGrandClosed = 0, normalGrandActive = 0;
+      var commercialGrandClosed = 0, commercialGrandActive = 0;
+      var normalSerial = 0, commercialSerial = 0;
 
-      Object.keys(sectorMap).forEach(function(sector) {
-        var localities = sectorMap[sector];
-        var sClosed = 0, sActive = 0;
-        Object.keys(localities).forEach(function(locality) {
-          serial++;
-          var counts = localities[locality];
-          var total = counts.closed + counts.active;
-          summaryRows.push({
-            serial: serial, sector: sector, locality: locality,
-            closed: counts.closed, active: counts.active, total: total
+      Object.keys(sectorMap).forEach(function(normKey) {
+        var s = sectorMap[normKey];
+        var total = s.closed + s.active;
+        var isCommercial = s.original.toUpperCase().indexOf('COMMERCIAL') === 0;
+
+        if (isCommercial) {
+          commercialSerial++;
+          commercialSummaryRows.push({
+            serial: commercialSerial, sector: s.original, locality: s.localities,
+            closed: s.closed, active: s.active, total: total
           });
-          sClosed += counts.closed;
-          sActive += counts.active;
-        });
-        sectorTotals[sector] = { closed: sClosed, active: sActive, total: sClosed + sActive };
-        grandClosed += sClosed;
-        grandActive += sActive;
+          commercialSectorTotals[s.original] = { closed: s.closed, active: s.active, total: total };
+          commercialGrandClosed += s.closed;
+          commercialGrandActive += s.active;
+        } else {
+          normalSerial++;
+          normalSummaryRows.push({
+            serial: normalSerial, sector: s.original, locality: s.localities,
+            closed: s.closed, active: s.active, total: total
+          });
+          normalSectorTotals[s.original] = { closed: s.closed, active: s.active, total: total };
+          normalGrandClosed += s.closed;
+          normalGrandActive += s.active;
+        }
       });
 
-      var payload = {
+      // Build normal payload (for localStorage and server POST)
+      var normalPayload = {
         filename: currentFileName,
         total_rows: totalRows,
-        summary_rows: summaryRows,
-        sector_totals: sectorTotals,
-        grand_total: { closed: grandClosed, active: grandActive, total: grandClosed + grandActive },
-        sector_count: Object.keys(sectorMap).length,
-        locality_count: summaryRows.length,
-        total_connections: grandClosed + grandActive
+        summary_rows: normalSummaryRows,
+        sector_totals: normalSectorTotals,
+        grand_total: { closed: normalGrandClosed, active: normalGrandActive, total: normalGrandClosed + normalGrandActive },
+        sector_count: normalSerial,
+        locality_count: normalSerial,
+        total_connections: normalGrandClosed + normalGrandActive
       };
 
-      // Persist payload in browser localStorage so exports work across
-      // Vercel serverless invocations (global state is not kept between requests)
-      try { localStorage.setItem('consumer_report_summary', JSON.stringify(payload)); } catch(e) {}
+      // Build commercial payload
+      var commercialPayload = {
+        filename: currentFileName,
+        total_rows: totalRows,
+        summary_rows: commercialSummaryRows,
+        sector_totals: commercialSectorTotals,
+        grand_total: { closed: commercialGrandClosed, active: commercialGrandActive, total: commercialGrandClosed + commercialGrandActive },
+        sector_count: commercialSerial,
+        locality_count: commercialSerial,
+        total_connections: commercialGrandClosed + commercialGrandActive
+      };
 
-      // Send summary JSON to server (tiny payload, bypasses Vercel limit)
+      // Persist both payloads in localStorage so exports work across
+      // Vercel serverless invocations (global state is not kept between requests)
+      try {
+        localStorage.setItem('consumer_report_summary', JSON.stringify(normalPayload));
+        localStorage.setItem('consumer_report_commercial', JSON.stringify(commercialPayload));
+      } catch(e) {}
+
+      // Send the FULL (unsplit) summary to server for caching.
+      // Server-side split handles both normal and commercial for PDF export.
+      var fullPayload = {
+        filename: currentFileName,
+        total_rows: totalRows,
+        summary_rows: normalSummaryRows.concat(commercialSummaryRows),
+        sector_totals: Object.assign({}, normalSectorTotals, commercialSectorTotals),
+        grand_total: {
+          closed: normalGrandClosed + commercialGrandClosed,
+          active: normalGrandActive + commercialGrandActive,
+          total: normalGrandClosed + commercialGrandClosed + normalGrandActive + commercialGrandActive
+        },
+        sector_count: normalSerial + commercialSerial,
+        locality_count: normalSerial + commercialSerial,
+        total_connections: normalGrandClosed + commercialGrandClosed + normalGrandActive + commercialGrandActive
+      };
+
       showStatus('Parsed ' + totalRows.toLocaleString() + ' rows. Sending summary to server...');
       fetch('{{ url_for("consumer_report") }}', {
         method: 'POST',
@@ -345,7 +528,7 @@
           'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest'
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(fullPayload)
       })
       .then(function(resp) { return resp.json(); })
       .then(function(data) {
@@ -391,34 +574,99 @@
         reader.readAsText(file);
       });
 
-      // -- Update PDF download link when sort dropdowns change --
+      // ================================================================
+      // TAB SWITCHING
+      // Switches between Normal Sectors and Commercial sub-tabs.
+      // ================================================================
+      var activeTab = 'normal';
+
+      window.switchTab = function(tab) {
+        activeTab = tab;
+        // Update tab button styles
+        var btns = document.querySelectorAll('.sub-tab-btn');
+        btns.forEach(function(btn) {
+          if (btn.getAttribute('data-tab') === tab) {
+            btn.classList.add('active');
+            btn.style.borderBottom = '2px solid var(--teal)';
+            btn.style.color = 'var(--text-primary)';
+          } else {
+            btn.classList.remove('active');
+            btn.style.borderBottom = '2px solid transparent';
+            btn.style.color = 'var(--text-muted)';
+          }
+        });
+        // Show/hide tab panels
+        var panels = document.querySelectorAll('.tab-panel');
+        panels.forEach(function(p) {
+          p.style.display = 'none';
+        });
+        var activePanel = document.getElementById('tab-panel-' + tab);
+        if (activePanel) activePanel.style.display = '';
+        // Recompute grand total for the newly active tab
+        recomputeGrandTotalForTab(tab);
+      };
+
+      // Initialize tab button styles on load
+      var initBtns = document.querySelectorAll('.sub-tab-btn');
+      initBtns.forEach(function(btn) {
+        if (btn.classList.contains('active')) {
+          btn.style.borderBottom = '2px solid var(--teal)';
+          btn.style.color = 'var(--text-primary)';
+        }
+      });
+
+      // ================================================================
+      // PDF DOWNLOAD LINKS
+      // updatePdfLink builds the correct URLs for PDF and Commercial PDF
+      // downloads, including sort settings and column visibility params.
+      // ================================================================
       var priorityEl = document.getElementById('sort-priority');
       var orderEl = document.getElementById('sort-order');
       var pdfBtn = document.getElementById('pdf-download-btn');
       var commercialPdfBtn = document.getElementById('commercial-pdf-download-btn');
-      if (priorityEl && orderEl && pdfBtn) {
-        function updatePdfLink() {
-          var base = '{{ url_for("export_consumer_report", fmt_type="pdf") }}';
-          pdfBtn.href = base + '?priority=' + priorityEl.value + '&order=' + orderEl.value;
-          // Also update commercial PDF link with same sort params
-          if (commercialPdfBtn) {
-            var commBase = '{{ url_for("export_consumer_report", fmt_type="commercial-pdf") }}';
-            commercialPdfBtn.href = commBase + '?priority=' + priorityEl.value + '&order=' + orderEl.value;
-          }
-        }
-        priorityEl.addEventListener('change', updatePdfLink);
-        orderEl.addEventListener('change', updatePdfLink);
+      var colToggles = document.querySelectorAll('.pdf-col-toggle');
+
+      function getSelectedColumns() {
+        var cols = [];
+        colToggles.forEach(function(cb) {
+          if (cb.checked) cols.push(cb.getAttribute('data-col'));
+        });
+        return cols.join(',');
       }
 
-      // -- Export links: POST the cached summary from localStorage --
-      // Vercel serverless functions are statestateless, so we send the data
-      // with each export request instead of relying on server-side state.
-      // This includes both normal and commercial PDF links.
+      function updatePdfLink() {
+        var cols = getSelectedColumns();
+        var base = '{{ url_for("export_consumer_report", fmt_type="pdf") }}';
+        pdfBtn.href = base + '?priority=' + priorityEl.value + '&order=' + orderEl.value + '&cols=' + encodeURIComponent(cols);
+        if (commercialPdfBtn) {
+          var commBase = '{{ url_for("export_consumer_report", fmt_type="commercial-pdf") }}';
+          commercialPdfBtn.href = commBase + '?priority=' + priorityEl.value + '&order=' + orderEl.value + '&cols=' + encodeURIComponent(cols);
+        }
+      }
+
+      if (priorityEl && orderEl && pdfBtn) {
+        priorityEl.addEventListener('change', updatePdfLink);
+        orderEl.addEventListener('change', updatePdfLink);
+        colToggles.forEach(function(cb) {
+          cb.addEventListener('change', updatePdfLink);
+        });
+      }
+
+      // ================================================================
+      // EXPORT LINKS: POST localStorage data to server for PDF generation.
+      // The server uses the posted summary to build the PDF.
+      // Normal PDF uses consumer_report_summary; Commercial PDF uses
+      // consumer_report_commercial from localStorage.
+      // ================================================================
       document.querySelectorAll('a.export-link, a#commercial-pdf-download-btn').forEach(function(link) {
         link.addEventListener('click', function(e) {
           e.preventDefault();
+          var storageKey = 'consumer_report_summary';
+          if (link.id === 'commercial-pdf-download-btn') {
+            storageKey = 'consumer_report_commercial';
+          }
           var stored = null;
-          try { stored = localStorage.getItem('consumer_report_summary'); } catch(err) {}
+          try { stored = localStorage.getItem(storageKey); } catch(err) {}
           if (!stored) {
             alert('Please upload a CSV file first to generate a report.');
             return;
@@ -437,15 +685,22 @@
         });
       });
 
-      // -- Checkbox selection logic: Select All / Row checkboxes, recompute Grand Total --
-      var selectAllEl = document.getElementById('select-all');
-      var rowCheckboxes = document.querySelectorAll('.row-checkbox');
-      var summaryData = null;
-      try { summaryData = JSON.parse(localStorage.getItem('consumer_report_summary')); } catch(e) {}
+      // ================================================================
+      // CHECKBOX SELECTION LOGIC
+      // Handles Select All / per-row checkboxes and recomputes the Grand
+      // Total for each tab independently.  Updates localStorage with the
+      // current selection so exports reflect which rows are checked.
+      // ================================================================
+      var summaryDataNormal = null;
+      var summaryDataCommercial = null;
+      try { summaryDataNormal = JSON.parse(localStorage.getItem('consumer_report_summary')); } catch(e) {}
+      try { summaryDataCommercial = JSON.parse(localStorage.getItem('consumer_report_commercial')); } catch(e) {}
 
-      function recomputeGrandTotal() {
+      // Recompute grand total for a specific tab
+      function recomputeGrandTotalForTab(tab) {
+        var checkboxes = document.querySelectorAll('.row-checkbox[data-tab="' + tab + '"]');
         var gtClosed = 0, gtActive = 0, gtTotal = 0, selectedCount = 0;
-        rowCheckboxes.forEach(function(cb) {
+        checkboxes.forEach(function(cb) {
           if (cb.checked) {
             var tr = cb.closest('tr');
             gtClosed += parseInt(tr.getAttribute('data-closed')) || 0;
@@ -454,20 +709,24 @@
             selectedCount++;
           }
         });
-        var gcEl = document.getElementById('gt-closed');
-        var gaEl = document.getElementById('gt-active');
-        var gtEl = document.getElementById('gt-total');
-        var scEl = document.getElementById('selected-count');
+        // Update the grand total row for this tab
+        var gcEl = document.querySelector('.gt-closed[data-gt-for="' + tab + '"]');
+        var gaEl = document.querySelector('.gt-active[data-gt-for="' + tab + '"]');
+        var gtEl = document.querySelector('.gt-total[data-gt-for="' + tab + '"]');
+        var scEl = document.querySelector('.selected-count[data-gt-for="' + tab + '"]');
         if (gcEl) gcEl.textContent = gtClosed.toLocaleString();
         if (gaEl) gaEl.textContent = gtActive.toLocaleString();
         if (gtEl) gtEl.textContent = gtTotal.toLocaleString();
-        if (scEl) scEl.textContent = selectedCount < rowCheckboxes.length ? '(' + selectedCount + ' of ' + rowCheckboxes.length + ' selected)' : '';
+        if (scEl) scEl.textContent = selectedCount < checkboxes.length ? '(' + selectedCount + ' of ' + checkboxes.length + ' selected)' : '';
       }
 
-      function updateLocalStorageSelected() {
+      // Update localStorage for a tab's checked rows
+      function updateLocalStorageForTab(tab) {
+        var summaryData = (tab === 'commercial') ? summaryDataCommercial : summaryDataNormal;
         if (!summaryData || !summaryData.summary_rows) return;
+        var checkboxes = document.querySelectorAll('.row-checkbox[data-tab="' + tab + '"]');
         var selectedSerials = [];
-        rowCheckboxes.forEach(function(cb) {
+        checkboxes.forEach(function(cb) {
           if (cb.checked) selectedSerials.push(parseInt(cb.getAttribute('data-serial')));
         });
         var selectedSet = new Set(selectedSerials);
@@ -487,27 +746,42 @@
         summaryData.sector_totals = newSectorTotals;
         summaryData.sector_count = Object.keys(newSectorTotals).length;
         summaryData.total_connections = newGrandClosed + newGrandActive;
-        try { localStorage.setItem('consumer_report_summary', JSON.stringify(summaryData)); } catch(e) {}
+        var storageKey = (tab === 'commercial') ? 'consumer_report_commercial' : 'consumer_report_summary';
+        try { localStorage.setItem(storageKey, JSON.stringify(summaryData)); } catch(e) {}
       }
 
-      if (selectAllEl) {
+      // Bind Select All checkboxes (one per tab)
+      var selectAllCbs = document.querySelectorAll('.select-all-cb');
+      selectAllCbs.forEach(function(selectAllEl) {
+        var tab = selectAllEl.getAttribute('data-tab');
         selectAllEl.addEventListener('change', function() {
-          rowCheckboxes.forEach(function(cb) { cb.checked = selectAllEl.checked; });
-          recomputeGrandTotal();
-          updateLocalStorageSelected();
-        });
-      }
-      rowCheckboxes.forEach(function(cb) {
-        cb.addEventListener('change', function() {
-          var allChecked = true;
-          rowCheckboxes.forEach(function(c) { if (!c.checked) allChecked = false; });
-          if (selectAllEl) selectAllEl.checked = allChecked;
-          recomputeGrandTotal();
-          updateLocalStorageSelected();
+          var checkboxes = document.querySelectorAll('.row-checkbox[data-tab="' + tab + '"]');
+          checkboxes.forEach(function(cb) { cb.checked = selectAllEl.checked; });
+          recomputeGrandTotalForTab(tab);
+          updateLocalStorageForTab(tab);
         });
       });
 
-      // -- Count-up animation --
+      // Bind per-row checkboxes
+      var allRowCheckboxes = document.querySelectorAll('.row-checkbox');
+      allRowCheckboxes.forEach(function(cb) {
+        cb.addEventListener('change', function() {
+          var tab = cb.getAttribute('data-tab');
+          // Update Select All state for this tab
+          var selectAllEl = document.querySelector('.select-all-cb[data-tab="' + tab + '"]');
+          var tabCheckboxes = document.querySelectorAll('.row-checkbox[data-tab="' + tab + '"]');
+          var allChecked = true;
+          tabCheckboxes.forEach(function(c) { if (!c.checked) allChecked = false; });
+          if (selectAllEl) selectAllEl.checked = allChecked;
+          recomputeGrandTotalForTab(tab);
+          updateLocalStorageForTab(tab);
+        });
+      });
+
+      // ================================================================
+      // COUNT-UP ANIMATION
+      // Animates the stat card numbers on page load.
+      // ================================================================
       document.querySelectorAll('[data-count]').forEach(function(el) {
         var target = parseFloat(el.getAttribute('data-count').replace(/,/g,''));
         if (isNaN(target)) return;

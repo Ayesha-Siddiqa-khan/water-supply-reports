@@ -7590,49 +7590,81 @@ def _parse_consumer_csv(file_storage) -> tuple[list[dict], list[str]]:
 
 
 def _build_consumer_sector_summary(rows: list[dict]) -> dict:
-    """Group rows by Sector, then Locality. Return summary data."""
+    """Group rows by Sector, then Locality. Return summary data.
+
+    SECTOR NORMALIZATION AND GROUPING:
+    - Sector names are normalized (trimmed, lowercased, extra spaces removed)
+      before grouping so that variations in spacing, capitalization, or minor
+      spelling differences are merged into a single sector row.
+    - All localities under the same normalized sector are combined into a
+      comma-separated string in the Locality column.
+    - One row is created per unique normalized sector.
+    """
     from collections import OrderedDict
 
-    sector_map: OrderedDict[str, OrderedDict[str, dict]] = OrderedDict()
+    def _normalize_sector(name: str) -> str:
+        """Normalize sector name for grouping: trim, lowercase, collapse spaces."""
+        return " ".join(str(name or "").strip().lower().split())
+
+    # sector_map: normalized_key → { original, localities_set, closed, active }
+    sector_map: OrderedDict[str, dict] = OrderedDict()
 
     for row in rows:
-        sector = row["sector"] or "Unspecified"
-        locality = row["locality"] or "Unspecified"
-        status = row["connection_status"]
+        sector_raw = (row.get("sector") or "Unspecified").strip()
+        locality_raw = (row.get("locality") or "Unspecified").strip()
+        status = row.get("connection_status", "Active")
 
-        if sector not in sector_map:
-            sector_map[sector] = OrderedDict()
-        if locality not in sector_map[sector]:
-            sector_map[sector][locality] = {"closed": 0, "active": 0}
+        norm_key = _normalize_sector(sector_raw)
+
+        if norm_key not in sector_map:
+            sector_map[norm_key] = {
+                "original": sector_raw,
+                "localities": [],  # list of unique locality names
+                "closed": 0,
+                "active": 0,
+            }
+
+        # Keep the shortest original sector name for cleaner display
+        if len(sector_raw) < len(sector_map[norm_key]["original"]):
+            sector_map[norm_key]["original"] = sector_raw
+
+        # Add locality if not already present (case-insensitive check)
+        loc_lower = locality_raw.lower()
+        existing_lower = [l.lower() for l in sector_map[norm_key]["localities"]]
+        if loc_lower not in existing_lower and locality_raw:
+            sector_map[norm_key]["localities"].append(locality_raw)
 
         if status == "Closed":
-            sector_map[sector][locality]["closed"] += 1
+            sector_map[norm_key]["closed"] += 1
         else:
-            sector_map[sector][locality]["active"] += 1
+            sector_map[norm_key]["active"] += 1
 
+    # Build summary rows — one row per normalized sector
     summary_rows: list[dict] = []
     serial = 0
     sector_totals: dict[str, dict] = {}
     grand_closed, grand_active = 0, 0
 
-    for sector, localities in sector_map.items():
-        s_closed, s_active = 0, 0
-        for locality, counts in localities.items():
-            serial += 1
-            total = counts["closed"] + counts["active"]
-            summary_rows.append({
-                "serial": serial,
-                "sector": sector,
-                "locality": locality,
-                "closed": counts["closed"],
-                "active": counts["active"],
-                "total": total,
-            })
-            s_closed += counts["closed"]
-            s_active += counts["active"]
-        sector_totals[sector] = {"closed": s_closed, "active": s_active, "total": s_closed + s_active}
-        grand_closed += s_closed
-        grand_active += s_active
+    for norm_key, s_data in sector_map.items():
+        serial += 1
+        closed = s_data["closed"]
+        active = s_data["active"]
+        total = closed + active
+        # Combine localities into comma-separated string
+        locality_str = ", ".join(s_data["localities"]) if s_data["localities"] else "Unspecified"
+        original_sector = s_data["original"]
+
+        summary_rows.append({
+            "serial": serial,
+            "sector": original_sector,
+            "locality": locality_str,
+            "closed": closed,
+            "active": active,
+            "total": total,
+        })
+        sector_totals[original_sector] = {"closed": closed, "active": active, "total": total}
+        grand_closed += closed
+        grand_active += active
 
     return {
         "summary_rows": summary_rows,
@@ -7643,9 +7675,79 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
             "total": grand_closed + grand_active,
         },
         "sector_count": len(sector_map),
-        "locality_count": sum(len(locs) for locs in sector_map.values()),
+        "locality_count": len(summary_rows),
         "total_connections": grand_closed + grand_active,
     }
+
+
+# ---------------------------------------------------------------------------
+# SPLIT SUMMARY: Separate COMMERCIAL rows from normal (non-commercial) rows.
+# Returns (normal_summary, commercial_summary) — each a dict compatible with
+# the consumer_report.html template.  Used by the GET handler to render two
+# sub-tabs: one for normal sectors, one for COMMERCIAL.
+# ---------------------------------------------------------------------------
+def _split_summary_by_type(summary: dict) -> tuple[dict, dict]:
+    """Split a summary dict into (normal_summary, commercial_summary).
+
+    COMMERCIAL sectors are those whose sector name starts with 'COMMERCIAL'
+    (case-insensitive).  All other sectors go into the normal summary.
+    Each sub-summary gets its own serial numbers (re-numbered from 1),
+    grand totals, and metadata counts.
+    """
+    if not summary:
+        return ({}, {})
+
+    all_rows = summary.get("summary_rows", [])
+
+    # --- Partition rows by type ---
+    normal_rows: list[dict] = []
+    commercial_rows: list[dict] = []
+    for row in all_rows:
+        sector_name = (row.get("sector") or "").strip()
+        if sector_name.upper().startswith("COMMERCIAL"):
+            commercial_rows.append(row)
+        else:
+            normal_rows.append(row)
+
+    # --- Build sub-summary helper ---
+    def _build_sub(rows: list[dict], label: str) -> dict:
+        serial = 0
+        grand_closed, grand_active = 0, 0
+        sector_totals: dict[str, dict] = {}
+        result_rows: list[dict] = []
+        for r in rows:
+            serial += 1
+            result_rows.append({
+                "serial": serial,
+                "sector": r["sector"],
+                "locality": r["locality"],
+                "closed": r["closed"],
+                "active": r["active"],
+                "total": r["total"],
+            })
+            sector_totals[r["sector"]] = {
+                "closed": r["closed"],
+                "active": r["active"],
+                "total": r["total"],
+            }
+            grand_closed += r["closed"]
+            grand_active += r["active"]
+        return {
+            "summary_rows": result_rows,
+            "sector_totals": sector_totals,
+            "grand_total": {
+                "closed": grand_closed,
+                "active": grand_active,
+                "total": grand_closed + grand_active,
+            },
+            "sector_count": len(rows),
+            "locality_count": len(rows),
+            "total_connections": grand_closed + grand_active,
+        }
+
+    normal = _build_sub(normal_rows, "normal") if normal_rows else {}
+    commercial = _build_sub(commercial_rows, "commercial") if commercial_rows else {}
+    return (normal, commercial)
 
 
 @app.route("/consumer-report", methods=["GET", "POST"])
@@ -7689,7 +7791,10 @@ def consumer_report():
             if is_ajax():
                 return ajax_ok(message=msg, redirect_url=url_for("consumer_report"))
             flash(msg)
-            return render_template("consumer_report.html", summary=summary, filename=_consumer_report_filename, total_rows=data.get("total_rows", 0))
+            normal_summary, commercial_summary = _split_summary_by_type(summary)
+            return render_template("consumer_report.html", summary=summary,
+                                   normal_summary=normal_summary, commercial_summary=commercial_summary,
+                                   filename=_consumer_report_filename, total_rows=data.get("total_rows", 0))
 
         if action == "clear":
             _consumer_report_data = None
@@ -7728,19 +7833,32 @@ def consumer_report():
             if is_ajax():
                 return ajax_ok(message=msg, redirect_url=url_for("consumer_report"))
             flash(msg)
-            return render_template("consumer_report.html", summary=summary, filename=_consumer_report_filename, total_rows=len(rows))
+            normal_summary, commercial_summary = _split_summary_by_type(summary)
+            return render_template("consumer_report.html", summary=summary,
+                                   normal_summary=normal_summary, commercial_summary=commercial_summary,
+                                   filename=_consumer_report_filename, total_rows=len(rows))
 
     # GET — restore from cached summary (JSON upload) or raw data (form upload).
     # Load from disk cache first so data survives Vercel serverless cold starts.
     cached_summary, cached_filename, cached_rows = _load_consumer_summary_cache()
     if cached_summary:
-        return render_template("consumer_report.html", summary=cached_summary, filename=cached_filename, total_rows=cached_rows)
+        normal_summary, commercial_summary = _split_summary_by_type(cached_summary)
+        return render_template("consumer_report.html", summary=cached_summary,
+                               normal_summary=normal_summary, commercial_summary=commercial_summary,
+                               filename=cached_filename, total_rows=cached_rows)
     if _last_consumer_summary:
-        return render_template("consumer_report.html", summary=_last_consumer_summary, filename=_consumer_report_filename, total_rows=_last_consumer_summary.get("total_rows", 0))
+        normal_summary, commercial_summary = _split_summary_by_type(_last_consumer_summary)
+        return render_template("consumer_report.html", summary=_last_consumer_summary,
+                               normal_summary=normal_summary, commercial_summary=commercial_summary,
+                               filename=_consumer_report_filename, total_rows=_last_consumer_summary.get("total_rows", 0))
     if _consumer_report_data:
         summary = _build_consumer_sector_summary(_consumer_report_data)
-        return render_template("consumer_report.html", summary=summary, filename=_consumer_report_filename, total_rows=len(_consumer_report_data))
-    return render_template("consumer_report.html", summary=None, filename=None, total_rows=0)
+        normal_summary, commercial_summary = _split_summary_by_type(summary)
+        return render_template("consumer_report.html", summary=summary,
+                               normal_summary=normal_summary, commercial_summary=commercial_summary,
+                               filename=_consumer_report_filename, total_rows=len(_consumer_report_data))
+    return render_template("consumer_report.html", summary=None, normal_summary={}, commercial_summary={},
+                           filename=None, total_rows=0)
 
 
 @app.route("/consumer-report/export/<fmt_type>", methods=["GET", "POST"])
@@ -7842,13 +7960,50 @@ def export_consumer_report(fmt_type: str):
     # Rebuild sector_totals from the sorted rows (order may change but totals stay the same)
     summary["summary_rows"] = final_sorted
 
-    headers = ["SR", "Sector", "Locality", "Closed", "Active", "Total Connections"]
+    # -----------------------------------------------------------------------
+    # Column visibility: read which columns to include in the PDF.
+    # cols = comma-separated list of column keys: sr,sector,locality,closed,active,total
+    # If not specified, all columns are included.
+    # -----------------------------------------------------------------------
+    cols_param = request.args.get("cols", "")
+    if cols_param:
+        selected_cols = [c.strip().lower() for c in cols_param.split(",") if c.strip()]
+    else:
+        selected_cols = ["sr", "sector", "locality", "closed", "active", "total"]
+
+    # Build headers and row data based on selected columns
+    # Column definitions: key → (header_label, row_extractor, width_mm)
+    COL_DEFS = {
+        "sr":     ("SR",     lambda r: r["serial"],             12),
+        "sector": ("Sector", lambda r: r["sector"],             58),
+        "locality": ("Locality", lambda r: r["locality"],       54),
+        "closed": ("Closed", lambda r: r["closed"],             16),
+        "active": ("Active", lambda r: r["active"],             16),
+        "total":  ("Total Connections", lambda r: r["total"],   18),
+    }
+
+    # Filter to only selected columns that exist
+    active_cols = [c for c in ["sr", "sector", "locality", "closed", "active", "total"] if c in selected_cols]
+
+    headers = [COL_DEFS[c][0] for c in active_cols]
     rows = [
-        [r["serial"], r["sector"], r["locality"], r["closed"], r["active"], r["total"]]
+        [COL_DEFS[c][1](r) for c in active_cols]
         for r in summary["summary_rows"]
     ]
+
+    # Grand total: only include numeric columns that are selected
     gt = summary["grand_total"]
-    grand = ["", "GRAND TOTAL", "", gt["closed"], gt["active"], gt["total"]]
+    gt_vals = {"closed": gt["closed"], "active": gt["active"], "total": gt["total"]}
+    grand = []
+    for c in active_cols:
+        if c == "sr":
+            grand.append("")
+        elif c == "sector":
+            grand.append("GRAND TOTAL")
+        elif c == "locality":
+            grand.append("")
+        else:
+            grand.append(gt_vals.get(c, 0))
 
     filename = "consumer_sector_report"
 
@@ -7971,47 +8126,64 @@ def export_consumer_report(fmt_type: str):
         elements.append(Paragraph(" &nbsp;&nbsp;|&nbsp;&nbsp; ".join(meta_parts), meta_style))
 
         # -- Build table data with Paragraph wrapping for Sector/Locality --
+        # Uses active_cols list to only include selected columns
         table_data = []
         row_types = []  # "header" | "data" | "grand_total"
 
-        # Header row — use Paragraph for proper alignment
-        table_data.append([
-            Paragraph("SR", header_cell_style),
-            Paragraph("Sector", header_cell_style),
-            Paragraph("Locality", header_cell_style),
-            Paragraph("Closed", header_cell_style),
-            Paragraph("Active", header_cell_style),
-            Paragraph("Total Connections", header_cell_style),
-        ])
+        # Column style mapping: which style to use for each column type
+        col_styles = {
+            "sr": cell_center_style,
+            "sector": cell_wrap_style,
+            "locality": cell_wrap_style,
+            "closed": cell_center_style,
+            "active": cell_center_style,
+            "total": cell_center_style,
+        }
+
+        # Header row — only include selected columns
+        table_data.append([Paragraph(COL_DEFS[c][0], header_cell_style) for c in active_cols])
         row_types.append("header")
 
+        # Data rows — filter to non-commercial, then build rows with selected columns
         serial_counter = 0
         for r in non_commercial_rows:
             serial_counter += 1
-            table_data.append([
-                Paragraph(str(serial_counter), cell_center_style),
-                Paragraph(str(r["sector"]), cell_wrap_style),
-                Paragraph(str(r["locality"]), cell_wrap_style),
-                Paragraph(str(r["closed"]), cell_center_style),
-                Paragraph(str(r["active"]), cell_center_style),
-                Paragraph(str(r["total"]), cell_center_style),
-            ])
+            # Update serial in the row for display
+            r_display = dict(r)
+            r_display["serial"] = serial_counter
+            row_cells = []
+            for c in active_cols:
+                val = COL_DEFS[c][1](r_display)
+                row_cells.append(Paragraph(str(val), col_styles[c]))
+            table_data.append(row_cells)
             row_types.append("data")
 
-        # Grand Total row — computed from non-commercial rows only
-        table_data.append([
-            Paragraph("", cell_center_style),
-            Paragraph("GRAND TOTAL", ParagraphStyle("GrandLabel", parent=cell_wrap_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)),
-            Paragraph("", cell_center_style),
-            Paragraph(str(non_commercial_closed), ParagraphStyle("GrandNum", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)),
-            Paragraph(str(non_commercial_active), ParagraphStyle("GrandNum2", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)),
-            Paragraph(str(non_commercial_total), ParagraphStyle("GrandNum3", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)),
-        ])
+        # Grand Total row — only include selected columns
+        gt_cells = []
+        for c in active_cols:
+            if c == "sr":
+                gt_cells.append(Paragraph("", cell_center_style))
+            elif c == "sector":
+                gt_cells.append(Paragraph("GRAND TOTAL", ParagraphStyle("GrandLabel", parent=cell_wrap_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)))
+            elif c == "locality":
+                gt_cells.append(Paragraph("", cell_center_style))
+            else:
+                gt_val = {"closed": non_commercial_closed, "active": non_commercial_active, "total": non_commercial_total}.get(c, 0)
+                gt_cells.append(Paragraph(str(gt_val), ParagraphStyle(f"Grand{c}", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)))
+        table_data.append(gt_cells)
         row_types.append("grand_total")
 
-        # -- Column widths (mm) tuned for A4 portrait --
-        # SR: 12mm, Sector: 58mm, Locality: 54mm, Closed: 16mm, Active: 16mm, Total: 18mm = 174mm
-        col_widths = [12 * mm, 58 * mm, 54 * mm, 16 * mm, 16 * mm, 18 * mm]
+        # -- Column widths (mm) — dynamic based on selected columns --
+        # Available width: 180mm (A4 with 15mm margins on each side)
+        # Distribute extra space proportionally to flexible columns
+        total_fixed = sum(COL_DEFS[c][2] for c in active_cols)
+        usable_mm = 180  # usable width in mm
+        if total_fixed > 0 and total_fixed < usable_mm:
+            # Scale up flexible columns (sector, locality) to fill space
+            scale = usable_mm / total_fixed
+            col_widths = [COL_DEFS[c][2] * scale * mm for c in active_cols]
+        else:
+            col_widths = [COL_DEFS[c][2] * mm for c in active_cols]
 
         # -- Create table --
         t = Table(table_data, colWidths=col_widths, repeatRows=1)
@@ -8046,21 +8218,6 @@ def export_consumer_report(fmt_type: str):
 
         t.setStyle(TableStyle(style_cmds))
         elements.append(t)
-
-        # -- Footer note --
-        footer_style = ParagraphStyle(
-            "ConsumerReportFooter",
-            parent=styles["Normal"],
-            fontSize=8,
-            fontName="Helvetica-Oblique",
-            textColor=colors.HexColor("#999999"),
-            alignment=1,
-            spaceBefore=8 * mm,
-        )
-        elements.append(Paragraph(
-            "This report was generated by AI from uploaded consumer data.",
-            footer_style,
-        ))
 
         doc.build(elements)
         return Response(buf.getvalue(), mimetype="application/pdf",
@@ -8188,47 +8345,60 @@ def export_consumer_report(fmt_type: str):
         elements.append(Paragraph(" &nbsp;&nbsp;|&nbsp;&nbsp; ".join(meta_parts), commercial_meta_style))
 
         # -- Build table data with Paragraph wrapping for Sector/Locality --
+        # Uses active_cols list to only include selected columns
         table_data = []
         row_types = []  # "header" | "data" | "grand_total"
 
-        # Header row
-        table_data.append([
-            Paragraph("SR", header_cell_style),
-            Paragraph("Sector", header_cell_style),
-            Paragraph("Locality", header_cell_style),
-            Paragraph("Closed", header_cell_style),
-            Paragraph("Active", header_cell_style),
-            Paragraph("Total Connections", header_cell_style),
-        ])
+        # Column style mapping: which style to use for each column type
+        col_styles = {
+            "sr": cell_center_style,
+            "sector": cell_wrap_style,
+            "locality": cell_wrap_style,
+            "closed": cell_center_style,
+            "active": cell_center_style,
+            "total": cell_center_style,
+        }
+
+        # Header row — only include selected columns
+        table_data.append([Paragraph(COL_DEFS[c][0], header_cell_style) for c in active_cols])
         row_types.append("header")
 
         # Data rows — re-assign serial numbers for commercial-only report
         serial_counter = 0
         for r in commercial_rows:
             serial_counter += 1
-            table_data.append([
-                Paragraph(str(serial_counter), cell_center_style),
-                Paragraph(str(r["sector"]), cell_wrap_style),
-                Paragraph(str(r["locality"]), cell_wrap_style),
-                Paragraph(str(r["closed"]), cell_center_style),
-                Paragraph(str(r["active"]), cell_center_style),
-                Paragraph(str(r["total"]), cell_center_style),
-            ])
+            r_display = dict(r)
+            r_display["serial"] = serial_counter
+            row_cells = []
+            for c in active_cols:
+                val = COL_DEFS[c][1](r_display)
+                row_cells.append(Paragraph(str(val), col_styles[c]))
+            table_data.append(row_cells)
             row_types.append("data")
 
-        # Grand Total row
-        table_data.append([
-            Paragraph("", cell_center_style),
-            Paragraph("GRAND TOTAL", ParagraphStyle("CommGrandLabel", parent=cell_wrap_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)),
-            Paragraph("", cell_center_style),
-            Paragraph(str(commercial_closed), ParagraphStyle("CommGrandNum", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)),
-            Paragraph(str(commercial_active), ParagraphStyle("CommGrandNum2", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)),
-            Paragraph(str(commercial_total), ParagraphStyle("CommGrandNum3", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)),
-        ])
+        # Grand Total row — only include selected columns
+        gt_cells = []
+        for c in active_cols:
+            if c == "sr":
+                gt_cells.append(Paragraph("", cell_center_style))
+            elif c == "sector":
+                gt_cells.append(Paragraph("GRAND TOTAL", ParagraphStyle("CommGrandLabel", parent=cell_wrap_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)))
+            elif c == "locality":
+                gt_cells.append(Paragraph("", cell_center_style))
+            else:
+                gt_val = {"closed": commercial_closed, "active": commercial_active, "total": commercial_total}.get(c, 0)
+                gt_cells.append(Paragraph(str(gt_val), ParagraphStyle(f"CommGrand{c}", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)))
+        table_data.append(gt_cells)
         row_types.append("grand_total")
 
-        # -- Column widths (same as main PDF for consistency) --
-        col_widths = [12 * mm, 58 * mm, 54 * mm, 16 * mm, 16 * mm, 18 * mm]
+        # -- Column widths (mm) — dynamic based on selected columns --
+        total_fixed = sum(COL_DEFS[c][2] for c in active_cols)
+        usable_mm = 180
+        if total_fixed > 0 and total_fixed < usable_mm:
+            scale = usable_mm / total_fixed
+            col_widths = [COL_DEFS[c][2] * scale * mm for c in active_cols]
+        else:
+            col_widths = [COL_DEFS[c][2] * mm for c in active_cols]
 
         t = Table(table_data, colWidths=col_widths, repeatRows=1)
 
@@ -8259,22 +8429,6 @@ def export_consumer_report(fmt_type: str):
 
         t.setStyle(TableStyle(style_cmds))
         elements.append(t)
-
-        # -- Footer note --
-        footer_style = ParagraphStyle(
-            "CommercialReportFooter",
-            parent=styles["Normal"],
-            fontSize=8,
-            fontName="Helvetica-Oblique",
-            textColor=colors.HexColor("#999999"),
-            alignment=1,
-            spaceBefore=8 * mm,
-        )
-        elements.append(Paragraph(
-            "This report was generated by AI from uploaded consumer data. "
-            "Contains only COMMERCIAL sector records.",
-            footer_style,
-        ))
 
         doc.build(elements)
         return Response(buf.getvalue(), mimetype="application/pdf",
