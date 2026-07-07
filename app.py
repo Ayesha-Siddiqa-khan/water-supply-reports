@@ -7442,29 +7442,59 @@ def export_daily_staff_receive(fmt_type: str):
 _consumer_report_data: list[dict] | None = None
 _consumer_report_filename: str | None = None
 
-EXPECTED_CONSUMER_COLUMNS = [
-    "serial number", "consumer name", "father name", "mobile number",
-    "sector", "locality", "address", "order number", "rate type",
-    "connection", "old connection", "connection status", "consumer status",
-    "action",
-]
+# Flexible column aliases: maps a canonical key to a list of normalised
+# substrings that identify the column.  The first match wins.
+_CONSUMER_COL_ALIASES: dict[str, list[str]] = {
+    "serial": ["sr #", "sr#", "serial", "s no", "s.no", "serial no", "serial number", "sr no"],
+    "consumer_name": ["consumer name", "consumer", "name"],
+    "father_name": ["f/h name", "f h name", "father name", "father", "f/h", "guardian"],
+    "mobile": ["mobile", "phone", "cell", "contact"],
+    "sector": ["sector"],
+    "locality": ["locality"],
+    "address": ["address"],
+    "order_number": ["order no", "order number", "register no", "order no. / register no", "register"],
+    "rate_type": ["rate type", "rate"],
+    "connection": ["connection no", "connection no.", "connection number", "connection"],
+    "old_connection": ["old connection no", "old connection no.", "old connection number", "old connection"],
+    "connection_status": ["status", "connection status", "conn status"],
+    "consumer_status": ["consumer status"],
+    "action": ["action", "actions"],
+}
 
 
 def _normalize_consumer_col(name: str) -> str:
     return " ".join(str(name).strip().lower().replace("_", " ").split())
 
 
+def _resolve_consumer_columns(columns: list[str]) -> dict[str, str]:
+    """Map each canonical key to the actual CSV column name that matched."""
+    norm_cols = [_normalize_consumer_col(c) for c in columns]
+    resolved: dict[str, str] = {}
+    for key, aliases in _CONSUMER_COL_ALIASES.items():
+        for alias in aliases:
+            for i, nc in enumerate(norm_cols):
+                if alias in nc and key not in resolved:
+                    resolved[key] = columns[i]
+                    break
+            if key in resolved:
+                break
+    return resolved
+
+
 def _classify_connection_status(value: str) -> str:
+    """Classify both 'Status' column values and 'Consumer Status' into Active/Closed."""
     text = str(value or "").strip().lower()
-    if text in ("closed", "c", "close", "inactive", "disconnected", "terminated"):
+    if text in ("closed", "c", "close", "inactive", "disconnected", "terminated", "in-active"):
         return "Closed"
-    if text in ("active", "a", "open", "connected", "live", "running"):
+    if text in ("active", "a", "open", "connected", "live", "running", "regular connection",
+                "new connection", "regular", "new"):
         return "Active"
     return "Active"
 
 
 def _parse_consumer_csv(file_storage) -> tuple[list[dict], list[str]]:
-    """Read uploaded CSV/XLSX and return (rows, errors)."""
+    """Read uploaded CSV/XLSX and return (rows, errors).
+    Uses flexible column matching so files with varying header names work."""
     filename = secure_filename(file_storage.filename or "")
     ext = os.path.splitext(filename)[1].lower()
     try:
@@ -7476,32 +7506,45 @@ def _parse_consumer_csv(file_storage) -> tuple[list[dict], list[str]]:
         return [], [f"Could not read file: {exc}"]
 
     df = df.fillna("")
-    df.columns = [_normalize_consumer_col(c) for c in df.columns]
+    raw_columns = list(df.columns)
+
+    # Resolve canonical keys from whatever column names the file uses
+    col_map = _resolve_consumer_columns(raw_columns)
 
     errors: list[str] = []
-    for expected in ("sector", "locality", "connection status"):
-        if expected not in df.columns:
-            errors.append(f"Missing required column: '{expected}'")
+    for required in ("sector", "locality", "connection_status"):
+        if required not in col_map:
+            errors.append(f"Missing required column: looked for '{required}' (e.g. Sector, Locality, Status)")
     if errors:
         return [], errors
 
+    def _get(row, key, default=""):
+        csv_col = col_map.get(key)
+        if csv_col and csv_col in row.index:
+            return str(row[csv_col])
+        return str(default)
+
     rows: list[dict] = []
     for _, row in df.iterrows():
+        # For connection_status, prefer 'Status' column; fall back to 'Consumer Status'
+        status_val = _get(row, "connection_status", "")
+        if not status_val.strip():
+            status_val = _get(row, "consumer_status", "")
         rows.append({
-            "serial_number": str(row.get("serial number", "")),
-            "consumer_name": str(row.get("consumer name", "")),
-            "father_name": str(row.get("father name", "")),
-            "mobile_number": str(row.get("mobile number", "")),
-            "sector": str(row.get("sector", "")).strip(),
-            "locality": str(row.get("locality", "")).strip(),
-            "address": str(row.get("address", "")),
-            "order_number": str(row.get("order number", "")),
-            "rate_type": str(row.get("rate type", "")),
-            "connection": str(row.get("connection", "")),
-            "old_connection": str(row.get("old connection", "")),
-            "connection_status": _classify_connection_status(row.get("connection status", "")),
-            "consumer_status": str(row.get("consumer status", "")),
-            "action": str(row.get("action", "")),
+            "serial_number": _get(row, "serial"),
+            "consumer_name": _get(row, "consumer_name"),
+            "father_name": _get(row, "father_name"),
+            "mobile_number": _get(row, "mobile"),
+            "sector": _get(row, "sector").strip(),
+            "locality": _get(row, "locality").strip(),
+            "address": _get(row, "address"),
+            "order_number": _get(row, "order_number"),
+            "rate_type": _get(row, "rate_type"),
+            "connection": _get(row, "connection"),
+            "old_connection": _get(row, "old_connection"),
+            "connection_status": _classify_connection_status(status_val),
+            "consumer_status": _get(row, "consumer_status"),
+            "action": _get(row, "action"),
         })
     return rows, []
 
