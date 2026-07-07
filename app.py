@@ -7441,6 +7441,7 @@ def export_daily_staff_receive(fmt_type: str):
 
 _consumer_report_data: list[dict] | None = None
 _consumer_report_filename: str | None = None
+_last_consumer_summary: dict | None = None
 
 # Flexible column aliases: maps a canonical key to a list of normalised
 # substrings that identify the column.  The first match wins.
@@ -7615,9 +7616,44 @@ def consumer_report():
     if request.method == "POST":
         action = request.form.get("action", "")
 
+        # -------------------------------------------------------------------
+        # JSON upload: client-side CSV parser sends pre-computed sector summary
+        # as JSON to bypass Vercel's 4.5MB serverless body limit.  The payload
+        # contains summary_rows, sector_totals, grand_total, and metadata.
+        # -------------------------------------------------------------------
+        if request.is_json:
+            data = request.get_json(silent=True)
+            if not data or "summary_rows" not in data:
+                if is_ajax():
+                    return ajax_error("Invalid data payload.")
+                flash("Invalid upload data.")
+                return redirect(url_for("consumer_report"))
+
+            # Store the pre-computed summary directly for export routes
+            _consumer_report_data = data.get("summary_rows", [])
+            _consumer_report_filename = data.get("filename", "upload.csv")
+
+            # Build a summary dict compatible with the template and exports
+            summary = {
+                "summary_rows": data.get("summary_rows", []),
+                "sector_totals": data.get("sector_totals", {}),
+                "grand_total": data.get("grand_total", {"closed": 0, "active": 0, "total": 0}),
+                "sector_count": data.get("sector_count", 0),
+                "locality_count": data.get("locality_count", 0),
+                "total_connections": data.get("total_connections", 0),
+            }
+            _last_consumer_summary = summary
+
+            msg = f"File uploaded. Found {summary['total_connections']:,} connections across {summary['sector_count']} sectors."
+            if is_ajax():
+                return ajax_ok(message=msg, redirect_url=url_for("consumer_report"))
+            flash(msg)
+            return render_template("consumer_report.html", summary=summary, filename=_consumer_report_filename, total_rows=data.get("total_rows", 0))
+
         if action == "clear":
             _consumer_report_data = None
             _consumer_report_filename = None
+            _last_consumer_summary = None
             flash("Consumer report data cleared.")
             return redirect(url_for("consumer_report"))
 
@@ -7652,7 +7688,9 @@ def consumer_report():
             flash(msg)
             return render_template("consumer_report.html", summary=summary, filename=_consumer_report_filename, total_rows=len(rows))
 
-    # GET
+    # GET — restore from cached summary (JSON upload) or raw data (form upload)
+    if _last_consumer_summary:
+        return render_template("consumer_report.html", summary=_last_consumer_summary, filename=_consumer_report_filename, total_rows=_last_consumer_summary.get("total_rows", 0))
     if _consumer_report_data:
         summary = _build_consumer_sector_summary(_consumer_report_data)
         return render_template("consumer_report.html", summary=summary, filename=_consumer_report_filename, total_rows=len(_consumer_report_data))
@@ -7661,11 +7699,63 @@ def consumer_report():
 
 @app.route("/consumer-report/export/<fmt_type>")
 def export_consumer_report(fmt_type: str):
-    if not _consumer_report_data:
+    # Support both raw-data uploads and pre-computed summary (JSON) uploads
+    if not _consumer_report_data and not _last_consumer_summary:
         flash("No consumer report data available. Please upload a file first.")
         return redirect(url_for("consumer_report"))
 
+    # -----------------------------------------------------------------------
+    # Sorting: read priority and order from query params.
+    # priority = "active_first" | "closed_first"
+    # order    = "desc" (highest first) | "asc" (lowest first)
+    # Applied to locality rows; sectors are re-grouped after sorting.
+    # -----------------------------------------------------------------------
+    sort_priority = request.args.get("priority", "active_first")
+    sort_order = request.args.get("order", "desc")
+    if sort_priority not in ("active_first", "closed_first"):
+        sort_priority = "active_first"
+    if sort_order not in ("desc", "asc"):
+        sort_order = "desc"
+
     summary = _build_consumer_sector_summary(_consumer_report_data)
+
+    # -- Apply sorting to summary rows --
+    # Sort key: the count matching the selected priority direction
+    sort_key_field = "active" if sort_priority == "active_first" else "closed"
+    reverse = sort_order == "desc"
+
+    sorted_rows = sorted(
+        summary["summary_rows"],
+        key=lambda r: (r["sector"], r[sort_key_field]),
+    )
+    # Re-group by sector after sorting: sort sectors by their total priority count
+    from collections import OrderedDict
+    sector_order: list[str] = []
+    sector_priority_sum: dict[str, int] = {}
+    for r in sorted_rows:
+        s = r["sector"]
+        if s not in sector_priority_sum:
+            sector_order.append(s)
+            sector_priority_sum[s] = 0
+        sector_priority_sum[s] += r[sort_key_field]
+    # Sort sector names by their cumulative priority count
+    sector_order.sort(key=lambda s: sector_priority_sum[s], reverse=reverse)
+
+    # Rebuild sorted_rows in sector-grouped order
+    rows_by_sector: dict[str, list[dict]] = OrderedDict()
+    for r in sorted_rows:
+        rows_by_sector.setdefault(r["sector"], []).append(r)
+    final_sorted: list[dict] = []
+    for s in sector_order:
+        final_sorted.extend(rows_by_sector[s])
+
+    # Re-assign serial numbers after sorting
+    for i, r in enumerate(final_sorted, 1):
+        r["serial"] = i
+
+    # Rebuild sector_totals from the sorted rows (order may change but totals stay the same)
+    summary["summary_rows"] = final_sorted
+
     headers = ["Serial No", "Sector", "Locality", "Closed", "Active", "Total Connections"]
     rows = [
         [r["serial"], r["sector"], r["locality"], r["closed"], r["active"], r["total"]]
@@ -7754,7 +7844,7 @@ def export_consumer_report(fmt_type: str):
             report_subtitle_style,
         ))
 
-        # -- Metadata line: source file, date, sector/locality counts --
+        # -- Metadata line: source file, date, sector/locality counts, sort info --
         meta_parts = []
         if _consumer_report_filename:
             meta_parts.append(f"<b>Source:</b> {_consumer_report_filename}")
@@ -7762,6 +7852,10 @@ def export_consumer_report(fmt_type: str):
         meta_parts.append(f"<b>Sectors:</b> {summary['sector_count']}")
         meta_parts.append(f"<b>Localities:</b> {summary['locality_count']}")
         meta_parts.append(f"<b>Total Connections:</b> {summary['total_connections']:,}")
+        # Show sort settings in the metadata line
+        sort_label = "Active First" if sort_priority == "active_first" else "Closed First"
+        order_label = "Highest→Lowest" if sort_order == "desc" else "Lowest→Highest"
+        meta_parts.append(f"<b>Sort:</b> {sort_label}, {order_label}")
         elements.append(Paragraph(" &nbsp;&nbsp;|&nbsp;&nbsp; ".join(meta_parts), meta_style))
 
         # -- Build table data with sector subtotal rows --

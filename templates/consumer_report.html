@@ -37,22 +37,20 @@
       <p class="page-subtitle">Upload a consumer CSV to generate a sector-based summary showing Active, Closed, and Total connections grouped by Sector and Locality.</p>
     </div>
 
-    <!-- Upload Area -->
-    <form method="post" enctype="multipart/form-data" data-upload-progress="true" action="{{ url_for('consumer_report') }}" style="margin:0;">
-      <input type="hidden" name="action" value="upload">
-      <div class="upload-area" onclick="this.querySelector('input[type=file]').click();">
-        <div class="upload-icon-box">
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
-          </svg>
-        </div>
-        <div class="upload-text">
-          <strong>Upload Consumer CSV</strong>
-          <span>CSV or XLSX. Expected columns: Serial Number, Consumer Name, Father Name, Mobile Number, Sector, Locality, Address, Order Number, Rate Type, Connection, Old Connection, Connection Status, Consumer Status, Action.</span>
-        </div>
-        <input type="file" name="consumer_file" accept=".csv,.xlsx" style="display:none;">
+    <!-- Upload Area — client-side CSV parsing to bypass Vercel 4.5MB body limit -->
+    <div id="upload-area" class="upload-area" onclick="document.getElementById('csv-file-input').click();">
+      <div class="upload-icon-box">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+        </svg>
       </div>
-    </form>
+      <div class="upload-text">
+        <strong>Upload Consumer CSV</strong>
+        <span>CSV or XLSX. Expected columns: Serial Number, Consumer Name, Father Name, Mobile Number, Sector, Locality, Address, Order Number, Rate Type, Connection, Old Connection, Connection Status, Consumer Status, Action.</span>
+      </div>
+      <div id="upload-status" style="display:none;margin-top:10px;font-size:12px;color:var(--teal);"></div>
+      <input type="file" id="csv-file-input" accept=".csv" style="display:none;">
+    </div>
 
     {% if not summary %}
     <div class="empty-state">
@@ -107,9 +105,28 @@
         {% endif %}
 
         <div class="export-bar" style="margin-bottom:10px;">
-          <a class="chip" href="{{ url_for('export_consumer_report', fmt_type='pdf') }}">&#11015; Download PDF</a>
           <a class="chip" href="{{ url_for('export_consumer_report', fmt_type='csv') }}">&#11015; Download CSV</a>
           <a class="chip" href="{{ url_for('export_consumer_report', fmt_type='xlsx') }}">&#11015; Download Excel</a>
+        </div>
+
+        <!-- Sort controls for PDF export -->
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);">
+          <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">PDF Sort Settings:</span>
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);">
+            Status Priority:
+            <select id="sort-priority" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text-primary);">
+              <option value="active_first" selected>Active First</option>
+              <option value="closed_first">Closed First</option>
+            </select>
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);">
+            Sort Order:
+            <select id="sort-order" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text-primary);">
+              <option value="desc" selected>Highest to Lowest</option>
+              <option value="asc">Lowest to Highest</option>
+            </select>
+          </label>
+          <a id="pdf-download-btn" class="chip" href="{{ url_for('export_consumer_report', fmt_type='pdf', priority='active_first', order='desc') }}">&#11015; Download PDF</a>
         </div>
 
         <div class="table-wrapper">
@@ -186,24 +203,235 @@
     document.getElementById(id).classList.toggle('collapsed');
   }
 
-  document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('[data-count]').forEach(function(el) {
-      var target = parseFloat(el.getAttribute('data-count').replace(/,/g,''));
-      if (isNaN(target)) return;
-      var prefix = el.getAttribute('data-prefix') || '';
-      var dur = 1200;
-      var start = performance.now();
-      function tick(now) {
-        var elapsed = now - start;
-        var progress = Math.min(elapsed / dur, 1);
-        var ease = 1 - Math.pow(1 - progress, 3);
-        var val = Math.round(target * ease);
-        el.textContent = prefix + val.toLocaleString();
-        if (progress < 1) requestAnimationFrame(tick);
-        else el.textContent = prefix + Math.round(target).toLocaleString();
+  /* ================================================================
+     CLIENT-SIDE CSV PARSER
+     Bypasses Vercel's 4.5MB serverless body limit by parsing the CSV
+     in the browser and sending only the small sector summary JSON
+     (~few KB) to the server instead of the raw CSV (~5+ MB).
+     ================================================================ */
+  (function() {
+    // Column alias map: normalised name → canonical key
+    var COL_ALIASES = {
+      serial:        ['sr #','sr#','serial','s no','s.no','serial no','serial number','sr no'],
+      consumer_name: ['consumer name','consumer','name'],
+      father_name:   ['f/h name','f h name','father name','father','f/h','guardian'],
+      mobile:        ['mobile','phone','cell','contact'],
+      sector:        ['sector'],
+      locality:      ['locality'],
+      address:       ['address'],
+      order_number:  ['order no','order number','register no','order no. / register no','register'],
+      rate_type:     ['rate type','rate'],
+      connection:    ['connection no','connection no.','connection number','connection'],
+      old_connection:['old connection no','old connection no.','old connection number','old connection'],
+      connection_status: ['status','connection status','conn status'],
+      consumer_status:   ['consumer status'],
+      action:        ['action','actions']
+    };
+
+    function normCol(n) { return n.trim().toLowerCase().replace(/_/g,' ').replace(/\s+/g,' '); }
+
+    function resolveColumns(headers) {
+      var norm = headers.map(normCol);
+      var resolved = {};
+      Object.keys(COL_ALIASES).forEach(function(key) {
+        COL_ALIASES[key].forEach(function(alias) {
+          if (resolved[key]) return;
+          for (var i = 0; i < norm.length; i++) {
+            if (norm[i].indexOf(alias) !== -1) {
+              resolved[key] = i;
+              break;
+            }
+          }
+        });
+      });
+      return resolved;
+    }
+
+    function classifyStatus(val) {
+      var t = (val || '').trim().toLowerCase();
+      if (['closed','c','close','inactive','disconnected','terminated','in-active'].indexOf(t) !== -1) return 'Closed';
+      return 'Active';
+    }
+
+    // Simple CSV line parser (handles quoted fields with commas)
+    function parseCSVLine(line) {
+      var result = [];
+      var current = '';
+      var inQuotes = false;
+      for (var i = 0; i < line.length; i++) {
+        var ch = line[i];
+        if (inQuotes) {
+          if (ch === '"') {
+            if (i + 1 < line.length && line[i+1] === '"') { current += '"'; i++; }
+            else { inQuotes = false; }
+          } else { current += ch; }
+        } else {
+          if (ch === '"') { inQuotes = true; }
+          else if (ch === ',') { result.push(current); current = ''; }
+          else { current += ch; }
+        }
       }
-      requestAnimationFrame(tick);
+      result.push(current);
+      return result;
+    }
+
+    function processCSV(text) {
+      var lines = text.split(/\r?\n/).filter(function(l) { return l.trim().length > 0; });
+      if (lines.length < 2) { showError('CSV file is empty or has no data rows.'); return; }
+
+      var headers = parseCSVLine(lines[0]);
+      var colMap = resolveColumns(headers);
+
+      // Validate required columns
+      var missing = [];
+      ['sector','locality','connection_status'].forEach(function(k) {
+        if (!(k in colMap)) missing.push(k);
+      });
+      if (missing.length) { showError('Missing required columns: ' + missing.join(', ')); return; }
+
+      // Parse all data rows → compute sector summary
+      var sectorMap = {};  // sector → locality → {closed, active}
+      var totalRows = 0;
+
+      for (var i = 1; i < lines.length; i++) {
+        var fields = parseCSVLine(lines[i]);
+        var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
+        var locality = (fields[colMap.locality] || '').trim() || 'Unspecified';
+        var statusVal = '';
+        if (colMap.connection_status !== undefined) statusVal = fields[colMap.connection_status] || '';
+        var status = classifyStatus(statusVal);
+
+        if (!sectorMap[sector]) sectorMap[sector] = {};
+        if (!sectorMap[sector][locality]) sectorMap[sector][locality] = {closed: 0, active: 0};
+
+        if (status === 'Closed') sectorMap[sector][locality].closed++;
+        else sectorMap[sector][locality].active++;
+
+        totalRows++;
+      }
+
+      // Build summary rows
+      var summaryRows = [];
+      var sectorTotals = {};
+      var grandClosed = 0, grandActive = 0;
+      var serial = 0;
+
+      Object.keys(sectorMap).forEach(function(sector) {
+        var localities = sectorMap[sector];
+        var sClosed = 0, sActive = 0;
+        Object.keys(localities).forEach(function(locality) {
+          serial++;
+          var counts = localities[locality];
+          var total = counts.closed + counts.active;
+          summaryRows.push({
+            serial: serial, sector: sector, locality: locality,
+            closed: counts.closed, active: counts.active, total: total
+          });
+          sClosed += counts.closed;
+          sActive += counts.active;
+        });
+        sectorTotals[sector] = { closed: sClosed, active: sActive, total: sClosed + sActive };
+        grandClosed += sClosed;
+        grandActive += sActive;
+      });
+
+      var payload = {
+        filename: currentFileName,
+        total_rows: totalRows,
+        summary_rows: summaryRows,
+        sector_totals: sectorTotals,
+        grand_total: { closed: grandClosed, active: grandActive, total: grandClosed + grandActive },
+        sector_count: Object.keys(sectorMap).length,
+        locality_count: summaryRows.length,
+        total_connections: grandClosed + grandActive
+      };
+
+      // Send summary JSON to server (tiny payload, bypasses Vercel limit)
+      showStatus('Parsed ' + totalRows.toLocaleString() + ' rows. Sending summary to server...');
+      fetch('{{ url_for("consumer_report") }}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(function(resp) { return resp.json(); })
+      .then(function(data) {
+        if (data.ok) {
+          showStatus('Done! Redirecting...');
+          window.location.href = data.redirect || '{{ url_for("consumer_report") }}';
+        } else {
+          showError(data.error || 'Upload failed.');
+        }
+      })
+      .catch(function(err) {
+        showError('Network error: ' + err.message);
+      });
+    }
+
+    var currentFileName = '';
+
+    function showStatus(msg) {
+      var el = document.getElementById('upload-status');
+      el.style.display = 'block';
+      el.style.color = 'var(--teal)';
+      el.textContent = msg;
+    }
+    function showError(msg) {
+      var el = document.getElementById('upload-status');
+      el.style.display = 'block';
+      el.style.color = 'var(--coral)';
+      el.textContent = msg;
+    }
+
+    // Bind file input
+    document.addEventListener('DOMContentLoaded', function() {
+      var fileInput = document.getElementById('csv-file-input');
+      if (!fileInput) return;
+      fileInput.addEventListener('change', function() {
+        if (!fileInput.files || !fileInput.files.length) return;
+        var file = fileInput.files[0];
+        currentFileName = file.name;
+        showStatus('Reading ' + file.name + ' (' + (file.size / 1024 / 1024).toFixed(2) + ' MB)...');
+        var reader = new FileReader();
+        reader.onload = function(e) { processCSV(e.target.result); };
+        reader.onerror = function() { showError('Failed to read file.'); };
+        reader.readAsText(file);
+      });
+
+      // -- Update PDF download link when sort dropdowns change --
+      var priorityEl = document.getElementById('sort-priority');
+      var orderEl = document.getElementById('sort-order');
+      var pdfBtn = document.getElementById('pdf-download-btn');
+      if (priorityEl && orderEl && pdfBtn) {
+        function updatePdfLink() {
+          var base = '{{ url_for("export_consumer_report", fmt_type="pdf") }}';
+          pdfBtn.href = base + '?priority=' + priorityEl.value + '&order=' + orderEl.value;
+        }
+        priorityEl.addEventListener('change', updatePdfLink);
+        orderEl.addEventListener('change', updatePdfLink);
+      }
+
+      // -- Count-up animation --
+      document.querySelectorAll('[data-count]').forEach(function(el) {
+        var target = parseFloat(el.getAttribute('data-count').replace(/,/g,''));
+        if (isNaN(target)) return;
+        var prefix = el.getAttribute('data-prefix') || '';
+        var dur = 1200;
+        var start = performance.now();
+        function tick(now) {
+          var elapsed = now - start;
+          var progress = Math.min(elapsed / dur, 1);
+          var ease = 1 - Math.pow(1 - progress, 3);
+          var val = Math.round(target * ease);
+          el.textContent = prefix + val.toLocaleString();
+          if (progress < 1) requestAnimationFrame(tick);
+          else el.textContent = prefix + Math.round(target).toLocaleString();
+        }
+        requestAnimationFrame(tick);
+      });
     });
-  });
+  })();
 </script>
 {% endblock %}
