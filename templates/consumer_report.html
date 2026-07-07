@@ -19,6 +19,10 @@
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 6l3 3 3-3"/></svg>
       <span>PDF</span>
     </a>
+    <a class="topbar-btn export-link" id="commercial-pdf-topbar-btn" style="background:var(--teal);color:white;border-color:var(--teal);" href="{{ url_for('export_consumer_report', fmt_type='commercial-pdf') }}">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 6l3 3 3-3"/></svg>
+      <span>Commercial PDF</span>
+    </a>
   </div>
   {% endif %}
 {% endblock %}
@@ -127,6 +131,7 @@
             </select>
           </label>
           <a id="pdf-download-btn" class="chip" href="{{ url_for('export_consumer_report', fmt_type='pdf', priority='active_first', order='desc') }}">&#11015; Download PDF</a>
+          <a id="commercial-pdf-download-btn" class="chip" style="background:var(--teal);color:white;border-color:var(--teal);" href="{{ url_for('export_consumer_report', fmt_type='commercial-pdf', priority='active_first', order='desc') }}">&#11015; Download Commercial PDF</a>
         </div>
 
         <div class="table-wrapper">
@@ -390,19 +395,26 @@
       var priorityEl = document.getElementById('sort-priority');
       var orderEl = document.getElementById('sort-order');
       var pdfBtn = document.getElementById('pdf-download-btn');
+      var commercialPdfBtn = document.getElementById('commercial-pdf-download-btn');
       if (priorityEl && orderEl && pdfBtn) {
         function updatePdfLink() {
           var base = '{{ url_for("export_consumer_report", fmt_type="pdf") }}';
           pdfBtn.href = base + '?priority=' + priorityEl.value + '&order=' + orderEl.value;
+          // Also update commercial PDF link with same sort params
+          if (commercialPdfBtn) {
+            var commBase = '{{ url_for("export_consumer_report", fmt_type="commercial-pdf") }}';
+            commercialPdfBtn.href = commBase + '?priority=' + priorityEl.value + '&order=' + orderEl.value;
+          }
         }
         priorityEl.addEventListener('change', updatePdfLink);
         orderEl.addEventListener('change', updatePdfLink);
       }
 
       // -- Export links: POST the cached summary from localStorage --
-      // Vercel serverless functions are stateless, so we send the data
+      // Vercel serverless functions are statestateless, so we send the data
       // with each export request instead of relying on server-side state.
-      document.querySelectorAll('a.export-link').forEach(function(link) {
+      // This includes both normal and commercial PDF links.
+      document.querySelectorAll('a.export-link, a#commercial-pdf-download-btn').forEach(function(link) {
         link.addEventListener('click', function(e) {
           e.preventDefault();
           var stored = null;
