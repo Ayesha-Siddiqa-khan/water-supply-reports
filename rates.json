@@ -1,0 +1,317 @@
+[
+  {
+    "Rate Title": "6 MONTH COMMERCIAL 1\" DIA",
+    "Connection Type": "Water Commercial 1 Inch",
+    "Billing Period": "Six Month",
+    "Water Rate (Rs.)": 30000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "6 Month Jan26 To June26",
+    "Connection Type": "Water Domestic 1/2",
+    "Billing Period": "Six Month",
+    "Water Rate (Rs.)": 2400,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "Water Commercial 1/2 (NEW CONNECTION)",
+    "Connection Type": "Water Commercial 1/2",
+    "Billing Period": "Yearly",
+    "Water Rate (Rs.)": 9600,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "3\" Dia Connection For Private Socities (New Connection)",
+    "Connection Type": "Water Commercial 2 Inch",
+    "Billing Period": "Six Month",
+    "Water Rate (Rs.)": 4800,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "6 Month PRIVATE SOCITES",
+    "Connection Type": "Water Domestic 1/2",
+    "Billing Period": "Six Month",
+    "Water Rate (Rs.)": 4800,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "Water Commercial 1/2",
+    "Connection Type": "Water Commercial 1/2",
+    "Billing Period": "Six Month",
+    "Water Rate (Rs.)": 2400,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "Water Domestic 1/2",
+    "Connection Type": "Water Domestic 1/2",
+    "Billing Period": "Quarterly",
+    "Water Rate (Rs.)": 2400,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "Water Domestic 1/2 QUARTERLY",
+    "Connection Type": "Water Domestic 1/2",
+    "Billing Period": "Quarterly",
+    "Water Rate (Rs.)": 1200,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "1 MONTH DOMESTIC",
+    "Connection Type": "Water Domestic 1/2",
+    "Billing Period": "Monthly",
+    "Water Rate (Rs.)": 400,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "1 MONTH COMMERCIAL",
+    "Connection Type": "Water Commercial 1/4",
+    "Billing Period": "Monthly",
+    "Water Rate (Rs.)": 1000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "DOMESTIC",
+    "Connection Type": "Water Domestic 1/2",
+    "Billing Period": "Six Month",
+    "Water Rate (Rs.)": 4800,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "SIX MONTH COMMERCIAL",
+    "Connection Type": "Water Commercial 1/4",
+    "Billing Period": "Six Month",
+    "Water Rate (Rs.)": 6000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "1 MONTH PRIVATE SOCIETIES",
+    "Connection Type": "Water Domestic 1/2",
+    "Billing Period": "Monthly",
+    "Water Rate (Rs.)": 800,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "PRIVATE SOCIETIES (NEW CONNECTION)",
+    "Connection Type": "Water Domestic 1/2",
+    "Billing Period": "Monthly",
+    "Water Rate (Rs.)": 800,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "DOMESTIC (NEW CONNECTION)",
+    "Connection Type": "Water Domestic 1/2",
+    "Billing Period": "Monthly",
+    "Water Rate (Rs.)": 400,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "6 MONTH COMERCIAL ( SHOPS,SCHOOL,HOTEL,HAMAM,CLINIC,PETROL PUMPS)",
+    "Connection Type": "Water Commercial 1/4",
+    "Billing Period": "Six Month",
+    "Water Rate (Rs.)": 6000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "1 MONTH COMERCIAL (NURSERY,POULTRY FARM,CATTLE FARM,FACTORY)",
+    "Connection Type": "Water Commercial 1/2",
+    "Billing Period": "Monthly",
+    "Water Rate (Rs.)": 3000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "12 MONTH NURSERY,POULTRY FARM,CATTLE FARM,FACTORY",
+    "Connection Type": "Water Commercial 1/2",
+    "Billing Period": "Yearly",
+    "Water Rate (Rs.)": 36000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "3 MONTH COMERCIAL (SHOPS,SCHOOL,HOTEL,HAMAM,CLINIC,PETROL PUMPS)",
+    "Connection Type": "Water Commercial 1/4",
+    "Billing Period": "Quarterly",
+    "Water Rate (Rs.)": 3000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "3 MONTH NURSERY,POULTRY FARM,CATTLE FARM,FACTORY",
+    "Connection Type": "Water Commercial 1/2",
+    "Billing Period": "Quarterly",
+    "Water Rate (Rs.)": 9000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "1 MONTH NURSERY,POULTRY FARM,CATTLE FARM,FACTORY",
+    "Connection Type": "Water Commercial 1/2",
+    "Billing Period": "Monthly",
+    "Water Rate (Rs.)": 3000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "1 MONTH COMERCIAL (SHOPS,SCHOOL,HOTEL,HAMAM,CLINIC,PETROL PUMPS)",
+    "Connection Type": "Water Commercial 1/4",
+    "Billing Period": "Monthly",
+    "Water Rate (Rs.)": 1000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "PRIVATE SOCIETIES Quarterly Rate",
+    "Connection Type": "Water Domestic 1/2",
+    "Billing Period": "Quarterly",
+    "Water Rate (Rs.)": 2400,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "1 MONTH PRIVATE SOCITIES",
+    "Connection Type": "Water Domestic 1/2",
+    "Billing Period": "Monthly",
+    "Water Rate (Rs.)": 800,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "COMERCIAL",
+    "Connection Type": "Water Rate 1 Inch",
+    "Billing Period": "Six Month",
+    "Water Rate (Rs.)": 36000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "COMMERCIAL",
+    "Connection Type": "Water Rate 1 Inch",
+    "Billing Period": "Quarterly",
+    "Water Rate (Rs.)": 30000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "PTV COMERCIAL BOOSTER , OTHERS",
+    "Connection Type": "Water Commercial 1/2",
+    "Billing Period": "Six Month",
+    "Water Rate (Rs.)": 18000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "ICE FACTORY (24 HOURS WATER SUPPLY)",
+    "Connection Type": "Water Commercial 1/2",
+    "Billing Period": "Six Month",
+    "Water Rate (Rs.)": 36000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "1 MONTH COMERCIAL ( HOSPITAL , SCHOOL , COLLEGE)",
+    "Connection Type": "Water Commercial 1/2",
+    "Billing Period": "Monthly",
+    "Water Rate (Rs.)": 3000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "1 MONTH COMERCIAL ( BANK , OFFICE , POLICE STATION)",
+    "Connection Type": "Water Commercial 1/4",
+    "Billing Period": "Monthly",
+    "Water Rate (Rs.)": 1000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "COMERCIAL (WAPDA , OFFICE , BANK, SCHOOL , COLLEGE)",
+    "Connection Type": "Water Commercial 1/2",
+    "Billing Period": "Yearly",
+    "Water Rate (Rs.)": 36000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "1MONTH DOMESTIC(2025)",
+    "Connection Type": "Water Domestic 1/2",
+    "Billing Period": "Monthly",
+    "Water Rate (Rs.)": 400,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "1 MONTH PRIVATE SOCIETIES",
+    "Connection Type": "Water Domestic 1/2",
+    "Billing Period": "Monthly",
+    "Water Rate (Rs.)": 800,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "COMMERCIAL CONNECTION 3 INCH YEARLY",
+    "Connection Type": "Water Commercial 2 Inch",
+    "Billing Period": "Yearly",
+    "Water Rate (Rs.)": 120000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "YEARLY, BANK, OFFICE, POLICE STATION,",
+    "Connection Type": "Water Commercial 1/4",
+    "Billing Period": "Yearly",
+    "Water Rate (Rs.)": 12000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "PRIVATE SOCITES",
+    "Connection Type": "Water Domestic 1/2",
+    "Billing Period": "Yearly",
+    "Water Rate (Rs.)": 9600,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "COMERCIAL (NEW CONNECTION)",
+    "Connection Type": "Water Commercial 1/4",
+    "Billing Period": "Monthly",
+    "Water Rate (Rs.)": 1000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "COMERCIAL 3'' 6 MONTH",
+    "Connection Type": "Water Commercial 2 Inch",
+    "Billing Period": "Six Month",
+    "Water Rate (Rs.)": 36000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "COMERCIAL 3\" LINE MONTHLY",
+    "Connection Type": "Water Commercial 2 Inch",
+    "Billing Period": "Monthly",
+    "Water Rate (Rs.)": 10000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "QUARTERLY (COMERCIAL 1/2 DIA)",
+    "Connection Type": "Water Commercial 1/2",
+    "Billing Period": "Quarterly",
+    "Water Rate (Rs.)": 9000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "3\" LINE ANUAL COMERCIAL",
+    "Connection Type": "Water Commercial 2 Inch",
+    "Billing Period": "Yearly",
+    "Water Rate (Rs.)": 360000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "YEARLY (PRIVATE SOCITY)",
+    "Connection Type": "Water Domestic 1/2",
+    "Billing Period": "Yearly",
+    "Water Rate (Rs.)": 9600,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "COMMERCIAL ANUAL(FACTORY,SHOP,MARBLE FACTORY,ETC.)",
+    "Connection Type": "Water Commercial 1/4",
+    "Billing Period": "Quarterly",
+    "Water Rate (Rs.)": 3000,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "NATIONAL TELE COMMUNICATION YEARLY",
+    "Connection Type": "Water Domestic 1/2",
+    "Billing Period": "Yearly",
+    "Water Rate (Rs.)": 19200,
+    "Status": "Active"
+  },
+  {
+    "Rate Title": "Commercial (Quarterly)",
+    "Connection Type": "Water Commercial 2 Inch",
+    "Billing Period": "Quarterly",
+    "Water Rate (Rs.)": 30000,
+    "Status": "Active"
+  }
+]

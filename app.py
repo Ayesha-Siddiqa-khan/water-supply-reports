@@ -7599,6 +7599,31 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
     - All localities under the same normalized sector are combined into a
       comma-separated string in the Locality column.
     - One row is created per unique normalized sector.
+
+    RATE IMPORT:
+    - Rates are loaded from the bundled rates.json file (a fixed, version-
+      controlled data file derived from rates.csv).  This file ships with
+      the app and works on Vercel without requiring a CSV upload.
+    - Fallback: if rates.json is missing, rates.csv is loaded instead
+      (local development convenience).
+
+    RATE MATCHING:
+    - Each consumer row has a "Rate Type" field (e.g. "DOMESTIC (NEW CONNECTION)").
+    - This is matched against "Rate Title" in rates.json using an exact
+      string comparison (trimmed of whitespace).
+
+    RATE NORMALISATION:
+    - Water Rate is parsed as a float with comma removal.
+    - Billing Period is lowercased for keyword matching.
+
+    ANNUAL BUDGET CALCULATION:
+    - Monthly   → Water Rate × 12
+    - Quarterly → Water Rate × 4
+    - Six Month → Water Rate × 2
+    - Yearly    → Water Rate × 1
+
+    BUDGET RULE: Only Active consumers/connections get budget calculated.
+    Closed/inactive/disconnected records contribute 0 to the budget.
     """
     from collections import OrderedDict
 
@@ -7606,13 +7631,47 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
         """Normalize sector name for grouping: trim, lowercase, collapse spaces."""
         return " ".join(str(name or "").strip().lower().split())
 
-    # sector_map: normalized_key → { original, localities_set, closed, active }
+    # --- Build rate lookup from bundled rates.json ---
+    # Returns a dict: { "Rate Title (normalised)": {"period": str, "rate": float} }
+    # Only the first entry per Rate Title is used (deduplicates by title).
+    def _build_rate_lookup() -> dict:
+        rates = _load_rates_csv()
+        lookup = {}
+        for r in rates:
+            title = (r.get("Rate Title") or "").strip()
+            period = (r.get("Billing Period") or "").strip().lower()
+            rate_str = (r.get("Water Rate (Rs.)") or "0").replace(",", "").strip()
+            try:
+                rate = float(rate_str)
+            except (ValueError, TypeError):
+                rate = 0
+            if title and rate > 0 and title not in lookup:
+                lookup[title] = {"period": period, "rate": rate}
+        return lookup
+
+    # --- Annual budget multiplier based on Billing Period ---
+    def _calc_annual_budget(rate: float, period: str) -> float:
+        p = period.lower()
+        if "monthly" in p or "month" in p:
+            return rate * 12
+        if "quarter" in p:
+            return rate * 4
+        if "six" in p or "half" in p or "semi" in p:
+            return rate * 2
+        if "year" in p or "annual" in p:
+            return rate
+        return rate * 12  # Default: treat as monthly
+
+    rate_lookup = _build_rate_lookup()
+
+    # sector_map: normalized_key → { original, localities_set, closed, active, budget }
     sector_map: OrderedDict[str, dict] = OrderedDict()
 
     for row in rows:
         sector_raw = (row.get("sector") or "Unspecified").strip()
         locality_raw = (row.get("locality") or "Unspecified").strip()
         status = row.get("connection_status", "Active")
+        rate_type = (row.get("rate_type") or "").strip()
 
         norm_key = _normalize_sector(sector_raw)
 
@@ -7622,36 +7681,59 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
                 "localities": [],  # list of unique locality names
                 "closed": 0,
                 "active": 0,
+                "budget": 0.0,
             }
 
         # Keep the shortest original sector name for cleaner display
         if len(sector_raw) < len(sector_map[norm_key]["original"]):
             sector_map[norm_key]["original"] = sector_raw
 
-        # Add locality if not already present (case-insensitive check)
-        loc_lower = locality_raw.lower()
-        existing_lower = [l.lower() for l in sector_map[norm_key]["localities"]]
-        if loc_lower not in existing_lower and locality_raw:
-            sector_map[norm_key]["localities"].append(locality_raw)
+        # -------------------------------------------------------------------
+        # LOCALITY MERGING — CLEAN VERSION
+        # Keeps locality strings short and clean by:
+        # 1. Skipping values that are substrings of existing ones (keeps longer)
+        # 2. Replacing existing values that are substrings of the new one
+        # 3. Capping at 3 entries to prevent overly long Locality column
+        # If no clean locality is found, falls back to the sector name later.
+        # -------------------------------------------------------------------
+        if locality_raw and len(locality_raw) <= 40:
+            existing = sector_map[norm_key]["localities"]
+            norm_new = locality_raw.lower()
+            # Check if new value is a substring of any existing one (skip it)
+            is_substring = any(norm_new in el for el in [l.lower() for l in existing])
+            if not is_substring:
+                # Remove existing values that are substrings of the new one
+                existing = [l for l in existing if norm_new not in l.lower()]
+                # Cap at 3 entries
+                if len(existing) < 3:
+                    existing.append(locality_raw)
+                sector_map[norm_key]["localities"] = existing
 
         if status == "Closed":
             sector_map[norm_key]["closed"] += 1
         else:
             sector_map[norm_key]["active"] += 1
 
+        # --- BUDGET: only Active records contribute to annual budget ---
+        if status == "Active" and rate_type and rate_type in rate_lookup:
+            rl = rate_lookup[rate_type]
+            sector_map[norm_key]["budget"] += _calc_annual_budget(rl["rate"], rl["period"])
+
     # Build summary rows — one row per normalized sector
     summary_rows: list[dict] = []
     serial = 0
     sector_totals: dict[str, dict] = {}
-    grand_closed, grand_active = 0, 0
+    grand_closed, grand_active, grand_budget = 0, 0, 0.0
 
     for norm_key, s_data in sector_map.items():
         serial += 1
         closed = s_data["closed"]
         active = s_data["active"]
         total = closed + active
-        # Combine localities into comma-separated string
-        locality_str = ", ".join(s_data["localities"]) if s_data["localities"] else "Unspecified"
+        budget = s_data["budget"]
+        # Combine localities into comma-separated string.
+        # Fallback: if no locality found, use the sector name itself.
+        locality_str = ", ".join(s_data["localities"]) if s_data["localities"] else original_sector
         original_sector = s_data["original"]
 
         summary_rows.append({
@@ -7661,10 +7743,12 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
             "closed": closed,
             "active": active,
             "total": total,
+            "budget": budget,
         })
-        sector_totals[original_sector] = {"closed": closed, "active": active, "total": total}
+        sector_totals[original_sector] = {"closed": closed, "active": active, "total": total, "budget": budget}
         grand_closed += closed
         grand_active += active
+        grand_budget += budget
 
     return {
         "summary_rows": summary_rows,
@@ -7673,6 +7757,7 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
             "closed": grand_closed,
             "active": grand_active,
             "total": grand_closed + grand_active,
+            "budget": grand_budget,
         },
         "sector_count": len(sector_map),
         "locality_count": len(summary_rows),
@@ -7712,11 +7797,12 @@ def _split_summary_by_type(summary: dict) -> tuple[dict, dict]:
     # --- Build sub-summary helper ---
     def _build_sub(rows: list[dict], label: str) -> dict:
         serial = 0
-        grand_closed, grand_active = 0, 0
+        grand_closed, grand_active, grand_budget = 0, 0, 0
         sector_totals: dict[str, dict] = {}
         result_rows: list[dict] = []
         for r in rows:
             serial += 1
+            budget = r.get("budget", 0)
             result_rows.append({
                 "serial": serial,
                 "sector": r["sector"],
@@ -7724,14 +7810,17 @@ def _split_summary_by_type(summary: dict) -> tuple[dict, dict]:
                 "closed": r["closed"],
                 "active": r["active"],
                 "total": r["total"],
+                "budget": budget,
             })
             sector_totals[r["sector"]] = {
                 "closed": r["closed"],
                 "active": r["active"],
                 "total": r["total"],
+                "budget": budget,
             }
             grand_closed += r["closed"]
             grand_active += r["active"]
+            grand_budget += budget
         return {
             "summary_rows": result_rows,
             "sector_totals": sector_totals,
@@ -7739,15 +7828,54 @@ def _split_summary_by_type(summary: dict) -> tuple[dict, dict]:
                 "closed": grand_closed,
                 "active": grand_active,
                 "total": grand_closed + grand_active,
+                "budget": grand_budget,
             },
             "sector_count": len(rows),
             "locality_count": len(rows),
             "total_connections": grand_closed + grand_active,
+            "total_budget": grand_budget,
         }
 
     normal = _build_sub(normal_rows, "normal") if normal_rows else {}
     commercial = _build_sub(commercial_rows, "commercial") if commercial_rows else {}
     return (normal, commercial)
+
+
+def _load_rates_csv() -> list[dict]:
+    """Load rate data from the bundled rates.json file.
+
+    rates.json is a fixed, version-controlled data file containing all 44
+    active water rates.  It is generated from rates.csv and checked into the
+    repository so that Vercel deployments never need a CSV upload for rates.
+
+    Each dict has keys: Rate Title, Connection Type, Billing Period,
+    Water Rate (Rs.), Status — matching the CSV headers the client expects.
+
+    The function first tries rates.json; if missing it falls back to
+    rates.csv for local development.
+    """
+    import json as _json
+    # --- Primary: load from the bundled JSON data file ---
+    json_path = os.path.join(os.path.dirname(__file__), "rates.json")
+    if os.path.exists(json_path):
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = _json.load(f)
+        # Ensure numeric Water Rate values (JSON stores them as numbers,
+        # but normalise to strings for backward compatibility with client code)
+        for row in data:
+            rate_val = row.get("Water Rate (Rs.)", 0)
+            if isinstance(rate_val, (int, float)):
+                row["Water Rate (Rs.)"] = str(int(rate_val)) if rate_val == int(rate_val) else str(rate_val)
+        return [row for row in data if (row.get("Rate Title") or "").strip()]
+
+    # --- Fallback: load from rates.csv (local development only) ---
+    import csv as _csv
+    rates_path = os.path.join(os.path.dirname(__file__), "rates.csv")
+    if not os.path.exists(rates_path):
+        return []
+    with open(rates_path, "r", encoding="utf-8-sig") as f:
+        reader = _csv.DictReader(f)
+        return [row for row in reader if (row.get("Rate Title") or "").strip()]
 
 
 @app.route("/consumer-report", methods=["GET", "POST"])
@@ -7774,14 +7902,20 @@ def consumer_report():
             _consumer_report_data = data.get("summary_rows", [])
             _consumer_report_filename = data.get("filename", "upload.csv")
 
-            # Build a summary dict compatible with the template and exports
+            # Build a summary dict compatible with the template and exports.
+            # Include commercial_detailed_rows (locality-level) for commercial PDF export.
             summary = {
                 "summary_rows": data.get("summary_rows", []),
                 "sector_totals": data.get("sector_totals", {}),
-                "grand_total": data.get("grand_total", {"closed": 0, "active": 0, "total": 0}),
+                "grand_total": data.get("grand_total", {"closed": 0, "active": 0, "total": 0, "budget": 0}),
                 "sector_count": data.get("sector_count", 0),
                 "locality_count": data.get("locality_count", 0),
                 "total_connections": data.get("total_connections", 0),
+                "total_budget": data.get("total_budget", 0),
+                "commercial_detailed_rows": data.get("commercial_detailed_rows", []),
+                "commercial_grand_total": data.get("commercial_grand_total", {"closed": 0, "active": 0, "total": 0, "budget": 0}),
+                "unmatched_rate_types": data.get("unmatched_rate_types", []),
+                "unmatched_budget_count": data.get("unmatched_budget_count", 0),
             }
             _last_consumer_summary = summary
             # Persist to disk so the data survives Vercel serverless cold starts
@@ -7794,7 +7928,8 @@ def consumer_report():
             normal_summary, commercial_summary = _split_summary_by_type(summary)
             return render_template("consumer_report.html", summary=summary,
                                    normal_summary=normal_summary, commercial_summary=commercial_summary,
-                                   filename=_consumer_report_filename, total_rows=data.get("total_rows", 0))
+                                   filename=_consumer_report_filename, total_rows=data.get("total_rows", 0),
+                                   rates_json=json.dumps(_load_rates_csv()))
 
         if action == "clear":
             _consumer_report_data = None
@@ -7836,29 +7971,34 @@ def consumer_report():
             normal_summary, commercial_summary = _split_summary_by_type(summary)
             return render_template("consumer_report.html", summary=summary,
                                    normal_summary=normal_summary, commercial_summary=commercial_summary,
-                                   filename=_consumer_report_filename, total_rows=len(rows))
+                                   filename=_consumer_report_filename, total_rows=len(rows),
+                                   rates_json=json.dumps(_load_rates_csv()))
 
     # GET — restore from cached summary (JSON upload) or raw data (form upload).
     # Load from disk cache first so data survives Vercel serverless cold starts.
+    rates_json_str = json.dumps(_load_rates_csv())
     cached_summary, cached_filename, cached_rows = _load_consumer_summary_cache()
     if cached_summary:
         normal_summary, commercial_summary = _split_summary_by_type(cached_summary)
         return render_template("consumer_report.html", summary=cached_summary,
                                normal_summary=normal_summary, commercial_summary=commercial_summary,
-                               filename=cached_filename, total_rows=cached_rows)
+                               filename=cached_filename, total_rows=cached_rows,
+                               rates_json=rates_json_str)
     if _last_consumer_summary:
         normal_summary, commercial_summary = _split_summary_by_type(_last_consumer_summary)
         return render_template("consumer_report.html", summary=_last_consumer_summary,
                                normal_summary=normal_summary, commercial_summary=commercial_summary,
-                               filename=_consumer_report_filename, total_rows=_last_consumer_summary.get("total_rows", 0))
+                               filename=_consumer_report_filename, total_rows=_last_consumer_summary.get("total_rows", 0),
+                               rates_json=rates_json_str)
     if _consumer_report_data:
         summary = _build_consumer_sector_summary(_consumer_report_data)
         normal_summary, commercial_summary = _split_summary_by_type(summary)
         return render_template("consumer_report.html", summary=summary,
                                normal_summary=normal_summary, commercial_summary=commercial_summary,
-                               filename=_consumer_report_filename, total_rows=len(_consumer_report_data))
+                               filename=_consumer_report_filename, total_rows=len(_consumer_report_data),
+                               rates_json=rates_json_str)
     return render_template("consumer_report.html", summary=None, normal_summary={}, commercial_summary={},
-                           filename=None, total_rows=0)
+                           filename=None, total_rows=0, rates_json=rates_json_str)
 
 
 @app.route("/consumer-report/export/<fmt_type>", methods=["GET", "POST"])
@@ -7962,14 +8102,14 @@ def export_consumer_report(fmt_type: str):
 
     # -----------------------------------------------------------------------
     # Column visibility: read which columns to include in the PDF.
-    # cols = comma-separated list of column keys: sr,sector,locality,closed,active,total
-    # If not specified, all columns are included.
+    # cols = comma-separated list of column keys: sr,sector,locality,closed,active,total,budget
+    # If not specified, all columns including budget are included.
     # -----------------------------------------------------------------------
     cols_param = request.args.get("cols", "")
     if cols_param:
         selected_cols = [c.strip().lower() for c in cols_param.split(",") if c.strip()]
     else:
-        selected_cols = ["sr", "sector", "locality", "closed", "active", "total"]
+        selected_cols = ["sr", "sector", "locality", "closed", "active", "total", "budget"]
 
     # Build headers and row data based on selected columns
     # Column definitions: key → (header_label, row_extractor, width_mm)
@@ -7980,10 +8120,11 @@ def export_consumer_report(fmt_type: str):
         "closed": ("Closed", lambda r: r["closed"],             16),
         "active": ("Active", lambda r: r["active"],             16),
         "total":  ("Total Connections", lambda r: r["total"],   18),
+        "budget": ("Budget (Rs.)", lambda r: r.get("budget", 0), 22),
     }
 
     # Filter to only selected columns that exist
-    active_cols = [c for c in ["sr", "sector", "locality", "closed", "active", "total"] if c in selected_cols]
+    active_cols = [c for c in ["sr", "sector", "locality", "closed", "active", "total", "budget"] if c in selected_cols]
 
     headers = [COL_DEFS[c][0] for c in active_cols]
     rows = [
@@ -7993,7 +8134,7 @@ def export_consumer_report(fmt_type: str):
 
     # Grand total: only include numeric columns that are selected
     gt = summary["grand_total"]
-    gt_vals = {"closed": gt["closed"], "active": gt["active"], "total": gt["total"]}
+    gt_vals = {"closed": gt["closed"], "active": gt["active"], "total": gt["total"], "budget": gt.get("budget", 0)}
     grand = []
     for c in active_cols:
         if c == "sr":
@@ -8002,6 +8143,8 @@ def export_consumer_report(fmt_type: str):
             grand.append("GRAND TOTAL")
         elif c == "locality":
             grand.append("")
+        elif c == "budget":
+            grand.append(gt_vals.get("budget", 0))
         else:
             grand.append(gt_vals.get(c, 0))
 
@@ -8117,6 +8260,7 @@ def export_consumer_report(fmt_type: str):
         non_commercial_closed = sum(r["closed"] for r in non_commercial_rows)
         non_commercial_active = sum(r["active"] for r in non_commercial_rows)
         non_commercial_total = non_commercial_closed + non_commercial_active
+        non_commercial_budget = sum(r.get("budget", 0) for r in non_commercial_rows)
 
         meta_parts = []
         meta_parts.append(f"<b>Sectors:</b> {non_commercial_sectors}")
@@ -8168,8 +8312,8 @@ def export_consumer_report(fmt_type: str):
             elif c == "locality":
                 gt_cells.append(Paragraph("", cell_center_style))
             else:
-                gt_val = {"closed": non_commercial_closed, "active": non_commercial_active, "total": non_commercial_total}.get(c, 0)
-                gt_cells.append(Paragraph(str(gt_val), ParagraphStyle(f"Grand{c}", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)))
+                gt_val = {"closed": non_commercial_closed, "active": non_commercial_active, "total": non_commercial_total, "budget": non_commercial_budget}.get(c, 0)
+                gt_cells.append(Paragraph(str(int(gt_val)) if c == "budget" else str(gt_val), ParagraphStyle(f"Grand{c}", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)))
         table_data.append(gt_cells)
         row_types.append("grand_total")
 
@@ -8228,8 +8372,19 @@ def export_consumer_report(fmt_type: str):
     # Uses the same A4 portrait design with light colours and proper wrapping.
     # -----------------------------------------------------------------------
     if fmt_type == "commercial-pdf":
-        # Filter summary rows to only include COMMERCIAL sectors
-        commercial_rows = [r for r in summary["summary_rows"] if r["sector"].upper().startswith("COMMERCIAL")]
+        # ---------------------------------------------------------------
+        # COMMERCIAL PDF EXPORT
+        # Uses locality-level detail when available (commercial_detailed_rows).
+        # Falls back to sector-aggregated summary rows for backward compat.
+        # Each commercial locality appears as a separate row in the PDF.
+        # ---------------------------------------------------------------
+        detailed = summary.get("commercial_detailed_rows", [])
+        if detailed:
+            # Use locality-level rows from client-side processing
+            commercial_rows = detailed
+        else:
+            # Fallback: filter from sector-aggregated summary_rows
+            commercial_rows = [r for r in summary["summary_rows"] if r["sector"].upper().startswith("COMMERCIAL")]
         if not commercial_rows:
             flash("No COMMERCIAL records found in the report data.")
             return redirect(url_for("consumer_report"))
@@ -8238,6 +8393,7 @@ def export_consumer_report(fmt_type: str):
         commercial_closed = sum(r["closed"] for r in commercial_rows)
         commercial_active = sum(r["active"] for r in commercial_rows)
         commercial_total = commercial_closed + commercial_active
+        commercial_budget = sum(r.get("budget", 0) for r in commercial_rows)
 
         # Recalculate sector_count and locality_count for commercial only
         commercial_sectors = set(r["sector"] for r in commercial_rows)
@@ -8386,8 +8542,8 @@ def export_consumer_report(fmt_type: str):
             elif c == "locality":
                 gt_cells.append(Paragraph("", cell_center_style))
             else:
-                gt_val = {"closed": commercial_closed, "active": commercial_active, "total": commercial_total}.get(c, 0)
-                gt_cells.append(Paragraph(str(gt_val), ParagraphStyle(f"CommGrand{c}", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)))
+                gt_val = {"closed": commercial_closed, "active": commercial_active, "total": commercial_total, "budget": commercial_budget}.get(c, 0)
+                gt_cells.append(Paragraph(str(int(gt_val)) if c == "budget" else str(gt_val), ParagraphStyle(f"CommGrand{c}", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)))
         table_data.append(gt_cells)
         row_types.append("grand_total")
 

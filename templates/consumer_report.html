@@ -179,6 +179,9 @@
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
             <input type="checkbox" class="pdf-col-toggle" data-col="total" checked> Total Connections
           </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="budget" checked> Budget
+          </label>
         </div>
 
         <!-- ================================================================
@@ -198,11 +201,12 @@
                   <th style="width:80px;text-align:center">Closed</th>
                   <th style="width:80px;text-align:center">Active</th>
                   <th style="width:100px;text-align:center">Total Connections</th>
+                  <th style="width:110px;text-align:right">Budget (Rs.)</th>
                 </tr>
               </thead>
               <tbody>
                 {% for row in normal_summary.summary_rows %}
-                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-active="{{ row.active }}" data-total="{{ row.total }}">
+                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}">
                   <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="normal" data-serial="{{ row.serial }}" checked></td>
                   <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
                   <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
@@ -210,6 +214,7 @@
                   <td style="text-align:center;color:var(--coral);">{{ row.closed }}</td>
                   <td style="text-align:center;color:var(--teal);">{{ row.active }}</td>
                   <td style="text-align:center;font-weight:600;">{{ row.total }}</td>
+                  <td style="text-align:right;font-weight:500;color:var(--teal);">{{ "{:,.0f}".format(row.budget|default(0)) }}</td>
                 </tr>
                 {% endfor %}
                 <tr class="grand-total-row" data-gt-for="normal" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
@@ -217,6 +222,7 @@
                   <td class="gt-closed" data-gt-for="normal" style="text-align:center;font-weight:700;color:var(--coral);font-size:15px;">{{ normal_summary.grand_total.closed }}</td>
                   <td class="gt-active" data-gt-for="normal" style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ normal_summary.grand_total.active }}</td>
                   <td class="gt-total" data-gt-for="normal" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ normal_summary.grand_total.total }}</td>
+                  <td class="gt-budget" data-gt-for="normal" style="text-align:right;font-weight:700;color:var(--teal);font-size:14px;">{{ "{:,.0f}".format(normal_summary.grand_total.budget|default(0)) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -245,11 +251,12 @@
                   <th style="width:80px;text-align:center">Closed</th>
                   <th style="width:80px;text-align:center">Active</th>
                   <th style="width:100px;text-align:center">Total Connections</th>
+                  <th style="width:110px;text-align:right">Budget (Rs.)</th>
                 </tr>
               </thead>
               <tbody>
                 {% for row in commercial_summary.summary_rows %}
-                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-active="{{ row.active }}" data-total="{{ row.total }}">
+                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}">
                   <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="commercial" data-serial="{{ row.serial }}" checked></td>
                   <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
                   <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
@@ -257,6 +264,7 @@
                   <td style="text-align:center;color:var(--coral);">{{ row.closed }}</td>
                   <td style="text-align:center;color:var(--teal);">{{ row.active }}</td>
                   <td style="text-align:center;font-weight:600;">{{ row.total }}</td>
+                  <td style="text-align:right;font-weight:500;color:var(--teal);">{{ "{:,.0f}".format(row.budget|default(0)) }}</td>
                 </tr>
                 {% endfor %}
                 <tr class="grand-total-row" data-gt-for="commercial" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
@@ -264,6 +272,7 @@
                   <td class="gt-closed" data-gt-for="commercial" style="text-align:center;font-weight:700;color:var(--coral);font-size:15px;">{{ commercial_summary.grand_total.closed }}</td>
                   <td class="gt-active" data-gt-for="commercial" style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ commercial_summary.grand_total.active }}</td>
                   <td class="gt-total" data-gt-for="commercial" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ commercial_summary.grand_total.total }}</td>
+                  <td class="gt-budget" data-gt-for="commercial" style="text-align:right;font-weight:700;color:var(--teal);font-size:14px;">{{ "{:,.0f}".format(commercial_summary.grand_total.budget|default(0)) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -345,6 +354,57 @@
       return 'Active';
     }
 
+    // ================================================================
+    // RATE IMPORT — from bundled rates.json (fixed app data file)
+    // ================================================================
+    // rates.json is a version-controlled JSON file containing all active
+    // water rates.  It is loaded server-side by _load_rates_csv() and
+    // injected into the template as a JSON array via rates_json.
+    //
+    // Each entry has: Rate Title, Connection Type, Billing Period,
+    // Water Rate (Rs.), Status.
+    //
+    // RATE MATCHING: Consumer's "Rate Type" field is compared against
+    // "Rate Title" using exact string match (trimmed of whitespace).
+    //
+    // RATE NORMALISATION: Water Rate is parsed as float (commas removed),
+    // Billing Period is lowercased for keyword matching.
+    // ================================================================
+    var RATES_DATA = {{ rates_json|safe }};
+
+    // --- Build rate lookup map from rates.json data ---
+    // Only the first entry per Rate Title is used (deduplicates by title).
+    function buildRateLookup() {
+      var lookup = {};
+      RATES_DATA.forEach(function(row) {
+        var title = (row['Rate Title'] || '').trim();
+        var period = (row['Billing Period'] || '').trim().toLowerCase();
+        var rateStr = (row['Water Rate (Rs.)'] || '0').replace(/,/g, '').trim();
+        var rate = parseFloat(rateStr) || 0;
+        if (title && rate > 0) {
+          if (!lookup[title]) {
+            lookup[title] = { period: period, rate: rate };
+          }
+        }
+      });
+      return lookup;
+    }
+
+    // --- Annual budget multiplier based on Billing Period ---
+    // Monthly   → Water Rate × 12
+    // Quarterly → Water Rate × 4
+    // Six Month → Water Rate × 2
+    // Yearly    → Water Rate × 1
+    // Default   → treat as Monthly (× 12)
+    function calcAnnualBudget(rate, period) {
+      var p = (period || '').toLowerCase();
+      if (p.indexOf('monthly') !== -1 || p.indexOf('month') !== -1) return rate * 12;
+      if (p.indexOf('quarter') !== -1) return rate * 4;
+      if (p.indexOf('six') !== -1 || p.indexOf('half') !== -1 || p.indexOf('semi') !== -1) return rate * 2;
+      if (p.indexOf('year') !== -1 || p.indexOf('annual') !== -1) return rate;
+      return rate * 12;
+    }
+
     // Simple CSV line parser (handles quoted fields with commas)
     function parseCSVLine(line) {
       var result = [];
@@ -382,6 +442,15 @@
       if (missing.length) { showError('Missing required columns: ' + missing.join(', ')); return; }
 
       // ================================================================
+      // RATE LOOKUP — match consumer Rate Type with rates.csv entries.
+      // Build a map from Rate Title → { period, rate } for budget calc.
+      // ================================================================
+      var rateLookup = buildRateLookup();
+      var unmatchedRateTypes = [];
+      var totalMatchedBudget = 0;
+      var totalUnmatchedBudget = 0;
+
+      // ================================================================
       // SECTOR NORMALIZATION AND GROUPING
       // Groups all rows by normalized sector name so that variations in
       // spacing, capitalization, or minor spelling differences are merged
@@ -394,14 +463,35 @@
         return (name || '').trim().toLowerCase().replace(/\s+/g, ' ');
       }
 
-      // Merge localities: collect unique names, show combined value
+      // ================================================================
+      // LOCALITY MERGING — CLEAN VERSION
+      // Keeps locality strings short and clean by:
+      // 1. Skipping values that are substrings of existing ones (keeps longer)
+      // 2. Replacing existing values that are substrings of the new one
+      // 3. Capping total locality text length to avoid overflow
+      // If no clean locality is found, falls back to the sector name.
+      // ================================================================
       function mergeLocalities(existing, newLoc) {
-        if (!existing) return newLoc;
+        var trimmed = (newLoc || '').trim();
+        if (!trimmed) return existing;
+        // Skip values that look like full addresses (contain digits + multiple words)
+        // or are longer than 40 chars — these are likely addresses, not locality names.
+        if (trimmed.length > 40) return existing;
+        if (!existing) return trimmed;
         var parts = existing.split(',').map(function(s) { return s.trim(); });
-        var normalizedNew = newLoc.trim().toLowerCase();
-        var exists = parts.some(function(p) { return p.trim().toLowerCase() === normalizedNew; });
-        if (!exists && newLoc.trim()) parts.push(newLoc.trim());
-        return parts.join(', ');
+        var normNew = trimmed.toLowerCase();
+        // Check if new value is a substring of any existing one (skip it)
+        var isSubstring = parts.some(function(p) {
+          return p.toLowerCase().indexOf(normNew) !== -1;
+        });
+        if (isSubstring) return existing;
+        // Check if any existing value is a substring of the new one (replace it)
+        var filtered = parts.filter(function(p) {
+          return normNew.indexOf(p.toLowerCase()) === -1;
+        });
+        // Cap at 3 entries to keep locality column clean
+        if (filtered.length < 3) filtered.push(trimmed);
+        return filtered.join(', ');
       }
 
       // Build sector map: normalized_sector → { original, localities, closed, active }
@@ -416,10 +506,25 @@
         if (colMap.connection_status !== undefined) statusVal = fields[colMap.connection_status] || '';
         var status = classifyStatus(statusVal);
 
+        // --- BUDGET: only Active records contribute to annual budget ---
+        // Closed/inactive/disconnected records get budget = 0.
+        var rateType = '';
+        if (colMap.rate_type !== undefined) rateType = (fields[colMap.rate_type] || '').trim();
+        var rowBudget = 0;
+        if (status === 'Active' && rateType && rateLookup[rateType]) {
+          var rl = rateLookup[rateType];
+          rowBudget = calcAnnualBudget(rl.rate, rl.period);
+          totalMatchedBudget += rowBudget;
+        } else if (rateType && !rateLookup[rateType]) {
+          // Track unmatched rate types for warning display
+          if (unmatchedRateTypes.indexOf(rateType) === -1) unmatchedRateTypes.push(rateType);
+          totalUnmatchedBudget++;
+        }
+
         var normKey = normalizeSector(sector);
 
         if (!sectorMap[normKey]) {
-          sectorMap[normKey] = { original: sector, localities: '', closed: 0, active: 0 };
+          sectorMap[normKey] = { original: sector, localities: '', closed: 0, active: 0, budget: 0 };
         }
         if (sector.length < sectorMap[normKey].original.length) {
           sectorMap[normKey].original = sector;
@@ -429,15 +534,20 @@
 
         if (status === 'Closed') sectorMap[normKey].closed++;
         else sectorMap[normKey].active++;
+        sectorMap[normKey].budget += rowBudget;
 
         totalRows++;
       }
 
       // ================================================================
       // SPLIT into NORMAL and COMMERCIAL rows.
-      // COMMERCIAL rows are those whose sector name starts with
-      // 'COMMERCIAL' (case-insensitive).  Each group gets its own
-      // serial numbering, grand totals, and localStorage entry.
+      //
+      // NORMAL (non-commercial): grouped by sector name → one row per
+      //   normalized sector, localities merged into comma-separated string.
+      //
+      // COMMERCIAL: grouped by sector+locality → each commercial locality
+      //   gets its own row with separate Closed/Active/Total counts.
+      //   Localities are NOT merged for commercial records.
       // ================================================================
       var normalSummaryRows = [];
       var commercialSummaryRows = [];
@@ -447,30 +557,85 @@
       var commercialGrandClosed = 0, commercialGrandActive = 0;
       var normalSerial = 0, commercialSerial = 0;
 
+      // ---------------------------------------------------------------
+      // NORMAL rows: use the sectorMap (one row per normalized sector)
+      // Includes budget per sector (sum of all consumer annual budgets).
+      // ---------------------------------------------------------------
+      var normalGrandBudget = 0;
       Object.keys(sectorMap).forEach(function(normKey) {
         var s = sectorMap[normKey];
-        var total = s.closed + s.active;
         var isCommercial = s.original.toUpperCase().indexOf('COMMERCIAL') === 0;
+        if (isCommercial) return; // skip commercial here, handled below
 
-        if (isCommercial) {
-          commercialSerial++;
-          commercialSummaryRows.push({
-            serial: commercialSerial, sector: s.original, locality: s.localities,
-            closed: s.closed, active: s.active, total: total
-          });
-          commercialSectorTotals[s.original] = { closed: s.closed, active: s.active, total: total };
-          commercialGrandClosed += s.closed;
-          commercialGrandActive += s.active;
-        } else {
-          normalSerial++;
-          normalSummaryRows.push({
-            serial: normalSerial, sector: s.original, locality: s.localities,
-            closed: s.closed, active: s.active, total: total
-          });
-          normalSectorTotals[s.original] = { closed: s.closed, active: s.active, total: total };
-          normalGrandClosed += s.closed;
-          normalGrandActive += s.active;
+        var total = s.closed + s.active;
+        var localityVal = s.localities || s.original;
+
+        normalSerial++;
+        normalSummaryRows.push({
+          serial: normalSerial, sector: s.original, locality: localityVal,
+          closed: s.closed, active: s.active, total: total, budget: s.budget
+        });
+        normalSectorTotals[s.original] = { closed: s.closed, active: s.active, total: total, budget: s.budget };
+        normalGrandClosed += s.closed;
+        normalGrandActive += s.active;
+        normalGrandBudget += s.budget;
+      });
+
+      // ---------------------------------------------------------------
+      // COMMERCIAL rows: one row per locality (not merged).
+      // Build a separate map keyed by normalized sector + locality.
+      // Includes budget per locality (sum of consumer annual budgets).
+      // ---------------------------------------------------------------
+      var commercialLocalityMap = {};
+      var commercialGrandBudget = 0;
+
+      for (var i = 1; i < lines.length; i++) {
+        var fields = parseCSVLine(lines[i]);
+        var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
+        var locality = (fields[colMap.locality] || '').trim() || 'Unspecified';
+        var statusVal = '';
+        if (colMap.connection_status !== undefined) statusVal = fields[colMap.connection_status] || '';
+        var status = classifyStatus(statusVal);
+
+        if (sector.toUpperCase().indexOf('COMMERCIAL') !== 0) continue;
+
+        // Use sector+locality as key so each locality stays separate
+        var locKey = normalizeSector(sector) + '|||' + normalizeSector(locality);
+
+        if (!commercialLocalityMap[locKey]) {
+          commercialLocalityMap[locKey] = { sector: sector, locality: locality, closed: 0, active: 0, budget: 0 };
         }
+        if (status === 'Closed') commercialLocalityMap[locKey].closed++;
+        else commercialLocalityMap[locKey].active++;
+
+        // Calculate budget for this commercial row — only Active records contribute
+        var rateType = '';
+        if (colMap.rate_type !== undefined) rateType = (fields[colMap.rate_type] || '').trim();
+        if (status === 'Active' && rateType && rateLookup[rateType]) {
+          var rl = rateLookup[rateType];
+          commercialLocalityMap[locKey].budget += calcAnnualBudget(rl.rate, rl.period);
+        }
+      }
+
+      // Build commercial rows from the locality map
+      Object.keys(commercialLocalityMap).forEach(function(locKey) {
+        var cl = commercialLocalityMap[locKey];
+        var total = cl.closed + cl.active;
+        commercialSerial++;
+        commercialSummaryRows.push({
+          serial: commercialSerial, sector: cl.sector, locality: cl.locality,
+          closed: cl.closed, active: cl.active, total: total, budget: cl.budget
+        });
+        if (!commercialSectorTotals[cl.sector]) {
+          commercialSectorTotals[cl.sector] = { closed: 0, active: 0, total: 0, budget: 0 };
+        }
+        commercialSectorTotals[cl.sector].closed += cl.closed;
+        commercialSectorTotals[cl.sector].active += cl.active;
+        commercialSectorTotals[cl.sector].total += total;
+        commercialSectorTotals[cl.sector].budget = (commercialSectorTotals[cl.sector].budget || 0) + cl.budget;
+        commercialGrandClosed += cl.closed;
+        commercialGrandActive += cl.active;
+        commercialGrandBudget += cl.budget;
       });
 
       // Build normal payload (for localStorage and server POST)
@@ -479,10 +644,13 @@
         total_rows: totalRows,
         summary_rows: normalSummaryRows,
         sector_totals: normalSectorTotals,
-        grand_total: { closed: normalGrandClosed, active: normalGrandActive, total: normalGrandClosed + normalGrandActive },
+        grand_total: { closed: normalGrandClosed, active: normalGrandActive, total: normalGrandClosed + normalGrandActive, budget: normalGrandBudget },
         sector_count: normalSerial,
         locality_count: normalSerial,
-        total_connections: normalGrandClosed + normalGrandActive
+        total_connections: normalGrandClosed + normalGrandActive,
+        total_budget: normalGrandBudget,
+        unmatched_rate_types: unmatchedRateTypes,
+        unmatched_budget_count: totalUnmatchedBudget
       };
 
       // Build commercial payload
@@ -491,10 +659,11 @@
         total_rows: totalRows,
         summary_rows: commercialSummaryRows,
         sector_totals: commercialSectorTotals,
-        grand_total: { closed: commercialGrandClosed, active: commercialGrandActive, total: commercialGrandClosed + commercialGrandActive },
+        grand_total: { closed: commercialGrandClosed, active: commercialGrandActive, total: commercialGrandClosed + commercialGrandActive, budget: commercialGrandBudget },
         sector_count: commercialSerial,
         locality_count: commercialSerial,
-        total_connections: commercialGrandClosed + commercialGrandActive
+        total_connections: commercialGrandClosed + commercialGrandActive,
+        total_budget: commercialGrandBudget
       };
 
       // Persist both payloads in localStorage so exports work across
@@ -505,7 +674,8 @@
       } catch(e) {}
 
       // Send the FULL (unsplit) summary to server for caching.
-      // Server-side split handles both normal and commercial for PDF export.
+      // Also include commercial_detailed_rows (locality-level) so the server
+      // export route can build commercial PDFs with separate locality rows.
       var fullPayload = {
         filename: currentFileName,
         total_rows: totalRows,
@@ -514,11 +684,18 @@
         grand_total: {
           closed: normalGrandClosed + commercialGrandClosed,
           active: normalGrandActive + commercialGrandActive,
-          total: normalGrandClosed + commercialGrandClosed + normalGrandActive + commercialGrandActive
+          total: normalGrandClosed + commercialGrandClosed + normalGrandActive + commercialGrandActive,
+          budget: normalGrandBudget + commercialGrandBudget
         },
         sector_count: normalSerial + commercialSerial,
         locality_count: normalSerial + commercialSerial,
-        total_connections: normalGrandClosed + commercialGrandClosed + normalGrandActive + commercialGrandActive
+        total_connections: normalGrandClosed + commercialGrandClosed + normalGrandActive + commercialGrandActive,
+        total_budget: normalGrandBudget + commercialGrandBudget,
+        // Detailed commercial rows: one row per locality (not sector-aggregated)
+        commercial_detailed_rows: commercialSummaryRows,
+        commercial_grand_total: { closed: commercialGrandClosed, active: commercialGrandActive, total: commercialGrandClosed + commercialGrandActive, budget: commercialGrandBudget },
+        unmatched_rate_types: unmatchedRateTypes,
+        unmatched_budget_count: totalUnmatchedBudget
       };
 
       showStatus('Parsed ' + totalRows.toLocaleString() + ' rows. Sending summary to server...');
@@ -533,8 +710,15 @@
       .then(function(resp) { return resp.json(); })
       .then(function(data) {
         if (data.ok) {
-          showStatus('Done! Redirecting...');
-          window.location.href = data.redirect || '{{ url_for("consumer_report") }}';
+          // Show unmatched rate type warning if any exist
+          if (unmatchedRateTypes.length > 0) {
+            var warningMsg = 'Warning: ' + unmatchedRateTypes.length + ' rate type(s) not found in rates.json: ' + unmatchedRateTypes.join(', ') + '. These rows contribute 0 to Budget.';
+            showWarning(warningMsg);
+            setTimeout(function() { window.location.href = data.redirect || '{{ url_for("consumer_report") }}'; }, 3000);
+          } else {
+            showStatus('Done! Redirecting...');
+            window.location.href = data.redirect || '{{ url_for("consumer_report") }}';
+          }
         } else {
           showError(data.error || 'Upload failed.');
         }
@@ -556,6 +740,12 @@
       var el = document.getElementById('upload-status');
       el.style.display = 'block';
       el.style.color = 'var(--coral)';
+      el.textContent = msg;
+    }
+    function showWarning(msg) {
+      var el = document.getElementById('upload-status');
+      el.style.display = 'block';
+      el.style.color = '#e67e22';
       el.textContent = msg;
     }
 
@@ -699,13 +889,14 @@
       // Recompute grand total for a specific tab
       function recomputeGrandTotalForTab(tab) {
         var checkboxes = document.querySelectorAll('.row-checkbox[data-tab="' + tab + '"]');
-        var gtClosed = 0, gtActive = 0, gtTotal = 0, selectedCount = 0;
+        var gtClosed = 0, gtActive = 0, gtTotal = 0, gtBudget = 0, selectedCount = 0;
         checkboxes.forEach(function(cb) {
           if (cb.checked) {
             var tr = cb.closest('tr');
             gtClosed += parseInt(tr.getAttribute('data-closed')) || 0;
             gtActive += parseInt(tr.getAttribute('data-active')) || 0;
             gtTotal += parseInt(tr.getAttribute('data-total')) || 0;
+            gtBudget += parseFloat(tr.getAttribute('data-budget')) || 0;
             selectedCount++;
           }
         });
@@ -713,10 +904,12 @@
         var gcEl = document.querySelector('.gt-closed[data-gt-for="' + tab + '"]');
         var gaEl = document.querySelector('.gt-active[data-gt-for="' + tab + '"]');
         var gtEl = document.querySelector('.gt-total[data-gt-for="' + tab + '"]');
+        var gbEl = document.querySelector('.gt-budget[data-gt-for="' + tab + '"]');
         var scEl = document.querySelector('.selected-count[data-gt-for="' + tab + '"]');
         if (gcEl) gcEl.textContent = gtClosed.toLocaleString();
         if (gaEl) gaEl.textContent = gtActive.toLocaleString();
         if (gtEl) gtEl.textContent = gtTotal.toLocaleString();
+        if (gbEl) gbEl.textContent = Math.round(gtBudget).toLocaleString();
         if (scEl) scEl.textContent = selectedCount < checkboxes.length ? '(' + selectedCount + ' of ' + checkboxes.length + ' selected)' : '';
       }
 
