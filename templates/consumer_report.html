@@ -130,10 +130,11 @@
         </div>
 
         <div class="table-wrapper">
-          <table class="data-table">
+          <table class="data-table" id="consumer-summary-table">
             <thead>
               <tr>
-                <th style="width:50px;text-align:center">Sr#</th>
+                <th style="width:40px;text-align:center"><input type="checkbox" id="select-all" checked title="Select/Deselect All"></th>
+                <th style="width:50px;text-align:center">SR</th>
                 <th style="text-align:left">Sector</th>
                 <th style="text-align:left">Locality</th>
                 <th style="width:80px;text-align:center">Closed</th>
@@ -142,28 +143,9 @@
               </tr>
             </thead>
             <tbody>
-              {% set ns = namespace(prev_sector='') %}
               {% for row in summary.summary_rows %}
-              {% if row.sector != ns.prev_sector %}
-                {% if not loop.first %}
-                <tr style="border-top:1px solid var(--border-bright);">
-                  <td colspan="3" style="text-align:right;font-weight:600;color:var(--amber);">
-                    Sector Subtotal
-                  </td>
-                  <td style="text-align:center;font-weight:700;color:var(--coral);">
-                    {{ summary.sector_totals[ns.prev_sector].closed }}
-                  </td>
-                  <td style="text-align:center;font-weight:700;color:var(--teal);">
-                    {{ summary.sector_totals[ns.prev_sector].active }}
-                  </td>
-                  <td style="text-align:center;font-weight:700;color:var(--amber);">
-                    {{ summary.sector_totals[ns.prev_sector].total }}
-                  </td>
-                </tr>
-                {% endif %}
-                {% set ns.prev_sector = row.sector %}
-              {% endif %}
-              <tr>
+              <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-active="{{ row.active }}" data-total="{{ row.total }}">
+                <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-serial="{{ row.serial }}" checked></td>
                 <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
                 <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
                 <td style="text-align:left;">{{ row.locality }}</td>
@@ -173,11 +155,11 @@
               </tr>
               {% endfor %}
               {% if summary.summary_rows %}
-              <tr style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
-                <td colspan="3" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL</td>
-                <td style="text-align:center;font-weight:700;color:var(--coral);font-size:15px;">{{ summary.grand_total.closed }}</td>
-                <td style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ summary.grand_total.active }}</td>
-                <td style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ summary.grand_total.total }}</td>
+              <tr id="grand-total-row" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
+                <td colspan="4" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL <span id="selected-count" style="font-size:11px;font-weight:400;color:var(--text-muted);"></span></td>
+                <td id="gt-closed" style="text-align:center;font-weight:700;color:var(--coral);font-size:15px;">{{ summary.grand_total.closed }}</td>
+                <td id="gt-active" style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ summary.grand_total.active }}</td>
+                <td id="gt-total" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ summary.grand_total.total }}</td>
               </tr>
               {% endif %}
             </tbody>
@@ -440,6 +422,76 @@
           form.appendChild(input);
           document.body.appendChild(form);
           form.submit();
+        });
+      });
+
+      // -- Checkbox selection logic: Select All / Row checkboxes, recompute Grand Total --
+      var selectAllEl = document.getElementById('select-all');
+      var rowCheckboxes = document.querySelectorAll('.row-checkbox');
+      var summaryData = null;
+      try { summaryData = JSON.parse(localStorage.getItem('consumer_report_summary')); } catch(e) {}
+
+      function recomputeGrandTotal() {
+        var gtClosed = 0, gtActive = 0, gtTotal = 0, selectedCount = 0;
+        rowCheckboxes.forEach(function(cb) {
+          if (cb.checked) {
+            var tr = cb.closest('tr');
+            gtClosed += parseInt(tr.getAttribute('data-closed')) || 0;
+            gtActive += parseInt(tr.getAttribute('data-active')) || 0;
+            gtTotal += parseInt(tr.getAttribute('data-total')) || 0;
+            selectedCount++;
+          }
+        });
+        var gcEl = document.getElementById('gt-closed');
+        var gaEl = document.getElementById('gt-active');
+        var gtEl = document.getElementById('gt-total');
+        var scEl = document.getElementById('selected-count');
+        if (gcEl) gcEl.textContent = gtClosed.toLocaleString();
+        if (gaEl) gaEl.textContent = gtActive.toLocaleString();
+        if (gtEl) gtEl.textContent = gtTotal.toLocaleString();
+        if (scEl) scEl.textContent = selectedCount < rowCheckboxes.length ? '(' + selectedCount + ' of ' + rowCheckboxes.length + ' selected)' : '';
+      }
+
+      function updateLocalStorageSelected() {
+        if (!summaryData || !summaryData.summary_rows) return;
+        var selectedSerials = [];
+        rowCheckboxes.forEach(function(cb) {
+          if (cb.checked) selectedSerials.push(parseInt(cb.getAttribute('data-serial')));
+        });
+        var selectedSet = new Set(selectedSerials);
+        var filteredRows = summaryData.summary_rows.filter(function(r) { return selectedSet.has(r.serial); });
+        var newGrandClosed = 0, newGrandActive = 0;
+        var newSectorTotals = {};
+        filteredRows.forEach(function(r) {
+          newGrandClosed += r.closed;
+          newGrandActive += r.active;
+          if (!newSectorTotals[r.sector]) newSectorTotals[r.sector] = {closed: 0, active: 0, total: 0};
+          newSectorTotals[r.sector].closed += r.closed;
+          newSectorTotals[r.sector].active += r.active;
+          newSectorTotals[r.sector].total += r.total;
+        });
+        summaryData.summary_rows = filteredRows;
+        summaryData.grand_total = { closed: newGrandClosed, active: newGrandActive, total: newGrandClosed + newGrandActive };
+        summaryData.sector_totals = newSectorTotals;
+        summaryData.sector_count = Object.keys(newSectorTotals).length;
+        summaryData.total_connections = newGrandClosed + newGrandActive;
+        try { localStorage.setItem('consumer_report_summary', JSON.stringify(summaryData)); } catch(e) {}
+      }
+
+      if (selectAllEl) {
+        selectAllEl.addEventListener('change', function() {
+          rowCheckboxes.forEach(function(cb) { cb.checked = selectAllEl.checked; });
+          recomputeGrandTotal();
+          updateLocalStorageSelected();
+        });
+      }
+      rowCheckboxes.forEach(function(cb) {
+        cb.addEventListener('change', function() {
+          var allChecked = true;
+          rowCheckboxes.forEach(function(c) { if (!c.checked) allChecked = false; });
+          if (selectAllEl) selectAllEl.checked = allChecked;
+          recomputeGrandTotal();
+          updateLocalStorageSelected();
         });
       });
 
