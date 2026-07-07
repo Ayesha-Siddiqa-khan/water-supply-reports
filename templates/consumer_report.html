@@ -398,10 +398,10 @@
     // Default   → treat as Monthly (× 12)
     function calcAnnualBudget(rate, period) {
       var p = (period || '').toLowerCase();
-      if (p.indexOf('monthly') !== -1 || p.indexOf('month') !== -1) return rate * 12;
-      if (p.indexOf('quarter') !== -1) return rate * 4;
       if (p.indexOf('six') !== -1 || p.indexOf('half') !== -1 || p.indexOf('semi') !== -1) return rate * 2;
+      if (p.indexOf('quarter') !== -1) return rate * 4;
       if (p.indexOf('year') !== -1 || p.indexOf('annual') !== -1) return rate;
+      if (p.indexOf('monthly') !== -1 || p.indexOf('month') !== -1) return rate * 12;
       return rate * 12;
     }
 

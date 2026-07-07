@@ -7652,14 +7652,14 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
     # --- Annual budget multiplier based on Billing Period ---
     def _calc_annual_budget(rate: float, period: str) -> float:
         p = period.lower()
-        if "monthly" in p or "month" in p:
-            return rate * 12
-        if "quarter" in p:
-            return rate * 4
         if "six" in p or "half" in p or "semi" in p:
             return rate * 2
+        if "quarter" in p:
+            return rate * 4
         if "year" in p or "annual" in p:
             return rate
+        if "monthly" in p or "month" in p:
+            return rate * 12
         return rate * 12  # Default: treat as monthly
 
     rate_lookup = _build_rate_lookup()
@@ -7837,7 +7837,24 @@ def _split_summary_by_type(summary: dict) -> tuple[dict, dict]:
         }
 
     normal = _build_sub(normal_rows, "normal") if normal_rows else {}
-    commercial = _build_sub(commercial_rows, "commercial") if commercial_rows else {}
+
+    # --- Commercial: prefer locality-level rows if available ---
+    # The client sends commercial_detailed_rows (one row per locality) which
+    # preserves individual locality names.  Fall back to merged rows if absent.
+    commercial_detail_rows = summary.get("commercial_detailed_rows", [])
+    if commercial_detail_rows:
+        # Re-number serials and build summary from locality-level rows
+        for i, r in enumerate(commercial_detail_rows, 1):
+            r["serial"] = i
+        commercial = _build_sub(commercial_detail_rows, "commercial")
+        # Use client-provided grand total if available (more accurate)
+        client_gt = summary.get("commercial_grand_total")
+        if client_gt:
+            commercial["grand_total"] = client_gt
+            commercial["total_connections"] = client_gt.get("total", 0)
+            commercial["total_budget"] = client_gt.get("budget", 0)
+    else:
+        commercial = _build_sub(commercial_rows, "commercial") if commercial_rows else {}
     return (normal, commercial)
 
 
@@ -8282,6 +8299,7 @@ def export_consumer_report(fmt_type: str):
             "closed": cell_center_style,
             "active": cell_center_style,
             "total": cell_center_style,
+            "budget": ParagraphStyle("CellBudget", parent=cell_center_style, alignment=2),
         }
 
         # Header row — only include selected columns
@@ -8513,6 +8531,7 @@ def export_consumer_report(fmt_type: str):
             "closed": cell_center_style,
             "active": cell_center_style,
             "total": cell_center_style,
+            "budget": ParagraphStyle("CellBudgetComm", parent=cell_center_style, alignment=2),
         }
 
         # Header row — only include selected columns
