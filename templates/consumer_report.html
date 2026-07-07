@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}Water Supply Report — Consumer Sector Report{% endblock %}
+{% block meta_description %}Upload consumer connection CSV and generate sector-based summary reports.{% endblock %}
+{% block active_page %}consumer{% endblock %}
+{% block breadcrumb %}Consumer Sector Report{% endblock %}
+
+{% block topbar_actions %}
+  {% if summary %}
+  <div style="display:flex;gap:8px;align-items:center;">
+    <a class="topbar-btn" href="{{ url_for('export_consumer_report', fmt_type='csv') }}">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 6l3 3 3-3"/></svg>
+      <span>CSV</span>
+    </a>
+    <a class="topbar-btn" href="{{ url_for('export_consumer_report', fmt_type='xlsx') }}">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 6l3 3 3-3"/></svg>
+      <span>Excel</span>
+    </a>
+    <a class="topbar-btn" href="{{ url_for('export_consumer_report', fmt_type='pdf') }}">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 6l3 3 3-3"/></svg>
+      <span>PDF</span>
+    </a>
+  </div>
+  {% endif %}
+{% endblock %}
+
+{% block pill_label %}Consumer{% endblock %}
+{% block pill_detail %}
+  {% if summary %}{{ summary.total_connections }} connections{% else %}Awaiting data{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="content">
+    <div class="page-header">
+      <div class="page-tag">Consumer Connection Report</div>
+      <h1 class="page-title">Consumer Sector Report</h1>
+      <p class="page-subtitle">Upload a consumer CSV to generate a sector-based summary showing Active, Closed, and Total connections grouped by Sector and Locality.</p>
+    </div>
+
+    <!-- Upload Area -->
+    <form method="post" enctype="multipart/form-data" data-upload-progress="true" action="{{ url_for('consumer_report') }}" style="margin:0;">
+      <input type="hidden" name="action" value="upload">
+      <div class="upload-area" onclick="this.querySelector('input[type=file]').click();">
+        <div class="upload-icon-box">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+          </svg>
+        </div>
+        <div class="upload-text">
+          <strong>Upload Consumer CSV</strong>
+          <span>CSV or XLSX. Expected columns: Serial Number, Consumer Name, Father Name, Mobile Number, Sector, Locality, Address, Order Number, Rate Type, Connection, Old Connection, Connection Status, Consumer Status, Action.</span>
+        </div>
+        <input type="file" name="consumer_file" accept=".csv,.xlsx" style="display:none;">
+      </div>
+    </form>
+
+    {% if not summary %}
+    <div class="empty-state">
+      <div class="empty-state-icon">&#128203;</div>
+      <div class="empty-state-title">No consumer report generated</div>
+      <div class="empty-state-desc">Upload a consumer CSV file above to see the sector-based connection summary. The report groups connections by <strong>Sector</strong> and counts Active vs Closed statuses.</div>
+    </div>
+    {% endif %}
+
+    {% if summary %}
+    <!-- STAT GRID -->
+    <div class="stat-grid">
+      <div class="stat-card teal">
+        <div class="stat-card-icon">&#127970;</div>
+        <div class="stat-label">Sectors</div>
+        <div class="stat-value" data-count="{{ summary.sector_count }}">0</div>
+        <div class="stat-delta">Unique sectors</div>
+      </div>
+      <div class="stat-card coral">
+        <div class="stat-card-icon">&#128205;</div>
+        <div class="stat-label">Localities</div>
+        <div class="stat-value" data-count="{{ summary.locality_count }}">0</div>
+        <div class="stat-delta">Unique localities</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-card-icon">&#9989;</div>
+        <div class="stat-label">Active Connections</div>
+        <div class="stat-value" data-count="{{ summary.grand_total.active }}">0</div>
+        <div class="stat-delta">Currently active</div>
+      </div>
+      <div class="stat-card violet">
+        <div class="stat-card-icon">&#10060;</div>
+        <div class="stat-label">Closed Connections</div>
+        <div class="stat-value" data-count="{{ summary.grand_total.closed }}">0</div>
+        <div class="stat-delta">Disconnected</div>
+      </div>
+    </div>
+
+    <!-- Sector Summary Section -->
+    <div class="section collapsed" id="sec-sector-summary">
+      <div class="section-header" onclick="toggleSection('sec-sector-summary')">
+        <div class="section-header-icon">&#128202;</div>
+        <div class="section-title">Sector-Wise Summary</div>
+        <span class="section-badge">{{ summary.summary_rows|length }} rows</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="section-body">
+        {% if filename %}
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">
+          Source: {{ filename }} &middot; {{ total_rows|default(0)|int }} total records &middot; {{ summary.sector_count }} sectors &middot; {{ summary.locality_count }} localities
+        </div>
+        {% endif %}
+
+        <div class="export-bar" style="margin-bottom:10px;">
+          <a class="chip" href="{{ url_for('export_consumer_report', fmt_type='pdf') }}">&#11015; Download PDF</a>
+          <a class="chip" href="{{ url_for('export_consumer_report', fmt_type='csv') }}">&#11015; Download CSV</a>
+          <a class="chip" href="{{ url_for('export_consumer_report', fmt_type='xlsx') }}">&#11015; Download Excel</a>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width:50px;text-align:center">Sr#</th>
+                <th style="text-align:left">Sector</th>
+                <th style="text-align:left">Locality</th>
+                <th style="width:80px;text-align:center">Closed</th>
+                <th style="width:80px;text-align:center">Active</th>
+                <th style="width:100px;text-align:center">Total Connections</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% set ns = namespace(prev_sector='') %}
+              {% for row in summary.summary_rows %}
+              {% if row.sector != ns.prev_sector %}
+                {% if not loop.first %}
+                <tr style="border-top:1px solid var(--border-bright);">
+                  <td colspan="3" style="text-align:right;font-weight:600;color:var(--amber);">
+                    Sector Subtotal
+                  </td>
+                  <td style="text-align:center;font-weight:700;color:var(--coral);">
+                    {{ summary.sector_totals[ns.prev_sector].closed }}
+                  </td>
+                  <td style="text-align:center;font-weight:700;color:var(--teal);">
+                    {{ summary.sector_totals[ns.prev_sector].active }}
+                  </td>
+                  <td style="text-align:center;font-weight:700;color:var(--amber);">
+                    {{ summary.sector_totals[ns.prev_sector].total }}
+                  </td>
+                </tr>
+                {% endif %}
+                {% set ns.prev_sector = row.sector %}
+              {% endif %}
+              <tr>
+                <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
+                <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
+                <td style="text-align:left;">{{ row.locality }}</td>
+                <td style="text-align:center;color:var(--coral);">{{ row.closed }}</td>
+                <td style="text-align:center;color:var(--teal);">{{ row.active }}</td>
+                <td style="text-align:center;font-weight:600;">{{ row.total }}</td>
+              </tr>
+              {% endfor %}
+              {% if summary.summary_rows %}
+              <tr style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
+                <td colspan="3" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL</td>
+                <td style="text-align:center;font-weight:700;color:var(--coral);font-size:15px;">{{ summary.grand_total.closed }}</td>
+                <td style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ summary.grand_total.active }}</td>
+                <td style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ summary.grand_total.total }}</td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Clear Data -->
+    <form method="post" action="{{ url_for('consumer_report') }}" style="margin-top:16px;">
+      <input type="hidden" name="action" value="clear">
+      <button type="submit" class="topbar-btn" style="color:var(--coral);border:1px solid var(--coral);background:transparent;">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10M5 4V3a1 1 0 011-1h2a1 1 0 011 1v1M3 4l.7 8.1a1 1 0 001 .9h4.6a1 1 0 001-.9L11 4"/></svg>
+        <span>Clear Data</span>
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  function toggleSection(id) {
+    document.getElementById(id).classList.toggle('collapsed');
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[data-count]').forEach(function(el) {
+      var target = parseFloat(el.getAttribute('data-count').replace(/,/g,''));
+      if (isNaN(target)) return;
+      var prefix = el.getAttribute('data-prefix') || '';
+      var dur = 1200;
+      var start = performance.now();
+      function tick(now) {
+        var elapsed = now - start;
+        var progress = Math.min(elapsed / dur, 1);
+        var ease = 1 - Math.pow(1 - progress, 3);
+        var val = Math.round(target * ease);
+        el.textContent = prefix + val.toLocaleString();
+        if (progress < 1) requestAnimationFrame(tick);
+        else el.textContent = prefix + Math.round(target).toLocaleString();
+      }
+      requestAnimationFrame(tick);
+    });
+  });
+</script>
+{% endblock %}

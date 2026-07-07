@@ -7425,6 +7425,456 @@ def export_daily_staff_receive(fmt_type: str):
     return daily_staff_receive_export_response(fmt_type, _last_daily_staff_results, cols=cols, detail_cols=detail_cols, sort_order=sort_order)
 
 
+# ---------------------------------------------------------------------------
+# Consumer Report — Sector-based connection summary from uploaded CSV
+# ---------------------------------------------------------------------------
+
+_consumer_report_data: list[dict] | None = None
+_consumer_report_filename: str | None = None
+
+EXPECTED_CONSUMER_COLUMNS = [
+    "serial number", "consumer name", "father name", "mobile number",
+    "sector", "locality", "address", "order number", "rate type",
+    "connection", "old connection", "connection status", "consumer status",
+    "action",
+]
+
+
+def _normalize_consumer_col(name: str) -> str:
+    return " ".join(str(name).strip().lower().replace("_", " ").split())
+
+
+def _classify_connection_status(value: str) -> str:
+    text = str(value or "").strip().lower()
+    if text in ("closed", "c", "close", "inactive", "disconnected", "terminated"):
+        return "Closed"
+    if text in ("active", "a", "open", "connected", "live", "running"):
+        return "Active"
+    return "Active"
+
+
+def _parse_consumer_csv(file_storage) -> tuple[list[dict], list[str]]:
+    """Read uploaded CSV/XLSX and return (rows, errors)."""
+    filename = secure_filename(file_storage.filename or "")
+    ext = os.path.splitext(filename)[1].lower()
+    try:
+        if ext == ".csv":
+            df = pd.read_csv(file_storage, dtype=str)
+        else:
+            df = pd.read_excel(file_storage, dtype=str)
+    except Exception as exc:
+        return [], [f"Could not read file: {exc}"]
+
+    df = df.fillna("")
+    df.columns = [_normalize_consumer_col(c) for c in df.columns]
+
+    errors: list[str] = []
+    for expected in ("sector", "locality", "connection status"):
+        if expected not in df.columns:
+            errors.append(f"Missing required column: '{expected}'")
+    if errors:
+        return [], errors
+
+    rows: list[dict] = []
+    for _, row in df.iterrows():
+        rows.append({
+            "serial_number": str(row.get("serial number", "")),
+            "consumer_name": str(row.get("consumer name", "")),
+            "father_name": str(row.get("father name", "")),
+            "mobile_number": str(row.get("mobile number", "")),
+            "sector": str(row.get("sector", "")).strip(),
+            "locality": str(row.get("locality", "")).strip(),
+            "address": str(row.get("address", "")),
+            "order_number": str(row.get("order number", "")),
+            "rate_type": str(row.get("rate type", "")),
+            "connection": str(row.get("connection", "")),
+            "old_connection": str(row.get("old connection", "")),
+            "connection_status": _classify_connection_status(row.get("connection status", "")),
+            "consumer_status": str(row.get("consumer status", "")),
+            "action": str(row.get("action", "")),
+        })
+    return rows, []
+
+
+def _build_consumer_sector_summary(rows: list[dict]) -> dict:
+    """Group rows by Sector, then Locality. Return summary data."""
+    from collections import OrderedDict
+
+    sector_map: OrderedDict[str, OrderedDict[str, dict]] = OrderedDict()
+
+    for row in rows:
+        sector = row["sector"] or "Unspecified"
+        locality = row["locality"] or "Unspecified"
+        status = row["connection_status"]
+
+        if sector not in sector_map:
+            sector_map[sector] = OrderedDict()
+        if locality not in sector_map[sector]:
+            sector_map[sector][locality] = {"closed": 0, "active": 0}
+
+        if status == "Closed":
+            sector_map[sector][locality]["closed"] += 1
+        else:
+            sector_map[sector][locality]["active"] += 1
+
+    summary_rows: list[dict] = []
+    serial = 0
+    sector_totals: dict[str, dict] = {}
+    grand_closed, grand_active = 0, 0
+
+    for sector, localities in sector_map.items():
+        s_closed, s_active = 0, 0
+        for locality, counts in localities.items():
+            serial += 1
+            total = counts["closed"] + counts["active"]
+            summary_rows.append({
+                "serial": serial,
+                "sector": sector,
+                "locality": locality,
+                "closed": counts["closed"],
+                "active": counts["active"],
+                "total": total,
+            })
+            s_closed += counts["closed"]
+            s_active += counts["active"]
+        sector_totals[sector] = {"closed": s_closed, "active": s_active, "total": s_closed + s_active}
+        grand_closed += s_closed
+        grand_active += s_active
+
+    return {
+        "summary_rows": summary_rows,
+        "sector_totals": sector_totals,
+        "grand_total": {
+            "closed": grand_closed,
+            "active": grand_active,
+            "total": grand_closed + grand_active,
+        },
+        "sector_count": len(sector_map),
+        "locality_count": sum(len(locs) for locs in sector_map.values()),
+        "total_connections": grand_closed + grand_active,
+    }
+
+
+@app.route("/consumer-report", methods=["GET", "POST"])
+def consumer_report():
+    global _consumer_report_data, _consumer_report_filename
+
+    if request.method == "POST":
+        action = request.form.get("action", "")
+
+        if action == "clear":
+            _consumer_report_data = None
+            _consumer_report_filename = None
+            flash("Consumer report data cleared.")
+            return redirect(url_for("consumer_report"))
+
+        if action == "upload":
+            file = request.files.get("consumer_file")
+            if not file or not file.filename:
+                if is_ajax():
+                    return ajax_error("Please choose a CSV or Excel file first.")
+                flash("Please choose a CSV or Excel file first.")
+                return redirect(url_for("consumer_report"))
+            if not allowed_file(file.filename):
+                if is_ajax():
+                    return ajax_error(f"Unsupported file type: {file.filename}")
+                flash(f"Unsupported file type: {file.filename}")
+                return redirect(url_for("consumer_report"))
+
+            rows, errors = _parse_consumer_csv(file)
+            if errors:
+                msg = "Upload failed: " + "; ".join(errors)
+                if is_ajax():
+                    return ajax_error(msg)
+                flash(msg)
+                return redirect(url_for("consumer_report"))
+
+            _consumer_report_data = rows
+            _consumer_report_filename = secure_filename(file.filename or "upload.csv")
+
+            summary = _build_consumer_sector_summary(rows)
+            msg = f"File uploaded. Found {summary['total_connections']:,} connections across {summary['sector_count']} sectors."
+            if is_ajax():
+                return ajax_ok(message=msg, redirect_url=url_for("consumer_report"))
+            flash(msg)
+            return render_template("consumer_report.html", summary=summary, filename=_consumer_report_filename, total_rows=len(rows))
+
+    # GET
+    if _consumer_report_data:
+        summary = _build_consumer_sector_summary(_consumer_report_data)
+        return render_template("consumer_report.html", summary=summary, filename=_consumer_report_filename, total_rows=len(_consumer_report_data))
+    return render_template("consumer_report.html", summary=None, filename=None, total_rows=0)
+
+
+@app.route("/consumer-report/export/<fmt_type>")
+def export_consumer_report(fmt_type: str):
+    if not _consumer_report_data:
+        flash("No consumer report data available. Please upload a file first.")
+        return redirect(url_for("consumer_report"))
+
+    summary = _build_consumer_sector_summary(_consumer_report_data)
+    headers = ["Serial No", "Sector", "Locality", "Closed", "Active", "Total Connections"]
+    rows = [
+        [r["serial"], r["sector"], r["locality"], r["closed"], r["active"], r["total"]]
+        for r in summary["summary_rows"]
+    ]
+    gt = summary["grand_total"]
+    grand = ["", "GRAND TOTAL", "", gt["closed"], gt["active"], gt["total"]]
+
+    filename = "consumer_sector_report"
+
+    # -----------------------------------------------------------------------
+    # PDF export — Professional A4 portrait print layout with light colours
+    # Changed: Replaced dark-themed landscape PDF with clean A4 portrait
+    # design. Uses soft teal header, light alternating rows, sector subtotal
+    # rows between groups, and a bold Grand Total row at the bottom.
+    # -----------------------------------------------------------------------
+    if fmt_type == "pdf":
+        # -- Colour palette (light, print-friendly) --
+        PDF_HEADER_BG = colors.HexColor("#e8f5f3")      # Soft teal tint for header
+        PDF_HEADER_FG = colors.HexColor("#1a5c52")      # Dark teal text for header
+        PDF_HEADER_BORDER = colors.HexColor("#b2dfdb")   # Light teal border
+        PDF_ALT_ROW = colors.HexColor("#f7faf9")         # Very faint green-grey alt rows
+        PDF_WHITE_ROW = colors.white
+        PDF_SECTOR_BG = colors.HexColor("#edf7f5")       # Light background for sector subtotal rows
+        PDF_SECTOR_FG = colors.HexColor("#2e7d6f")       # Teal text for sector subtotals
+        PDF_GRAND_BG = colors.HexColor("#d4edda")        # Light green for grand total row
+        PDF_GRAND_FG = colors.HexColor("#155724")        # Dark green text for grand total
+        PDF_GRID = colors.HexColor("#c8e6e0")            # Subtle grid line colour
+        PDF_BODY_FG = colors.HexColor("#2c3e50")         # Dark body text
+
+        # -- Page setup: A4 portrait with standard print margins --
+        page_w, page_h = A4  # 210mm x 297mm
+        top_m = 18 * mm
+        bottom_m = 15 * mm
+        left_m = 15 * mm
+        right_m = 15 * mm
+        usable_w = page_w - left_m - right_m
+
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buf,
+            pagesize=A4,
+            leftMargin=left_m,
+            rightMargin=right_m,
+            topMargin=top_m,
+            bottomMargin=bottom_m,
+        )
+
+        styles = getSampleStyleSheet()
+
+        # -- Heading styles --
+        report_title_style = ParagraphStyle(
+            "ConsumerReportTitle",
+            parent=styles["Heading1"],
+            fontSize=20,
+            fontName="Helvetica-Bold",
+            textColor=PDF_HEADER_FG,
+            alignment=1,  # Centre-aligned
+            spaceAfter=2 * mm,
+        )
+        report_subtitle_style = ParagraphStyle(
+            "ConsumerReportSubtitle",
+            parent=styles["Normal"],
+            fontSize=11,
+            fontName="Helvetica",
+            textColor=colors.HexColor("#5a7a74"),
+            alignment=1,
+            spaceAfter=4 * mm,
+        )
+        meta_style = ParagraphStyle(
+            "ConsumerReportMeta",
+            parent=styles["Normal"],
+            fontSize=9,
+            fontName="Helvetica",
+            textColor=colors.HexColor("#6c8a84"),
+            alignment=1,
+            spaceAfter=6 * mm,
+        )
+
+        elements = []
+
+        # -- Report heading block --
+        elements.append(Paragraph("Consumer Sector Report", report_title_style))
+        elements.append(Paragraph(
+            "Sector-Based Connection Summary — Active &amp; Closed Status",
+            report_subtitle_style,
+        ))
+
+        # -- Metadata line: source file, date, sector/locality counts --
+        meta_parts = []
+        if _consumer_report_filename:
+            meta_parts.append(f"<b>Source:</b> {_consumer_report_filename}")
+        meta_parts.append(f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}")
+        meta_parts.append(f"<b>Sectors:</b> {summary['sector_count']}")
+        meta_parts.append(f"<b>Localities:</b> {summary['locality_count']}")
+        meta_parts.append(f"<b>Total Connections:</b> {summary['total_connections']:,}")
+        elements.append(Paragraph(" &nbsp;&nbsp;|&nbsp;&nbsp; ".join(meta_parts), meta_style))
+
+        # -- Build table data with sector subtotal rows --
+        # Each sector group ends with a subtotal row; the last row is Grand Total.
+        table_data = []
+        # Row tracker: store (row_type, row_index) for styling
+        row_types = []  # "header" | "data" | "sector_subtotal" | "grand_total"
+
+        # Header row
+        table_data.append(headers)
+        row_types.append("header")
+
+        serial_counter = 0
+        prev_sector = None
+
+        for r in summary["summary_rows"]:
+            sector = r["sector"]
+            # Insert sector subtotal row when sector changes (before first row of new sector)
+            if prev_sector is not None and sector != prev_sector:
+                st = summary["sector_totals"][prev_sector]
+                table_data.append(["", f"Subtotal — {prev_sector}", "", st["closed"], st["active"], st["total"]])
+                row_types.append("sector_subtotal")
+            prev_sector = sector
+            serial_counter += 1
+            table_data.append([
+                serial_counter, r["sector"], r["locality"],
+                r["closed"], r["active"], r["total"],
+            ])
+            row_types.append("data")
+
+        # Final sector subtotal (for the last sector group)
+        if prev_sector is not None:
+            st = summary["sector_totals"][prev_sector]
+            table_data.append(["", f"Subtotal — {prev_sector}", "", st["closed"], st["active"], st["total"]])
+            row_types.append("sector_subtotal")
+
+        # Grand Total row
+        gt = summary["grand_total"]
+        table_data.append(["", "GRAND TOTAL", "", gt["closed"], gt["active"], gt["total"]])
+        row_types.append("grand_total")
+
+        # -- Column widths (mm) tuned for A4 portrait --
+        # Serial No: 18mm, Sector: 52mm, Locality: 56mm, Closed: 28mm, Active: 28mm, Total: 30mm
+        col_widths = [18 * mm, 52 * mm, 56 * mm, 28 * mm, 28 * mm, 30 * mm]
+
+        # -- Create table --
+        t = Table(table_data, colWidths=col_widths, repeatRows=1)
+
+        # -- Build table style commands --
+        style_cmds = [
+            # Header row styling
+            ("BACKGROUND", (0, 0), (-1, 0), PDF_HEADER_BG),
+            ("TEXTCOLOR", (0, 0), (-1, 0), PDF_HEADER_FG),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 10),
+            # Header alignment: centre for all headers
+            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            # Body text styling
+            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 1), (-1, -1), 9),
+            ("TEXTCOLOR", (0, 1), (-1, -1), PDF_BODY_FG),
+            # Grid lines (subtle light teal)
+            ("GRID", (0, 0), (-1, -1), 0.4, PDF_GRID),
+            # Padding for all cells
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ]
+
+        # -- Apply alignment per column type --
+        # Serial No (col 0): centre
+        style_cmds.append(("ALIGN", (0, 1), (0, -1), "CENTER"))
+        # Sector (col 1): left
+        style_cmds.append(("ALIGN", (1, 1), (1, -1), "LEFT"))
+        # Locality (col 2): left
+        style_cmds.append(("ALIGN", (2, 1), (2, -1), "LEFT"))
+        # Closed (col 3): centre
+        style_cmds.append(("ALIGN", (3, 1), (3, -1), "CENTER"))
+        # Active (col 4): centre
+        style_cmds.append(("ALIGN", (4, 1), (4, -1), "CENTER"))
+        # Total Connections (col 5): centre
+        style_cmds.append(("ALIGN", (5, 1), (5, -1), "CENTER"))
+
+        # -- Alternate row backgrounds for data rows only --
+        data_row_indices = [i for i, rt in enumerate(row_types) if rt == "data"]
+        for idx in data_row_indices:
+            if data_row_indices.index(idx) % 2 == 1:
+                style_cmds.append(("BACKGROUND", (0, idx), (-1, idx), PDF_ALT_ROW))
+            else:
+                style_cmds.append(("BACKGROUND", (0, idx), (-1, idx), PDF_WHITE_ROW))
+
+        # -- Sector subtotal row styling --
+        for i, rt in enumerate(row_types):
+            if rt == "sector_subtotal":
+                style_cmds.append(("BACKGROUND", (0, i), (-1, i), PDF_SECTOR_BG))
+                style_cmds.append(("TEXTCOLOR", (0, i), (-1, i), PDF_SECTOR_FG))
+                style_cmds.append(("FONTNAME", (0, i), (-1, i), "Helvetica-Bold"))
+                style_cmds.append(("FONTSIZE", (0, i), (-1, i), 9))
+                # Subtotal row: sector label left-aligned, numbers centre
+                style_cmds.append(("ALIGN", (1, i), (2, i), "LEFT"))
+                style_cmds.append(("ALIGN", (3, i), (5, i), "CENTER"))
+                # Top border thicker for subtotal visual separation
+                style_cmds.append(("LINEABOVE", (0, i), (-1, i), 0.8, PDF_HEADER_BORDER))
+
+        # -- Grand Total row styling --
+        grand_idx = len(table_data) - 1
+        style_cmds.append(("BACKGROUND", (0, grand_idx), (-1, grand_idx), PDF_GRAND_BG))
+        style_cmds.append(("TEXTCOLOR", (0, grand_idx), (-1, grand_idx), PDF_GRAND_FG))
+        style_cmds.append(("FONTNAME", (0, grand_idx), (-1, grand_idx), "Helvetica-Bold"))
+        style_cmds.append(("FONTSIZE", (0, grand_idx), (-1, grand_idx), 10))
+        style_cmds.append(("ALIGN", (1, grand_idx), (2, grand_idx), "LEFT"))
+        style_cmds.append(("ALIGN", (3, grand_idx), (5, grand_idx), "CENTER"))
+        # Thicker top border for grand total
+        style_cmds.append(("LINEABOVE", (0, grand_idx), (-1, grand_idx), 1.2, PDF_GRAND_FG))
+        # Bottom border for grand total
+        style_cmds.append(("LINEBELOW", (0, grand_idx), (-1, grand_idx), 1.2, PDF_GRAND_FG))
+
+        t.setStyle(TableStyle(style_cmds))
+        elements.append(t)
+
+        # -- Footer note --
+        footer_style = ParagraphStyle(
+            "ConsumerReportFooter",
+            parent=styles["Normal"],
+            fontSize=8,
+            fontName="Helvetica-Oblique",
+            textColor=colors.HexColor("#999999"),
+            alignment=1,
+            spaceBefore=8 * mm,
+        )
+        elements.append(Paragraph(
+            "This report was generated automatically from uploaded consumer data. "
+            "Grouping is by Sector (primary) and Locality (secondary).",
+            footer_style,
+        ))
+
+        doc.build(elements)
+        return Response(buf.getvalue(), mimetype="application/pdf",
+                        headers={"Content-Disposition": f"attachment; filename={filename}.pdf"})
+
+    if fmt_type == "csv":
+        out = io.StringIO()
+        writer = csv.writer(out)
+        writer.writerow(headers)
+        for row in rows:
+            writer.writerow(row)
+        writer.writerow(grand)
+        return Response(out.getvalue(), mimetype="text/csv",
+                        headers={"Content-Disposition": f"attachment; filename={filename}.csv"})
+
+    if fmt_type == "xlsx":
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            all_rows = rows + [grand]
+            pd.DataFrame(all_rows, columns=headers).to_excel(writer, sheet_name="Sector Summary", index=False)
+        buf.seek(0)
+        return Response(buf.getvalue(),
+                        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        headers={"Content-Disposition": f"attachment; filename={filename}.xlsx"})
+
+    flash("Unknown export format.")
+    return redirect(url_for("consumer_report"))
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("WATER_SUPPLY_PORT", "5000"))
     host = os.environ.get("WATER_SUPPLY_HOST", "127.0.0.1")

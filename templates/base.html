@@ -41,6 +41,12 @@
         </svg>
         <span>Daily Receiving</span>
       </a>
+      <a class="nav-item {% if active_page == 'consumer' %}active{% endif %}" href="{{ url_for('consumer_report') }}">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="2" width="14" height="16" rx="2"/><path d="M7 7h6M7 10h6M7 13h4"/>
+        </svg>
+        <span>Consumer Report</span>
+      </a>
     </nav>
     <div class="sidebar-footer">
       <div class="sidebar-data-pill">
