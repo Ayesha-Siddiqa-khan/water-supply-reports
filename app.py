@@ -7611,7 +7611,7 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
 
 @app.route("/consumer-report", methods=["GET", "POST"])
 def consumer_report():
-    global _consumer_report_data, _consumer_report_filename
+    global _consumer_report_data, _consumer_report_filename, _last_consumer_summary
 
     if request.method == "POST":
         action = request.form.get("action", "")
