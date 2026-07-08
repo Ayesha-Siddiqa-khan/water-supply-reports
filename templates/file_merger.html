@@ -1,0 +1,516 @@
+{% extends "base.html" %}
+{% block title %}Water Supply Report — File Merger{% endblock %}
+{% block meta_description %}Merge multiple CSV/Excel files into one, or merge multiple PDF files into a single document.{% endblock %}
+{% block active_page %}file_merger{% endblock %}
+{% block breadcrumb %}File Merger{% endblock %}
+
+{% block pill_label %}File Merger{% endblock %}
+{% block pill_detail %}Merge files{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="content">
+    <div class="page-header">
+      <div class="page-tag">File Merger</div>
+      <h1 class="dashboard-title">File Merger</h1>
+      <p class="dashboard-subtitle">Merge multiple CSV/Excel files into a single file, or combine multiple PDFs into one document. Files are merged in the order they are uploaded.</p>
+    </div>
+
+    <!-- ============================================================
+         SECTION 1: CSV / Excel Merger
+         Merges multiple CSV or XLSX files into a single file.
+         Data is kept exactly as-is; only the first file's headers are used
+         to avoid duplicating header rows from subsequent files.
+         ============================================================ -->
+    <div class="section" id="csv-section">
+      <div class="section-header" onclick="toggleSection('csv-section')">
+        <div class="section-header-icon">📊</div>
+        <span class="section-title">CSV / Excel Merger</span>
+        <span class="section-badge" id="csv-count">0 files</span>
+        <div class="section-toggle">
+          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+      <div class="section-body">
+        <form id="csv-form" enctype="multipart/form-data" style="margin:0;">
+          <div class="upload-area" id="csv-drop" onclick="document.getElementById('csv-input').click();">
+            <div class="upload-icon-box">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+              </svg>
+            </div>
+            <div class="upload-text">
+              <strong>Drop CSV / Excel files here or click to browse</strong>
+              <span>Accepts .csv and .xlsx files. Multiple files allowed. Files are kept in upload order.</span>
+            </div>
+            <input type="file" id="csv-input" name="files" multiple accept=".csv,.xlsx" style="display:none;" onchange="handleCsvFiles(this.files)">
+          </div>
+        </form>
+
+        <!-- File list: shows names and sizes of uploaded CSV/Excel files -->
+        <div class="merger-file-list" id="csv-file-list"></div>
+
+        <!-- Merge controls -->
+        <div class="merger-actions" id="csv-actions" style="display:none;">
+          <button type="button" class="topbar-btn danger btn-sm" onclick="clearCsvFiles()">
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 1l12 12M13 1L1 13"/></svg>
+            <span>Clear All</span>
+          </button>
+          <div style="margin-left:auto;display:flex;gap:10px;">
+            <button type="button" class="topbar-btn primary btn-sm" onclick="mergeCsv('csv')">
+              <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 4l3-3 3 3"/></svg>
+              <span>Download CSV</span>
+            </button>
+            <button type="button" class="topbar-btn primary btn-sm" onclick="mergeCsv('xlsx')">
+              <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 4l3-3 3 3"/></svg>
+              <span>Download Excel</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Status / error message -->
+        <div class="merger-status" id="csv-status"></div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SECTION 2: PDF Merger
+         Merges multiple PDF files into one combined PDF.
+         Pages are kept in the exact order the files are uploaded.
+         ============================================================ -->
+    <div class="section" id="pdf-section">
+      <div class="section-header" onclick="toggleSection('pdf-section')">
+        <div class="section-header-icon">📄</div>
+        <span class="section-title">PDF Merger</span>
+        <span class="section-badge" id="pdf-count">0 files</span>
+        <div class="section-toggle">
+          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+      <div class="section-body">
+        <form id="pdf-form" enctype="multipart/form-data" style="margin:0;">
+          <div class="upload-area" id="pdf-drop" onclick="document.getElementById('pdf-input').click();">
+            <div class="upload-icon-box">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+              </svg>
+            </div>
+            <div class="upload-text">
+              <strong>Drop PDF files here or click to browse</strong>
+              <span>Accepts .pdf files only. Multiple files allowed. Pages merge in upload order.</span>
+            </div>
+            <input type="file" id="pdf-input" name="files" multiple accept=".pdf" style="display:none;" onchange="handlePdfFiles(this.files)">
+          </div>
+        </form>
+
+        <!-- File list: shows names and sizes of uploaded PDF files -->
+        <div class="merger-file-list" id="pdf-file-list"></div>
+
+        <!-- Merge controls -->
+        <div class="merger-actions" id="pdf-actions" style="display:none;">
+          <button type="button" class="topbar-btn danger btn-sm" onclick="clearPdfFiles()">
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 1l12 12M13 1L1 13"/></svg>
+            <span>Clear All</span>
+          </button>
+          <button type="button" class="topbar-btn primary btn-sm" onclick="mergePdf()" style="margin-left:auto;">
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 4l3-3 3 3"/></svg>
+            <span>Download Merged PDF</span>
+          </button>
+        </div>
+
+        <!-- Status / error message -->
+        <div class="merger-status" id="pdf-status"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<style>
+/* ============================================================
+   FILE MERGER PAGE — Styles for file lists, actions, status.
+   These styles are scoped to this page and do not affect
+   any existing app styles or features.
+   ============================================================ */
+
+/* File list container below each upload area */
+.merger-file-list {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 12px;
+}
+
+/* Individual file row in the list */
+.merger-file-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; background: var(--card);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 12px; transition: all var(--transition-fast);
+}
+.merger-file-item:hover {
+  border-color: var(--border-bright);
+  background: var(--card-hover);
+}
+
+/* File icon badge (colored by file type) */
+.merger-file-icon {
+  width: 28px; height: 28px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; flex-shrink: 0;
+  background: var(--teal-dim); color: var(--teal);
+  border: 1px solid rgba(15, 212, 176, 0.15);
+}
+.merger-file-icon.csv { background: var(--amber-dim); color: var(--amber); border-color: rgba(245, 166, 35, 0.15); }
+.merger-file-icon.xlsx { background: var(--violet-dim); color: var(--violet); border-color: rgba(157, 127, 248, 0.15); }
+.merger-file-icon.pdf { background: var(--coral-dim); color: var(--coral); border-color: rgba(224, 62, 62, 0.15); }
+
+/* File name and size text */
+.merger-file-info { flex: 1; min-width: 0; }
+.merger-file-name {
+  font-weight: 600; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.merger-file-size { font-size: 10px; color: var(--text-secondary); margin-top: 1px; }
+
+/* Remove button on each file row */
+.merger-file-remove {
+  background: none; border: 1px solid var(--border);
+  color: var(--text-muted); border-radius: 6px;
+  width: 24px; height: 24px; display: flex; align-items: center;
+  justify-content: center; cursor: pointer; flex-shrink: 0;
+  transition: all var(--transition-fast); font-size: 12px;
+}
+.merger-file-remove:hover {
+  color: var(--coral); border-color: rgba(224, 62, 62, 0.3);
+  background: var(--coral-dim);
+}
+
+/* Action bar below file list (merge/clear buttons) */
+.merger-actions {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+/* Status/error message area */
+.merger-status {
+  margin-top: 12px; font-size: 12px; font-weight: 600;
+  min-height: 20px;
+}
+.merger-status.success { color: var(--teal); }
+.merger-status.error { color: var(--coral); }
+.merger-status.loading { color: var(--amber); }
+
+/* Loading spinner */
+.merger-spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid var(--border-bright);
+  border-top-color: var(--teal); border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle; margin-right: 6px;
+}
+
+@media (max-width: 640px) {
+  .merger-actions { flex-wrap: wrap; }
+  .merger-actions > div { margin-left: 0 !important; width: 100%; }
+}
+</style>
+
+<script>
+/* ============================================================
+   FILE MERGER — Client-side logic
+   Handles file selection, display, drag-and-drop, and upload
+   via fetch to server-side merge endpoints. No page reloads.
+   ============================================================ */
+
+// ── State ──────────────────────────────────────────────────────
+// Store selected File objects for CSV and PDF sections separately.
+// Using arrays preserves upload order for both merge types.
+var csvFiles = [];
+var pdfFiles = [];
+
+// ── Helpers ────────────────────────────────────────────────────
+// Format bytes into a human-readable size string.
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+// Get the file extension in lowercase (e.g. "csv", "xlsx", "pdf").
+function getExt(name) {
+  return name.split('.').pop().toLowerCase();
+}
+
+// Validate that a file has an allowed extension for the given type.
+function isAllowed(file, allowed) {
+  return allowed.indexOf(getExt(file.name)) !== -1;
+}
+
+// ── Toggle section collapse ────────────────────────────────────
+function toggleSection(sectionId) {
+  var el = document.getElementById(sectionId);
+  if (el) el.classList.toggle('collapsed');
+}
+
+// ── CSV / Excel File Handling ──────────────────────────────────
+// Accept .csv and .xlsx files only.
+function handleCsvFiles(fileList) {
+  var allowed = ['csv', 'xlsx'];
+  var statusEl = document.getElementById('csv-status');
+  statusEl.textContent = '';
+  statusEl.className = 'merger-status';
+
+  for (var i = 0; i < fileList.length; i++) {
+    var f = fileList[i];
+    if (!isAllowed(f, allowed)) {
+      statusEl.textContent = 'Skipped "' + f.name + '" — only .csv and .xlsx files are accepted.';
+      statusEl.className = 'merger-status error';
+      continue;
+    }
+    // Avoid duplicates by name+size
+    if (!csvFiles.some(function(e) { return e.name === f.name && e.size === f.size; })) {
+      csvFiles.push(f);
+    }
+  }
+  renderCsvList();
+  // Reset the input so re-selecting the same files triggers change
+  document.getElementById('csv-input').value = '';
+}
+
+// Render the list of selected CSV/Excel files.
+function renderCsvList() {
+  var list = document.getElementById('csv-file-list');
+  var actions = document.getElementById('csv-actions');
+  var countBadge = document.getElementById('csv-count');
+
+  list.innerHTML = '';
+  countBadge.textContent = csvFiles.length + ' file' + (csvFiles.length !== 1 ? 's' : '');
+
+  if (csvFiles.length === 0) {
+    actions.style.display = 'none';
+    return;
+  }
+  actions.style.display = 'flex';
+
+  csvFiles.forEach(function(f, idx) {
+    var ext = getExt(f.name);
+    var item = document.createElement('div');
+    item.className = 'merger-file-item';
+    item.innerHTML =
+      '<div class="merger-file-icon ' + ext + '">' + ext.toUpperCase() + '</div>' +
+      '<div class="merger-file-info">' +
+        '<div class="merger-file-name">' + escapeHtml(f.name) + '</div>' +
+        '<div class="merger-file-size">' + formatSize(f.size) + '</div>' +
+      '</div>' +
+      '<button type="button" class="merger-file-remove" onclick="removeCsvFile(' + idx + ')" title="Remove file">&#10005;</button>';
+    list.appendChild(item);
+  });
+}
+
+// Remove a single CSV/Excel file from the list.
+function removeCsvFile(idx) {
+  csvFiles.splice(idx, 1);
+  renderCsvList();
+}
+
+// Clear all CSV/Excel files.
+function clearCsvFiles() {
+  csvFiles = [];
+  renderCsvList();
+  document.getElementById('csv-status').textContent = '';
+  document.getElementById('csv-status').className = 'merger-status';
+}
+
+// ── PDF File Handling ──────────────────────────────────────────
+// Accept .pdf files only.
+function handlePdfFiles(fileList) {
+  var allowed = ['pdf'];
+  var statusEl = document.getElementById('pdf-status');
+  statusEl.textContent = '';
+  statusEl.className = 'merger-status';
+
+  for (var i = 0; i < fileList.length; i++) {
+    var f = fileList[i];
+    if (!isAllowed(f, allowed)) {
+      statusEl.textContent = 'Skipped "' + f.name + '" — only .pdf files are accepted.';
+      statusEl.className = 'merger-status error';
+      continue;
+    }
+    if (!pdfFiles.some(function(e) { return e.name === f.name && e.size === f.size; })) {
+      pdfFiles.push(f);
+    }
+  }
+  renderPdfList();
+  document.getElementById('pdf-input').value = '';
+}
+
+// Render the list of selected PDF files.
+function renderPdfList() {
+  var list = document.getElementById('pdf-file-list');
+  var actions = document.getElementById('pdf-actions');
+  var countBadge = document.getElementById('pdf-count');
+
+  list.innerHTML = '';
+  countBadge.textContent = pdfFiles.length + ' file' + (pdfFiles.length !== 1 ? 's' : '');
+
+  if (pdfFiles.length === 0) {
+    actions.style.display = 'none';
+    return;
+  }
+  actions.style.display = 'flex';
+
+  pdfFiles.forEach(function(f, idx) {
+    var item = document.createElement('div');
+    item.className = 'merger-file-item';
+    item.innerHTML =
+      '<div class="merger-file-icon pdf">PDF</div>' +
+      '<div class="merger-file-info">' +
+        '<div class="merger-file-name">' + escapeHtml(f.name) + '</div>' +
+        '<div class="merger-file-size">' + formatSize(f.size) + '</div>' +
+      '</div>' +
+      '<button type="button" class="merger-file-remove" onclick="removePdfFile(' + idx + ')" title="Remove file">&#10005;</button>';
+    list.appendChild(item);
+  });
+}
+
+// Remove a single PDF file from the list.
+function removePdfFile(idx) {
+  pdfFiles.splice(idx, 1);
+  renderPdfList();
+}
+
+// Clear all PDF files.
+function clearPdfFiles() {
+  pdfFiles = [];
+  renderPdfList();
+  document.getElementById('pdf-status').textContent = '';
+  document.getElementById('pdf-status').className = 'merger-status';
+}
+
+// ── Merge & Download: CSV / Excel ──────────────────────────────
+// Sends selected files to the server merge endpoint. The server
+// concatenates the data (preserving the first file's headers)
+// and returns the merged file as an attachment download.
+function mergeCsv(fmt) {
+  var statusEl = document.getElementById('csv-status');
+  if (csvFiles.length === 0) {
+    statusEl.textContent = 'Please select at least one CSV or Excel file.';
+    statusEl.className = 'merger-status error';
+    return;
+  }
+
+  var formData = new FormData();
+  for (var i = 0; i < csvFiles.length; i++) {
+    formData.append('files', csvFiles[i]);
+  }
+  formData.append('format', fmt);
+
+  statusEl.innerHTML = '<span class="merger-spinner"></span> Merging ' + csvFiles.length + ' file(s)...';
+  statusEl.className = 'merger-status loading';
+
+  fetch('/file-merger/merge-csv', { method: 'POST', body: formData })
+    .then(function(resp) {
+      if (!resp.ok) return resp.text().then(function(t) { throw new Error(t); });
+      // Extract filename from Content-Disposition header
+      var cd = resp.headers.get('Content-Disposition') || '';
+      var match = cd.match(/filename="?([^";\n]+)"?/);
+      var filename = match ? match[1] : 'merged.' + fmt;
+      return resp.blob().then(function(blob) { return { blob: blob, filename: filename }; });
+    })
+    .then(function(result) {
+      // Trigger browser download of the merged file
+      var url = URL.createObjectURL(result.blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = result.filename;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      statusEl.textContent = 'Merged file downloaded as ' + result.filename;
+      statusEl.className = 'merger-status success';
+    })
+    .catch(function(err) {
+      statusEl.textContent = 'Merge failed: ' + (err.message || 'Unknown error');
+      statusEl.className = 'merger-status error';
+    });
+}
+
+// ── Merge & Download: PDF ──────────────────────────────────────
+// Sends selected PDF files to the server merge endpoint. The
+// server concatenates them in upload order and returns the
+// combined PDF as a download.
+function mergePdf() {
+  var statusEl = document.getElementById('pdf-status');
+  if (pdfFiles.length === 0) {
+    statusEl.textContent = 'Please select at least one PDF file.';
+    statusEl.className = 'merger-status error';
+    return;
+  }
+
+  var formData = new FormData();
+  for (var i = 0; i < pdfFiles.length; i++) {
+    formData.append('files', pdfFiles[i]);
+  }
+
+  statusEl.innerHTML = '<span class="merger-spinner"></span> Merging ' + pdfFiles.length + ' PDF(s)...';
+  statusEl.className = 'merger-status loading';
+
+  fetch('/file-merger/merge-pdf', { method: 'POST', body: formData })
+    .then(function(resp) {
+      if (!resp.ok) return resp.text().then(function(t) { throw new Error(t); });
+      var cd = resp.headers.get('Content-Disposition') || '';
+      var match = cd.match(/filename="?([^";\n]+)"?/);
+      var filename = match ? match[1] : 'merged.pdf';
+      return resp.blob().then(function(blob) { return { blob: blob, filename: filename }; });
+    })
+    .then(function(result) {
+      var url = URL.createObjectURL(result.blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = result.filename;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      statusEl.textContent = 'Merged PDF downloaded as ' + result.filename;
+      statusEl.className = 'merger-status success';
+    })
+    .catch(function(err) {
+      statusEl.textContent = 'Merge failed: ' + (err.message || 'Unknown error');
+      statusEl.className = 'merger-status error';
+    });
+}
+
+// ── Utility ────────────────────────────────────────────────────
+// Escape HTML entities to prevent XSS in file name display.
+function escapeHtml(text) {
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(text));
+  return div.innerHTML;
+}
+
+// ── Drag-and-Drop Support ──────────────────────────────────────
+// Adds visual feedback on dragover and handles file drops for
+// both the CSV/Excel and PDF upload areas.
+function setupDragDrop(dropId, handler) {
+  var el = document.getElementById(dropId);
+  if (!el) return;
+  el.addEventListener('dragover', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    el.classList.add('drag-over');
+  });
+  el.addEventListener('dragleave', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    el.classList.remove('drag-over');
+  });
+  el.addEventListener('drop', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    el.classList.remove('drag-over');
+    handler(e.dataTransfer.files);
+  });
+}
+
+// Initialize drag-and-drop for both upload areas on page load.
+document.addEventListener('DOMContentLoaded', function() {
+  setupDragDrop('csv-drop', handleCsvFiles);
+  setupDragDrop('pdf-drop', handlePdfFiles);
+});
+</script>
+{% endblock %}

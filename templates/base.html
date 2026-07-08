@@ -47,6 +47,14 @@
         </svg>
         <span>Consumer Report</span>
       </a>
+      <div class="nav-section-label" style="margin-top:16px;">Tools</div>
+      <a class="nav-item {% if active_page == 'file_merger' %}active{% endif %}" href="{{ url_for('file_merger') }}">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M3 5a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2V5z"/>
+          <path d="M8 10h4M8 13h2"/>
+        </svg>
+        <span>File Merger</span>
+      </a>
     </nav>
     <div class="sidebar-footer">
       <div class="sidebar-data-pill">
