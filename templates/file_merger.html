@@ -538,28 +538,36 @@ function mergePdf() {
       });
 
       Promise.all(readPromises).then(function(arrayBuffers) {
-        var totalPages = 0;
+        // Process PDFs sequentially to handle async load()
+        var chain = Promise.resolve({ mergedPdf: mergedPdf, totalPages: 0 });
 
-        // Copy pages from each PDF into the merged document
-        for (var i = 0; i < arrayBuffers.length; i++) {
-          var srcDoc = PDFLib.PDFDocument.load(arrayBuffers[i]);
-          var copiedPages = mergedPdf.copyPages(srcDoc, srcDoc.getPages());
-          // Add each copied page to the merged document
-          copiedPages.forEach(function(page) {
-            mergedPdf.addPage(page);
-            totalPages++;
+        arrayBuffers.forEach(function(buf, i) {
+          chain = chain.then(function(state) {
+            // PDFDocument.load() is async — it returns a Promise
+            return PDFLib.PDFDocument.load(buf).then(function(srcDoc) {
+              var count = srcDoc.getPageCount();
+              var indices = [];
+              for (var p = 0; p < count; p++) indices.push(p);
+              var copiedPages = state.mergedPdf.copyPages(srcDoc, indices);
+              copiedPages.forEach(function(page) {
+                state.mergedPdf.addPage(page);
+              });
+              return { mergedPdf: state.mergedPdf, totalPages: state.totalPages + count };
+            });
           });
-        }
+        });
 
+        return chain;
+      }).then(function(state) {
         // Serialize the merged PDF and trigger download
-        return mergedPdf.save();
-      }).then(function(pdfBytes) {
-        var timestamp = getTimestamp();
-        var blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        downloadBlob(blob, 'merged_' + timestamp + '.pdf');
+        return state.mergedPdf.save().then(function(pdfBytes) {
+          var timestamp = getTimestamp();
+          var blob = new Blob([pdfBytes], { type: 'application/pdf' });
+          downloadBlob(blob, 'merged_' + timestamp + '.pdf');
 
-        statusEl.textContent = 'Merged ' + pdfFiles.length + ' PDF(s) (' + totalPages + ' pages) — downloaded as merged_' + timestamp + '.pdf';
-        statusEl.className = 'merger-status success';
+          statusEl.textContent = 'Merged ' + pdfFiles.length + ' PDF(s) (' + state.totalPages + ' pages) — downloaded as merged_' + timestamp + '.pdf';
+          statusEl.className = 'merger-status success';
+        });
       }).catch(function(err) {
         statusEl.textContent = 'Merge failed: ' + (err.message || 'Unknown error');
         statusEl.className = 'merger-status error';
