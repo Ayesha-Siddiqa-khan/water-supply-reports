@@ -523,60 +523,52 @@ function mergePdf() {
   statusEl.className = 'merger-status loading';
 
   setTimeout(function() {
-    try {
-      // Create a new empty PDF document to merge into
-      var mergedPdf = PDFLib.PDFDocument.create();
-
-      // Read all files as ArrayBuffer, then merge in order
-      var readPromises = pdfFiles.map(function(file) {
-        return new Promise(function(resolve, reject) {
-          var reader = new FileReader();
-          reader.onload = function(e) { resolve(e.target.result); };
-          reader.onerror = function() { reject(new Error('Failed to read ' + file.name)); };
-          reader.readAsArrayBuffer(file);
-        });
+    // Read all files as ArrayBuffer first
+    var readPromises = pdfFiles.map(function(file) {
+      return new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function(e) { resolve(e.target.result); };
+        reader.onerror = function() { reject(new Error('Failed to read ' + file.name)); };
+        reader.readAsArrayBuffer(file);
       });
+    });
 
-      Promise.all(readPromises).then(function(arrayBuffers) {
-        // Process PDFs sequentially to handle async load()
+    // Both PDFDocument.create() and .load() are async — chain everything
+    PDFLib.PDFDocument.create().then(function(mergedPdf) {
+      return Promise.all(readPromises).then(function(arrayBuffers) {
         var chain = Promise.resolve({ mergedPdf: mergedPdf, totalPages: 0 });
 
-        arrayBuffers.forEach(function(buf, i) {
+        arrayBuffers.forEach(function(buf) {
           chain = chain.then(function(state) {
-            // PDFDocument.load() is async — it returns a Promise
             return PDFLib.PDFDocument.load(buf).then(function(srcDoc) {
               var count = srcDoc.getPageCount();
-              var indices = [];
-              for (var p = 0; p < count; p++) indices.push(p);
-              var copiedPages = state.mergedPdf.copyPages(srcDoc, indices);
-              copiedPages.forEach(function(page) {
-                state.mergedPdf.addPage(page);
+              var srcIndices = [];
+              for (var p = 0; p < count; p++) srcIndices.push(p);
+              return state.mergedPdf.copyPages(srcDoc, srcIndices).then(function(copiedPages) {
+                copiedPages.forEach(function(page) {
+                  state.mergedPdf.addPage(page);
+                });
+                return { mergedPdf: state.mergedPdf, totalPages: state.totalPages + count };
               });
-              return { mergedPdf: state.mergedPdf, totalPages: state.totalPages + count };
             });
           });
         });
 
         return chain;
-      }).then(function(state) {
-        // Serialize the merged PDF and trigger download
-        return state.mergedPdf.save().then(function(pdfBytes) {
-          var timestamp = getTimestamp();
-          var blob = new Blob([pdfBytes], { type: 'application/pdf' });
-          downloadBlob(blob, 'merged_' + timestamp + '.pdf');
-
-          statusEl.textContent = 'Merged ' + pdfFiles.length + ' PDF(s) (' + state.totalPages + ' pages) — downloaded as merged_' + timestamp + '.pdf';
-          statusEl.className = 'merger-status success';
-        });
-      }).catch(function(err) {
-        statusEl.textContent = 'Merge failed: ' + (err.message || 'Unknown error');
-        statusEl.className = 'merger-status error';
       });
+    }).then(function(state) {
+      return state.mergedPdf.save().then(function(pdfBytes) {
+        var timestamp = getTimestamp();
+        var blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        downloadBlob(blob, 'merged_' + timestamp + '.pdf');
 
-    } catch (err) {
+        statusEl.textContent = 'Merged ' + pdfFiles.length + ' PDF(s) (' + state.totalPages + ' pages) — downloaded as merged_' + timestamp + '.pdf';
+        statusEl.className = 'merger-status success';
+      });
+    }).catch(function(err) {
       statusEl.textContent = 'Merge failed: ' + (err.message || 'Unknown error');
       statusEl.className = 'merger-status error';
-    }
+    });
   }, 50);
 }
 
