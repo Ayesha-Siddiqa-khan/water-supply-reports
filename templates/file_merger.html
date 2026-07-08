@@ -543,7 +543,7 @@ function mergePdf() {
         // Copy pages from each PDF into the merged document
         for (var i = 0; i < arrayBuffers.length; i++) {
           var srcDoc = PDFLib.PDFDocument.load(arrayBuffers[i]);
-          var copiedPages = mergedPdf.copyPages(srcDoc, srcDoc.getPageIndices());
+          var copiedPages = mergedPdf.copyPages(srcDoc, srcDoc.getPages());
           // Add each copied page to the merged document
           copiedPages.forEach(function(page) {
             mergedPdf.addPage(page);
