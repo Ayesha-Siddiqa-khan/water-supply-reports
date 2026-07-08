@@ -97,7 +97,7 @@
     <div class="section collapsed" id="sec-sector-summary">
       <div class="section-header" onclick="toggleSection('sec-sector-summary')">
         <div class="section-header-icon">&#128202;</div>
-        <div class="section-title">Sector-Wise Summary</div>
+        <div class="section-title">Domestic Connections</div>
         <span class="section-badge">{{ summary.summary_rows|length }} rows</span>
         <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
@@ -125,7 +125,7 @@
           <button type="button" class="sub-tab-btn active" data-tab="normal"
                   onclick="switchTab('normal')"
                   style="padding:8px 20px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--bg);color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
-            Sector-Wise Summary {% if normal_summary %}<span style="font-size:11px;font-weight:400;opacity:.7;">({{ normal_summary.sector_count }})</span>{% endif %}
+            Domestic Connections {% if normal_summary %}<span style="font-size:11px;font-weight:400;opacity:.7;">({{ normal_summary.sector_count }})</span>{% endif %}
           </button>
           <button type="button" class="sub-tab-btn" data-tab="commercial"
                   onclick="switchTab('commercial')"
@@ -209,15 +209,17 @@
               </thead>
               <tbody>
                 {% for row in normal_summary.summary_rows %}
-                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}" data-sector="{{ row.sector }}" data-locality="{{ row.locality }}">
+                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}" data-budget-rate="{{ ((row.budget|default(0)|float) / (row.active|int)) if (row.active|int) else 0 }}" data-sector="{{ row.sector }}" data-locality="{{ row.locality }}">
                   <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="normal" data-serial="{{ row.serial }}" checked></td>
                   <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
                   <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
                   <td style="text-align:left;">{{ row.locality }}</td>
                   <td style="text-align:center;color:var(--coral);">{{ row.closed }}</td>
-                  <td style="text-align:center;color:var(--teal);">{{ row.active }}</td>
-                  <td style="text-align:center;font-weight:600;">{{ row.total }}</td>
-                  <td style="text-align:right;font-weight:500;color:var(--teal);">{{ "{:,.0f}".format(row.budget|default(0)) }}</td>
+                  <td style="text-align:center;color:var(--teal);">
+                    <input type="number" class="domestic-active-input" min="0" step="1" value="{{ row.active }}" aria-label="Edit Active connections for {{ row.sector }}" style="width:72px;max-width:100%;padding:4px 6px;text-align:center;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--teal);font-weight:600;">
+                  </td>
+                  <td class="row-total-cell" style="text-align:center;font-weight:600;">{{ row.total }}</td>
+                  <td class="row-budget-cell" style="text-align:right;font-weight:500;color:var(--teal);">{{ "{:,.0f}".format(row.budget|default(0)) }}</td>
                 </tr>
                 {% endfor %}
                 <tr class="grand-total-row" data-gt-for="normal" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
@@ -1021,6 +1023,7 @@
         checkboxes.forEach(function(cb) {
           if (cb.checked) {
             var tr = cb.closest('tr');
+            if ((parseInt(tr.getAttribute('data-active')) || 0) <= 0) return;
             gtClosed += parseInt(tr.getAttribute('data-closed')) || 0;
             gtActive += parseInt(tr.getAttribute('data-active')) || 0;
             gtTotal += parseInt(tr.getAttribute('data-total')) || 0;
@@ -1053,6 +1056,7 @@
         table.querySelectorAll('tbody tr:not(.grand-total-row)').forEach(function(tr) {
           var cb = tr.querySelector('.row-checkbox');
           if (!cb || !cb.checked) return;
+          if ((parseInt(tr.getAttribute('data-active')) || 0) <= 0) return;
           selectedRows.push({
             serial: selectedRows.length + 1,
             sector: tr.getAttribute('data-sector') || '',
@@ -1094,6 +1098,32 @@
           payload.commercial_grand_total = payload.grand_total;
         }
         return payload;
+      }
+
+      function updateDomesticActiveEdit(input, normalizeInput) {
+        var tr = input.closest('tr');
+        if (!tr) return;
+        var raw = (input.value || '').trim();
+        var active = raw === '' ? 0 : parseInt(raw, 10);
+        if (isNaN(active) || active < 0) active = 0;
+        if (normalizeInput) input.value = active;
+
+        var closed = parseInt(tr.getAttribute('data-closed')) || 0;
+        var budgetRate = parseFloat(tr.getAttribute('data-budget-rate')) || 0;
+        var total = closed + active;
+        var budget = active * budgetRate;
+
+        tr.setAttribute('data-active', String(active));
+        tr.setAttribute('data-total', String(total));
+        tr.setAttribute('data-budget', String(budget));
+
+        var totalCell = tr.querySelector('.row-total-cell');
+        var budgetCell = tr.querySelector('.row-budget-cell');
+        if (totalCell) totalCell.textContent = total.toLocaleString();
+        if (budgetCell) budgetCell.textContent = Math.round(budget).toLocaleString();
+
+        recomputeGrandTotalForTab('normal');
+        updateLocalStorageForTab('normal');
       }
 
       // ================================================================
@@ -1172,6 +1202,24 @@
           checkboxes.forEach(function(cb) { cb.checked = selectAllEl.checked; });
           recomputeGrandTotalForTab(tab);
           updateLocalStorageForTab(tab);
+        });
+      });
+
+      // Domestic-only edit rule: no column except Active is editable.  When a
+      // Domestic Active value changes, recalculate that row's Budget from the
+      // stored per-active budget rate so PDF, CSV, Excel, row selection, and
+      // Grand Total all use the edited value.  Commercial rows are untouched.
+      document.querySelectorAll('#normal-summary-table .domestic-active-input').forEach(function(input) {
+        input.addEventListener('input', function() {
+          updateDomesticActiveEdit(input, false);
+        });
+        input.addEventListener('change', function() {
+          updateDomesticActiveEdit(input, true);
+          applyPreviewSort('normal');
+          updateLocalStorageForTab('normal');
+        });
+        input.addEventListener('blur', function() {
+          updateDomesticActiveEdit(input, true);
         });
       });
 
