@@ -7,20 +7,29 @@
 {% block pill_label %}File Merger{% endblock %}
 {% block pill_detail %}Merge files{% endblock %}
 
+{# ── Load SheetJS (xlsx) and pdf-lib from CDN for client-side merging.
+   This avoids sending files to the server, so there is no payload size
+   limit — merging happens entirely in the browser. ── #}
+{% block head_extra %}
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+{% endblock %}
+
 {% block content %}
 <div class="page">
   <div class="content">
     <div class="page-header">
       <div class="page-tag">File Merger</div>
       <h1 class="dashboard-title">File Merger</h1>
-      <p class="dashboard-subtitle">Merge multiple CSV/Excel files into a single file, or combine multiple PDFs into one document. Files are merged in the order they are uploaded.</p>
+      <p class="dashboard-subtitle">Merge multiple CSV/Excel files into a single file, or combine multiple PDFs into one document. All processing happens in your browser — no data is sent to the server.</p>
     </div>
 
     <!-- ============================================================
          SECTION 1: CSV / Excel Merger
-         Merges multiple CSV or XLSX files into a single file.
-         Data is kept exactly as-is; only the first file's headers are used
-         to avoid duplicating header rows from subsequent files.
+         Merges multiple CSV or XLSX files into a single file entirely
+         in the browser using SheetJS. Data is kept exactly as-is;
+         only the first file's headers are used to avoid duplicating
+         header rows from subsequent files.
          ============================================================ -->
     <div class="section" id="csv-section">
       <div class="section-header" onclick="toggleSection('csv-section')">
@@ -32,20 +41,18 @@
         </div>
       </div>
       <div class="section-body">
-        <form id="csv-form" enctype="multipart/form-data" style="margin:0;">
-          <div class="upload-area" id="csv-drop" onclick="document.getElementById('csv-input').click();">
-            <div class="upload-icon-box">
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
-              </svg>
-            </div>
-            <div class="upload-text">
-              <strong>Drop CSV / Excel files here or click to browse</strong>
-              <span>Accepts .csv and .xlsx files. Multiple files allowed. Files are kept in upload order.</span>
-            </div>
-            <input type="file" id="csv-input" name="files" multiple accept=".csv,.xlsx" style="display:none;" onchange="handleCsvFiles(this.files)">
+        <div class="upload-area" id="csv-drop" onclick="document.getElementById('csv-input').click();">
+          <div class="upload-icon-box">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+            </svg>
           </div>
-        </form>
+          <div class="upload-text">
+            <strong>Drop CSV / Excel files here or click to browse</strong>
+            <span>Accepts .csv and .xlsx files. Multiple files allowed. Files are kept in upload order.</span>
+          </div>
+          <input type="file" id="csv-input" name="files" multiple accept=".csv,.xlsx" style="display:none;" onchange="handleCsvFiles(this.files)">
+        </div>
 
         <!-- File list: shows names and sizes of uploaded CSV/Excel files -->
         <div class="merger-file-list" id="csv-file-list"></div>
@@ -75,8 +82,9 @@
 
     <!-- ============================================================
          SECTION 2: PDF Merger
-         Merges multiple PDF files into one combined PDF.
-         Pages are kept in the exact order the files are uploaded.
+         Merges multiple PDF files into one combined PDF entirely in
+         the browser using pdf-lib. Pages are kept in the exact order
+         the files were uploaded.
          ============================================================ -->
     <div class="section" id="pdf-section">
       <div class="section-header" onclick="toggleSection('pdf-section')">
@@ -88,20 +96,18 @@
         </div>
       </div>
       <div class="section-body">
-        <form id="pdf-form" enctype="multipart/form-data" style="margin:0;">
-          <div class="upload-area" id="pdf-drop" onclick="document.getElementById('pdf-input').click();">
-            <div class="upload-icon-box">
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
-              </svg>
-            </div>
-            <div class="upload-text">
-              <strong>Drop PDF files here or click to browse</strong>
-              <span>Accepts .pdf files only. Multiple files allowed. Pages merge in upload order.</span>
-            </div>
-            <input type="file" id="pdf-input" name="files" multiple accept=".pdf" style="display:none;" onchange="handlePdfFiles(this.files)">
+        <div class="upload-area" id="pdf-drop" onclick="document.getElementById('pdf-input').click();">
+          <div class="upload-icon-box">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+            </svg>
           </div>
-        </form>
+          <div class="upload-text">
+            <strong>Drop PDF files here or click to browse</strong>
+            <span>Accepts .pdf files only. Multiple files allowed. Pages merge in upload order.</span>
+          </div>
+          <input type="file" id="pdf-input" name="files" multiple accept=".pdf" style="display:none;" onchange="handlePdfFiles(this.files)">
+        </div>
 
         <!-- File list: shows names and sizes of uploaded PDF files -->
         <div class="merger-file-list" id="pdf-file-list"></div>
@@ -217,9 +223,10 @@
 
 <script>
 /* ============================================================
-   FILE MERGER — Client-side logic
-   Handles file selection, display, drag-and-drop, and upload
-   via fetch to server-side merge endpoints. No page reloads.
+   FILE MERGER — Client-side merge logic
+   All merging happens in the browser using SheetJS and pdf-lib.
+   No files are sent to the server, so there is no payload size
+   limit — works on Vercel serverless without issues.
    ============================================================ */
 
 // ── State ──────────────────────────────────────────────────────
@@ -387,10 +394,10 @@ function clearPdfFiles() {
   document.getElementById('pdf-status').className = 'merger-status';
 }
 
-// ── Merge & Download: CSV / Excel ──────────────────────────────
-// Sends selected files to the server merge endpoint. The server
-// concatenates the data (preserving the first file's headers)
-// and returns the merged file as an attachment download.
+// ── Merge & Download: CSV / Excel (Client-Side) ────────────────
+// Reads each selected file using SheetJS (XLSX.read), extracts the
+// sheet data, concatenates all rows while keeping only the first
+// file's headers, then writes the result as CSV or XLSX for download.
 function mergeCsv(fmt) {
   var statusEl = document.getElementById('csv-status');
   if (csvFiles.length === 0) {
@@ -399,45 +406,111 @@ function mergeCsv(fmt) {
     return;
   }
 
-  var formData = new FormData();
-  for (var i = 0; i < csvFiles.length; i++) {
-    formData.append('files', csvFiles[i]);
-  }
-  formData.append('format', fmt);
-
   statusEl.innerHTML = '<span class="merger-spinner"></span> Merging ' + csvFiles.length + ' file(s)...';
   statusEl.className = 'merger-status loading';
 
-  fetch('/file-merger/merge-csv', { method: 'POST', body: formData })
-    .then(function(resp) {
-      if (!resp.ok) return resp.text().then(function(t) { throw new Error(t); });
-      // Extract filename from Content-Disposition header
-      var cd = resp.headers.get('Content-Disposition') || '';
-      var match = cd.match(/filename="?([^";\n]+)"?/);
-      var filename = match ? match[1] : 'merged.' + fmt;
-      return resp.blob().then(function(blob) { return { blob: blob, filename: filename }; });
-    })
-    .then(function(result) {
-      // Trigger browser download of the merged file
-      var url = URL.createObjectURL(result.blob);
-      var a = document.createElement('a');
-      a.href = url; a.download = result.filename;
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      statusEl.textContent = 'Merged file downloaded as ' + result.filename;
-      statusEl.className = 'merger-status success';
-    })
-    .catch(function(err) {
+  // Use setTimeout to allow the UI to update before heavy processing
+  setTimeout(function() {
+    try {
+      var allRows = [];
+      var headers = null;
+
+      // Process each file in order
+      for (var i = 0; i < csvFiles.length; i++) {
+        var file = csvFiles[i];
+        var ext = getExt(file.name);
+        var reader = new FileReader();
+
+        // Read file synchronously via readAsArrayBuffer
+        // (we use a promise-based approach below)
+      }
+
+      // Promise-based file reading to handle async FileReader
+      var readPromises = csvFiles.map(function(file) {
+        return new Promise(function(resolve, reject) {
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            resolve({ name: file.name, data: new Uint8Array(e.target.result) });
+          };
+          reader.onerror = function() { reject(new Error('Failed to read ' + file.name)); };
+          reader.readAsArrayBuffer(file);
+        });
+      });
+
+      Promise.all(readPromises).then(function(fileResults) {
+        var allRows = [];
+        var headers = null;
+
+        fileResults.forEach(function(result) {
+          // Parse the file with SheetJS (handles both CSV and XLSX)
+          var workbook = XLSX.read(result.data, { type: 'array' });
+          var sheetName = workbook.SheetNames[0];
+          var sheet = workbook.Sheets[sheetName];
+
+          // Convert sheet to JSON array-of-arrays (raw cell values)
+          var raw = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+          if (raw.length === 0) return; // skip empty files
+
+          if (headers === null) {
+            // First file: use its first row as the canonical headers
+            headers = raw[0];
+            allRows.push(headers);
+            // Add all data rows from the first file
+            for (var r = 1; r < raw.length; r++) {
+              allRows.push(raw[r]);
+            }
+          } else {
+            // Subsequent files: skip the header row (row 0) to avoid
+            // duplicating column headers. Only add data rows.
+            for (var r = 1; r < raw.length; r++) {
+              allRows.push(raw[r]);
+            }
+          }
+        });
+
+        if (allRows.length <= 1) {
+          statusEl.textContent = 'No data rows found in the selected files.';
+          statusEl.className = 'merger-status error';
+          return;
+        }
+
+        // Create a new workbook and populate it with merged data
+        var newWorkbook = XLSX.utils.book_new();
+        var newSheet = XLSX.utils.aoa_to_sheet(allRows);
+        XLSX.utils.book_append_sheet(newWorkbook, newSheet, 'Merged Data');
+
+        // Generate and download the file in the requested format
+        var timestamp = getTimestamp();
+        if (fmt === 'csv') {
+          var csvContent = XLSX.utils.sheet_to_csv(newSheet);
+          downloadBlob(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }),
+            'merged_' + timestamp + '.csv');
+        } else {
+          var xlsxBuffer = XLSX.write(newWorkbook, { bookType: 'xlsx', type: 'array' });
+          downloadBlob(new Blob([xlsxBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+            'merged_' + timestamp + '.xlsx');
+        }
+
+        statusEl.textContent = 'Merged ' + csvFiles.length + ' file(s) — downloaded as merged_' + timestamp + '.' + fmt;
+        statusEl.className = 'merger-status success';
+      }).catch(function(err) {
+        statusEl.textContent = 'Merge failed: ' + (err.message || 'Unknown error');
+        statusEl.className = 'merger-status error';
+      });
+
+    } catch (err) {
       statusEl.textContent = 'Merge failed: ' + (err.message || 'Unknown error');
       statusEl.className = 'merger-status error';
-    });
+    }
+  }, 50);
 }
 
-// ── Merge & Download: PDF ──────────────────────────────────────
-// Sends selected PDF files to the server merge endpoint. The
-// server concatenates them in upload order and returns the
-// combined PDF as a download.
+// ── Merge & Download: PDF (Client-Side) ────────────────────────
+// Reads each selected PDF file using pdf-lib (PDFDocument.load),
+// then copies all pages from each document into a new combined
+// document in the exact upload order. The merged PDF is serialized
+// and downloaded as a single file.
 function mergePdf() {
   var statusEl = document.getElementById('pdf-status');
   if (pdfFiles.length === 0) {
@@ -446,39 +519,84 @@ function mergePdf() {
     return;
   }
 
-  var formData = new FormData();
-  for (var i = 0; i < pdfFiles.length; i++) {
-    formData.append('files', pdfFiles[i]);
-  }
-
   statusEl.innerHTML = '<span class="merger-spinner"></span> Merging ' + pdfFiles.length + ' PDF(s)...';
   statusEl.className = 'merger-status loading';
 
-  fetch('/file-merger/merge-pdf', { method: 'POST', body: formData })
-    .then(function(resp) {
-      if (!resp.ok) return resp.text().then(function(t) { throw new Error(t); });
-      var cd = resp.headers.get('Content-Disposition') || '';
-      var match = cd.match(/filename="?([^";\n]+)"?/);
-      var filename = match ? match[1] : 'merged.pdf';
-      return resp.blob().then(function(blob) { return { blob: blob, filename: filename }; });
-    })
-    .then(function(result) {
-      var url = URL.createObjectURL(result.blob);
-      var a = document.createElement('a');
-      a.href = url; a.download = result.filename;
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      statusEl.textContent = 'Merged PDF downloaded as ' + result.filename;
-      statusEl.className = 'merger-status success';
-    })
-    .catch(function(err) {
+  setTimeout(function() {
+    try {
+      // Create a new empty PDF document to merge into
+      var mergedPdf = PDFLib.PDFDocument.create();
+
+      // Read all files as ArrayBuffer, then merge in order
+      var readPromises = pdfFiles.map(function(file) {
+        return new Promise(function(resolve, reject) {
+          var reader = new FileReader();
+          reader.onload = function(e) { resolve(e.target.result); };
+          reader.onerror = function() { reject(new Error('Failed to read ' + file.name)); };
+          reader.readAsArrayBuffer(file);
+        });
+      });
+
+      Promise.all(readPromises).then(function(arrayBuffers) {
+        var totalPages = 0;
+
+        // Copy pages from each PDF into the merged document
+        for (var i = 0; i < arrayBuffers.length; i++) {
+          var srcDoc = PDFLib.PDFDocument.load(arrayBuffers[i]);
+          var copiedPages = mergedPdf.copyPages(srcDoc, srcDoc.getPageIndices());
+          // Add each copied page to the merged document
+          copiedPages.forEach(function(page) {
+            mergedPdf.addPage(page);
+            totalPages++;
+          });
+        }
+
+        // Serialize the merged PDF and trigger download
+        return mergedPdf.save();
+      }).then(function(pdfBytes) {
+        var timestamp = getTimestamp();
+        var blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        downloadBlob(blob, 'merged_' + timestamp + '.pdf');
+
+        statusEl.textContent = 'Merged ' + pdfFiles.length + ' PDF(s) (' + totalPages + ' pages) — downloaded as merged_' + timestamp + '.pdf';
+        statusEl.className = 'merger-status success';
+      }).catch(function(err) {
+        statusEl.textContent = 'Merge failed: ' + (err.message || 'Unknown error');
+        statusEl.className = 'merger-status error';
+      });
+
+    } catch (err) {
       statusEl.textContent = 'Merge failed: ' + (err.message || 'Unknown error');
       statusEl.className = 'merger-status error';
-    });
+    }
+  }, 50);
 }
 
-// ── Utility ────────────────────────────────────────────────────
+// ── Utility Functions ──────────────────────────────────────────
+
+// Generate a timestamp string for filenames (YYYYMMDD_HHMMSS).
+function getTimestamp() {
+  var d = new Date();
+  return d.getFullYear() +
+    String(d.getMonth() + 1).padStart(2, '0') +
+    String(d.getDate()).padStart(2, '0') + '_' +
+    String(d.getHours()).padStart(2, '0') +
+    String(d.getMinutes()).padStart(2, '0') +
+    String(d.getSeconds()).padStart(2, '0');
+}
+
+// Trigger a browser download from a Blob with the given filename.
+function downloadBlob(blob, filename) {
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // Escape HTML entities to prevent XSS in file name display.
 function escapeHtml(text) {
   var div = document.createElement('div');

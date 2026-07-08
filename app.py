@@ -38,7 +38,6 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
-from pypdf import PdfReader, PdfWriter
 from werkzeug.utils import secure_filename
 
 def resource_path(*parts: str) -> str:
@@ -8877,162 +8876,17 @@ def export_consumer_report(fmt_type: str):
 
 
 # ---------------------------------------------------------------------------
-# File Merger Routes
+# File Merger Route
 # ---------------------------------------------------------------------------
-# These routes handle the File Merger page and its merge operations.
-# They are completely independent of all existing report/budget/PDF logic.
-
-# Allowed file extensions for the two merge sections.
-MERGER_CSV_EXTENSIONS = {".csv", ".xlsx"}
-MERGER_PDF_EXTENSIONS = {".pdf"}
+# The File Merger page uses client-side JavaScript (SheetJS + pdf-lib) for
+# all merging. Only the page render route is needed on the server.
+# No server-side merge endpoints are required.
 
 
 @app.route("/file-merger")
 def file_merger():
     """Render the File Merger page with CSV/Excel and PDF merge sections."""
     return render_template("file_merger.html", active_page="file_merger")
-
-
-@app.route("/file-merger/merge-csv", methods=["POST"])
-def merge_csv_files():
-    """Merge multiple CSV/Excel files into a single file.
-
-    Logic:
-    - Reads each uploaded file into a pandas DataFrame.
-    - Concatenates them vertically, using the first file's headers.
-    - Subsequent files' headers are skipped to avoid duplication.
-    - Returns the merged data as CSV (.csv) or Excel (.xlsx) download.
-    - Handles errors: no files, wrong type, empty files, read failures.
-    """
-    files = request.files.getlist("files")
-    fmt = request.form.get("format", "csv").strip().lower()
-
-    # Validate that at least one file was uploaded
-    if not files or all(f.filename == "" for f in files):
-        return "No files uploaded.", 400
-
-    # Validate output format
-    if fmt not in ("csv", "xlsx"):
-        return "Invalid format. Must be 'csv' or 'xlsx'.", 400
-
-    dataframes = []
-    for f in files:
-        if not f or f.filename == "":
-            continue
-        ext = os.path.splitext(f.filename)[1].lower()
-
-        # Skip files with wrong extension
-        if ext not in MERGER_CSV_EXTENSIONS:
-            continue
-
-        try:
-            # Read the file into a DataFrame.
-            # For the first file, we keep headers. For subsequent files,
-            # pandas will use the first file's column names since we
-            # concatenate with ignore_index=False.
-            if ext == ".csv":
-                df = pd.read_csv(f, header=0)
-            else:
-                df = pd.read_excel(f, header=0, engine="openpyxl")
-            dataframes.append(df)
-        except Exception:
-            # If a file can't be read, skip it silently.
-            # The merge will proceed with remaining valid files.
-            continue
-
-    # If no valid dataframes were created, return an error
-    if not dataframes:
-        return "No valid CSV or Excel files could be read.", 400
-
-    # Concatenate all DataFrames vertically.
-    # The first file's headers are used as the canonical column set.
-    # pd.concat preserves the column order from the first DataFrame.
-    merged = pd.concat(dataframes, ignore_index=True)
-
-    # Build a timestamped filename for the download
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-    if fmt == "csv":
-        # Return merged data as CSV
-        out = io.StringIO()
-        merged.to_csv(out, index=False)
-        filename = f"merged_{timestamp}.csv"
-        return Response(
-            out.getvalue(),
-            mimetype="text/csv",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-        )
-    else:
-        # Return merged data as Excel (.xlsx)
-        buf = io.BytesIO()
-        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-            merged.to_excel(writer, sheet_name="Merged Data", index=False)
-        buf.seek(0)
-        filename = f"merged_{timestamp}.xlsx"
-        return Response(
-            buf.getvalue(),
-            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-        )
-
-
-@app.route("/file-merger/merge-pdf", methods=["POST"])
-def merge_pdf_files():
-    """Merge multiple PDF files into a single PDF.
-
-    Logic:
-    - Uses pypdf to read each uploaded PDF file.
-    - Appends all pages in the order files were uploaded.
-    - Returns the combined PDF as a download.
-    - Handles errors: no files, wrong type, empty files, read failures.
-    """
-    files = request.files.getlist("files")
-
-    # Validate that at least one file was uploaded
-    if not files or all(f.filename == "" for f in files):
-        return "No files uploaded.", 400
-
-    writer = PdfWriter()
-    file_count = 0
-
-    for f in files:
-        if not f or f.filename == "":
-            continue
-        ext = os.path.splitext(f.filename)[1].lower()
-
-        # Skip non-PDF files
-        if ext not in MERGER_PDF_EXTENSIONS:
-            continue
-
-        try:
-            reader = PdfReader(f)
-            # Append every page from this PDF, preserving page order.
-            # Pages from each file are added sequentially, so the
-            # final PDF matches the upload order exactly.
-            for page in reader.pages:
-                writer.add_page(page)
-            file_count += 1
-        except Exception:
-            # If a PDF can't be read, skip it silently.
-            # The merge will proceed with remaining valid files.
-            continue
-
-    # If no valid PDFs were processed, return an error
-    if file_count == 0:
-        return "No valid PDF files could be read.", 400
-
-    # Write the merged PDF to a BytesIO buffer and return as download
-    out = io.BytesIO()
-    writer.write(out)
-    out.seek(0)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"merged_{timestamp}.pdf"
-    return Response(
-        out.getvalue(),
-        mimetype="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
 
 
 if __name__ == "__main__":
