@@ -1636,6 +1636,10 @@ def _filter_rows_by_selection(rows: list, key_func) -> list:
     return [row for row in rows if key_func(row) not in keys]
 
 
+def _staff_row_key(row: list) -> str:
+    return f"{row[1]}|||{row[2]}|||{row[3]}|||{row[4]}"
+
+
 def _selection_has_filter() -> bool:
     mode, _ = _export_row_selection()
     return bool(mode)
@@ -4277,6 +4281,10 @@ def get_bill_list_context():
         "sectors": sector_rows,
         "zone_options": ["A", "B", "C", "Commercial", "Unassigned"],
         "unpaid_amount_summary": unpaid_amount_summary,
+        "summary_report_zones": get_zones_summary(),
+        "summary_report_sectors": get_sectors_summary(),
+        "summary_report_staff": get_staff_summary(),
+        "staff_report_rows": bill_list_staff_export_rows()[1],
     }
 
 
@@ -5871,6 +5879,8 @@ def export_bill_list_staff(fmt_type: str):
     cols_param = request.args.get("cols")
     summary_cols_param = request.args.get("summary_cols")
     headers, rows = bill_list_staff_export_rows(staff_id)
+    # Staff-wise exports must use only the rows currently checked in the page table.
+    rows = _filter_rows_by_selection(rows, _staff_row_key)
     if fmt_type == "pdf":
         pdf_bytes = generate_staff_report_pdf(rows, show_summary=show_summary, cols_param=cols_param, summary_cols_param=summary_cols_param)
         suffix = f"_{staff_id}" if staff_id else ""
@@ -6067,6 +6077,18 @@ def export_six_month_pitch(fmt_type: str):
         pitch_grand["totalAmount"] += total_amount
         pitch_grand["amountReceived"] += amount_received
         pitch_grand["currentBillAmount"] += current_bill
+
+    # The six-month season report follows the same checkbox selection rule as the visible staff rows.
+    pitch_rows = _filter_rows_by_selection(pitch_rows, lambda row: str(row[1]))
+    if _selection_has_filter():
+        pitch_grand = {
+            "totalBills": sum(parse_number(row[2]) for row in pitch_rows),
+            "receivedBills": sum(parse_number(row[3]) for row in pitch_rows),
+            "remainingBills": sum(parse_number(row[4]) for row in pitch_rows),
+            "totalAmount": sum(parse_number(row[5]) for row in pitch_rows),
+            "amountReceived": sum(parse_number(row[6]) for row in pitch_rows),
+            "currentBillAmount": sum(parse_number(row[7]) for row in pitch_rows),
+        }
 
     pitch_grand_row = ["", "Grand Total", fmt(pitch_grand["totalBills"]), fmt(pitch_grand["receivedBills"]), fmt(pitch_grand["remainingBills"]), fmt(pitch_grand["totalAmount"]), fmt(pitch_grand["amountReceived"]), fmt(pitch_grand["currentBillAmount"])]
 
@@ -6341,6 +6363,8 @@ def generate_summary_pdf(title: str, headers: list[str], rows: list[list], total
 
 
 def export_summary_response(fmt_type: str, title: str, data: list[dict], filename_prefix: str, show_summary: bool = True, cols_param: str = None):
+    # Summary card exports are filtered by the row checkboxes before totals are generated.
+    data = _filter_rows_by_selection(data, lambda item: str(item["name"]))
     all_headers = ["Name", "Count", "Total Amount"]
     all_rows = [[item["name"], fmt(item["count"]), fmt(item["total_amount"])] for item in data]
     headers, rows = parse_export_cols(cols_param, SUMMARY_COL_MAP, all_headers, all_rows)

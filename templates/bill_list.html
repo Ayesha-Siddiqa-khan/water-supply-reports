@@ -165,7 +165,7 @@
               </div>
               <div class="summary-tab-body">
                 <p class="muted">Zone-wise count and total amount summary.</p>
-                <div class="export-bar" data-col-config="summaryReportZones">
+                <div class="export-bar" data-col-config="summaryReportZones" data-row-scope="summary-zones">
                   <a class="chip" href="{{ url_for('export_zones_summary', fmt_type='pdf') }}">&#11015; PDF</a>
                   <a class="chip" href="{{ url_for('export_zones_summary', fmt_type='csv') }}">&#11015; CSV</a>
                   <a class="chip" href="{{ url_for('export_zones_summary', fmt_type='xlsx') }}">&#11015; Excel</a>
@@ -175,6 +175,18 @@
                   <div class="col-chips" id="col-chips-summaryReportZones"></div>
                 </div>
                 <div class="column-selector-wrapper" data-col-config="summaryReportZones" style="display:none;"></div>
+                <div class="table-wrapper" style="max-height:260px;margin-top:12px;">
+                  <table class="data-table" data-select-scope="summary-zones">
+                    <thead><tr><th>Name</th><th>Count</th><th>Total Amount</th></tr></thead>
+                    <tbody>
+                      {% for row in summary_report_zones %}
+                        <tr data-row-key="{{ row.name }}"><td>{{ row.name }}</td><td class="mono">{{ "{:,}".format(row.count) }}</td><td class="mono">{{ "{:,.0f}".format(row.total_amount) }}</td></tr>
+                      {% else %}
+                        <tr><td colspan="3">No zone summary data.</td></tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
             <div class="summary-tab collapsed" id="tab-sectors-summary">
@@ -185,7 +197,7 @@
               </div>
               <div class="summary-tab-body">
                 <p class="muted">Sector-wise count and total amount summary.</p>
-                <div class="export-bar" data-col-config="summaryReportSectors">
+                <div class="export-bar" data-col-config="summaryReportSectors" data-row-scope="summary-sectors">
                   <a class="chip" href="{{ url_for('export_sectors_summary', fmt_type='pdf') }}">&#11015; PDF</a>
                   <a class="chip" href="{{ url_for('export_sectors_summary', fmt_type='csv') }}">&#11015; CSV</a>
                   <a class="chip" href="{{ url_for('export_sectors_summary', fmt_type='xlsx') }}">&#11015; Excel</a>
@@ -195,6 +207,18 @@
                   <div class="col-chips" id="col-chips-summaryReportSectors"></div>
                 </div>
                 <div class="column-selector-wrapper" data-col-config="summaryReportSectors" style="display:none;"></div>
+                <div class="table-wrapper" style="max-height:260px;margin-top:12px;">
+                  <table class="data-table" data-select-scope="summary-sectors">
+                    <thead><tr><th>Name</th><th>Count</th><th>Total Amount</th></tr></thead>
+                    <tbody>
+                      {% for row in summary_report_sectors %}
+                        <tr data-row-key="{{ row.name }}"><td>{{ row.name }}</td><td class="mono">{{ "{:,}".format(row.count) }}</td><td class="mono">{{ "{:,.0f}".format(row.total_amount) }}</td></tr>
+                      {% else %}
+                        <tr><td colspan="3">No sector summary data.</td></tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
             <div class="summary-tab collapsed" id="tab-staff-summary">
@@ -205,7 +229,7 @@
               </div>
               <div class="summary-tab-body">
                 <p class="muted">Staff-wise count and total amount summary.</p>
-                <div class="export-bar" data-col-config="summaryReportStaff">
+                <div class="export-bar" data-col-config="summaryReportStaff" data-row-scope="summary-staff">
                   <a class="chip" href="{{ url_for('export_staff_summary', fmt_type='pdf') }}">&#11015; PDF</a>
                   <a class="chip" href="{{ url_for('export_staff_summary', fmt_type='csv') }}">&#11015; CSV</a>
                   <a class="chip" href="{{ url_for('export_staff_summary', fmt_type='xlsx') }}">&#11015; Excel</a>
@@ -215,6 +239,18 @@
                   <div class="col-chips" id="col-chips-summaryReportStaff"></div>
                 </div>
                 <div class="column-selector-wrapper" data-col-config="summaryReportStaff" style="display:none;"></div>
+                <div class="table-wrapper" style="max-height:260px;margin-top:12px;">
+                  <table class="data-table" data-select-scope="summary-staff">
+                    <thead><tr><th>Name</th><th>Count</th><th>Total Amount</th></tr></thead>
+                    <tbody>
+                      {% for row in summary_report_staff %}
+                        <tr data-row-key="{{ row.name }}"><td>{{ row.name|safe }}</td><td class="mono">{{ "{:,}".format(row.count) }}</td><td class="mono">{{ "{:,.0f}".format(row.total_amount) }}</td></tr>
+                      {% else %}
+                        <tr><td colspan="3">No staff summary data.</td></tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
         </div>
@@ -396,7 +432,7 @@
               </div>
             </div>
           </label>
-          <div class="export-bar" style="align-self:flex-end;" data-col-config="staffWise">
+          <div class="export-bar" style="align-self:flex-end;" data-col-config="staffWise" data-row-scope="staff-wise">
             <a class="chip staff-export-link" data-format="pdf" href="{{ url_for('export_bill_list_staff', fmt_type='pdf') }}">&#11015; Staff PDF</a>
             <a class="chip staff-export-link" data-format="csv" href="{{ url_for('export_bill_list_staff', fmt_type='csv') }}">&#11015; Staff CSV</a>
             <a class="chip staff-export-link" data-format="xlsx" href="{{ url_for('export_bill_list_staff', fmt_type='xlsx') }}">&#11015; Staff Excel</a>
@@ -412,6 +448,19 @@
           <div class="col-chips" id="col-chips-staffSummary"></div>
         </div>
         <div class="column-selector-wrapper" data-col-config="staffSummary" style="display:none;"></div>
+
+        <div class="table-wrapper" style="max-height:320px;margin:14px 0 20px;">
+          <table class="data-table" data-select-scope="staff-wise">
+            <thead><tr><th>Sr</th><th>Staff</th><th>Zone</th><th>Sector</th><th>Locality</th><th>Total Bills</th><th>Received Bills</th><th>Remaining Bills</th><th>Amount Received</th><th>Pending Amount</th></tr></thead>
+            <tbody>
+              {% for row in staff_report_rows %}
+                <tr data-row-key="{{ row[1] }}|||{{ row[2] }}|||{{ row[3] }}|||{{ row[4] }}"><td>{{ row[0] }}</td><td>{{ row[1] }}</td><td>{{ row[2] }}</td><td>{{ row[3] }}</td><td>{{ row[4] or 'All localities' }}</td><td class="mono">{{ row[5] }}</td><td class="mono">{{ row[6] }}</td><td class="mono">{{ row[7] }}</td><td class="mono">{{ row[8] }}</td><td class="mono">{{ row[9] }}</td></tr>
+              {% else %}
+                <tr><td colspan="10">No staff-wise report rows available.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
 
         <div class="form-grid" style="margin-bottom:24px;">
           <form method="post">
@@ -574,7 +623,7 @@
             </select>
           </label>
         </div>
-        <div class="export-bar" data-col-config="sixMonthPitch">
+        <div class="export-bar" data-col-config="sixMonthPitch" data-row-scope="six-month-staff">
           <a class="chip" href="{{ url_for('export_six_month_pitch', fmt_type='pdf') }}">&#11015; Season PDF</a>
           <a class="chip" href="{{ url_for('export_six_month_pitch', fmt_type='csv') }}">&#11015; Season CSV</a>
           <a class="chip" href="{{ url_for('export_six_month_pitch', fmt_type='xlsx') }}">&#11015; Season Excel</a>
@@ -584,6 +633,18 @@
           <div class="col-chips" id="col-chips-sixMonthPitch"></div>
         </div>
         <div class="column-selector-wrapper" data-col-config="sixMonthPitch" style="display:none;"></div>
+        <div class="table-wrapper" style="max-height:260px;margin-top:12px;">
+          <table class="data-table" data-select-scope="six-month-staff">
+            <thead><tr><th>Staff Name</th><th>Bills</th><th>Total Amount</th></tr></thead>
+            <tbody>
+              {% for row in summary_report_staff %}
+                <tr data-row-key="{{ row.name }}"><td>{{ row.name|safe }}</td><td class="mono">{{ "{:,}".format(row.count) }}</td><td class="mono">{{ "{:,.0f}".format(row.total_amount) }}</td></tr>
+              {% else %}
+                <tr><td colspan="3">No staff rows available.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 

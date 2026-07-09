@@ -121,14 +121,28 @@
   }
 
   /* ── Upload handler ────────────────────────────────────── */
+  function getUploadFileLabel(form) {
+    var fileInput = form ? form.querySelector('input[type=file]') : null;
+    if (!fileInput || !fileInput.files || !fileInput.files.length) return 'Preparing upload...';
+    var names = [];
+    for (var i = 0; i < fileInput.files.length; i++) names.push(fileInput.files[i].name);
+    var fileLabel = names.join(', ');
+    return fileLabel.length > 60 ? fileLabel.substring(0, 57) + '...' : fileLabel;
+  }
+
   function submitWithoutProgress(form) {
     if (!form || form.getAttribute('data-upload-fallback-submitted') === 'true') return;
     form.setAttribute('data-upload-fallback-submitted', 'true');
-    setFormLoading(form, false);
-    // Vercel can reject the XMLHttpRequest upload route with 404/405 while a
-    // plain browser form POST still reaches Flask. Fall back to the native
-    // submit path so uploads are not blocked by the progress overlay.
-    HTMLFormElement.prototype.submit.call(form);
+    setFormLoading(form, true);
+    var overlay = createOverlay();
+    updateOverlay(overlay, 'uploading', 'Uploading file...', getUploadFileLabel(form), 15);
+    // Native/Vercel posts do not expose browser upload progress, but showing
+    // the overlay before submit makes every upload page visibly enter an
+    // uploading state until the browser navigates to the processed report.
+    setTimeout(function () {
+      updateOverlay(overlay, 'processing', 'Uploading file...', 'Sending file to the server...');
+      HTMLFormElement.prototype.submit.call(form);
+    }, 80);
   }
 
   function shouldUseNativeUpload() {
@@ -140,11 +154,7 @@
     var fileInput = form.querySelector('input[type=file]');
     if (!fileInput || !fileInput.files || !fileInput.files.length) return;
 
-    var files = fileInput.files;
-    var names = [];
-    for (var i = 0; i < files.length; i++) names.push(files[i].name);
-    var fileLabel = names.join(', ');
-    if (fileLabel.length > 60) fileLabel = fileLabel.substring(0, 57) + '...';
+    var fileLabel = getUploadFileLabel(form);
 
     setFormLoading(form, true);
 
