@@ -121,6 +121,21 @@
   }
 
   /* ── Upload handler ────────────────────────────────────── */
+  function submitWithoutProgress(form) {
+    if (!form || form.getAttribute('data-upload-fallback-submitted') === 'true') return;
+    form.setAttribute('data-upload-fallback-submitted', 'true');
+    setFormLoading(form, false);
+    // Vercel can reject the XMLHttpRequest upload route with 404/405 while a
+    // plain browser form POST still reaches Flask. Fall back to the native
+    // submit path so uploads are not blocked by the progress overlay.
+    HTMLFormElement.prototype.submit.call(form);
+  }
+
+  function shouldUseNativeUpload() {
+    var host = window.location.hostname;
+    return host !== 'localhost' && host !== '127.0.0.1' && host !== '::1';
+  }
+
   function handleUpload(form) {
     var fileInput = form.querySelector('input[type=file]');
     if (!fileInput || !fileInput.files || !fileInput.files.length) return;
@@ -182,15 +197,24 @@
             }, 2500);
           }
         } catch (e) {
-          updateOverlay(overlay, 'error', 'Upload failed', 'Invalid server response');
-          showToast('Upload failed. Please try again.', true);
-          console.error('Parse error:', e, xhr.responseText);
+          updateOverlay(overlay, 'processing', 'Finishing upload...', 'Reloading report page...');
+          console.warn('Upload returned non-JSON response; reloading.', e);
           setTimeout(function () {
             removeOverlay(overlay);
             setFormLoading(form, false);
-          }, 2500);
+            window.location.href = xhr.responseURL || window.location.href;
+          }, 600);
         }
       } else {
+        if (xhr.status === 404 || xhr.status === 405) {
+          updateOverlay(overlay, 'processing', 'Retrying upload...', 'Using standard form upload...');
+          console.warn('XHR upload route returned', xhr.status, '— retrying with native form POST.');
+          setTimeout(function () {
+            removeOverlay(overlay);
+            submitWithoutProgress(form);
+          }, 500);
+          return;
+        }
         updateOverlay(overlay, 'error', 'Upload failed', 'Server error (' + xhr.status + ')');
         showToast('Upload failed (HTTP ' + xhr.status + '). Please try again.', true);
         console.error('HTTP error:', xhr.status, xhr.responseText);
@@ -221,6 +245,17 @@
       (function (form) {
         var fileInput = form.querySelector('input[type=file]');
         if (!fileInput) return;
+
+        if (shouldUseNativeUpload()) {
+          fileInput.addEventListener('change', function () {
+            if (fileInput.files && fileInput.files.length > 0) {
+              // Production/Vercel upload requests are more reliable as normal
+              // browser form posts than XHR multipart requests.
+              submitWithoutProgress(form);
+            }
+          });
+          return;
+        }
 
         // Remove auto-submit onchange handlers
         fileInput.removeAttribute('onchange');
