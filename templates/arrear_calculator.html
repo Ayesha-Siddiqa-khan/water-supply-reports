@@ -1,0 +1,869 @@
+{% extends "base.html" %}
+{% block title %}Water Supply Report — Arrear Calculator{% endblock %}
+{% block meta_description %}Upload a connections CSV to calculate arrears grouped by sector and locality.{% endblock %}
+{% block active_page %}arrear_calc{% endblock %}
+{% block breadcrumb %}Arrear Calculator{% endblock %}
+
+{% block topbar_actions %}
+  <div id="topbar-export-btns" style="display:none;">
+    <div style="display:flex;gap:8px;align-items:center;">
+      <a class="topbar-btn export-link" data-fmt="csv" href="{{ url_for('export_arrear_calculator', fmt_type='csv') }}">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 6l3 3 3-3"/></svg>
+        <span>CSV</span>
+      </a>
+      <a class="topbar-btn export-link" data-fmt="xlsx" href="{{ url_for('export_arrear_calculator', fmt_type='xlsx') }}">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 6l3 3 3-3"/></svg>
+        <span>Excel</span>
+      </a>
+      <a class="topbar-btn export-link" data-fmt="pdf" href="{{ url_for('export_arrear_calculator', fmt_type='pdf') }}">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 6l3 3 3-3"/></svg>
+        <span>PDF</span>
+      </a>
+    </div>
+  </div>
+{% endblock %}
+
+{% block pill_label %}Arrears{% endblock %}
+{% block pill_detail %}
+  {% if summary %}{{ summary.total_connections }} connections{% else %}Awaiting data{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="content">
+    <div class="page-header">
+      <div class="page-tag">Arrear Calculator</div>
+      <h1 class="page-title">Arrear Calculator</h1>
+      <p class="page-subtitle">Upload a connections CSV to calculate year-wise arrears grouped by Sector and Locality.</p>
+    </div>
+
+    <!-- Upload Area -->
+    <div id="upload-area" class="upload-area" onclick="document.getElementById('csv-file-input').click();">
+      <div class="upload-icon-box">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+        </svg>
+      </div>
+      <div class="upload-text">
+        <strong>Upload Connections CSV</strong>
+        <span>CSV or XLSX. Expected columns: Sector, Locality, Connection Date, Total Arrears, Status.</span>
+      </div>
+      <div id="upload-status" style="display:none;margin-top:10px;font-size:12px;color:var(--teal);"></div>
+      <input type="file" id="csv-file-input" accept=".csv" style="display:none;">
+    </div>
+
+    {% if not summary %}
+    <div class="empty-state">
+      <div class="empty-state-icon">&#128203;</div>
+      <div class="empty-state-title">No arrear report generated</div>
+      <div class="empty-state-desc">Upload a connections CSV file above to see the year-wise arrear summary. The report groups connections by <strong>Sector + Locality</strong> and calculates arrears per financial year.</div>
+    </div>
+    {% endif %}
+
+    {% if summary %}
+    <!-- STAT GRID -->
+    <div class="stat-grid">
+      <div class="stat-card teal">
+        <div class="stat-card-icon">&#128203;</div>
+        <div class="stat-label">Total Records</div>
+        <div class="stat-value" data-count="{{ summary.total_rows }}">0</div>
+        <div class="stat-delta">Uploaded rows</div>
+      </div>
+      <div class="stat-card violet">
+        <div class="stat-card-icon">&#127970;</div>
+        <div class="stat-label">Sectors</div>
+        <div class="stat-value" data-count="{{ summary.sector_count }}">0</div>
+        <div class="stat-delta">Unique sectors</div>
+      </div>
+      <div class="stat-card coral">
+        <div class="stat-card-icon">&#128205;</div>
+        <div class="stat-label">Localities</div>
+        <div class="stat-value" data-count="{{ summary.locality_count }}">0</div>
+        <div class="stat-delta">Unique localities</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-card-icon">&#128176;</div>
+        <div class="stat-label">Grand Total Arrears</div>
+        <div class="stat-value" data-count="{{ summary.grand_total_arrears|int }}">0</div>
+        <div class="stat-delta">Sum of all arrears</div>
+      </div>
+    </div>
+
+    <!-- Status summary cards -->
+    <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);">
+      <div class="stat-card" style="border-left:3px solid var(--coral);">
+        <div class="stat-label">Closed</div>
+        <div class="stat-value" data-count="{{ summary.grand_status.closed }}" style="color:var(--coral);">0</div>
+      </div>
+      <div class="stat-card" style="border-left:3px solid var(--amber);">
+        <div class="stat-label">Suspended</div>
+        <div class="stat-value" data-count="{{ summary.grand_status.suspended }}" style="color:var(--amber);">0</div>
+      </div>
+      <div class="stat-card" style="border-left:3px solid var(--teal);">
+        <div class="stat-label">Active</div>
+        <div class="stat-value" data-count="{{ summary.grand_status.active }}" style="color:var(--teal);">0</div>
+      </div>
+      <div class="stat-card" style="border-left:3px solid var(--violet);">
+        <div class="stat-label">Open</div>
+        <div class="stat-value" data-count="{{ summary.grand_status.open }}" style="color:var(--violet);">0</div>
+      </div>
+    </div>
+
+    <!-- Section: Summary Table -->
+    <div class="section collapsed" id="sec-arrear-summary">
+      <div class="section-header" onclick="toggleSection('sec-arrear-summary')">
+        <div class="section-header-icon">&#128202;</div>
+        <div class="section-title">Sector + Locality Summary</div>
+        <span class="section-badge">{{ summary.rows|length }} rows</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="section-body">
+        {% if filename %}
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">
+          Source: {{ filename }} &middot; {{ total_rows|default(0)|int }} total records &middot; {{ summary.sector_count }} sectors &middot; {{ summary.locality_count }} localities
+        </div>
+        {% endif %}
+
+        <!-- Export bar -->
+        <div class="export-bar" style="margin-bottom:10px;">
+          <a class="chip export-link" data-fmt="csv" href="{{ url_for('export_arrear_calculator', fmt_type='csv') }}">&#11015; Download CSV</a>
+          <a class="chip export-link" data-fmt="xlsx" href="{{ url_for('export_arrear_calculator', fmt_type='xlsx') }}">&#11015; Download Excel</a>
+        </div>
+
+        <!-- Sort controls -->
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);">
+          <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">PDF Sort Settings:</span>
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);">
+            Status Priority:
+            <select id="sort-priority" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text-primary);">
+              <option value="active_first" selected>Active First</option>
+              <option value="suspended_first">Suspended First</option>
+              <option value="closed_first">Closed First</option>
+              <option value="open_first">Open First</option>
+            </select>
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);">
+            Sort Order:
+            <select id="sort-order" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text-primary);">
+              <option value="desc" selected>Highest to Lowest</option>
+              <option value="asc">Lowest to Highest</option>
+            </select>
+          </label>
+          <a id="pdf-download-btn" class="chip" href="{{ url_for('export_arrear_calculator', fmt_type='pdf', priority='active_first', order='desc') }}">&#11015; Download PDF</a>
+        </div>
+
+        <!-- PDF Column Visibility -->
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);">
+          <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">PDF Columns:</span>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="sr" checked> SR
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="sector" checked> Sector
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="locality" checked> Locality
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="fy2023" checked> 2023-2024
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="fy2024" checked> 2024-2025
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="fy2025" checked> 2025-2026
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="closed" checked> Closed
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="suspended" checked> Suspended
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="active" checked> Active
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="open" checked> Open
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="total" checked> Total Connections
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="arrears" checked> Total Arrears
+          </label>
+        </div>
+
+        <!-- Summary Table -->
+        {% if summary and summary.rows %}
+        <div class="table-wrapper">
+          <table class="data-table" id="arrear-summary-table">
+            <thead>
+              <tr>
+                <th style="width:40px;text-align:center"><input type="checkbox" id="select-all" checked title="Select/Deselect All"></th>
+                <th style="width:50px;text-align:center">SR</th>
+                <th style="text-align:left">Sector</th>
+                <th style="text-align:left">Locality</th>
+                <th style="width:95px;text-align:right">2023-2024</th>
+                <th style="width:95px;text-align:right">2024-2025</th>
+                <th style="width:95px;text-align:right">2025-2026</th>
+                <th style="width:70px;text-align:center">Closed</th>
+                <th style="width:80px;text-align:center">Suspended</th>
+                <th style="width:70px;text-align:center">Active</th>
+                <th style="width:65px;text-align:center">Open</th>
+                <th style="width:80px;text-align:center">Total Conn.</th>
+                <th style="width:110px;text-align:right">Total Arrears</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in summary.rows %}
+              <tr data-serial="{{ row.serial }}"
+                  data-fy2023="{{ row.fy2023 }}"
+                  data-fy2024="{{ row.fy2024 }}"
+                  data-fy2025="{{ row.fy2025 }}"
+                  data-closed="{{ row.closed }}"
+                  data-suspended="{{ row.suspended }}"
+                  data-active="{{ row.active }}"
+                  data-open="{{ row.open }}"
+                  data-total="{{ row.total_connections }}"
+                  data-arrears="{{ row.total_arrears }}"
+                  data-sector="{{ row.sector }}"
+                  data-locality="{{ row.locality }}">
+                <td style="text-align:center"><input type="checkbox" class="row-checkbox" checked></td>
+                <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
+                <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
+                <td style="text-align:left;">{{ row.locality }}</td>
+                <td style="text-align:right;font-weight:500;">{{ "{:,.0f}".format(row.fy2023) }}</td>
+                <td style="text-align:right;font-weight:500;">{{ "{:,.0f}".format(row.fy2024) }}</td>
+                <td style="text-align:right;font-weight:500;">{{ "{:,.0f}".format(row.fy2025) }}</td>
+                <td style="text-align:center;color:var(--coral);">{{ row.closed }}</td>
+                <td style="text-align:center;color:var(--amber);">{{ row.suspended }}</td>
+                <td style="text-align:center;color:var(--teal);">{{ row.active }}</td>
+                <td style="text-align:center;color:var(--violet);">{{ row.open }}</td>
+                <td style="text-align:center;font-weight:600;">{{ row.total_connections }}</td>
+                <td class="row-arrears-cell" style="text-align:right;font-weight:600;color:var(--amber);">{{ "{:,.0f}".format(row.total_arrears) }}</td>
+              </tr>
+              {% endfor %}
+              <tr class="grand-total-row" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
+                <td colspan="4" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL <span id="selected-count" style="font-size:11px;font-weight:400;color:var(--text-muted);"></span></td>
+                <td id="gt-fy2023" style="text-align:right;font-weight:700;color:var(--text-primary);font-size:13px;">{{ "{:,.0f}".format(summary.grand_fy2023) }}</td>
+                <td id="gt-fy2024" style="text-align:right;font-weight:700;color:var(--text-primary);font-size:13px;">{{ "{:,.0f}".format(summary.grand_fy2024) }}</td>
+                <td id="gt-fy2025" style="text-align:right;font-weight:700;color:var(--text-primary);font-size:13px;">{{ "{:,.0f}".format(summary.grand_fy2025) }}</td>
+                <td id="gt-closed" style="text-align:center;font-weight:700;color:var(--coral);font-size:15px;">{{ summary.grand_status.closed }}</td>
+                <td id="gt-suspended" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ summary.grand_status.suspended }}</td>
+                <td id="gt-active" style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ summary.grand_status.active }}</td>
+                <td id="gt-open" style="text-align:center;font-weight:700;color:var(--violet);font-size:15px;">{{ summary.grand_status.open }}</td>
+                <td id="gt-total" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ summary.total_connections }}</td>
+                <td id="gt-arrears" style="text-align:right;font-weight:700;color:var(--amber);font-size:14px;">{{ "{:,.0f}".format(summary.grand_total_arrears) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">
+          No records found in the uploaded file.
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+
+    <!-- Clear Data -->
+    <form method="post" action="{{ url_for('arrear_calculator') }}" style="margin-top:16px;">
+      <input type="hidden" name="action" value="clear">
+      <button type="submit" class="topbar-btn" style="color:var(--coral);border:1px solid var(--coral);background:transparent;">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10M5 4V3a1 1 0 011-1h2a1 1 0 011 1v1M3 4l.7 8.1a1 1 0 001 .9h4.6a1 1 0 001-.9L11 4"/></svg>
+        <span>Clear Data</span>
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+function toggleSection(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+(function() {
+  // ======================================================================
+  // CSV Column Aliases — map flexible header names to canonical keys
+  // ======================================================================
+  var COL_ALIASES = {
+    sr: ['sr','sr #','sr#','serial','s no','s.no','serial no','serial number','sr no'],
+    consumer_name: ['consumer name / f/h name','consumer name','consumer','name'],
+    fh_name: ['f/h name','f h name','father name','father','f/h','guardian'],
+    cnic: ['cnic'],
+    mobile: ['mobile','phone','cell','contact'],
+    sector: ['sector'],
+    locality: ['locality'],
+    address: ['address'],
+    rate_type: ['rate type','rate type'],
+    connection_number: ['connection no.','connection no','connection number','connection'],
+    old_connection: ['old connection no.','old connection no','old connection number','old connection'],
+    reference_no: ['reference no','ref no','ref. no'],
+    connection_date: ['connection date','conn date','date of connection','connect date'],
+    water_rate: ['water rate'],
+    sanitation_rate: ['sanitation rate'],
+    drainage_rate: ['drainage rate'],
+    water_arrears: ['water arrears'],
+    sanitation_arrears: ['sanitation arrears'],
+    drainage_arrears: ['drainage arrears'],
+    fine_arrears: ['fine arrears'],
+    total_arrears: ['total arrears','arrears','total arrears (rs.)'],
+    status: ['status','connection status','conn status']
+  };
+
+  function normCol(n) { return n.trim().toLowerCase().replace(/_/g,' ').replace(/\s+/g,' ').replace(/[()]/g,'').trim(); }
+
+  function resolveColumns(headers) {
+    var norm = headers.map(normCol);
+    var resolved = {};
+    // Pass 1: exact match
+    Object.keys(COL_ALIASES).forEach(function(key) {
+      if (resolved[key] !== undefined) return;
+      COL_ALIASES[key].forEach(function(alias) {
+        if (resolved[key] !== undefined) return;
+        var normAlias = normCol(alias);
+        for (var i = 0; i < norm.length; i++) {
+          if (norm[i] === normAlias) { resolved[key] = i; break; }
+        }
+      });
+    });
+    // Pass 2: partial match (alias is contained in header)
+    Object.keys(COL_ALIASES).forEach(function(key) {
+      if (resolved[key] !== undefined) return;
+      COL_ALIASES[key].forEach(function(alias) {
+        if (resolved[key] !== undefined) return;
+        var normAlias = normCol(alias);
+        for (var i = 0; i < norm.length; i++) {
+          if (norm[i].indexOf(normAlias) !== -1 && normAlias.length >= 3) { resolved[key] = i; break; }
+        }
+      });
+    });
+    return resolved;
+  }
+
+  // ======================================================================
+  // CSV Line Parser (handles quoted fields with commas)
+  // ======================================================================
+  function parseCSVLine(line) {
+    var result = [];
+    var current = '';
+    var inQuotes = false;
+    for (var i = 0; i < line.length; i++) {
+      var ch = line[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (i + 1 < line.length && line[i+1] === '"') { current += '"'; i++; }
+          else if (i + 1 === line.length || line[i+1] === ',') { inQuotes = false; }
+          else { current += ch; }
+        } else { current += ch; }
+      } else {
+        if (ch === '"' && current.length === 0) { inQuotes = true; }
+        else if (ch === ',') { result.push(current); current = ''; }
+        else { current += ch; }
+      }
+    }
+    result.push(current);
+    return result;
+  }
+
+  // ======================================================================
+  // Date Parsing — supports dd/mm/yyyy, d/m/yyyy, yyyy-mm-dd, m/d/yyyy
+  // ======================================================================
+  function parseDate(val) {
+    var text = (val || '').trim();
+    if (!text) return null;
+    // yyyy-mm-dd or yyyy/mm/dd
+    var m = text.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+    if (m) return new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
+    // dd/mm/yyyy or d/m/yyyy or dd-mm-yyyy
+    m = text.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (m) return new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1]));
+    // mm/dd/yyyy (fallback — only if day > 12 and month <= 12)
+    m = text.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (m) {
+      var a = parseInt(m[1]), b = parseInt(m[2]);
+      if (a > 12 && b <= 12) return new Date(parseInt(m[3]), b - 1, a);
+    }
+    return null;
+  }
+
+  function getFinancialYear(date) {
+    if (!date) return null;
+    var y = date.getFullYear();
+    var m = date.getMonth() + 1;
+    var d = date.getDate();
+    // FY starts July 1, ends June 30
+    if (m > 6 || (m === 6 && d > 30)) return y + '-' + (y + 1);
+    return (y - 1) + '-' + y;
+  }
+
+  // ======================================================================
+  // Currency Parsing — handles commas, spaces, currency symbols, empty
+  // ======================================================================
+  function parseCurrency(val) {
+    if (val === null || val === undefined) return 0;
+    var text = String(val).replace(/[,\s]/g, '').replace(/[^\d.\-]/g, '');
+    var num = parseFloat(text);
+    return isNaN(num) ? 0 : num;
+  }
+
+  function normaliseStatus(val) {
+    var t = (val || '').trim().toLowerCase();
+    if (['closed','c','close','inactive','disconnected','terminated','in-active','dead'].indexOf(t) !== -1) return 'Closed';
+    if (['suspended','suspend'].indexOf(t) !== -1) return 'Suspended';
+    if (['open','o'].indexOf(t) !== -1) return 'Open';
+    return 'Active';
+  }
+
+  // ======================================================================
+  // Process CSV — group by Sector + Locality
+  // ======================================================================
+  function processCSV(text) {
+    var lines = text.split(/\r?\n/).filter(function(l) { return l.trim().length > 0; });
+    if (lines.length < 2) { showError('CSV file is empty or has no data rows.'); return; }
+
+    var headers = parseCSVLine(lines[0]);
+    var colMap = resolveColumns(headers);
+
+    // Validate required columns
+    var missing = [];
+    ['sector','locality','connection_date','total_arrears','status'].forEach(function(k) {
+      if (!(k in colMap)) missing.push(k);
+    });
+    if (missing.length) { showError('Missing required columns: ' + missing.join(', ')); return; }
+
+    // Build sector+locality map
+    var groupMap = {};
+    var totalRows = 0;
+    var uniqueSectors = {};
+    var uniqueLocalities = {};
+
+    for (var i = 1; i < lines.length; i++) {
+      var fields = parseCSVLine(lines[i]);
+      // Skip duplicate header rows
+      if (colMap.sector !== undefined) {
+        var sec = (fields[colMap.sector] || '').trim().toLowerCase();
+        if (sec === 'sector') continue;
+      }
+
+      var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
+      var locality = (fields[colMap.locality] || '').trim() || 'Unspecified';
+      var dateVal = colMap.connection_date !== undefined ? fields[colMap.connection_date] : '';
+      var arrearsRaw = colMap.total_arrears !== undefined ? fields[colMap.total_arrears] : '0';
+      var statusVal = colMap.status !== undefined ? fields[colMap.status] : '';
+
+      var arrears = parseCurrency(arrearsRaw);
+      var status = normaliseStatus(statusVal);
+      var date = parseDate(dateVal);
+      var fy = getFinancialYear(date);
+
+      var groupKey = sector.toLowerCase() + '|||' + locality.toLowerCase();
+
+      if (!groupMap[groupKey]) {
+        groupMap[groupKey] = {
+          sector: sector,
+          locality: locality,
+          fy2023: 0,
+          fy2024: 0,
+          fy2025: 0,
+          closed: 0,
+          suspended: 0,
+          active: 0,
+          open: 0,
+          total_connections: 0,
+          total_arrears: 0
+        };
+      }
+
+      var g = groupMap[groupKey];
+      g.total_connections++;
+      g.total_arrears += arrears;
+
+      // Add arrears to matching financial year
+      if (fy === '2023-2024') g.fy2023 += arrears;
+      else if (fy === '2024-2025') g.fy2024 += arrears;
+      else if (fy === '2025-2026') g.fy2025 += arrears;
+
+      // Count status
+      if (status === 'Closed') g.closed++;
+      else if (status === 'Suspended') g.suspended++;
+      else if (status === 'Open') g.open++;
+      else g.active++;
+
+      uniqueSectors[sector.toLowerCase()] = true;
+      uniqueLocalities[locality.toLowerCase()] = true;
+      totalRows++;
+    }
+
+    // Build rows array
+    var rows = [];
+    var serial = 0;
+    var grandFY2023 = 0, grandFY2024 = 0, grandFY2025 = 0;
+    var grandClosed = 0, grandSuspended = 0, grandActive = 0, grandOpen = 0;
+    var grandTotal = 0, grandArrears = 0;
+
+    Object.keys(groupMap).forEach(function(key) {
+      var g = groupMap[key];
+      serial++;
+      rows.push({
+        serial: serial,
+        sector: g.sector,
+        locality: g.locality,
+        fy2023: g.fy2023,
+        fy2024: g.fy2024,
+        fy2025: g.fy2025,
+        closed: g.closed,
+        suspended: g.suspended,
+        active: g.active,
+        open: g.open,
+        total_connections: g.total_connections,
+        total_arrears: g.total_arrears
+      });
+      grandFY2023 += g.fy2023;
+      grandFY2024 += g.fy2024;
+      grandFY2025 += g.fy2025;
+      grandClosed += g.closed;
+      grandSuspended += g.suspended;
+      grandActive += g.active;
+      grandOpen += g.open;
+      grandTotal += g.total_connections;
+      grandArrears += g.total_arrears;
+    });
+
+    var payload = {
+      filename: currentFileName,
+      total_rows: totalRows,
+      rows: rows,
+      sector_count: Object.keys(uniqueSectors).length,
+      locality_count: Object.keys(uniqueLocalities).length,
+      total_connections: grandTotal,
+      grand_total_arrears: grandArrears,
+      grand_fy2023: grandFY2023,
+      grand_fy2024: grandFY2024,
+      grand_fy2025: grandFY2025,
+      grand_status: {
+        closed: grandClosed,
+        suspended: grandSuspended,
+        active: grandActive,
+        open: grandOpen
+      }
+    };
+
+    // Persist to localStorage
+    try { localStorage.setItem('arrear_calculator_data', JSON.stringify(payload)); } catch(e) {}
+
+    showStatus('Parsed ' + totalRows.toLocaleString() + ' rows. Sending to server...');
+    fetch('{{ url_for("arrear_calculator") }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify(payload)
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+      if (data.ok) {
+        showStatus('Done! Redirecting...');
+        window.location.href = data.redirect || '{{ url_for("arrear_calculator") }}';
+      } else {
+        showError(data.error || 'Upload failed.');
+      }
+    })
+    .catch(function(err) {
+      showError('Network error: ' + err.message);
+    });
+  }
+
+  var currentFileName = '';
+
+  function showStatus(msg) {
+    var el = document.getElementById('upload-status');
+    el.style.display = 'block';
+    el.style.color = 'var(--teal)';
+    el.textContent = msg;
+  }
+  function showError(msg) {
+    var el = document.getElementById('upload-status');
+    el.style.display = 'block';
+    el.style.color = 'var(--coral)';
+    el.textContent = msg;
+  }
+
+  // ======================================================================
+  // SERVER-RENDERED DATA — used by export links and sort controls
+  // ======================================================================
+  var SERVER_SUMMARY = {{ (summary or {})|tojson }};
+  var SERVER_FILENAME = {{ (filename or '')|tojson }};
+  var SERVER_TOTAL_ROWS = {{ (total_rows or 0)|tojson }};
+
+  // Seed localStorage from server data so exports work
+  if (SERVER_SUMMARY && SERVER_SUMMARY.rows && SERVER_SUMMARY.rows.length) {
+    try {
+      var copy = JSON.parse(JSON.stringify(SERVER_SUMMARY));
+      copy.filename = SERVER_FILENAME;
+      copy.total_rows = SERVER_TOTAL_ROWS;
+      localStorage.setItem('arrear_calculator_data', JSON.stringify(copy));
+    } catch(e) {}
+  }
+
+  // ======================================================================
+  // DOM READY
+  // ======================================================================
+  document.addEventListener('DOMContentLoaded', function() {
+    // File input
+    var fileInput = document.getElementById('csv-file-input');
+    if (fileInput) {
+      fileInput.addEventListener('change', function() {
+        if (!fileInput.files || !fileInput.files.length) return;
+        var file = fileInput.files[0];
+        currentFileName = file.name;
+        showStatus('Reading ' + file.name + ' (' + (file.size / 1024 / 1024).toFixed(2) + ' MB)...');
+        var reader = new FileReader();
+        reader.onload = function(e) { processCSV(e.target.result); };
+        reader.onerror = function() { showError('Failed to read file.'); };
+        reader.readAsText(file);
+      });
+    }
+
+    // Show topbar export buttons when data exists
+    if (SERVER_SUMMARY && SERVER_SUMMARY.rows && SERVER_SUMMARY.rows.length) {
+      var topbar = document.getElementById('topbar-export-btns');
+      if (topbar) topbar.style.display = 'block';
+    }
+
+    // ==================================================================
+    // PDF DOWNLOAD LINK — updates URL with sort + column params
+    // ==================================================================
+    var priorityEl = document.getElementById('sort-priority');
+    var orderEl = document.getElementById('sort-order');
+    var pdfBtn = document.getElementById('pdf-download-btn');
+    var colToggles = document.querySelectorAll('.pdf-col-toggle');
+
+    function getSelectedColumns() {
+      var cols = [];
+      colToggles.forEach(function(cb) {
+        if (cb.checked) cols.push(cb.getAttribute('data-col'));
+      });
+      return cols.join(',');
+    }
+
+    function updatePdfLink() {
+      var cols = getSelectedColumns();
+      var base = '{{ url_for("export_arrear_calculator", fmt_type="pdf") }}';
+      pdfBtn.href = base + '?priority=' + (priorityEl ? priorityEl.value : 'active_first') + '&order=' + (orderEl ? orderEl.value : 'desc') + '&cols=' + encodeURIComponent(cols);
+    }
+
+    if (priorityEl && orderEl) {
+      priorityEl.addEventListener('change', function() { updatePdfLink(); applyPreviewSort(); });
+      orderEl.addEventListener('change', function() { updatePdfLink(); applyPreviewSort(); });
+    }
+    colToggles.forEach(function(cb) { cb.addEventListener('change', updatePdfLink); });
+
+    // ==================================================================
+    // EXPORT LINKS — POST localStorage data to server
+    // ==================================================================
+    document.querySelectorAll('a.export-link, a#pdf-download-btn').forEach(function(link) {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        var storedData = null;
+        try { storedData = JSON.parse(localStorage.getItem('arrear_calculator_data')); } catch(ex) {}
+        if (!storedData || !storedData.rows || !storedData.rows.length) {
+          alert('Please upload a CSV file first to generate a report.');
+          return;
+        }
+        // Filter to only checked rows
+        var table = document.getElementById('arrear-summary-table');
+        var selectedRows = [];
+        if (table) {
+          table.querySelectorAll('tbody tr:not(.grand-total-row)').forEach(function(tr) {
+            var cb = tr.querySelector('.row-checkbox');
+            if (!cb || !cb.checked) return;
+            selectedRows.push({
+              serial: selectedRows.length + 1,
+              sector: tr.getAttribute('data-sector') || '',
+              locality: tr.getAttribute('data-locality') || '',
+              fy2023: parseFloat(tr.getAttribute('data-fy2023')) || 0,
+              fy2024: parseFloat(tr.getAttribute('data-fy2024')) || 0,
+              fy2025: parseFloat(tr.getAttribute('data-fy2025')) || 0,
+              closed: parseInt(tr.getAttribute('data-closed')) || 0,
+              suspended: parseInt(tr.getAttribute('data-suspended')) || 0,
+              active: parseInt(tr.getAttribute('data-active')) || 0,
+              open: parseInt(tr.getAttribute('data-open')) || 0,
+              total_connections: parseInt(tr.getAttribute('data-total')) || 0,
+              total_arrears: parseFloat(tr.getAttribute('data-arrears')) || 0
+            });
+          });
+        }
+        var grandArrears = 0, grandFY2023 = 0, grandFY2024 = 0, grandFY2025 = 0;
+        var grandClosed = 0, grandSuspended = 0, grandActive = 0, grandOpen = 0, grandTotal = 0;
+        selectedRows.forEach(function(r) {
+          grandFY2023 += r.fy2023; grandFY2024 += r.fy2024; grandFY2025 += r.fy2025;
+          grandClosed += r.closed; grandSuspended += r.suspended; grandActive += r.active; grandOpen += r.open;
+          grandTotal += r.total_connections; grandArrears += r.total_arrears;
+        });
+        var payload = {
+          filename: SERVER_FILENAME,
+          total_rows: SERVER_TOTAL_ROWS,
+          rows: selectedRows,
+          sector_count: 0,
+          locality_count: selectedRows.length,
+          total_connections: grandTotal,
+          grand_total_arrears: grandArrears,
+          grand_fy2023: grandFY2023,
+          grand_fy2024: grandFY2024,
+          grand_fy2025: grandFY2025,
+          grand_status: { closed: grandClosed, suspended: grandSuspended, active: grandActive, open: grandOpen }
+        };
+
+        var exportUrl = new URL(link.href, window.location.origin);
+        exportUrl.searchParams.set('priority', (priorityEl && priorityEl.value) || 'active_first');
+        exportUrl.searchParams.set('order', (orderEl && orderEl.value) || 'desc');
+        var cols = getSelectedColumns();
+        if (cols) exportUrl.searchParams.set('cols', cols);
+
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = exportUrl.toString();
+        form.style.display = 'none';
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'summary_data';
+        input.value = JSON.stringify(payload);
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+      });
+    });
+
+    // ==================================================================
+    // CHECKBOX SELECTION — Select All + per-row
+    // ==================================================================
+    var selectAllEl = document.getElementById('select-all');
+    if (selectAllEl) {
+      selectAllEl.addEventListener('change', function() {
+        document.querySelectorAll('.row-checkbox').forEach(function(cb) { cb.checked = selectAllEl.checked; });
+        recomputeGrandTotal();
+      });
+    }
+
+    document.querySelectorAll('.row-checkbox').forEach(function(cb) {
+      cb.addEventListener('change', function() {
+        var allChecked = true;
+        document.querySelectorAll('.row-checkbox').forEach(function(c) { if (!c.checked) allChecked = false; });
+        if (selectAllEl) selectAllEl.checked = allChecked;
+        recomputeGrandTotal();
+      });
+    });
+
+    function recomputeGrandTotal() {
+      var gtFY2023 = 0, gtFY2024 = 0, gtFY2025 = 0;
+      var gtClosed = 0, gtSuspended = 0, gtActive = 0, gtOpen = 0, gtTotal = 0, gtArrears = 0;
+      var selectedCount = 0;
+      document.querySelectorAll('.row-checkbox').forEach(function(cb) {
+        if (!cb.checked) return;
+        selectedCount++;
+        var tr = cb.closest('tr');
+        if (!tr) return;
+        gtFY2023 += parseFloat(tr.getAttribute('data-fy2023')) || 0;
+        gtFY2024 += parseFloat(tr.getAttribute('data-fy2024')) || 0;
+        gtFY2025 += parseFloat(tr.getAttribute('data-fy2025')) || 0;
+        gtClosed += parseInt(tr.getAttribute('data-closed')) || 0;
+        gtSuspended += parseInt(tr.getAttribute('data-suspended')) || 0;
+        gtActive += parseInt(tr.getAttribute('data-active')) || 0;
+        gtOpen += parseInt(tr.getAttribute('data-open')) || 0;
+        gtTotal += parseInt(tr.getAttribute('data-total')) || 0;
+        gtArrears += parseFloat(tr.getAttribute('data-arrears')) || 0;
+      });
+      setText('gt-fy2023', Math.round(gtFY2023).toLocaleString());
+      setText('gt-fy2024', Math.round(gtFY2024).toLocaleString());
+      setText('gt-fy2025', Math.round(gtFY2025).toLocaleString());
+      setText('gt-closed', gtClosed.toLocaleString());
+      setText('gt-suspended', gtSuspended.toLocaleString());
+      setText('gt-active', gtActive.toLocaleString());
+      setText('gt-open', gtOpen.toLocaleString());
+      setText('gt-total', gtTotal.toLocaleString());
+      setText('gt-arrears', Math.round(gtArrears).toLocaleString());
+      var scEl = document.getElementById('selected-count');
+      var totalCbs = document.querySelectorAll('.row-checkbox').length;
+      if (scEl) scEl.textContent = selectedCount < totalCbs ? '(' + selectedCount + ' of ' + totalCbs + ' selected)' : '';
+    }
+
+    function setText(id, text) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = text;
+    }
+
+    // ==================================================================
+    // PREVIEW SORT — reorder table rows to match export sort
+    // ==================================================================
+    function applyPreviewSort() {
+      var table = document.getElementById('arrear-summary-table');
+      if (!table) return;
+      var tbody = table.querySelector('tbody');
+      if (!tbody) return;
+      var prio = (priorityEl && priorityEl.value) || 'active_first';
+      var ord = (orderEl && orderEl.value) || 'desc';
+      var sign = (ord === 'desc') ? -1 : 1;
+      var keyMap = {
+        'active_first': 'data-active',
+        'suspended_first': 'data-suspended',
+        'closed_first': 'data-closed',
+        'open_first': 'data-open'
+      };
+      var keyField = keyMap[prio] || 'data-arrears';
+
+      var rows = [];
+      tbody.querySelectorAll('tr').forEach(function(tr) {
+        if (tr.classList.contains('grand-total-row')) return;
+        rows.push(tr);
+      });
+
+      rows.sort(function(a, b) {
+        var ka = sign * (parseInt(a.getAttribute(keyField)) || 0);
+        var kb = sign * (parseInt(b.getAttribute(keyField)) || 0);
+        if (ka !== kb) return ka - kb;
+        var sa = (a.getAttribute('data-sector') || '').toLowerCase();
+        var sb = (b.getAttribute('data-sector') || '').toLowerCase();
+        if (sa !== sb) return sa < sb ? -1 : 1;
+        var la = (a.getAttribute('data-locality') || '').toLowerCase();
+        var lb = (b.getAttribute('data-locality') || '').toLowerCase();
+        return la < lb ? -1 : (la > lb ? 1 : 0);
+      });
+
+      rows.forEach(function(tr, idx) {
+        var srCell = tr.querySelector('td:nth-child(2)');
+        if (srCell) srCell.textContent = (idx + 1);
+        tbody.appendChild(tr);
+      });
+      var gtRow = tbody.querySelector('tr.grand-total-row');
+      if (gtRow) tbody.appendChild(gtRow);
+      recomputeGrandTotal();
+    }
+
+    // Initial sort
+    applyPreviewSort();
+
+    // Count-up animation
+    document.querySelectorAll('[data-count]').forEach(function(el) {
+      var target = parseFloat(el.getAttribute('data-count').replace(/,/g,''));
+      if (isNaN(target)) return;
+      var dur = 1200;
+      var start = performance.now();
+      function tick(now) {
+        var elapsed = now - start;
+        var progress = Math.min(elapsed / dur, 1);
+        var ease = 1 - Math.pow(1 - progress, 3);
+        var val = Math.round(target * ease);
+        el.textContent = val.toLocaleString();
+        if (progress < 1) requestAnimationFrame(tick);
+        else el.textContent = Math.round(target).toLocaleString();
+      }
+      requestAnimationFrame(tick);
+    });
+  });
+})();
+</script>
+{% endblock %}
