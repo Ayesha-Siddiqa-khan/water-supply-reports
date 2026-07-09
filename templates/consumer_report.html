@@ -38,7 +38,7 @@
     <div class="page-header">
       <div class="page-tag">Consumer Connection Report</div>
       <h1 class="page-title">Consumer Sector Report</h1>
-      <p class="page-subtitle">Upload a consumer CSV to generate a sector-based summary showing Active, Closed, and Total connections grouped by Sector and Locality.</p>
+      <p class="page-subtitle">Upload a consumer CSV to generate a sector-based summary showing Active, Closed, Suspended, and Total connections grouped by Sector and Locality.</p>
     </div>
 
     <!-- Upload Area — client-side CSV parsing to bypass Vercel 4.5MB body limit -->
@@ -177,6 +177,9 @@
             <input type="checkbox" class="pdf-col-toggle" data-col="closed" checked> Closed
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="suspended" checked> Suspended
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
             <input type="checkbox" class="pdf-col-toggle" data-col="active" checked> Active
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
@@ -202,6 +205,7 @@
                   <th style="text-align:left">Sector</th>
                   <th style="text-align:left">Locality</th>
                   <th style="width:80px;text-align:center">Closed</th>
+                  <th style="width:90px;text-align:center">Suspended</th>
                   <th style="width:80px;text-align:center">Active</th>
                   <th style="width:100px;text-align:center">Total Connections</th>
                   <th style="width:110px;text-align:right">Budget (Rs.)</th>
@@ -209,12 +213,13 @@
               </thead>
               <tbody>
                 {% for row in normal_summary.summary_rows %}
-                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}" data-budget-rate="{{ ((row.budget|default(0)|float) / (row.active|int)) if (row.active|int) else 0 }}" data-sector="{{ row.sector }}" data-locality="{{ row.locality }}">
+                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-suspended="{{ row.suspended|default(0) }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}" data-budget-rate="{{ ((row.budget|default(0)|float) / (row.active|int)) if (row.active|int) else 0 }}" data-sector="{{ row.sector }}" data-locality="{{ row.locality }}">
                   <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="normal" data-serial="{{ row.serial }}" checked></td>
                   <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
                   <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
                   <td style="text-align:left;">{{ row.locality }}</td>
                   <td style="text-align:center;color:var(--coral);">{{ row.closed }}</td>
+                  <td style="text-align:center;color:var(--amber);">{{ row.suspended|default(0) }}</td>
                   <td style="text-align:center;color:var(--teal);">
                     <input type="number" class="domestic-active-input" min="0" step="1" value="{{ row.active }}" aria-label="Edit Active connections for {{ row.sector }}" style="width:72px;max-width:100%;padding:4px 6px;text-align:center;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--teal);font-weight:600;">
                   </td>
@@ -225,6 +230,7 @@
                 <tr class="grand-total-row" data-gt-for="normal" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
                   <td colspan="4" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL <span class="selected-count" data-gt-for="normal" style="font-size:11px;font-weight:400;color:var(--text-muted);"></span></td>
                   <td class="gt-closed" data-gt-for="normal" style="text-align:center;font-weight:700;color:var(--coral);font-size:15px;">{{ normal_summary.grand_total.closed }}</td>
+                  <td class="gt-suspended" data-gt-for="normal" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ normal_summary.grand_total.suspended|default(0) }}</td>
                   <td class="gt-active" data-gt-for="normal" style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ normal_summary.grand_total.active }}</td>
                   <td class="gt-total" data-gt-for="normal" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ normal_summary.grand_total.total }}</td>
                   <td class="gt-budget" data-gt-for="normal" style="text-align:right;font-weight:700;color:var(--teal);font-size:14px;">{{ "{:,.0f}".format(normal_summary.grand_total.budget|default(0)) }}</td>
@@ -254,6 +260,7 @@
                   <th style="text-align:left">Sector</th>
                   <th style="text-align:left">Locality</th>
                   <th style="width:80px;text-align:center">Closed</th>
+                  <th style="width:90px;text-align:center">Suspended</th>
                   <th style="width:80px;text-align:center">Active</th>
                   <th style="width:100px;text-align:center">Total Connections</th>
                   <th style="width:110px;text-align:right">Budget (Rs.)</th>
@@ -261,12 +268,13 @@
               </thead>
               <tbody>
                 {% for row in commercial_summary.summary_rows %}
-                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}" data-sector="{{ row.sector }}" data-locality="{{ row.locality }}">
+                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-suspended="{{ row.suspended|default(0) }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}" data-sector="{{ row.sector }}" data-locality="{{ row.locality }}">
                   <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="commercial" data-serial="{{ row.serial }}" checked></td>
                   <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
                   <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
                   <td style="text-align:left;">{{ row.locality }}</td>
                   <td style="text-align:center;color:var(--coral);">{{ row.closed }}</td>
+                  <td style="text-align:center;color:var(--amber);">{{ row.suspended|default(0) }}</td>
                   <td style="text-align:center;color:var(--teal);">{{ row.active }}</td>
                   <td style="text-align:center;font-weight:600;">{{ row.total }}</td>
                   <td style="text-align:right;font-weight:500;color:var(--teal);">{{ "{:,.0f}".format(row.budget|default(0)) }}</td>
@@ -275,6 +283,7 @@
                 <tr class="grand-total-row" data-gt-for="commercial" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
                   <td colspan="4" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL <span class="selected-count" data-gt-for="commercial" style="font-size:11px;font-weight:400;color:var(--text-muted);"></span></td>
                   <td class="gt-closed" data-gt-for="commercial" style="text-align:center;font-weight:700;color:var(--coral);font-size:15px;">{{ commercial_summary.grand_total.closed }}</td>
+                  <td class="gt-suspended" data-gt-for="commercial" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ commercial_summary.grand_total.suspended|default(0) }}</td>
                   <td class="gt-active" data-gt-for="commercial" style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ commercial_summary.grand_total.active }}</td>
                   <td class="gt-total" data-gt-for="commercial" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ commercial_summary.grand_total.total }}</td>
                   <td class="gt-budget" data-gt-for="commercial" style="text-align:right;font-weight:700;color:var(--teal);font-size:14px;">{{ "{:,.0f}".format(commercial_summary.grand_total.budget|default(0)) }}</td>
@@ -374,8 +383,10 @@
 
     function classifyStatus(val) {
       var t = (val || '').trim().toLowerCase();
+      // Suspended gets its own column, but remains non-active for budget.
+      if (['suspended','suspend'].indexOf(t) !== -1) return 'Suspended';
       // Only exact closed/inactive statuses map to Closed; everything else is Active
-      if (['closed','c','close','inactive','disconnected','terminated','in-active','dead','suspended'].indexOf(t) !== -1) return 'Closed';
+      if (['closed','c','close','inactive','disconnected','terminated','in-active','dead'].indexOf(t) !== -1) return 'Closed';
       return 'Active';
     }
 
@@ -619,7 +630,7 @@
         var normKey = normalizeSector(sector);
 
         if (!sectorMap[normKey]) {
-          sectorMap[normKey] = { original: sector, localities: '', closed: 0, active: 0, budget: 0 };
+          sectorMap[normKey] = { original: sector, localities: '', closed: 0, suspended: 0, active: 0, budget: 0 };
         }
         if (sector.length < sectorMap[normKey].original.length) {
           sectorMap[normKey].original = sector;
@@ -627,7 +638,8 @@
 
         sectorMap[normKey].localities = mergeLocalities(sectorMap[normKey].localities, locality);
 
-        if (status === 'Closed') sectorMap[normKey].closed++;
+        if (status === 'Suspended') sectorMap[normKey].suspended++;
+        else if (status === 'Closed') sectorMap[normKey].closed++;
         else sectorMap[normKey].active++;
         sectorMap[normKey].budget += rowBudget;
 
@@ -648,8 +660,8 @@
       var commercialSummaryRows = [];
       var normalSectorTotals = {};
       var commercialSectorTotals = {};
-      var normalGrandClosed = 0, normalGrandActive = 0;
-      var commercialGrandClosed = 0, commercialGrandActive = 0;
+      var normalGrandClosed = 0, normalGrandSuspended = 0, normalGrandActive = 0;
+      var commercialGrandClosed = 0, commercialGrandSuspended = 0, commercialGrandActive = 0;
       var normalSerial = 0, commercialSerial = 0;
 
       // ---------------------------------------------------------------
@@ -662,16 +674,17 @@
         var isCommercial = s.original.toUpperCase().indexOf('COMMERCIAL') === 0;
         if (isCommercial) return; // skip commercial here, handled below
 
-        var total = s.closed + s.active;
+        var total = s.closed + s.suspended + s.active;
         var localityVal = s.localities || s.original;
 
         normalSerial++;
         normalSummaryRows.push({
           serial: normalSerial, sector: s.original, locality: localityVal,
-          closed: s.closed, active: s.active, total: total, budget: s.budget
+          closed: s.closed, suspended: s.suspended, active: s.active, total: total, budget: s.budget
         });
-        normalSectorTotals[s.original] = { closed: s.closed, active: s.active, total: total, budget: s.budget };
+        normalSectorTotals[s.original] = { closed: s.closed, suspended: s.suspended, active: s.active, total: total, budget: s.budget };
         normalGrandClosed += s.closed;
+        normalGrandSuspended += s.suspended;
         normalGrandActive += s.active;
         normalGrandBudget += s.budget;
       });
@@ -699,9 +712,10 @@
         var locKey = normalizeSector(sector) + '|||' + normalizeSector(locality);
 
         if (!commercialLocalityMap[locKey]) {
-          commercialLocalityMap[locKey] = { sector: sector, locality: locality, closed: 0, active: 0, budget: 0 };
+          commercialLocalityMap[locKey] = { sector: sector, locality: locality, closed: 0, suspended: 0, active: 0, budget: 0 };
         }
-        if (status === 'Closed') commercialLocalityMap[locKey].closed++;
+        if (status === 'Suspended') commercialLocalityMap[locKey].suspended++;
+        else if (status === 'Closed') commercialLocalityMap[locKey].closed++;
         else commercialLocalityMap[locKey].active++;
 
         // Calculate budget for this commercial row — only Active records contribute
@@ -717,20 +731,22 @@
       // Build commercial rows from the locality map
       Object.keys(commercialLocalityMap).forEach(function(locKey) {
         var cl = commercialLocalityMap[locKey];
-        var total = cl.closed + cl.active;
+        var total = cl.closed + cl.suspended + cl.active;
         commercialSerial++;
         commercialSummaryRows.push({
           serial: commercialSerial, sector: cl.sector, locality: cl.locality,
-          closed: cl.closed, active: cl.active, total: total, budget: cl.budget
+          closed: cl.closed, suspended: cl.suspended, active: cl.active, total: total, budget: cl.budget
         });
         if (!commercialSectorTotals[cl.sector]) {
-          commercialSectorTotals[cl.sector] = { closed: 0, active: 0, total: 0, budget: 0 };
+          commercialSectorTotals[cl.sector] = { closed: 0, suspended: 0, active: 0, total: 0, budget: 0 };
         }
         commercialSectorTotals[cl.sector].closed += cl.closed;
+        commercialSectorTotals[cl.sector].suspended += cl.suspended;
         commercialSectorTotals[cl.sector].active += cl.active;
         commercialSectorTotals[cl.sector].total += total;
         commercialSectorTotals[cl.sector].budget = (commercialSectorTotals[cl.sector].budget || 0) + cl.budget;
         commercialGrandClosed += cl.closed;
+        commercialGrandSuspended += cl.suspended;
         commercialGrandActive += cl.active;
         commercialGrandBudget += cl.budget;
       });
@@ -741,10 +757,10 @@
         total_rows: totalRows,
         summary_rows: normalSummaryRows,
         sector_totals: normalSectorTotals,
-        grand_total: { closed: normalGrandClosed, active: normalGrandActive, total: normalGrandClosed + normalGrandActive, budget: normalGrandBudget },
+        grand_total: { closed: normalGrandClosed, suspended: normalGrandSuspended, active: normalGrandActive, total: normalGrandClosed + normalGrandSuspended + normalGrandActive, budget: normalGrandBudget },
         sector_count: normalSerial,
         locality_count: normalSerial,
-        total_connections: normalGrandClosed + normalGrandActive,
+        total_connections: normalGrandClosed + normalGrandSuspended + normalGrandActive,
         total_budget: normalGrandBudget,
         unmatched_rate_types: unmatchedRateTypes,
         unmatched_budget_count: totalUnmatchedBudget
@@ -756,10 +772,10 @@
         total_rows: totalRows,
         summary_rows: commercialSummaryRows,
         sector_totals: commercialSectorTotals,
-        grand_total: { closed: commercialGrandClosed, active: commercialGrandActive, total: commercialGrandClosed + commercialGrandActive, budget: commercialGrandBudget },
+        grand_total: { closed: commercialGrandClosed, suspended: commercialGrandSuspended, active: commercialGrandActive, total: commercialGrandClosed + commercialGrandSuspended + commercialGrandActive, budget: commercialGrandBudget },
         sector_count: commercialSerial,
         locality_count: commercialSerial,
-        total_connections: commercialGrandClosed + commercialGrandActive,
+        total_connections: commercialGrandClosed + commercialGrandSuspended + commercialGrandActive,
         total_budget: commercialGrandBudget
       };
 
@@ -780,17 +796,18 @@
         sector_totals: Object.assign({}, normalSectorTotals, commercialSectorTotals),
         grand_total: {
           closed: normalGrandClosed + commercialGrandClosed,
+          suspended: normalGrandSuspended + commercialGrandSuspended,
           active: normalGrandActive + commercialGrandActive,
-          total: normalGrandClosed + commercialGrandClosed + normalGrandActive + commercialGrandActive,
+          total: normalGrandClosed + commercialGrandClosed + normalGrandSuspended + commercialGrandSuspended + normalGrandActive + commercialGrandActive,
           budget: normalGrandBudget + commercialGrandBudget
         },
         sector_count: normalSerial + commercialSerial,
         locality_count: normalSerial + commercialSerial,
-        total_connections: normalGrandClosed + commercialGrandClosed + normalGrandActive + commercialGrandActive,
+        total_connections: normalGrandClosed + commercialGrandClosed + normalGrandSuspended + commercialGrandSuspended + normalGrandActive + commercialGrandActive,
         total_budget: normalGrandBudget + commercialGrandBudget,
         // Detailed commercial rows: one row per locality (not sector-aggregated)
         commercial_detailed_rows: commercialSummaryRows,
-        commercial_grand_total: { closed: commercialGrandClosed, active: commercialGrandActive, total: commercialGrandClosed + commercialGrandActive, budget: commercialGrandBudget },
+        commercial_grand_total: { closed: commercialGrandClosed, suspended: commercialGrandSuspended, active: commercialGrandActive, total: commercialGrandClosed + commercialGrandSuspended + commercialGrandActive, budget: commercialGrandBudget },
         unmatched_rate_types: unmatchedRateTypes,
         unmatched_budget_count: totalUnmatchedBudget
       };
@@ -1019,12 +1036,13 @@
       // Recompute grand total for a specific tab
       function recomputeGrandTotalForTab(tab) {
         var checkboxes = document.querySelectorAll('.row-checkbox[data-tab="' + tab + '"]');
-        var gtClosed = 0, gtActive = 0, gtTotal = 0, gtBudget = 0, selectedCount = 0;
+        var gtClosed = 0, gtSuspended = 0, gtActive = 0, gtTotal = 0, gtBudget = 0, selectedCount = 0;
         checkboxes.forEach(function(cb) {
           if (cb.checked) {
             var tr = cb.closest('tr');
             if ((parseInt(tr.getAttribute('data-active')) || 0) <= 0) return;
             gtClosed += parseInt(tr.getAttribute('data-closed')) || 0;
+            gtSuspended += parseInt(tr.getAttribute('data-suspended')) || 0;
             gtActive += parseInt(tr.getAttribute('data-active')) || 0;
             gtTotal += parseInt(tr.getAttribute('data-total')) || 0;
             gtBudget += parseFloat(tr.getAttribute('data-budget')) || 0;
@@ -1033,11 +1051,13 @@
         });
         // Update the grand total row for this tab
         var gcEl = document.querySelector('.gt-closed[data-gt-for="' + tab + '"]');
+        var gsEl = document.querySelector('.gt-suspended[data-gt-for="' + tab + '"]');
         var gaEl = document.querySelector('.gt-active[data-gt-for="' + tab + '"]');
         var gtEl = document.querySelector('.gt-total[data-gt-for="' + tab + '"]');
         var gbEl = document.querySelector('.gt-budget[data-gt-for="' + tab + '"]');
         var scEl = document.querySelector('.selected-count[data-gt-for="' + tab + '"]');
         if (gcEl) gcEl.textContent = gtClosed.toLocaleString();
+        if (gsEl) gsEl.textContent = gtSuspended.toLocaleString();
         if (gaEl) gaEl.textContent = gtActive.toLocaleString();
         if (gtEl) gtEl.textContent = gtTotal.toLocaleString();
         if (gbEl) gbEl.textContent = Math.round(gtBudget).toLocaleString();
@@ -1062,6 +1082,7 @@
             sector: tr.getAttribute('data-sector') || '',
             locality: tr.getAttribute('data-locality') || '',
             closed: parseInt(tr.getAttribute('data-closed')) || 0,
+            suspended: parseInt(tr.getAttribute('data-suspended')) || 0,
             active: parseInt(tr.getAttribute('data-active')) || 0,
             total: parseInt(tr.getAttribute('data-total')) || 0,
             budget: parseFloat(tr.getAttribute('data-budget')) || 0
@@ -1069,14 +1090,16 @@
         });
 
         var sectorTotals = {};
-        var grandClosed = 0, grandActive = 0, grandTotal = 0, grandBudget = 0;
+        var grandClosed = 0, grandSuspended = 0, grandActive = 0, grandTotal = 0, grandBudget = 0;
         selectedRows.forEach(function(r) {
           grandClosed += r.closed;
+          grandSuspended += r.suspended;
           grandActive += r.active;
           grandTotal += r.total;
           grandBudget += r.budget;
-          if (!sectorTotals[r.sector]) sectorTotals[r.sector] = { closed: 0, active: 0, total: 0, budget: 0 };
+          if (!sectorTotals[r.sector]) sectorTotals[r.sector] = { closed: 0, suspended: 0, active: 0, total: 0, budget: 0 };
           sectorTotals[r.sector].closed += r.closed;
+          sectorTotals[r.sector].suspended += r.suspended;
           sectorTotals[r.sector].active += r.active;
           sectorTotals[r.sector].total += r.total;
           sectorTotals[r.sector].budget += r.budget;
@@ -1087,7 +1110,7 @@
           total_rows: SERVER_TOTAL_ROWS,
           summary_rows: selectedRows,
           sector_totals: sectorTotals,
-          grand_total: { closed: grandClosed, active: grandActive, total: grandTotal, budget: grandBudget },
+          grand_total: { closed: grandClosed, suspended: grandSuspended, active: grandActive, total: grandTotal, budget: grandBudget },
           sector_count: Object.keys(sectorTotals).length,
           locality_count: selectedRows.length,
           total_connections: grandTotal,
@@ -1109,8 +1132,9 @@
         if (normalizeInput) input.value = active;
 
         var closed = parseInt(tr.getAttribute('data-closed')) || 0;
+        var suspended = parseInt(tr.getAttribute('data-suspended')) || 0;
         var budgetRate = parseFloat(tr.getAttribute('data-budget-rate')) || 0;
-        var total = closed + active;
+        var total = closed + suspended + active;
         var budget = active * budgetRate;
 
         tr.setAttribute('data-active', String(active));

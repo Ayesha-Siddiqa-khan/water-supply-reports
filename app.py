@@ -7695,11 +7695,13 @@ def _resolve_consumer_columns(columns: list[str]) -> dict[str, str]:
 
 
 def _classify_connection_status(value: str) -> str:
-    """Classify both 'Status' column values and 'Consumer Status' into Active/Closed."""
+    """Classify both 'Status' column values and 'Consumer Status' into Active/Closed/Suspended."""
     text = str(value or "").strip().lower()
-    # Fix: keep the backend status classifier aligned with the browser parser
-    # so Suspended/Dead rows do not receive active-only budget.
-    if text in ("closed", "c", "close", "inactive", "disconnected", "terminated", "in-active", "dead", "suspended"):
+    # Suspended is displayed in its own Consumer Report column, but it still
+    # remains non-active so it never receives an active-only budget.
+    if text in ("suspended", "suspend"):
+        return "Suspended"
+    if text in ("closed", "c", "close", "inactive", "disconnected", "terminated", "in-active", "dead"):
         return "Closed"
     if text in ("active", "a", "open", "connected", "live", "running", "regular connection",
                 "new connection", "regular", "new"):
@@ -7894,6 +7896,7 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
                 "original": sector_raw,
                 "localities": [],  # list of unique locality names
                 "closed": 0,
+                "suspended": 0,
                 "active": 0,
                 "budget": 0.0,
             }
@@ -7936,7 +7939,9 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
                 unmatched_rate_types.append(clean_rate_type)
             unmatched_budget_count += 1
 
-        if status == "Closed":
+        if status == "Suspended":
+            sector_map[norm_key]["suspended"] += 1
+        elif status == "Closed":
             sector_map[norm_key]["closed"] += 1
         else:
             sector_map[norm_key]["active"] += 1
@@ -7951,10 +7956,13 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
                     "sector": sector_raw,
                     "locality": locality_raw,
                     "closed": 0,
+                    "suspended": 0,
                     "active": 0,
                     "budget": 0.0,
                 }
-            if status == "Closed":
+            if status == "Suspended":
+                commercial_locality_map[loc_key]["suspended"] += 1
+            elif status == "Closed":
                 commercial_locality_map[loc_key]["closed"] += 1
             else:
                 commercial_locality_map[loc_key]["active"] += 1
@@ -7964,13 +7972,14 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
     summary_rows: list[dict] = []
     serial = 0
     sector_totals: dict[str, dict] = {}
-    grand_closed, grand_active, grand_budget = 0, 0, 0.0
+    grand_closed, grand_suspended, grand_active, grand_budget = 0, 0, 0, 0.0
 
     for norm_key, s_data in sector_map.items():
         serial += 1
         closed = s_data["closed"]
+        suspended = s_data.get("suspended", 0)
         active = s_data["active"]
-        total = closed + active
+        total = closed + suspended + active
         budget = s_data["budget"]
         original_sector = s_data["original"]
         # Combine localities into comma-separated string.
@@ -7982,22 +7991,25 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
             "sector": original_sector,
             "locality": locality_str,
             "closed": closed,
+            "suspended": suspended,
             "active": active,
             "total": total,
             "budget": budget,
         })
-        sector_totals[original_sector] = {"closed": closed, "active": active, "total": total, "budget": budget}
+        sector_totals[original_sector] = {"closed": closed, "suspended": suspended, "active": active, "total": total, "budget": budget}
         grand_closed += closed
+        grand_suspended += suspended
         grand_active += active
         grand_budget += budget
 
     # Fix: expose commercial locality rows to the tab and export pipeline so
     # commercial localities remain separate after server-side uploads/caches.
     commercial_detailed_rows: list[dict] = []
-    commercial_closed = commercial_active = 0
+    commercial_closed = commercial_suspended = commercial_active = 0
     commercial_budget = 0.0
     for i, c_data in enumerate(commercial_locality_map.values(), 1):
         c_closed = c_data["closed"]
+        c_suspended = c_data.get("suspended", 0)
         c_active = c_data["active"]
         c_budget = c_data["budget"]
         commercial_detailed_rows.append({
@@ -8005,11 +8017,13 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
             "sector": c_data["sector"],
             "locality": c_data["locality"],
             "closed": c_closed,
+            "suspended": c_suspended,
             "active": c_active,
-            "total": c_closed + c_active,
+            "total": c_closed + c_suspended + c_active,
             "budget": c_budget,
         })
         commercial_closed += c_closed
+        commercial_suspended += c_suspended
         commercial_active += c_active
         commercial_budget += c_budget
 
@@ -8018,19 +8032,21 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
         "sector_totals": sector_totals,
         "grand_total": {
             "closed": grand_closed,
+            "suspended": grand_suspended,
             "active": grand_active,
-            "total": grand_closed + grand_active,
+            "total": grand_closed + grand_suspended + grand_active,
             "budget": grand_budget,
         },
         "sector_count": len(sector_map),
         "locality_count": len(summary_rows),
-        "total_connections": grand_closed + grand_active,
+        "total_connections": grand_closed + grand_suspended + grand_active,
         "total_budget": grand_budget,
         "commercial_detailed_rows": commercial_detailed_rows,
         "commercial_grand_total": {
             "closed": commercial_closed,
+            "suspended": commercial_suspended,
             "active": commercial_active,
-            "total": commercial_closed + commercial_active,
+            "total": commercial_closed + commercial_suspended + commercial_active,
             "budget": commercial_budget,
         },
         "unmatched_rate_types": unmatched_rate_types,
@@ -8097,6 +8113,7 @@ def _filter_active_rows(summary: dict) -> dict:
     gt = summary.get("grand_total", {})
     out["grand_total"] = {
         "closed": sum(r.get("closed", 0) for r in out["summary_rows"]),
+        "suspended": sum(r.get("suspended", 0) for r in out["summary_rows"]),
         "active": sum(r.get("active", 0) for r in out["summary_rows"]),
         "total": sum(r.get("total", 0) for r in out["summary_rows"]),
         "budget": sum(r.get("budget", 0) for r in out["summary_rows"]),
@@ -8105,6 +8122,7 @@ def _filter_active_rows(summary: dict) -> dict:
         cdr = out["commercial_detailed_rows"]
         out["commercial_grand_total"] = {
             "closed": sum(r.get("closed", 0) for r in cdr),
+            "suspended": sum(r.get("suspended", 0) for r in cdr),
             "active": sum(r.get("active", 0) for r in cdr),
             "total": sum(r.get("total", 0) for r in cdr),
             "budget": sum(r.get("budget", 0) for r in cdr),
@@ -8145,28 +8163,32 @@ def _split_summary_by_type(summary: dict) -> tuple[dict, dict]:
     # --- Build sub-summary helper ---
     def _build_sub(rows: list[dict], label: str) -> dict:
         serial = 0
-        grand_closed, grand_active, grand_budget = 0, 0, 0
+        grand_closed, grand_suspended, grand_active, grand_budget = 0, 0, 0, 0
         sector_totals: dict[str, dict] = {}
         result_rows: list[dict] = []
         for r in rows:
             serial += 1
             budget = r.get("budget", 0)
+            suspended = r.get("suspended", 0)
             result_rows.append({
                 "serial": serial,
                 "sector": r["sector"],
                 "locality": r["locality"],
                 "closed": r["closed"],
+                "suspended": suspended,
                 "active": r["active"],
                 "total": r["total"],
                 "budget": budget,
             })
             sector_totals[r["sector"]] = {
                 "closed": r["closed"],
+                "suspended": suspended,
                 "active": r["active"],
                 "total": r["total"],
                 "budget": budget,
             }
             grand_closed += r["closed"]
+            grand_suspended += suspended
             grand_active += r["active"]
             grand_budget += budget
         return {
@@ -8174,13 +8196,14 @@ def _split_summary_by_type(summary: dict) -> tuple[dict, dict]:
             "sector_totals": sector_totals,
             "grand_total": {
                 "closed": grand_closed,
+                "suspended": grand_suspended,
                 "active": grand_active,
-                "total": grand_closed + grand_active,
+                "total": grand_closed + grand_suspended + grand_active,
                 "budget": grand_budget,
             },
             "sector_count": len(rows),
             "locality_count": len(rows),
-            "total_connections": grand_closed + grand_active,
+            "total_connections": grand_closed + grand_suspended + grand_active,
             "total_budget": grand_budget,
         }
 
@@ -8307,13 +8330,13 @@ def consumer_report():
             summary = {
                 "summary_rows": data.get("summary_rows", []),
                 "sector_totals": data.get("sector_totals", {}),
-                "grand_total": data.get("grand_total", {"closed": 0, "active": 0, "total": 0, "budget": 0}),
+                "grand_total": data.get("grand_total", {"closed": 0, "suspended": 0, "active": 0, "total": 0, "budget": 0}),
                 "sector_count": data.get("sector_count", 0),
                 "locality_count": data.get("locality_count", 0),
                 "total_connections": data.get("total_connections", 0),
                 "total_budget": data.get("total_budget", 0),
                 "commercial_detailed_rows": data.get("commercial_detailed_rows", []),
-                "commercial_grand_total": data.get("commercial_grand_total", {"closed": 0, "active": 0, "total": 0, "budget": 0}),
+                "commercial_grand_total": data.get("commercial_grand_total", {"closed": 0, "suspended": 0, "active": 0, "total": 0, "budget": 0}),
                 "unmatched_rate_types": data.get("unmatched_rate_types", []),
                 "unmatched_budget_count": data.get("unmatched_budget_count", 0),
             }
@@ -8427,7 +8450,7 @@ def export_consumer_report(fmt_type: str):
                     summary = {
                         "summary_rows": payload.get("summary_rows", []),
                         "sector_totals": payload.get("sector_totals", {}),
-                        "grand_total": payload.get("grand_total", {"closed": 0, "active": 0, "total": 0, "budget": 0}),
+                        "grand_total": payload.get("grand_total", {"closed": 0, "suspended": 0, "active": 0, "total": 0, "budget": 0}),
                         "sector_count": payload.get("sector_count", 0),
                         "locality_count": payload.get("locality_count", 0),
                         "total_connections": payload.get("total_connections", 0),
@@ -8435,7 +8458,7 @@ def export_consumer_report(fmt_type: str):
                         # locality rows, budgets, and warnings survive downloads.
                         "total_budget": payload.get("total_budget", 0),
                         "commercial_detailed_rows": payload.get("commercial_detailed_rows", []),
-                        "commercial_grand_total": payload.get("commercial_grand_total", {"closed": 0, "active": 0, "total": 0, "budget": 0}),
+                        "commercial_grand_total": payload.get("commercial_grand_total", {"closed": 0, "suspended": 0, "active": 0, "total": 0, "budget": 0}),
                         "unmatched_rate_types": payload.get("unmatched_rate_types", []),
                         "unmatched_budget_count": payload.get("unmatched_budget_count", 0),
                     }
@@ -8528,19 +8551,20 @@ def export_consumer_report(fmt_type: str):
     if cols_param:
         selected_cols = [c.strip().lower() for c in cols_param.split(",") if c.strip()]
     else:
-        selected_cols = ["sr", "sector", "locality", "closed", "active", "total", "budget"]
+        selected_cols = ["sr", "sector", "locality", "closed", "suspended", "active", "total", "budget"]
 
     COL_DEFS = {
         "sr":     ("SR",     lambda r: r["serial"],             12),
         "sector": ("Sector", lambda r: r["sector"],             58),
         "locality": ("Locality", lambda r: r["locality"],       54),
         "closed": ("Closed", lambda r: r["closed"],             16),
+        "suspended": ("Suspended", lambda r: r.get("suspended", 0), 18),
         "active": ("Active", lambda r: r["active"],             16),
         "total":  ("Total Connections", lambda r: r["total"],   18),
         "budget": ("Budget (Rs.)", lambda r: r.get("budget", 0), 22),
     }
 
-    active_cols = [c for c in ["sr", "sector", "locality", "closed", "active", "total", "budget"] if c in selected_cols]
+    active_cols = [c for c in ["sr", "sector", "locality", "closed", "suspended", "active", "total", "budget"] if c in selected_cols]
 
     # -----------------------------------------------------------------------
     # Shared export dataset: headers, rows, and grand total computed ONLY from
@@ -8555,6 +8579,7 @@ def export_consumer_report(fmt_type: str):
     # Grand total derived strictly from visible/filtered rows.
     gt_vals = {
         "closed": sum(r.get("closed", 0) for r in final_sorted),
+        "suspended": sum(r.get("suspended", 0) for r in final_sorted),
         "active": sum(r.get("active", 0) for r in final_sorted),
         "total":  sum(r.get("total", 0) for r in final_sorted),
         "budget": sum(r.get("budget", 0) for r in final_sorted),
@@ -8686,8 +8711,9 @@ def export_consumer_report(fmt_type: str):
         non_commercial_count = len(non_commercial_rows)
         non_commercial_sectors = len(set(r["sector"] for r in non_commercial_rows))
         non_commercial_closed = sum(r["closed"] for r in non_commercial_rows)
+        non_commercial_suspended = sum(r.get("suspended", 0) for r in non_commercial_rows)
         non_commercial_active = sum(r["active"] for r in non_commercial_rows)
-        non_commercial_total = non_commercial_closed + non_commercial_active
+        non_commercial_total = non_commercial_closed + non_commercial_suspended + non_commercial_active
         non_commercial_budget = sum(r.get("budget", 0) for r in non_commercial_rows)
 
         meta_parts = []
@@ -8708,6 +8734,7 @@ def export_consumer_report(fmt_type: str):
             "sector": cell_wrap_style,
             "locality": cell_wrap_style,
             "closed": cell_center_style,
+            "suspended": cell_center_style,
             "active": cell_center_style,
             "total": cell_center_style,
             "budget": ParagraphStyle("CellBudget", parent=cell_center_style, alignment=1),
@@ -8741,7 +8768,7 @@ def export_consumer_report(fmt_type: str):
             elif c == "locality":
                 gt_cells.append(Paragraph("", cell_center_style))
             else:
-                gt_val = {"closed": non_commercial_closed, "active": non_commercial_active, "total": non_commercial_total, "budget": non_commercial_budget}.get(c, 0)
+                gt_val = {"closed": non_commercial_closed, "suspended": non_commercial_suspended, "active": non_commercial_active, "total": non_commercial_total, "budget": non_commercial_budget}.get(c, 0)
                 gt_cells.append(Paragraph(str(int(gt_val)) if c == "budget" else str(gt_val), ParagraphStyle(f"Grand{c}", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)))
         table_data.append(gt_cells)
         row_types.append("grand_total")
@@ -8756,6 +8783,7 @@ def export_consumer_report(fmt_type: str):
             "sector": 56,
             "locality": 64,
             "closed": 16,
+            "suspended": 19,
             "active": 16,
             "total": 21,
             "budget": 28,
@@ -8824,8 +8852,9 @@ def export_consumer_report(fmt_type: str):
 
         # Compute commercial-specific totals (from the shared filtered rows)
         commercial_closed = sum(r["closed"] for r in commercial_rows)
+        commercial_suspended = sum(r.get("suspended", 0) for r in commercial_rows)
         commercial_active = sum(r["active"] for r in commercial_rows)
-        commercial_total = commercial_closed + commercial_active
+        commercial_total = commercial_closed + commercial_suspended + commercial_active
         commercial_budget = sum(r.get("budget", 0) for r in commercial_rows)
 
         # Recalculate sector_count and locality_count for commercial only
@@ -8944,6 +8973,7 @@ def export_consumer_report(fmt_type: str):
             "sector": cell_wrap_style,
             "locality": cell_wrap_style,
             "closed": cell_center_style,
+            "suspended": cell_center_style,
             "active": cell_center_style,
             "total": cell_center_style,
             "budget": ParagraphStyle("CellBudgetComm", parent=cell_center_style, alignment=2),
@@ -8976,7 +9006,7 @@ def export_consumer_report(fmt_type: str):
             elif c == "locality":
                 gt_cells.append(Paragraph("", cell_center_style))
             else:
-                gt_val = {"closed": commercial_closed, "active": commercial_active, "total": commercial_total, "budget": commercial_budget}.get(c, 0)
+                gt_val = {"closed": commercial_closed, "suspended": commercial_suspended, "active": commercial_active, "total": commercial_total, "budget": commercial_budget}.get(c, 0)
                 gt_cells.append(Paragraph(str(int(gt_val)) if c == "budget" else str(gt_val), ParagraphStyle(f"CommGrand{c}", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)))
         table_data.append(gt_cells)
         row_types.append("grand_total")
