@@ -9,7 +9,7 @@
     <label class="topbar-btn" style="cursor:pointer;">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 1v8M4 4l3-3 3 3M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2"/></svg>
       <span>Upload File</span>
-      <input type="file" name="files" multiple accept=".csv,.xlsx" style="display:none;">
+      <input type="file" name="files" multiple accept=".csv,.xlsx" onchange="this.form.submit();" style="display:none;">
     </label>
     <input type="hidden" name="action" value="save_data">
     <button type="submit" name="action" value="generate_reports" class="topbar-btn primary">
@@ -46,7 +46,7 @@
           <strong>Choose files to upload</strong>
           <span>CSV or XLSX &mdash; multiple files allowed. Use topbar buttons to save or generate reports.</span>
         </div>
-        <input type="file" name="files" multiple accept=".csv,.xlsx" style="display:none;">
+        <input type="file" name="files" multiple accept=".csv,.xlsx" onchange="this.form.submit();" style="display:none;">
       </div>
     </form>
 
