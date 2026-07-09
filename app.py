@@ -7709,6 +7709,35 @@ def _classify_connection_status(value: str) -> str:
     return "Active"
 
 
+def _canonical_consumer_sector_locality(sector: str, locality: str) -> tuple[str, str]:
+    """Normalize known duplicate sector labels that refer to the same society."""
+    sector_text = str(sector or "").strip()
+    locality_text = str(locality or "").strip()
+    normalized = _normalize_consumer_col(sector_text)
+    compact = normalized.replace(" ", "")
+    # Keep the official Zain City private society label consistent.
+    if "zaincity" in compact and "private" in normalized:
+        return "ZAIN CITY (PRIVATE SOCITIES)", "ZAIN CITY Zone A"
+    # Keep the official Noor Mohalla sector/locality label consistent.  Similar
+    # address text can appear elsewhere, but it must not become a second sector.
+    if normalized == "noor mohalla melad chowk mian road":
+        return "Noor Mohalla Melad Chowk Mian Road", "Noor Mohalla Zone A"
+    return sector_text, locality_text
+
+
+def _is_extra_zain_city_13g_sector(sector: str) -> bool:
+    """Skip the extra Zain City CHACK NO 13/G block; official Zain City has 50 rows."""
+    normalized = _normalize_consumer_col(sector)
+    compact = normalized.replace(" ", "")
+    return "zaincity" in compact and "13" in normalized and "private" not in normalized
+
+
+def _is_extra_noor_mohalla_main_road_sector(sector: str) -> bool:
+    """Skip duplicate Noor Mohalla sector text generated from address wording."""
+    normalized = _normalize_consumer_col(sector)
+    return normalized == "noor mohala millad chowk main road"
+
+
 def _normalize_rate_title(value: str) -> str:
     """Canonical key for rate matching; tolerates case/spacing drift without changing display text."""
     return " ".join(str(value or "").strip().split()).upper()
@@ -7884,6 +7913,9 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
     for row in rows:
         sector_raw = (row.get("sector") or "Unspecified").strip()
         locality_raw = (row.get("locality") or "Unspecified").strip()
+        if _is_extra_zain_city_13g_sector(sector_raw) or _is_extra_noor_mohalla_main_road_sector(sector_raw):
+            continue
+        sector_raw, locality_raw = _canonical_consumer_sector_locality(sector_raw, locality_raw)
         status = row.get("connection_status", "Active")
         rate_type = (row.get("rate_type") or "").strip()
 

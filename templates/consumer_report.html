@@ -436,6 +436,37 @@
       return text.slice(0, 120);
     }
 
+    function canonicalConsumerSectorLocality(sector, locality) {
+      var sectorText = (sector || '').trim();
+      var localityText = (locality || '').trim();
+      var normalized = sectorText.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      var compact = normalized.replace(/\s+/g, '');
+      // Keep the official Zain City private society label consistent.
+      // Address text like "ZAIN CITY 13/G ROAD" must not create another sector.
+      if (compact.indexOf('zaincity') !== -1 && normalized.indexOf('private') !== -1) {
+        return { sector: 'ZAIN CITY (PRIVATE SOCITIES)', locality: 'ZAIN CITY Zone A' };
+      }
+      // Keep the official Noor Mohalla sector/locality label consistent.
+      if (normalized === 'noor mohalla melad chowk mian road') {
+        return { sector: 'Noor Mohalla Melad Chowk Mian Road', locality: 'Noor Mohalla Zone A' };
+      }
+      return { sector: sectorText, locality: localityText };
+    }
+
+    function isExtraZainCity13GSector(sector) {
+      var normalized = (sector || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      var compact = normalized.replace(/\s+/g, '');
+      // The only valid Zain City sector is the private society row.  If a
+      // generated/merged file promotes address text into Sector, skip it.
+      return compact.indexOf('zaincity') !== -1 && normalized.indexOf('13') !== -1 && normalized.indexOf('private') === -1;
+    }
+
+    function isExtraNoorMohallaMainRoadSector(sector) {
+      var normalized = (sector || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      // Skip the duplicate sector created when address wording is promoted to Sector.
+      return normalized === 'noor mohala millad chowk main road';
+    }
+
     function addRateAlias(lookup, alias, target) {
       // Fix: some consumer exports use an older 3-inch private society label
       // while the active payable rate is stored under the longer rate title.
@@ -609,6 +640,10 @@
 
         var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
         var locality = (fields[colMap.locality] || '').trim() || 'Unspecified';
+        if (isExtraZainCity13GSector(sector) || isExtraNoorMohallaMainRoadSector(sector)) continue;
+        var canonicalPlace = canonicalConsumerSectorLocality(sector, locality);
+        sector = canonicalPlace.sector || 'Unspecified';
+        locality = canonicalPlace.locality || 'Unspecified';
         var status = classifyRowStatus(fields, colMap);
 
         // --- BUDGET: only Active records contribute to annual budget ---
@@ -706,6 +741,10 @@
 
         var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
         var locality = (fields[colMap.locality] || '').trim() || 'Unspecified';
+        if (isExtraZainCity13GSector(sector) || isExtraNoorMohallaMainRoadSector(sector)) continue;
+        var canonicalPlace = canonicalConsumerSectorLocality(sector, locality);
+        sector = canonicalPlace.sector || 'Unspecified';
+        locality = canonicalPlace.locality || 'Unspecified';
         var status = classifyRowStatus(fields, colMap);
 
         if (sector.toUpperCase().indexOf('COMMERCIAL') !== 0) continue;
