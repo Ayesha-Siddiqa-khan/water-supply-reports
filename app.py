@@ -9207,27 +9207,24 @@ def arrear_calculator():
 
 
 def _parse_arrear_export_cols(cols_param):
-    """Parse comma-separated column keys into an ordered list."""
-    COL_MAP = {
-        "sr": ("SR", 50),
-        "sector": ("Sector", None),
-        "locality": ("Locality", None),
-        "fy2023": ("2023-2024", 95),
-        "fy2024": ("2024-2025", 95),
-        "fy2025": ("2025-2026", 95),
-        "closed": ("Closed", 70),
-        "suspended": ("Suspended", 80),
-        "active": ("Active", 70),
-        "open": ("Open", 65),
-        "total": ("Total Connections", 80),
-        "arrears": ("Total Arrears", 110),
+    """Parse comma-separated column keys into an ordered list.
+
+    Fixed column order: SR, Sector, Locality, Closed, Suspended, Active,
+    Open, Total Connections, 2023-2024, 2024-2025, 2025-2026, Total Arrears.
+    """
+    COL_ORDER = ["sr", "sector", "locality", "closed", "suspended", "active",
+                 "open", "total", "fy2023", "fy2024", "fy2025", "arrears"]
+    COL_NAMES = {
+        "sr": "SR", "sector": "Sector", "locality": "Locality",
+        "closed": "Closed", "suspended": "Suspended", "active": "Active",
+        "open": "Open", "total": "Total Conn.", "fy2023": "2023-2024",
+        "fy2024": "2024-2025", "fy2025": "2025-2026", "arrears": "Total Arrears",
     }
-    all_keys = list(COL_MAP.keys())
     if cols_param:
-        selected = [c.strip() for c in cols_param.split(",") if c.strip() in COL_MAP]
+        selected = [c.strip() for c in cols_param.split(",") if c.strip() in COL_NAMES]
     else:
-        selected = all_keys
-    return [(k, COL_MAP[k][0], COL_MAP[k][1]) for k in selected]
+        selected = list(COL_ORDER)
+    return [(k, COL_NAMES[k]) for k in selected if k in COL_NAMES]
 
 
 def _build_arrear_export_rows(rows, selected_keys):
@@ -9304,6 +9301,14 @@ def export_arrear_calculator(fmt_type: str):
         flash("No arrear data to export. Upload a CSV first.")
         return redirect(url_for("arrear_calculator"))
 
+    # Tab filter — "commercial" or "domestic" (default: all)
+    tab = request.args.get("tab", "").strip().lower()
+    tab_label = ""
+    if tab == "commercial":
+        tab_label = " Commercial"
+    elif tab == "domestic":
+        tab_label = " Domestic"
+
     # Sort rows
     priority = request.args.get("priority", "active_first")
     order = request.args.get("order", "desc")
@@ -9312,33 +9317,30 @@ def export_arrear_calculator(fmt_type: str):
     # Column selection
     cols_param = request.args.get("cols", "")
     col_defs = _parse_arrear_export_cols(cols_param)
-    selected_keys = [k for k, _, _ in col_defs]
-    headers = [h for _, h, _ in col_defs]
+    selected_keys = [k for k, _ in col_defs]
+    headers = [h for _, h in col_defs]
     export_rows = _build_arrear_export_rows(rows, selected_keys)
 
-    # Grand total row
-    grand = [
-        "",
-        "",
-        "",
-        f"{summary.get('grand_fy2023', 0):,.0f}" if "fy2023" in selected_keys else "",
-        f"{summary.get('grand_fy2024', 0):,.0f}" if "fy2024" in selected_keys else "",
-        f"{summary.get('grand_fy2025', 0):,.0f}" if "fy2025" in selected_keys else "",
-        str(summary.get("grand_status", {}).get("closed", 0)) if "closed" in selected_keys else "",
-        str(summary.get("grand_status", {}).get("suspended", 0)) if "suspended" in selected_keys else "",
-        str(summary.get("grand_status", {}).get("active", 0)) if "active" in selected_keys else "",
-        str(summary.get("grand_status", {}).get("open", 0)) if "open" in selected_keys else "",
-        str(summary.get("total_connections", 0)) if "total" in selected_keys else "",
-        f"{summary.get('grand_total_arrears', 0):,.0f}" if "arrears" in selected_keys else "",
-    ]
-    # Trim trailing empty strings for clean grand total
-    while grand and grand[-1] == "":
-        grand.pop()
+    # Grand total row — must match the column order from _parse_arrear_export_cols
+    gt_map = {
+        "sr": "", "sector": "GRAND TOTAL", "locality": "",
+        "closed": str(summary.get("grand_status", {}).get("closed", 0)),
+        "suspended": str(summary.get("grand_status", {}).get("suspended", 0)),
+        "active": str(summary.get("grand_status", {}).get("active", 0)),
+        "open": str(summary.get("grand_status", {}).get("open", 0)),
+        "total": str(summary.get("total_connections", 0)),
+        "fy2023": f"{summary.get('grand_fy2023', 0):,.0f}",
+        "fy2024": f"{summary.get('grand_fy2024', 0):,.0f}",
+        "fy2025": f"{summary.get('grand_fy2025', 0):,.0f}",
+        "arrears": f"{summary.get('grand_total_arrears', 0):,.0f}",
+    }
+    grand = [gt_map.get(k, "") for k in selected_keys]
     export_rows.append(grand)
 
     filename_base = summary.get("filename", "arrear_report")
     if filename_base.lower().endswith(".csv"):
         filename_base = filename_base[:-4]
+    filename_base += tab_label.replace(" ", "_") if tab_label else ""
 
     if fmt_type == "csv":
         import csv as csv_mod
@@ -9371,36 +9373,52 @@ def export_arrear_calculator(fmt_type: str):
         from reportlab.lib.pagesizes import A4, landscape
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import mm
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle,
+                                        Paragraph, Spacer)
+        from reportlab.lib.enums import TA_LEFT, TA_CENTER
 
         buf = io.BytesIO()
+        page_w, page_h = landscape(A4)
+        margin = 10 * mm
         doc = SimpleDocTemplate(
             buf,
             pagesize=landscape(A4),
-            leftMargin=15 * mm,
-            rightMargin=15 * mm,
-            topMargin=20 * mm,
-            bottomMargin=15 * mm,
+            leftMargin=margin,
+            rightMargin=margin,
+            topMargin=12 * mm,
+            bottomMargin=10 * mm,
         )
 
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle(
-            "ArrearTitle",
-            parent=styles["Heading1"],
-            fontSize=14,
-            spaceAfter=4,
+            "ArrearTitle", parent=styles["Heading1"],
+            fontSize=13, spaceAfter=2, spaceBefore=0,
             textColor=rl_colors.HexColor("#1a1a2e"),
         )
         meta_style = ParagraphStyle(
-            "ArrearMeta",
-            parent=styles["Normal"],
-            fontSize=8,
-            textColor=rl_colors.HexColor("#666"),
-            spaceAfter=8,
+            "ArrearMeta", parent=styles["Normal"],
+            fontSize=7.5, textColor=rl_colors.HexColor("#555"),
+            spaceAfter=4, spaceBefore=0,
+        )
+        cell_style = ParagraphStyle(
+            "Cell", parent=styles["Normal"],
+            fontSize=7, leading=8, spaceBefore=0, spaceAfter=0,
+        )
+        cell_left = ParagraphStyle(
+            "CellLeft", parent=cell_style, alignment=TA_LEFT,
+        )
+        cell_center = ParagraphStyle(
+            "CellCenter", parent=cell_style, alignment=TA_CENTER,
+        )
+        hdr_style = ParagraphStyle(
+            "HdrCell", parent=styles["Normal"],
+            fontSize=7, leading=8, alignment=TA_CENTER,
+            textColor=rl_colors.white, fontName="Helvetica-Bold",
+            spaceBefore=0, spaceAfter=0,
         )
 
         elements = []
-        elements.append(Paragraph("Arrear Calculator Report", title_style))
+        elements.append(Paragraph(f"Arrear Calculator Report{tab_label}", title_style))
         meta_parts = []
         if summary.get("filename"):
             meta_parts.append(f"Source: {summary['filename']}")
@@ -9410,29 +9428,68 @@ def export_arrear_calculator(fmt_type: str):
         meta_parts.append(f"Localities: {summary.get('locality_count', 0)}")
         meta_parts.append(f"Grand Total Arrears: {summary.get('grand_total_arrears', 0):,.0f}")
         elements.append(Paragraph(" | ".join(meta_parts), meta_style))
-        elements.append(Spacer(1, 6))
+        elements.append(Spacer(1, 4))
 
-        # Build table data
-        table_data = [headers] + export_rows
-        col_widths = [w for _, _, w in col_defs if w is not None] or None
+        # Build table data with Paragraph objects for wrapping
+        left_align_cols = {"sector", "locality"}
+        table_data = []
+        # Header row
+        hdr_row = [Paragraph(h, hdr_style) for _, h in col_defs]
+        table_data.append(hdr_row)
+        # Data rows
+        for row in export_rows:
+            cells = []
+            for idx, (key, _) in enumerate(col_defs):
+                txt = str(row[idx]) if idx < len(row) else ""
+                st = cell_left if key in left_align_cols else cell_center
+                cells.append(Paragraph(txt, st))
+            table_data.append(cells)
+
+        # Column widths — tuned for A4 landscape with 10mm margins
+        usable = page_w - 2 * margin
+        WIDTH_MAP = {
+            "sr": 28, "sector": 115, "locality": 115,
+            "closed": 40, "suspended": 48, "active": 40,
+            "open": 34, "total": 48, "fy2023": 58,
+            "fy2024": 58, "fy2025": 58, "arrears": 68,
+        }
+        col_widths = [WIDTH_MAP.get(k, 50) for k, _ in col_defs]
+        # Scale if total exceeds usable width
+        total_w = sum(col_widths)
+        if total_w > usable:
+            scale = usable / total_w
+            col_widths = [w * scale for w in col_widths]
 
         tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
         accent = rl_colors.HexColor("#2f6f6d")
+        dark_border = rl_colors.HexColor("#555555")
         tbl.setStyle(TableStyle([
+            # Header
             ("BACKGROUND", (0, 0), (-1, 0), accent),
             ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 7),
+            ("FONTSIZE", (0, 0), (-1, 0), 7),
+            # Body
+            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 1), (-1, -1), 7),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("GRID", (0, 0), (-1, -1), 0.4, rl_colors.HexColor("#cccccc")),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -2), [rl_colors.white, rl_colors.HexColor("#f7f9fb")]),
+            # Sector + Locality left-aligned
+            ("ALIGN", (1, 1), (2, -1), "LEFT"),
+            # Grid — dark visible borders
+            ("GRID", (0, 0), (-1, -1), 0.5, dark_border),
+            ("LINEBELOW", (0, 0), (-1, 0), 1, accent),
+            # Alternating row colors
+            ("ROWBACKGROUNDS", (0, 1), (-1, -2),
+             [rl_colors.white, rl_colors.HexColor("#f4f7fa")]),
+            # Grand total row
             ("BACKGROUND", (0, -1), (-1, -1), rl_colors.HexColor("#e8f5e9")),
             ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            # Compact padding
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LEFTPADDING", (0, 0), (-1, -1), 3),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
         ]))
         elements.append(tbl)
         doc.build(elements)

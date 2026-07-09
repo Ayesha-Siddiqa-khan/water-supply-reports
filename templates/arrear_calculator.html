@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Water Supply Report — Arrear Calculator{% endblock %}
-{% block meta_description %}Upload a connections CSV to calculate arrears grouped by sector and locality.{% endblock %}
+{% block meta_description %}Upload a connections CSV to calculate arrears grouped by sector.{% endblock %}
 {% block active_page %}arrear_calc{% endblock %}
 {% block breadcrumb %}Arrear Calculator{% endblock %}
 
@@ -34,7 +34,7 @@
     <div class="page-header">
       <div class="page-tag">Arrear Calculator</div>
       <h1 class="page-title">Arrear Calculator</h1>
-      <p class="page-subtitle">Upload a connections CSV to calculate year-wise arrears grouped by Sector and Locality.</p>
+      <p class="page-subtitle">Upload a connections CSV to calculate year-wise arrears grouped by Sector.</p>
     </div>
 
     <!-- Upload Area -->
@@ -46,7 +46,7 @@
       </div>
       <div class="upload-text">
         <strong>Upload Connections CSV</strong>
-        <span>CSV or XLSX. Expected columns: Sector, Locality, Connection Date, Total Arrears, Status.</span>
+        <span>CSV or XLSX. Expected columns: Sector, Locality, Rate Type, Connection Date, Total Arrears, Status.</span>
       </div>
       <div id="upload-status" style="display:none;margin-top:10px;font-size:12px;color:var(--teal);"></div>
       <input type="file" id="csv-file-input" accept=".csv" style="display:none;">
@@ -56,12 +56,12 @@
     <div class="empty-state">
       <div class="empty-state-icon">&#128203;</div>
       <div class="empty-state-title">No arrear report generated</div>
-      <div class="empty-state-desc">Upload a connections CSV file above to see the year-wise arrear summary. The report groups connections by <strong>Sector + Locality</strong> and calculates arrears per financial year.</div>
+      <div class="empty-state-desc">Upload a connections CSV file above to see the year-wise arrear summary. The report groups connections by <strong>Sector</strong> and calculates arrears per financial year.</div>
     </div>
     {% endif %}
 
     {% if summary %}
-    <!-- STAT GRID -->
+    <!-- STAT GRID — Total records / sectors / localities / arrears -->
     <div class="stat-grid">
       <div class="stat-card teal">
         <div class="stat-card-icon">&#128203;</div>
@@ -89,23 +89,61 @@
       </div>
     </div>
 
-    <!-- Status summary cards -->
-    <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);">
-      <div class="stat-card" style="border-left:3px solid var(--coral);">
-        <div class="stat-label">Closed</div>
-        <div class="stat-value" data-count="{{ summary.grand_status.closed }}" style="color:var(--coral);">0</div>
+    <!-- ================================================================
+         SUB-TAB BUTTONS: Domestic vs Commercial
+         ================================================================ -->
+    <div id="sub-tab-bar" style="display:flex;gap:0;margin-bottom:14px;border-bottom:2px solid var(--border);">
+      <button type="button" class="sub-tab-btn active" data-tab="domestic"
+              onclick="switchTab('domestic')"
+              style="padding:8px 20px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--bg);color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
+        Domestic <span id="domestic-count-badge" style="font-size:11px;font-weight:400;opacity:.7;"></span>
+      </button>
+      <button type="button" class="sub-tab-btn" data-tab="commercial"
+              onclick="switchTab('commercial')"
+              style="padding:8px 20px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--bg);color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
+        Commercial <span id="commercial-count-badge" style="font-size:11px;font-weight:400;opacity:.7;"></span>
+      </button>
+    </div>
+
+    <!-- Status summary cards — per tab (hidden/shown via JS) -->
+    <div id="status-cards-domestic" style="display:none;">
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);">
+        <div class="stat-card" style="border-left:3px solid var(--coral);">
+          <div class="stat-label">Closed</div>
+          <div class="stat-value" id="dom-closed" style="color:var(--coral);">0</div>
+        </div>
+        <div class="stat-card" style="border-left:3px solid var(--amber);">
+          <div class="stat-label">Suspended</div>
+          <div class="stat-value" id="dom-suspended" style="color:var(--amber);">0</div>
+        </div>
+        <div class="stat-card" style="border-left:3px solid var(--teal);">
+          <div class="stat-label">Active</div>
+          <div class="stat-value" id="dom-active" style="color:var(--teal);">0</div>
+        </div>
+        <div class="stat-card" style="border-left:3px solid var(--violet);">
+          <div class="stat-label">Open</div>
+          <div class="stat-value" id="dom-open" style="color:var(--violet);">0</div>
+        </div>
       </div>
-      <div class="stat-card" style="border-left:3px solid var(--amber);">
-        <div class="stat-label">Suspended</div>
-        <div class="stat-value" data-count="{{ summary.grand_status.suspended }}" style="color:var(--amber);">0</div>
-      </div>
-      <div class="stat-card" style="border-left:3px solid var(--teal);">
-        <div class="stat-label">Active</div>
-        <div class="stat-value" data-count="{{ summary.grand_status.active }}" style="color:var(--teal);">0</div>
-      </div>
-      <div class="stat-card" style="border-left:3px solid var(--violet);">
-        <div class="stat-label">Open</div>
-        <div class="stat-value" data-count="{{ summary.grand_status.open }}" style="color:var(--violet);">0</div>
+    </div>
+    <div id="status-cards-commercial" style="display:none;">
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);">
+        <div class="stat-card" style="border-left:3px solid var(--coral);">
+          <div class="stat-label">Closed</div>
+          <div class="stat-value" id="com-closed" style="color:var(--coral);">0</div>
+        </div>
+        <div class="stat-card" style="border-left:3px solid var(--amber);">
+          <div class="stat-label">Suspended</div>
+          <div class="stat-value" id="com-suspended" style="color:var(--amber);">0</div>
+        </div>
+        <div class="stat-card" style="border-left:3px solid var(--teal);">
+          <div class="stat-label">Active</div>
+          <div class="stat-value" id="com-active" style="color:var(--teal);">0</div>
+        </div>
+        <div class="stat-card" style="border-left:3px solid var(--violet);">
+          <div class="stat-label">Open</div>
+          <div class="stat-value" id="com-open" style="color:var(--violet);">0</div>
+        </div>
       </div>
     </div>
 
@@ -114,7 +152,7 @@
       <div class="section-header" onclick="toggleSection('sec-arrear-summary')">
         <div class="section-header-icon">&#128202;</div>
         <div class="section-title">Sector + Locality Summary</div>
-        <span class="section-badge">{{ summary.rows|length }} rows</span>
+        <span class="section-badge" id="section-row-count"></span>
         <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
@@ -162,16 +200,7 @@
             <input type="checkbox" class="pdf-col-toggle" data-col="sector" checked> Sector
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="locality" checked> Locality
-          </label>
-          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="fy2023" checked> 2023-2024
-          </label>
-          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="fy2024" checked> 2024-2025
-          </label>
-          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="fy2025" checked> 2025-2026
+            <input type="checkbox" class="pdf-col-toggle" data-col="locality" checked> Localities
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
             <input type="checkbox" class="pdf-col-toggle" data-col="closed" checked> Closed
@@ -189,80 +218,34 @@
             <input type="checkbox" class="pdf-col-toggle" data-col="total" checked> Total Connections
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="fy2023" checked> 2023-2024
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="fy2024" checked> 2024-2025
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="fy2025" checked> 2025-2026
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
             <input type="checkbox" class="pdf-col-toggle" data-col="arrears" checked> Total Arrears
           </label>
         </div>
 
-        <!-- Summary Table -->
-        {% if summary and summary.rows %}
-        <div class="table-wrapper">
-          <table class="data-table" id="arrear-summary-table">
-            <thead>
-              <tr>
-                <th style="width:40px;text-align:center"><input type="checkbox" id="select-all" checked title="Select/Deselect All"></th>
-                <th style="width:50px;text-align:center">SR</th>
-                <th style="text-align:left">Sector</th>
-                <th style="text-align:left">Locality</th>
-                <th style="width:95px;text-align:right">2023-2024</th>
-                <th style="width:95px;text-align:right">2024-2025</th>
-                <th style="width:95px;text-align:right">2025-2026</th>
-                <th style="width:70px;text-align:center">Closed</th>
-                <th style="width:80px;text-align:center">Suspended</th>
-                <th style="width:70px;text-align:center">Active</th>
-                <th style="width:65px;text-align:center">Open</th>
-                <th style="width:80px;text-align:center">Total Conn.</th>
-                <th style="width:110px;text-align:right">Total Arrears</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in summary.rows %}
-              <tr data-serial="{{ row.serial }}"
-                  data-fy2023="{{ row.fy2023 }}"
-                  data-fy2024="{{ row.fy2024 }}"
-                  data-fy2025="{{ row.fy2025 }}"
-                  data-closed="{{ row.closed }}"
-                  data-suspended="{{ row.suspended }}"
-                  data-active="{{ row.active }}"
-                  data-open="{{ row.open }}"
-                  data-total="{{ row.total_connections }}"
-                  data-arrears="{{ row.total_arrears }}"
-                  data-sector="{{ row.sector }}"
-                  data-locality="{{ row.locality }}">
-                <td style="text-align:center"><input type="checkbox" class="row-checkbox" checked></td>
-                <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
-                <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
-                <td style="text-align:left;">{{ row.locality }}</td>
-                <td style="text-align:right;font-weight:500;">{{ "{:,.0f}".format(row.fy2023) }}</td>
-                <td style="text-align:right;font-weight:500;">{{ "{:,.0f}".format(row.fy2024) }}</td>
-                <td style="text-align:right;font-weight:500;">{{ "{:,.0f}".format(row.fy2025) }}</td>
-                <td style="text-align:center;color:var(--coral);">{{ row.closed }}</td>
-                <td style="text-align:center;color:var(--amber);">{{ row.suspended }}</td>
-                <td style="text-align:center;color:var(--teal);">{{ row.active }}</td>
-                <td style="text-align:center;color:var(--violet);">{{ row.open }}</td>
-                <td style="text-align:center;font-weight:600;">{{ row.total_connections }}</td>
-                <td class="row-arrears-cell" style="text-align:right;font-weight:600;color:var(--amber);">{{ "{:,.0f}".format(row.total_arrears) }}</td>
-              </tr>
-              {% endfor %}
-              <tr class="grand-total-row" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
-                <td colspan="4" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL <span id="selected-count" style="font-size:11px;font-weight:400;color:var(--text-muted);"></span></td>
-                <td id="gt-fy2023" style="text-align:right;font-weight:700;color:var(--text-primary);font-size:13px;">{{ "{:,.0f}".format(summary.grand_fy2023) }}</td>
-                <td id="gt-fy2024" style="text-align:right;font-weight:700;color:var(--text-primary);font-size:13px;">{{ "{:,.0f}".format(summary.grand_fy2024) }}</td>
-                <td id="gt-fy2025" style="text-align:right;font-weight:700;color:var(--text-primary);font-size:13px;">{{ "{:,.0f}".format(summary.grand_fy2025) }}</td>
-                <td id="gt-closed" style="text-align:center;font-weight:700;color:var(--coral);font-size:15px;">{{ summary.grand_status.closed }}</td>
-                <td id="gt-suspended" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ summary.grand_status.suspended }}</td>
-                <td id="gt-active" style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ summary.grand_status.active }}</td>
-                <td id="gt-open" style="text-align:center;font-weight:700;color:var(--violet);font-size:15px;">{{ summary.grand_status.open }}</td>
-                <td id="gt-total" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ summary.total_connections }}</td>
-                <td id="gt-arrears" style="text-align:right;font-weight:700;color:var(--amber);font-size:14px;">{{ "{:,.0f}".format(summary.grand_total_arrears) }}</td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- Tab panel: Domestic -->
+        <div id="tab-panel-domestic" class="tab-panel" style="">
+          <div id="domestic-table-wrapper" style="max-width:none;overflow-x:auto;"></div>
+          <div id="domestic-empty" style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;display:none;">
+            No domestic records found. Records are identified by Rate Type containing "domestic".
+          </div>
         </div>
-        {% else %}
-        <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">
-          No records found in the uploaded file.
+
+        <!-- Tab panel: Commercial -->
+        <div id="tab-panel-commercial" class="tab-panel" style="display:none;">
+          <div id="commercial-table-wrapper" style="max-width:none;overflow-x:auto;"></div>
+          <div id="commercial-empty" style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;display:none;">
+            No commercial records found. Records are identified by Rate Type containing "commercial".
+          </div>
         </div>
-        {% endif %}
 
       </div>
     </div>
@@ -297,7 +280,7 @@ function toggleSection(id) {
     sector: ['sector'],
     locality: ['locality'],
     address: ['address'],
-    rate_type: ['rate type','rate type'],
+    rate_type: ['rate type'],
     connection_number: ['connection no.','connection no','connection number','connection'],
     old_connection: ['old connection no.','old connection no','old connection number','old connection'],
     reference_no: ['reference no','ref no','ref. no'],
@@ -318,7 +301,6 @@ function toggleSection(id) {
   function resolveColumns(headers) {
     var norm = headers.map(normCol);
     var resolved = {};
-    // Pass 1: exact match
     Object.keys(COL_ALIASES).forEach(function(key) {
       if (resolved[key] !== undefined) return;
       COL_ALIASES[key].forEach(function(alias) {
@@ -329,7 +311,6 @@ function toggleSection(id) {
         }
       });
     });
-    // Pass 2: partial match (alias is contained in header)
     Object.keys(COL_ALIASES).forEach(function(key) {
       if (resolved[key] !== undefined) return;
       COL_ALIASES[key].forEach(function(alias) {
@@ -343,9 +324,6 @@ function toggleSection(id) {
     return resolved;
   }
 
-  // ======================================================================
-  // CSV Line Parser (handles quoted fields with commas)
-  // ======================================================================
   function parseCSVLine(line) {
     var result = [];
     var current = '';
@@ -368,19 +346,13 @@ function toggleSection(id) {
     return result;
   }
 
-  // ======================================================================
-  // Date Parsing — supports dd/mm/yyyy, d/m/yyyy, yyyy-mm-dd, m/d/yyyy
-  // ======================================================================
   function parseDate(val) {
     var text = (val || '').trim();
     if (!text) return null;
-    // yyyy-mm-dd or yyyy/mm/dd
     var m = text.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
     if (m) return new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
-    // dd/mm/yyyy or d/m/yyyy or dd-mm-yyyy
     m = text.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
     if (m) return new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1]));
-    // mm/dd/yyyy (fallback — only if day > 12 and month <= 12)
     m = text.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
     if (m) {
       var a = parseInt(m[1]), b = parseInt(m[2]);
@@ -394,14 +366,10 @@ function toggleSection(id) {
     var y = date.getFullYear();
     var m = date.getMonth() + 1;
     var d = date.getDate();
-    // FY starts July 1, ends June 30
     if (m > 6 || (m === 6 && d > 30)) return y + '-' + (y + 1);
     return (y - 1) + '-' + y;
   }
 
-  // ======================================================================
-  // Currency Parsing — handles commas, spaces, currency symbols, empty
-  // ======================================================================
   function parseCurrency(val) {
     if (val === null || val === undefined) return 0;
     var text = String(val).replace(/[,\s]/g, '').replace(/[^\d.\-]/g, '');
@@ -417,8 +385,97 @@ function toggleSection(id) {
     return 'Active';
   }
 
+  function normaliseSector(name) {
+    return (name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+
+  function normaliseRateType(val) {
+    var t = (val || '').trim().toLowerCase();
+    if (t.indexOf('commercial') !== -1) return 'Commercial';
+    // Everything else defaults to Domestic
+    return 'Domestic';
+  }
+
+  function buildLocalityDisplay(locObj) {
+    var keys = Object.keys(locObj);
+    if (keys.length === 0) return '\u2014';
+    var names = keys.map(function(k) { return locObj[k]; });
+    if (names.length === 1) return names[0];
+    if (names.length <= 3) return names.join(', ');
+    return names.slice(0, 3).join(', ') + ' +' + (names.length - 3) + ' more';
+  }
+
+  function buildTableHTML(rows, grandStatus, grandFY2023, grandFY2024, grandFY2025, grandTotal, grandArrears, tab) {
+    var prefix = tab === 'domestic' ? 'dom' : 'com';
+    var html = '<table class="data-table arrear-tab-table" id="arrear-table-' + tab + '" style="width:100%;min-width:1100px;">';
+    html += '<thead><tr>';
+    html += '<th style="width:36px;text-align:center"><input type="checkbox" class="select-all-tab" data-tab="' + tab + '" checked title="Select/Deselect All"></th>';
+    html += '<th style="width:40px;text-align:center">SR</th>';
+    html += '<th style="text-align:left;min-width:130px;">Sector</th>';
+    html += '<th style="text-align:left;min-width:130px;">Localities</th>';
+    html += '<th style="width:50px;text-align:center">Closed</th>';
+    html += '<th style="width:58px;text-align:center">Suspended</th>';
+    html += '<th style="width:50px;text-align:center">Active</th>';
+    html += '<th style="width:44px;text-align:center">Open</th>';
+    html += '<th style="width:62px;text-align:center">Total Conn.</th>';
+    html += '<th style="width:80px;text-align:right">2023-2024</th>';
+    html += '<th style="width:80px;text-align:right">2024-2025</th>';
+    html += '<th style="width:80px;text-align:right">2025-2026</th>';
+    html += '<th style="width:90px;text-align:right">Total Arrears</th>';
+    html += '</tr></thead><tbody>';
+
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      html += '<tr data-serial="' + r.serial + '"'
+        + ' data-fy2023="' + r.fy2023 + '"'
+        + ' data-fy2024="' + r.fy2024 + '"'
+        + ' data-fy2025="' + r.fy2025 + '"'
+        + ' data-closed="' + r.closed + '"'
+        + ' data-suspended="' + r.suspended + '"'
+        + ' data-active="' + r.active + '"'
+        + ' data-open="' + r.open + '"'
+        + ' data-total="' + r.total_connections + '"'
+        + ' data-arrears="' + r.total_arrears + '"'
+        + ' data-sector="' + (r.sector || '').replace(/"/g, '&quot;') + '"'
+        + ' data-locality="' + (r.locality || '').replace(/"/g, '&quot;') + '">';
+      html += '<td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="' + tab + '" checked></td>';
+      html += '<td style="text-align:center;color:var(--text-muted)">' + r.serial + '</td>';
+      html += '<td style="text-align:left;font-weight:500;">' + escHtml(r.sector) + '</td>';
+      html += '<td style="text-align:left;">' + escHtml(r.locality) + '</td>';
+      html += '<td style="text-align:center;color:var(--coral);">' + r.closed + '</td>';
+      html += '<td style="text-align:center;color:var(--amber);">' + r.suspended + '</td>';
+      html += '<td style="text-align:center;color:var(--teal);">' + r.active + '</td>';
+      html += '<td style="text-align:center;color:var(--violet);">' + r.open + '</td>';
+      html += '<td style="text-align:center;font-weight:600;">' + r.total_connections + '</td>';
+      html += '<td style="text-align:right;font-weight:500;">' + fmtNum(r.fy2023) + '</td>';
+      html += '<td style="text-align:right;font-weight:500;">' + fmtNum(r.fy2024) + '</td>';
+      html += '<td style="text-align:right;font-weight:500;">' + fmtNum(r.fy2025) + '</td>';
+      html += '<td class="row-arrears-cell" style="text-align:right;font-weight:600;color:var(--amber);">' + fmtNum(r.total_arrears) + '</td>';
+      html += '</tr>';
+    }
+
+    // Grand total row
+    html += '<tr class="grand-total-row" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">';
+    html += '<td colspan="4" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL <span class="selected-count-label" style="font-size:11px;font-weight:400;color:var(--text-muted);"></span></td>';
+    html += '<td id="' + prefix + '-gt-closed" style="text-align:center;font-weight:700;color:var(--coral);font-size:15px;">' + grandStatus.closed + '</td>';
+    html += '<td id="' + prefix + '-gt-suspended" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">' + grandStatus.suspended + '</td>';
+    html += '<td id="' + prefix + '-gt-active" style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">' + grandStatus.active + '</td>';
+    html += '<td id="' + prefix + '-gt-open" style="text-align:center;font-weight:700;color:var(--violet);font-size:15px;">' + grandStatus.open + '</td>';
+    html += '<td id="' + prefix + '-gt-total" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">' + grandTotal + '</td>';
+    html += '<td id="' + prefix + '-gt-fy2023" style="text-align:right;font-weight:700;color:var(--text-primary);font-size:13px;">' + fmtNum(grandFY2023) + '</td>';
+    html += '<td id="' + prefix + '-gt-fy2024" style="text-align:right;font-weight:700;color:var(--text-primary);font-size:13px;">' + fmtNum(grandFY2024) + '</td>';
+    html += '<td id="' + prefix + '-gt-fy2025" style="text-align:right;font-weight:700;color:var(--text-primary);font-size:13px;">' + fmtNum(grandFY2025) + '</td>';
+    html += '<td id="' + prefix + '-gt-arrears" style="text-align:right;font-weight:700;color:var(--amber);font-size:14px;">' + fmtNum(grandArrears) + '</td>';
+    html += '</tr>';
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function fmtNum(v) { return Math.round(v).toLocaleString(); }
+
   // ======================================================================
-  // Process CSV — group by Sector + Locality
+  // Process CSV — split by Rate Type, group each by Sector
   // ======================================================================
   function processCSV(text) {
     var lines = text.split(/\r?\n/).filter(function(l) { return l.trim().length > 0; });
@@ -427,44 +484,49 @@ function toggleSection(id) {
     var headers = parseCSVLine(lines[0]);
     var colMap = resolveColumns(headers);
 
-    // Validate required columns
     var missing = [];
     ['sector','locality','connection_date','total_arrears','status'].forEach(function(k) {
       if (!(k in colMap)) missing.push(k);
     });
     if (missing.length) { showError('Missing required columns: ' + missing.join(', ')); return; }
 
-    // Build sector+locality map
-    var groupMap = {};
-    var totalRows = 0;
-    var uniqueSectors = {};
-    var uniqueLocalities = {};
+    // Two maps: one for Domestic, one for Commercial
+    var tabMaps = { Domestic: {}, Commercial: {} };
+    var tabUniques = { Domestic: {}, Commercial: {} };
+    var tabTotals = { Domestic: 0, Commercial: 0 };
+    var tabArrears = { Domestic: 0, Commercial: 0 };
+    var tabGrandFY = { Domestic: { fy2023: 0, fy2024: 0, fy2025: 0 }, Commercial: { fy2023: 0, fy2024: 0, fy2025: 0 } };
+    var tabGrandStatus = { Domestic: { closed: 0, suspended: 0, active: 0, open: 0 }, Commercial: { closed: 0, suspended: 0, active: 0, open: 0 } };
+    var tabSectorCount = { Domestic: 0, Commercial: 0 };
 
     for (var i = 1; i < lines.length; i++) {
       var fields = parseCSVLine(lines[i]);
-      // Skip duplicate header rows
       if (colMap.sector !== undefined) {
         var sec = (fields[colMap.sector] || '').trim().toLowerCase();
         if (sec === 'sector') continue;
       }
 
       var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
-      var locality = (fields[colMap.locality] || '').trim() || 'Unspecified';
+      var locality = (fields[colMap.locality] || '').trim() || '';
       var dateVal = colMap.connection_date !== undefined ? fields[colMap.connection_date] : '';
       var arrearsRaw = colMap.total_arrears !== undefined ? fields[colMap.total_arrears] : '0';
       var statusVal = colMap.status !== undefined ? fields[colMap.status] : '';
+      var rateTypeRaw = colMap.rate_type !== undefined ? fields[colMap.rate_type] : '';
 
       var arrears = parseCurrency(arrearsRaw);
       var status = normaliseStatus(statusVal);
       var date = parseDate(dateVal);
       var fy = getFinancialYear(date);
+      var rateType = normaliseRateType(rateTypeRaw);
 
-      var groupKey = sector.toLowerCase() + '|||' + locality.toLowerCase();
+      var sectorKey = normaliseSector(sector);
+      var sectorMap = tabMaps[rateType];
+      var uniqueSectors = tabUniques[rateType];
 
-      if (!groupMap[groupKey]) {
-        groupMap[groupKey] = {
+      if (!sectorMap[sectorKey]) {
+        sectorMap[sectorKey] = {
           sector: sector,
-          locality: locality,
+          localities: {},
           fy2023: 0,
           fy2024: 0,
           fy2025: 0,
@@ -477,90 +539,116 @@ function toggleSection(id) {
         };
       }
 
-      var g = groupMap[groupKey];
+      var g = sectorMap[sectorKey];
+      if (sector.length > g.sector.length) g.sector = sector;
+
+      if (locality) {
+        var locKey = locality.toLowerCase().trim();
+        if (locKey && !g.localities[locKey]) {
+          g.localities[locKey] = locality;
+        }
+      }
+
       g.total_connections++;
       g.total_arrears += arrears;
-
-      // Add arrears to matching financial year
       if (fy === '2023-2024') g.fy2023 += arrears;
       else if (fy === '2024-2025') g.fy2024 += arrears;
       else if (fy === '2025-2026') g.fy2025 += arrears;
 
-      // Count status
       if (status === 'Closed') g.closed++;
       else if (status === 'Suspended') g.suspended++;
       else if (status === 'Open') g.open++;
       else g.active++;
 
-      uniqueSectors[sector.toLowerCase()] = true;
-      uniqueLocalities[locality.toLowerCase()] = true;
-      totalRows++;
+      uniqueSectors[sectorKey] = true;
+      tabTotals[rateType]++;
+      tabArrears[rateType] += arrears;
+      if (fy === '2023-2024') tabGrandFY[rateType].fy2023 += arrears;
+      else if (fy === '2024-2025') tabGrandFY[rateType].fy2024 += arrears;
+      else if (fy === '2025-2026') tabGrandFY[rateType].fy2025 += arrears;
+      if (status === 'Closed') tabGrandStatus[rateType].closed++;
+      else if (status === 'Suspended') tabGrandStatus[rateType].suspended++;
+      else if (status === 'Open') tabGrandStatus[rateType].open++;
+      else tabGrandStatus[rateType].active++;
     }
 
-    // Build rows array
-    var rows = [];
-    var serial = 0;
-    var grandFY2023 = 0, grandFY2024 = 0, grandFY2025 = 0;
-    var grandClosed = 0, grandSuspended = 0, grandActive = 0, grandOpen = 0;
-    var grandTotal = 0, grandArrears = 0;
+    // Build rows for each tab
+    var tabRows = { Domestic: [], Commercial: [] };
+    var tabSectors = { Domestic: {}, Commercial: {} };
 
-    Object.keys(groupMap).forEach(function(key) {
-      var g = groupMap[key];
-      serial++;
-      rows.push({
-        serial: serial,
-        sector: g.sector,
-        locality: g.locality,
-        fy2023: g.fy2023,
-        fy2024: g.fy2024,
-        fy2025: g.fy2025,
-        closed: g.closed,
-        suspended: g.suspended,
-        active: g.active,
-        open: g.open,
-        total_connections: g.total_connections,
-        total_arrears: g.total_arrears
+    ['Domestic', 'Commercial'].forEach(function(tab) {
+      var sm = tabMaps[tab];
+      var serial = 0;
+      Object.keys(sm).forEach(function(key) {
+        var g = sm[key];
+        serial++;
+        tabRows[tab].push({
+          serial: serial,
+          sector: g.sector,
+          locality: buildLocalityDisplay(g.localities),
+          fy2023: g.fy2023,
+          fy2024: g.fy2024,
+          fy2025: g.fy2025,
+          closed: g.closed,
+          suspended: g.suspended,
+          active: g.active,
+          open: g.open,
+          total_connections: g.total_connections,
+          total_arrears: g.total_arrears
+        });
+        tabSectors[tab][g.sector.toLowerCase()] = true;
       });
-      grandFY2023 += g.fy2023;
-      grandFY2024 += g.fy2024;
-      grandFY2025 += g.fy2025;
-      grandClosed += g.closed;
-      grandSuspended += g.suspended;
-      grandActive += g.active;
-      grandOpen += g.open;
-      grandTotal += g.total_connections;
-      grandArrears += g.total_arrears;
+      tabSectorCount[tab] = Object.keys(sm).length;
     });
+
+    var totalDomestic = tabRows.Domestic.length;
+    var totalCommercial = tabRows.Commercial.length;
 
     var payload = {
       filename: currentFileName,
-      total_rows: totalRows,
-      rows: rows,
-      sector_count: Object.keys(uniqueSectors).length,
-      locality_count: Object.keys(uniqueLocalities).length,
-      total_connections: grandTotal,
-      grand_total_arrears: grandArrears,
-      grand_fy2023: grandFY2023,
-      grand_fy2024: grandFY2024,
-      grand_fy2025: grandFY2025,
+      total_rows: lines.length - 1,
+      rows: [], // flat — server stores as-is
+      sector_count: totalDomestic + totalCommercial,
+      locality_count: totalDomestic + totalCommercial,
+      total_connections: tabTotals.Domestic + tabTotals.Commercial,
+      grand_total_arrears: tabArrears.Domestic + tabArrears.Commercial,
+      grand_fy2023: tabGrandFY.Domestic.fy2023 + tabGrandFY.Commercial.fy2023,
+      grand_fy2024: tabGrandFY.Domestic.fy2024 + tabGrandFY.Commercial.fy2024,
+      grand_fy2025: tabGrandFY.Domestic.fy2025 + tabGrandFY.Commercial.fy2025,
       grand_status: {
-        closed: grandClosed,
-        suspended: grandSuspended,
-        active: grandActive,
-        open: grandOpen
+        closed: tabGrandStatus.Domestic.closed + tabGrandStatus.Commercial.closed,
+        suspended: tabGrandStatus.Domestic.suspended + tabGrandStatus.Commercial.suspended,
+        active: tabGrandStatus.Domestic.active + tabGrandStatus.Commercial.active,
+        open: tabGrandStatus.Domestic.open + tabGrandStatus.Commercial.open
+      },
+      domestic: {
+        rows: tabRows.Domestic,
+        sector_count: tabSectorCount.Domestic,
+        total_connections: tabTotals.Domestic,
+        grand_total_arrears: tabArrears.Domestic,
+        grand_fy2023: tabGrandFY.Domestic.fy2023,
+        grand_fy2024: tabGrandFY.Domestic.fy2024,
+        grand_fy2025: tabGrandFY.Domestic.fy2025,
+        grand_status: tabGrandStatus.Domestic
+      },
+      commercial: {
+        rows: tabRows.Commercial,
+        sector_count: tabSectorCount.Commercial,
+        total_connections: tabTotals.Commercial,
+        grand_total_arrears: tabArrears.Commercial,
+        grand_fy2023: tabGrandFY.Commercial.fy2023,
+        grand_fy2024: tabGrandFY.Commercial.fy2024,
+        grand_fy2025: tabGrandFY.Commercial.fy2025,
+        grand_status: tabGrandStatus.Commercial
       }
     };
 
-    // Persist to localStorage
     try { localStorage.setItem('arrear_calculator_data', JSON.stringify(payload)); } catch(e) {}
 
-    showStatus('Parsed ' + totalRows.toLocaleString() + ' rows. Sending to server...');
+    showStatus('Parsed ' + (lines.length - 1).toLocaleString() + ' rows. Sending to server...');
     fetch('{{ url_for("arrear_calculator") }}', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest'
-      },
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
       body: JSON.stringify(payload)
     })
     .then(function(resp) { return resp.json(); })
@@ -593,13 +681,12 @@ function toggleSection(id) {
   }
 
   // ======================================================================
-  // SERVER-RENDERED DATA — used by export links and sort controls
+  // SERVER-RENDERED DATA
   // ======================================================================
   var SERVER_SUMMARY = {{ (summary or {})|tojson }};
   var SERVER_FILENAME = {{ (filename or '')|tojson }};
   var SERVER_TOTAL_ROWS = {{ (total_rows or 0)|tojson }};
 
-  // Seed localStorage from server data so exports work
   if (SERVER_SUMMARY && SERVER_SUMMARY.rows && SERVER_SUMMARY.rows.length) {
     try {
       var copy = JSON.parse(JSON.stringify(SERVER_SUMMARY));
@@ -613,7 +700,6 @@ function toggleSection(id) {
   // DOM READY
   // ======================================================================
   document.addEventListener('DOMContentLoaded', function() {
-    // File input
     var fileInput = document.getElementById('csv-file-input');
     if (fileInput) {
       fileInput.addEventListener('change', function() {
@@ -628,14 +714,150 @@ function toggleSection(id) {
       });
     }
 
-    // Show topbar export buttons when data exists
     if (SERVER_SUMMARY && SERVER_SUMMARY.rows && SERVER_SUMMARY.rows.length) {
       var topbar = document.getElementById('topbar-export-btns');
       if (topbar) topbar.style.display = 'block';
     }
 
     // ==================================================================
-    // PDF DOWNLOAD LINK — updates URL with sort + column params
+    // RENDER TABS — build tables from server data
+    // ==================================================================
+    var storedData = null;
+    try { storedData = JSON.parse(localStorage.getItem('arrear_calculator_data')); } catch(e) {}
+    var data = storedData || SERVER_SUMMARY;
+
+    var activeTab = 'domestic';
+    var domesticData = null;
+    var commercialData = null;
+
+    // Prefer pre-split data from client parser; fallback to server flat rows
+    if (data && data.domestic && data.commercial) {
+      domesticData = data.domestic;
+      commercialData = data.commercial;
+    } else if (data && data.rows && data.rows.length) {
+      // Fallback: split server flat rows by rate_type if present
+      domesticData = { rows: [], sector_count: 0, total_connections: 0, grand_total_arrears: 0, grand_fy2023: 0, grand_fy2024: 0, grand_fy2025: 0, grand_status: { closed: 0, suspended: 0, active: 0, open: 0 } };
+      commercialData = { rows: [], sector_count: 0, total_connections: 0, grand_total_arrears: 0, grand_fy2023: 0, grand_fy2024: 0, grand_fy2025: 0, grand_status: { closed: 0, suspended: 0, active: 0, open: 0 } };
+      data.rows.forEach(function(row) {
+        var rt = (row.rate_type || 'Domestic').toLowerCase();
+        var target = rt.indexOf('commercial') !== -1 ? commercialData : domesticData;
+        target.rows.push(row);
+        target.total_connections += row.total_connections || 0;
+        target.grand_total_arrears += row.total_arrears || 0;
+        target.grand_fy2023 += row.fy2023 || 0;
+        target.grand_fy2024 += row.fy2024 || 0;
+        target.grand_fy2025 += row.fy2025 || 0;
+        target.grand_status.closed += row.closed || 0;
+        target.grand_status.suspended += row.suspended || 0;
+        target.grand_status.active += row.active || 0;
+        target.grand_status.open += row.open || 0;
+      });
+      domesticData.sector_count = domesticData.rows.length;
+      commercialData.sector_count = commercialData.rows.length;
+    }
+
+    function renderTab(tab, tabData) {
+      var wrapper = document.getElementById(tab + '-table-wrapper');
+      var emptyEl = document.getElementById(tab + '-empty');
+      var countBadge = document.getElementById(tab + '-count-badge');
+      var statusCards = document.getElementById('status-cards-' + tab);
+      var prefix = tab === 'domestic' ? 'dom' : 'com';
+
+      if (!tabData || !tabData.rows || tabData.rows.length === 0) {
+        if (wrapper) wrapper.innerHTML = '';
+        if (emptyEl) emptyEl.style.display = 'block';
+        if (statusCards) statusCards.style.display = 'none';
+        if (countBadge) countBadge.textContent = '(0)';
+        return;
+      }
+
+      if (emptyEl) emptyEl.style.display = 'none';
+      if (statusCards) statusCards.style.display = 'block';
+      if (countBadge) countBadge.textContent = '(' + tabData.sector_count + ')';
+
+      // Update status cards
+      var gs = tabData.grand_status || { closed: 0, suspended: 0, active: 0, open: 0 };
+      setText(prefix + '-closed', gs.closed.toLocaleString());
+      setText(prefix + '-suspended', gs.suspended.toLocaleString());
+      setText(prefix + '-active', gs.active.toLocaleString());
+      setText(prefix + '-open', gs.open.toLocaleString());
+
+      // Update section row count
+      var countEl = document.getElementById('section-row-count');
+      if (countEl) countEl.textContent = (domesticData ? domesticData.rows.length : 0) + (commercialData ? commercialData.rows.length : 0) + ' rows';
+
+      // Build table HTML
+      if (wrapper) {
+        wrapper.innerHTML = buildTableHTML(
+          tabData.rows,
+          gs,
+          tabData.grand_fy2023 || 0,
+          tabData.grand_fy2024 || 0,
+          tabData.grand_fy2025 || 0,
+          tabData.total_connections || 0,
+          tabData.grand_total_arrears || 0,
+          tab
+        );
+      }
+
+      // Bind checkboxes
+      var selectAll = wrapper.querySelector('.select-all-tab');
+      var rowCbs = wrapper.querySelectorAll('.row-checkbox');
+      if (selectAll) {
+        selectAll.addEventListener('change', function() {
+          rowCbs.forEach(function(cb) { cb.checked = selectAll.checked; });
+          recomputeGrandTotalForTab(tab);
+        });
+      }
+      rowCbs.forEach(function(cb) {
+        cb.addEventListener('change', function() {
+          var allChecked = true;
+          rowCbs.forEach(function(c) { if (!c.checked) allChecked = false; });
+          if (selectAll) selectAll.checked = allChecked;
+          recomputeGrandTotalForTab(tab);
+        });
+      });
+    }
+
+    renderTab('domestic', domesticData);
+    renderTab('commercial', commercialData);
+
+    // ==================================================================
+    // TAB SWITCHING
+    // ==================================================================
+    window.switchTab = function(tab) {
+      activeTab = tab;
+      var btns = document.querySelectorAll('.sub-tab-btn');
+      btns.forEach(function(btn) {
+        if (btn.getAttribute('data-tab') === tab) {
+          btn.classList.add('active');
+          btn.style.borderBottom = '2px solid var(--teal)';
+          btn.style.color = 'var(--text-primary)';
+        } else {
+          btn.classList.remove('active');
+          btn.style.borderBottom = '2px solid transparent';
+          btn.style.color = 'var(--text-muted)';
+        }
+      });
+      var panels = document.querySelectorAll('.tab-panel');
+      panels.forEach(function(p) { p.style.display = 'none'; });
+      var activePanel = document.getElementById('tab-panel-' + tab);
+      if (activePanel) activePanel.style.display = '';
+      applyPreviewSort(tab);
+      recomputeGrandTotalForTab(tab);
+    };
+
+    // Initialize tab styles
+    var initBtns = document.querySelectorAll('.sub-tab-btn');
+    initBtns.forEach(function(btn) {
+      if (btn.classList.contains('active')) {
+        btn.style.borderBottom = '2px solid var(--teal)';
+        btn.style.color = 'var(--text-primary)';
+      }
+    });
+
+    // ==================================================================
+    // PDF DOWNLOAD LINK
     // ==================================================================
     var priorityEl = document.getElementById('sort-priority');
     var orderEl = document.getElementById('sort-order');
@@ -653,12 +875,13 @@ function toggleSection(id) {
     function updatePdfLink() {
       var cols = getSelectedColumns();
       var base = '{{ url_for("export_arrear_calculator", fmt_type="pdf") }}';
-      pdfBtn.href = base + '?priority=' + (priorityEl ? priorityEl.value : 'active_first') + '&order=' + (orderEl ? orderEl.value : 'desc') + '&cols=' + encodeURIComponent(cols);
+      var tabParam = activeTab === 'commercial' ? '&tab=commercial' : '';
+      pdfBtn.href = base + '?priority=' + (priorityEl ? priorityEl.value : 'active_first') + '&order=' + (orderEl ? orderEl.value : 'desc') + '&cols=' + encodeURIComponent(cols) + tabParam;
     }
 
     if (priorityEl && orderEl) {
-      priorityEl.addEventListener('change', function() { updatePdfLink(); applyPreviewSort(); });
-      orderEl.addEventListener('change', function() { updatePdfLink(); applyPreviewSort(); });
+      priorityEl.addEventListener('change', function() { updatePdfLink(); applyPreviewSort(activeTab); });
+      orderEl.addEventListener('change', function() { updatePdfLink(); applyPreviewSort(activeTab); });
     }
     colToggles.forEach(function(cb) { cb.addEventListener('change', updatePdfLink); });
 
@@ -674,8 +897,13 @@ function toggleSection(id) {
           alert('Please upload a CSV file first to generate a report.');
           return;
         }
+        var isCommercial = (activeTab === 'commercial');
+        var tabKey = isCommercial ? 'commercial' : 'domestic';
+        var tabData = storedData[tabKey] || { rows: [], grand_status: {}, grand_fy2023: 0, grand_fy2024: 0, grand_fy2025: 0, total_connections: 0, grand_total_arrears: 0 };
+
         // Filter to only checked rows
-        var table = document.getElementById('arrear-summary-table');
+        var tableId = 'arrear-table-' + tabKey;
+        var table = document.getElementById(tableId);
         var selectedRows = [];
         if (table) {
           table.querySelectorAll('tbody tr:not(.grand-total-row)').forEach(function(tr) {
@@ -721,6 +949,7 @@ function toggleSection(id) {
         var exportUrl = new URL(link.href, window.location.origin);
         exportUrl.searchParams.set('priority', (priorityEl && priorityEl.value) || 'active_first');
         exportUrl.searchParams.set('order', (orderEl && orderEl.value) || 'desc');
+        if (isCommercial) exportUrl.searchParams.set('tab', 'commercial');
         var cols = getSelectedColumns();
         if (cols) exportUrl.searchParams.set('cols', cols);
 
@@ -739,30 +968,19 @@ function toggleSection(id) {
     });
 
     // ==================================================================
-    // CHECKBOX SELECTION — Select All + per-row
+    // CHECKBOX SELECTION — per-tab
     // ==================================================================
-    var selectAllEl = document.getElementById('select-all');
-    if (selectAllEl) {
-      selectAllEl.addEventListener('change', function() {
-        document.querySelectorAll('.row-checkbox').forEach(function(cb) { cb.checked = selectAllEl.checked; });
-        recomputeGrandTotal();
-      });
-    }
-
-    document.querySelectorAll('.row-checkbox').forEach(function(cb) {
-      cb.addEventListener('change', function() {
-        var allChecked = true;
-        document.querySelectorAll('.row-checkbox').forEach(function(c) { if (!c.checked) allChecked = false; });
-        if (selectAllEl) selectAllEl.checked = allChecked;
-        recomputeGrandTotal();
-      });
-    });
-
-    function recomputeGrandTotal() {
+    function recomputeGrandTotalForTab(tab) {
+      var prefix = tab === 'domestic' ? 'dom' : 'com';
+      var tableId = 'arrear-table-' + tab;
+      var table = document.getElementById(tableId);
+      if (!table) return;
       var gtFY2023 = 0, gtFY2024 = 0, gtFY2025 = 0;
       var gtClosed = 0, gtSuspended = 0, gtActive = 0, gtOpen = 0, gtTotal = 0, gtArrears = 0;
       var selectedCount = 0;
-      document.querySelectorAll('.row-checkbox').forEach(function(cb) {
+      var totalCbs = 0;
+      table.querySelectorAll('.row-checkbox').forEach(function(cb) {
+        totalCbs++;
         if (!cb.checked) return;
         selectedCount++;
         var tr = cb.closest('tr');
@@ -777,17 +995,16 @@ function toggleSection(id) {
         gtTotal += parseInt(tr.getAttribute('data-total')) || 0;
         gtArrears += parseFloat(tr.getAttribute('data-arrears')) || 0;
       });
-      setText('gt-fy2023', Math.round(gtFY2023).toLocaleString());
-      setText('gt-fy2024', Math.round(gtFY2024).toLocaleString());
-      setText('gt-fy2025', Math.round(gtFY2025).toLocaleString());
-      setText('gt-closed', gtClosed.toLocaleString());
-      setText('gt-suspended', gtSuspended.toLocaleString());
-      setText('gt-active', gtActive.toLocaleString());
-      setText('gt-open', gtOpen.toLocaleString());
-      setText('gt-total', gtTotal.toLocaleString());
-      setText('gt-arrears', Math.round(gtArrears).toLocaleString());
-      var scEl = document.getElementById('selected-count');
-      var totalCbs = document.querySelectorAll('.row-checkbox').length;
+      setText(prefix + '-gt-fy2023', Math.round(gtFY2023).toLocaleString());
+      setText(prefix + '-gt-fy2024', Math.round(gtFY2024).toLocaleString());
+      setText(prefix + '-gt-fy2025', Math.round(gtFY2025).toLocaleString());
+      setText(prefix + '-gt-closed', gtClosed.toLocaleString());
+      setText(prefix + '-gt-suspended', gtSuspended.toLocaleString());
+      setText(prefix + '-gt-active', gtActive.toLocaleString());
+      setText(prefix + '-gt-open', gtOpen.toLocaleString());
+      setText(prefix + '-gt-total', gtTotal.toLocaleString());
+      setText(prefix + '-gt-arrears', Math.round(gtArrears).toLocaleString());
+      var scEl = table.querySelector('.selected-count-label');
       if (scEl) scEl.textContent = selectedCount < totalCbs ? '(' + selectedCount + ' of ' + totalCbs + ' selected)' : '';
     }
 
@@ -797,10 +1014,11 @@ function toggleSection(id) {
     }
 
     // ==================================================================
-    // PREVIEW SORT — reorder table rows to match export sort
+    // PREVIEW SORT — per tab
     // ==================================================================
-    function applyPreviewSort() {
-      var table = document.getElementById('arrear-summary-table');
+    function applyPreviewSort(tab) {
+      var tableId = 'arrear-table-' + tab;
+      var table = document.getElementById(tableId);
       if (!table) return;
       var tbody = table.querySelector('tbody');
       if (!tbody) return;
@@ -840,11 +1058,11 @@ function toggleSection(id) {
       });
       var gtRow = tbody.querySelector('tr.grand-total-row');
       if (gtRow) tbody.appendChild(gtRow);
-      recomputeGrandTotal();
+      recomputeGrandTotalForTab(tab);
     }
 
-    // Initial sort
-    applyPreviewSort();
+    // Initial sort for active tab
+    applyPreviewSort(activeTab);
 
     // Count-up animation
     document.querySelectorAll('[data-count]').forEach(function(el) {
