@@ -2963,6 +2963,50 @@ def build_bill_key(row: dict) -> str:
     return "|".join(_dedupe_value(row.get(col)) for col in sorted(row.keys()))
 
 
+def fast_bill_no_key(value) -> str:
+    """Fast duplicate key for Bill Reports uploads when Bill No is present."""
+    if value is None or pd.isna(value):
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    compact = text.replace(",", "")
+    if re.fullmatch(r"-?\d+(?:\.0+)?", compact):
+        return str(int(float(compact)))
+    return " ".join(text.lower().split())
+
+
+def fast_upload_number(value) -> float:
+    """Fast numeric parser for Bill Reports upload amount columns."""
+    if value is None or pd.isna(value):
+        return 0.0
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    text = str(value).replace(",", "").strip()
+    if not text:
+        return 0.0
+    try:
+        return float(text)
+    except ValueError:
+        return 0.0
+
+
+def fast_upload_text(value) -> str | None:
+    """Fast text normalizer for Bill Reports upload identifier/name fields."""
+    if value is None or pd.isna(value):
+        return None
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return str(int(value)) if float(value).is_integer() else f"{float(value):.6f}".rstrip("0").rstrip(".")
+    text = str(value).strip()
+    if not text:
+        return None
+    compact = text.replace(",", "")
+    if re.fullmatch(r"-?\d+(?:\.\d+)?", compact):
+        number = float(compact)
+        return str(int(number)) if number.is_integer() else f"{number:.6f}".rstrip("0").rstrip(".")
+    return " ".join(text.lower().split())
+
+
 def sql_text(value) -> str | None:
     text = _dedupe_value(value)
     return text or None
@@ -2980,13 +3024,45 @@ def import_bill_list_dataframe(df: pd.DataFrame) -> tuple[int, int]:
     inserted_or_updated = 0
 
     with get_db() as conn:
-        for _, series in df.iterrows():
-            row = {str(key): (None if pd.isna(value) else value) for key, value in series.to_dict().items()}
+        # Bill Reports upload can receive thousands of rows on Vercel.  Cache
+        # saved zone lookups once and bulk-write rows so the upload finishes
+        # before the serverless request times out.  This keeps the same fields
+        # and duplicate rules; it only removes per-row database chatter.
+        locality_zone_cache = {
+            (row["sector"], row["locality"]): row["zone"]
+            for row in conn.execute("SELECT sector, locality, zone FROM localities").fetchall()
+        }
+        sector_zone_cache = {}
+        for row in conn.execute(
+            """
+            SELECT name, zone
+            FROM sectors
+            ORDER BY CASE zone WHEN 'A' THEN 1 WHEN 'B' THEN 2 WHEN 'C' THEN 3 WHEN 'Commercial' THEN 4 ELSE 5 END
+            """
+        ).fetchall():
+            sector_zone_cache.setdefault(row["name"], row["zone"])
+
+        zone_rows: set[tuple[str]] = set()
+        sector_rows: set[tuple[str, str]] = set()
+        locality_rows: set[tuple[str, str, str]] = set()
+        bill_rows: list[tuple] = []
+
+        for raw_row in df.to_dict(orient="records"):
+            row = {str(key): (None if pd.isna(value) else value) for key, value in raw_row.items()}
             sector = str(row.get("sector") or "Unknown").strip() or "Unknown"
             locality = str(row.get("locality") or "Unknown").strip() or "Unknown"
-            zone = pick_saved_zone(conn, sector, locality, infer_zone(sector, locality, row))
-            bill_key = build_bill_key(row)
-            total_bill = parse_number(row.get("total bill") or row.get("after due date"))
+            zone = (
+                locality_zone_cache.get((sector, locality))
+                or sector_zone_cache.get(sector)
+                or infer_zone(sector, locality, row)
+            )
+            locality_zone_cache[(sector, locality)] = zone
+            sector_zone_cache.setdefault(sector, zone)
+            # Bill No is the first duplicate-key rule.  Use a small fast path
+            # here because Vercel uploads large bill files and the generic
+            # normalizer is intentionally more expensive for mixed date fields.
+            bill_key = fast_bill_no_key(row.get("bill no")) or build_bill_key(row)
+            total_bill = fast_upload_number(row.get("total bill") or row.get("after due date"))
             consumer_name_value = row.get("consumer name / f/h name")
             if consumer_name_value is None:
                 consumer_name_value = row.get("consumer name")
@@ -2997,8 +3073,8 @@ def import_bill_list_dataframe(df: pd.DataFrame) -> tuple[int, int]:
                 arrears_value = row.get("outstanding amount")
             if arrears_value is None:
                 arrears_value = row.get("outstanding")
-            arrears = parse_number(arrears_value)
-            amount_received = parse_number(row.get("amount received"))
+            arrears = fast_upload_number(arrears_value)
+            amount_received = fast_upload_number(row.get("amount received"))
             mobile_value = row.get("consumer mobile")
             if mobile_value is None:
                 mobile_value = row.get("mobile no")
@@ -3010,55 +3086,19 @@ def import_bill_list_dataframe(df: pd.DataFrame) -> tuple[int, int]:
                 mobile_value = row.get("phone")
             consumer_mobile = str(mobile_value).strip() if mobile_value is not None else ""
 
-            conn.execute(
-                """
-                INSERT INTO localities (sector, locality, zone)
-                VALUES (?, ?, ?)
-                ON CONFLICT(sector, locality) DO NOTHING
-                """,
-                (sector, locality, zone),
-            )
-            conn.execute("INSERT OR IGNORE INTO zones (name) VALUES (?)", (zone,))
-            conn.execute(
-                """
-                INSERT INTO sectors (name, zone)
-                VALUES (?, ?)
-                ON CONFLICT(name, zone) DO NOTHING
-                """,
-                (sector, zone),
-            )
-            conn.execute(
-                """
-                INSERT INTO bills (
-                    bill_key, sector, locality, zone, bill_no, reference_no, connection_no, consumer_name,
-                    total_bill, arrears, amount_received, status, consumer_mobile, raw_data, uploaded_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(bill_key) DO UPDATE SET
-                    sector = excluded.sector,
-                    locality = excluded.locality,
-                    zone = excluded.zone,
-                    bill_no = excluded.bill_no,
-                    reference_no = excluded.reference_no,
-                    connection_no = excluded.connection_no,
-                    consumer_name = excluded.consumer_name,
-                    total_bill = excluded.total_bill,
-                    arrears = excluded.arrears,
-                    amount_received = excluded.amount_received,
-                    status = excluded.status,
-                    consumer_mobile = excluded.consumer_mobile,
-                    raw_data = excluded.raw_data,
-                    uploaded_at = excluded.uploaded_at
-                """,
+            zone_rows.add((zone,))
+            locality_rows.add((sector, locality, zone))
+            sector_rows.add((sector, zone))
+            bill_rows.append(
                 (
                     bill_key,
                     sector,
                     locality,
                     zone,
-                    sql_text(row.get("bill no")),
-                    sql_text(row.get("reference no")),
-                    sql_text(row.get("connection no")),
-                    sql_text(consumer_name_value),
+                    fast_upload_text(row.get("bill no")),
+                    fast_upload_text(row.get("reference no")),
+                    fast_upload_text(row.get("connection no")),
+                    fast_upload_text(consumer_name_value),
                     total_bill,
                     arrears,
                     amount_received,
@@ -3066,9 +3106,52 @@ def import_bill_list_dataframe(df: pd.DataFrame) -> tuple[int, int]:
                     consumer_mobile or None,
                     json.dumps(row, ensure_ascii=True, default=str),
                     now,
-                ),
+                )
             )
             inserted_or_updated += 1
+
+        conn.executemany("INSERT OR IGNORE INTO zones (name) VALUES (?)", sorted(zone_rows))
+        conn.executemany(
+            """
+            INSERT INTO localities (sector, locality, zone)
+            VALUES (?, ?, ?)
+            ON CONFLICT(sector, locality) DO NOTHING
+            """,
+            sorted(locality_rows),
+        )
+        conn.executemany(
+            """
+            INSERT INTO sectors (name, zone)
+            VALUES (?, ?)
+            ON CONFLICT(name, zone) DO NOTHING
+            """,
+            sorted(sector_rows),
+        )
+        conn.executemany(
+            """
+            INSERT INTO bills (
+                bill_key, sector, locality, zone, bill_no, reference_no, connection_no, consumer_name,
+                total_bill, arrears, amount_received, status, consumer_mobile, raw_data, uploaded_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(bill_key) DO UPDATE SET
+                sector = excluded.sector,
+                locality = excluded.locality,
+                zone = excluded.zone,
+                bill_no = excluded.bill_no,
+                reference_no = excluded.reference_no,
+                connection_no = excluded.connection_no,
+                consumer_name = excluded.consumer_name,
+                total_bill = excluded.total_bill,
+                arrears = excluded.arrears,
+                amount_received = excluded.amount_received,
+                status = excluded.status,
+                consumer_mobile = excluded.consumer_mobile,
+                raw_data = excluded.raw_data,
+                uploaded_at = excluded.uploaded_at
+            """,
+            bill_rows,
+        )
 
     return inserted_or_updated, duplicate_rows_removed
 
