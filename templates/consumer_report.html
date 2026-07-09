@@ -467,6 +467,12 @@
       return normalized === 'noor mohala millad chowk main road';
     }
 
+    function isFaultyEmptyConsumerSector(sector) {
+      var normalized = (sector || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      // Empty is a faulty placeholder sector, not a real consumer sector.
+      return normalized === 'empty';
+    }
+
     function addRateAlias(lookup, alias, target) {
       // Fix: some consumer exports use an older 3-inch private society label
       // while the active payable rate is stored under the longer rate title.
@@ -640,7 +646,7 @@
 
         var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
         var locality = (fields[colMap.locality] || '').trim() || 'Unspecified';
-        if (isExtraZainCity13GSector(sector) || isExtraNoorMohallaMainRoadSector(sector)) continue;
+        if (isFaultyEmptyConsumerSector(sector) || isExtraZainCity13GSector(sector) || isExtraNoorMohallaMainRoadSector(sector)) continue;
         var canonicalPlace = canonicalConsumerSectorLocality(sector, locality);
         sector = canonicalPlace.sector || 'Unspecified';
         locality = canonicalPlace.locality || 'Unspecified';
@@ -741,7 +747,7 @@
 
         var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
         var locality = (fields[colMap.locality] || '').trim() || 'Unspecified';
-        if (isExtraZainCity13GSector(sector) || isExtraNoorMohallaMainRoadSector(sector)) continue;
+        if (isFaultyEmptyConsumerSector(sector) || isExtraZainCity13GSector(sector) || isExtraNoorMohallaMainRoadSector(sector)) continue;
         var canonicalPlace = canonicalConsumerSectorLocality(sector, locality);
         sector = canonicalPlace.sector || 'Unspecified';
         locality = canonicalPlace.locality || 'Unspecified';

@@ -7738,6 +7738,11 @@ def _is_extra_noor_mohalla_main_road_sector(sector: str) -> bool:
     return normalized == "noor mohala millad chowk main road"
 
 
+def _is_faulty_empty_consumer_sector(sector: str) -> bool:
+    """Skip placeholder/faulty Empty sectors that do not represent real connections."""
+    return _normalize_consumer_col(sector) == "empty"
+
+
 def _normalize_rate_title(value: str) -> str:
     """Canonical key for rate matching; tolerates case/spacing drift without changing display text."""
     return " ".join(str(value or "").strip().split()).upper()
@@ -7913,7 +7918,11 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
     for row in rows:
         sector_raw = (row.get("sector") or "Unspecified").strip()
         locality_raw = (row.get("locality") or "Unspecified").strip()
-        if _is_extra_zain_city_13g_sector(sector_raw) or _is_extra_noor_mohalla_main_road_sector(sector_raw):
+        if (
+            _is_faulty_empty_consumer_sector(sector_raw)
+            or _is_extra_zain_city_13g_sector(sector_raw)
+            or _is_extra_noor_mohalla_main_road_sector(sector_raw)
+        ):
             continue
         sector_raw, locality_raw = _canonical_consumer_sector_locality(sector_raw, locality_raw)
         status = row.get("connection_status", "Active")
