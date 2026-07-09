@@ -70,8 +70,13 @@
     {% if not results %}
     <div class="empty-state">
       <div class="empty-state-icon">&#128202;</div>
+      {% if saved_meta %}
+      <div class="empty-state-title">Saved data is ready</div>
+      <div class="empty-state-desc">Your uploaded file is saved with {{ "{:,}".format(saved_meta.row_count) }} rows. Click <strong>Generate Reports</strong> in the top bar if the dashboard does not appear automatically.</div>
+      {% else %}
       <div class="empty-state-title">No data uploaded yet</div>
       <div class="empty-state-desc">Upload CSV or Excel files containing water supply billing data, then click <strong>Generate Reports</strong> in the top bar to see your dashboard.</div>
+      {% endif %}
     </div>
     {% endif %}
 

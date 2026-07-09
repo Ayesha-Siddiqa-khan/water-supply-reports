@@ -479,10 +479,7 @@ def format_mobile(value) -> str:
 
 
 def parse_number(value) -> float:
-    if value is None or pd.isna(value):
-        return 0.0
-    number = pd.to_numeric(pd.Series([str(value).replace(",", "").strip()]), errors="coerce").iloc[0]
-    return float(number) if pd.notna(number) else 0.0
+    return clean_amount_value(value)
 
 
 def format_fiscal_month(period: pd.Period) -> str:
@@ -1491,10 +1488,15 @@ def summarize_dataframe(df: pd.DataFrame) -> dict:
         "areas_column": areas_col,
         "sector_column": sector_col,
         "total_amount": total_amount,
+        # The dashboard cards animate from these raw values after heavy uploads.
+        # Keep them in the result object so generated pages do not display Rs. 0.
+        "total_amount_raw": total_amount or 0,
         "total_amount_formatted": fmt(total_amount),
         "total_arrears": total_arrears,
+        "total_arrears_raw": total_arrears or 0,
         "total_arrears_formatted": fmt(total_arrears),
         "total_areas": total_areas,
+        "total_areas_raw": total_areas or 0,
         "total_areas_formatted": fmt(total_areas),
         "daily_rows": daily_rows,
         "monthly_rows": monthly_rows,
@@ -5179,7 +5181,7 @@ def export_zone_report_response(fmt_type: str, selected_zone: str, show_summary:
 def _save_results_cache(results: dict) -> None:
     try:
         with open(RESULTS_CACHE, "w", encoding="utf-8") as handle:
-            json.dump(results, handle, ensure_ascii=True)
+            json.dump(results, handle, ensure_ascii=True, default=str)
     except OSError:
         pass
 
@@ -5205,6 +5207,17 @@ _last_merged_df = None
 _last_uploaded_names = None
 _last_daily_staff_results = {}
 _last_daily_staff_uploaded_names = []
+
+
+def build_dashboard_results(merged: pd.DataFrame) -> dict:
+    """Build the All Received Bills dashboard once and reuse it for the rendered page and exports."""
+    results = summarize_dataframe(merged)
+    results["raw_row_count"] = int(len(merged))
+    results["duplicate_rows_removed"] = 0
+    results["duplicate_key_columns"] = []
+    results["merged_csv_name"] = "merged_latest.csv"
+    results["merged_xlsx_name"] = "merged_latest.xlsx"
+    return results
 
 
 def read_and_merge_uploaded_files(files) -> tuple[pd.DataFrame | None, list[str]]:
@@ -5257,30 +5270,35 @@ def index():
                 flash("No valid files were processed.")
                 return redirect(url_for("index"))
 
-            # Persist to disk so data survives page refresh
+            saved_meta = {
+                "uploaded_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "file_names": uploaded_names,
+                "row_count": len(merged),
+            }
+
+            # Persist to disk so data survives page refresh.
             os.makedirs(UPLOAD_FOLDER, exist_ok=True)
             merged.to_csv(SAVED_DASHBOARD_CSV, index=False)
             with open(SAVED_DASHBOARD_META, "w") as f:
-                json.dump({
-                    "uploaded_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "file_names": uploaded_names,
-                    "row_count": len(merged),
-                }, f)
+                json.dump(saved_meta, f)
+
+            # Heavy uploads must not stop at the saved-data banner. Generate the
+            # dashboard from the saved dataframe immediately so the page shows
+            # report data after upload instead of the confusing empty state.
+            results = build_dashboard_results(merged)
 
             _last_merged_df = merged.copy()
             _last_uploaded_names = uploaded_names
+            _last_results = results
+            _save_results_cache(results)
             if is_ajax():
                 return ajax_ok(
-                    message=f"Data saved successfully. {len(merged):,} rows from {len(uploaded_names)} file(s).",
+                    message=f"Reports generated successfully. {len(merged):,} rows from {len(uploaded_names)} file(s).",
                     redirect_url=url_for("index"),
                 )
-            flash("Data saved successfully.")
-            return render_template("index.html", results=None, uploaded_names=uploaded_names,
-                                   saved_meta={
-                                       "uploaded_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                       "file_names": uploaded_names,
-                                       "row_count": len(merged),
-                                   })
+            flash("Reports generated successfully.")
+            return render_template("index.html", results=results, uploaded_names=uploaded_names,
+                                   saved_meta=saved_meta)
 
         if action == "generate_reports":
             merged = _last_merged_df
@@ -5296,15 +5314,10 @@ def index():
                 flash("Please save data first before generating reports.")
                 return redirect(url_for("index"))
 
-            results = summarize_dataframe(merged)
-            results["raw_row_count"] = int(len(merged))
-            results["duplicate_rows_removed"] = 0
-            results["duplicate_key_columns"] = []
-
-            results["merged_csv_name"] = "merged_latest.csv"
-            results["merged_xlsx_name"] = "merged_latest.xlsx"
+            results = build_dashboard_results(merged)
 
             _last_results = results
+            _save_results_cache(results)
             saved_meta = None
             if os.path.exists(SAVED_DASHBOARD_META):
                 with open(SAVED_DASHBOARD_META) as f:
@@ -5315,7 +5328,7 @@ def index():
                                    saved_meta=saved_meta)
 
         if action == "clear_saved_data":
-            for path in [SAVED_DASHBOARD_CSV, SAVED_DASHBOARD_META]:
+            for path in [SAVED_DASHBOARD_CSV, SAVED_DASHBOARD_META, RESULTS_CACHE]:
                 if os.path.exists(path):
                     os.remove(path)
             _last_merged_df = None
@@ -5335,21 +5348,18 @@ def index():
             flash("No valid files were processed.")
             return redirect(url_for("index"))
 
-        results = summarize_dataframe(merged)
-        results["raw_row_count"] = int(len(merged))
-        results["duplicate_rows_removed"] = 0
-        results["duplicate_key_columns"] = []
-
-        results["merged_csv_name"] = "merged_latest.csv"
-        results["merged_xlsx_name"] = "merged_latest.xlsx"
+        results = build_dashboard_results(merged)
 
         _last_results = results
         _last_merged_df = merged.copy()
         _last_uploaded_names = uploaded_names
+        _save_results_cache(results)
         return render_template("index.html", results=results, uploaded_names=uploaded_names)
 
     # GET — restore metadata from persistent storage and pass to template
-    _last_results = {}
+    # A saved heavy upload can already have generated results cached; keep those
+    # visible on refresh instead of showing a blank "no data" dashboard.
+    _last_results = _last_results or _load_results_cache()
     _last_merged_df = None
     _last_uploaded_names = None
     saved_meta = None
@@ -5357,7 +5367,7 @@ def index():
         with open(SAVED_DASHBOARD_META) as f:
             saved_meta = json.load(f)
         _last_uploaded_names = saved_meta.get("file_names")
-    return render_template("index.html", results=None, uploaded_names=None,
+    return render_template("index.html", results=(_last_results or None), uploaded_names=_last_uploaded_names,
                            saved_meta=saved_meta)
 
 
