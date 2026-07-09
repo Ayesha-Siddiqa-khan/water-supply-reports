@@ -8656,7 +8656,8 @@ def export_consumer_report(fmt_type: str):
         PDF_WHITE_ROW = colors.white
         PDF_GRAND_BG = colors.HexColor("#d4edda")
         PDF_GRAND_FG = colors.HexColor("#155724")
-        PDF_GRID = colors.HexColor("#c8e6e0")
+        # Darker grid lines keep the printed PDF visibly table-shaped.
+        PDF_GRID = colors.HexColor("#6fa8a0")
         PDF_BODY_FG = colors.HexColor("#2c3e50")
 
         # -- Page setup: A4 portrait with tighter side margins --
@@ -8847,7 +8848,8 @@ def export_consumer_report(fmt_type: str):
             ("BACKGROUND", (0, 0), (-1, 0), PDF_HEADER_BG),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             # Grid lines (subtle light teal)
-            ("GRID", (0, 0), (-1, -1), 0.4, PDF_GRID),
+            ("GRID", (0, 0), (-1, -1), 0.75, PDF_GRID),
+            ("BOX", (0, 0), (-1, -1), 0.9, PDF_GRID),
             # Padding for all cells
             # More padding gives wrapped text breathing room and avoids a tight grid.
             ("TOPPADDING", (0, 0), (-1, -1), 5),
@@ -8912,7 +8914,8 @@ def export_consumer_report(fmt_type: str):
         PDF_WHITE_ROW = colors.white
         PDF_GRAND_BG = colors.HexColor("#d4edda")
         PDF_GRAND_FG = colors.HexColor("#155724")
-        PDF_GRID = colors.HexColor("#c8e6e0")
+        # Darker grid lines keep the printed PDF visibly table-shaped.
+        PDF_GRID = colors.HexColor("#6fa8a0")
         PDF_BODY_FG = colors.HexColor("#2c3e50")
 
         # -- Page setup: A4 portrait --
@@ -9070,7 +9073,8 @@ def export_consumer_report(fmt_type: str):
         style_cmds = [
             ("BACKGROUND", (0, 0), (-1, 0), PDF_HEADER_BG),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("GRID", (0, 0), (-1, -1), 0.4, PDF_GRID),
+            ("GRID", (0, 0), (-1, -1), 0.75, PDF_GRID),
+            ("BOX", (0, 0), (-1, -1), 0.9, PDF_GRID),
             ("TOPPADDING", (0, 0), (-1, -1), 4),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
             ("LEFTPADDING", (0, 0), (-1, -1), 4),
