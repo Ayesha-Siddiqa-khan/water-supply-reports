@@ -428,7 +428,14 @@ function toggleSection(id) {
   }
 
   function normaliseSector(name) {
-    return (name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    return (name || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+      .replace(/\s*\(\s*/g, '(')
+      .replace(/\s*\)\s*/g, ')')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   function normaliseRateType(val) {
@@ -483,7 +490,7 @@ function toggleSection(id) {
       html += '<td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="' + tab + '" checked></td>';
       html += '<td style="text-align:center;color:var(--text-muted)">' + r.serial + '</td>';
       html += '<td style="text-align:left;font-weight:500;">' + escHtml(r.sector) + '</td>';
-      html += '<td style="text-align:left;">' + escHtml(r.locality) + '</td>';
+      html += '<td style="text-align:left;font-weight:500;">' + escHtml(r.locality) + '</td>';
       html += '<td style="text-align:center;color:var(--coral);">' + r.closed + '</td>';
       html += '<td style="text-align:center;color:var(--amber);">' + r.suspended + '</td>';
       html += '<td style="text-align:center;color:var(--teal);">' + r.active + '</td>';
@@ -659,10 +666,15 @@ function toggleSection(id) {
     });
 
     // Debug logs
+    console.log('[ArrearCalculator] Domestic raw records: ' + tabTotals.Domestic);
     console.log('[ArrearCalculator] Domestic grouping: sector');
+    console.log('[ArrearCalculator] Domestic unique sector keys: ' + Object.keys(domesticSectorMap).length);
+    console.log('[ArrearCalculator] Domestic rows before duplicate merge: ' + domesticRows.length);
     console.log('[ArrearCalculator] Commercial grouping: locality');
+    console.log('[ArrearCalculator] Commercial raw records: ' + tabTotals.Commercial);
     console.log('[ArrearCalculator] Commercial unique localities: ' + Object.keys(commercialLocalityMap).length);
     console.log('[ArrearCalculator] Commercial final rows: ' + commercialRows.length);
+    console.log('[ArrearCalculator] CSV sector/locality extraction validated');
 
     var totalDomestic = domesticRows.length;
     var totalCommercial = commercialRows.length;
