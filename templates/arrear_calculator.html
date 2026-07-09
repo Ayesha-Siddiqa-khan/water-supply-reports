@@ -215,7 +215,8 @@
           <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);">
             Status Priority:
             <select id="sort-priority" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text-primary);">
-              <option value="active_first" selected>Active First</option>
+              <option value="none" selected>None</option>
+              <option value="active_first">Active First</option>
               <option value="suspended_first">Suspended First</option>
               <option value="closed_first">Closed First</option>
               <option value="open_first">Open First</option>
@@ -228,7 +229,7 @@
               <option value="asc">Lowest to Highest</option>
             </select>
           </label>
-          <a id="pdf-download-btn" class="chip" href="{{ url_for('export_arrear_calculator', fmt_type='pdf', priority='active_first', order='desc') }}">&#11015; Download PDF</a>
+          <a id="pdf-download-btn" class="chip" href="{{ url_for('export_arrear_calculator', fmt_type='pdf', priority='none', order='desc') }}">&#11015; Download PDF</a>
         </div>
 
         <!-- PDF Column Visibility -->
@@ -516,7 +517,7 @@ function toggleSection(id) {
   function fmtNum(v) { return Math.round(v).toLocaleString(); }
 
   // ======================================================================
-  // Process CSV — split by Rate Type, group each by Sector
+  // Process CSV — Domestic grouped by Sector, Commercial grouped by Locality
   // ======================================================================
   function processCSV(text) {
     var lines = text.split(/\r?\n/).filter(function(l) { return l.trim().length > 0; });
@@ -531,14 +532,15 @@ function toggleSection(id) {
     });
     if (missing.length) { showError('Missing required columns: ' + missing.join(', ')); return; }
 
-    // Two maps: one for Domestic, one for Commercial
-    var tabMaps = { Domestic: {}, Commercial: {} };
-    var tabUniques = { Domestic: {}, Commercial: {} };
+    // Domestic: group by Sector
+    var domesticSectorMap = {};
+    // Commercial: group by Locality
+    var commercialLocalityMap = {};
+
     var tabTotals = { Domestic: 0, Commercial: 0 };
     var tabArrears = { Domestic: 0, Commercial: 0 };
     var tabGrandFY = { Domestic: { fy2023: 0, fy2024: 0, fy2025: 0 }, Commercial: { fy2023: 0, fy2024: 0, fy2025: 0 } };
     var tabGrandStatus = { Domestic: { closed: 0, suspended: 0, active: 0, open: 0 }, Commercial: { closed: 0, suspended: 0, active: 0, open: 0 } };
-    var tabSectorCount = { Domestic: 0, Commercial: 0 };
 
     for (var i = 1; i < lines.length; i++) {
       var fields = parseCSVLine(lines[i]);
@@ -560,48 +562,7 @@ function toggleSection(id) {
       var fy = getFinancialYear(date);
       var rateType = normaliseRateType(rateTypeRaw);
 
-      var sectorKey = normaliseSector(sector);
-      var sectorMap = tabMaps[rateType];
-      var uniqueSectors = tabUniques[rateType];
-
-      if (!sectorMap[sectorKey]) {
-        sectorMap[sectorKey] = {
-          sector: sector,
-          localities: {},
-          fy2023: 0,
-          fy2024: 0,
-          fy2025: 0,
-          closed: 0,
-          suspended: 0,
-          active: 0,
-          open: 0,
-          total_connections: 0,
-          total_arrears: 0
-        };
-      }
-
-      var g = sectorMap[sectorKey];
-      if (sector.length > g.sector.length) g.sector = sector;
-
-      if (locality) {
-        var locKey = locality.toLowerCase().trim();
-        if (locKey && !g.localities[locKey]) {
-          g.localities[locKey] = locality;
-        }
-      }
-
-      g.total_connections++;
-      g.total_arrears += arrears;
-      if (fy === '2023-2024') g.fy2023 += arrears;
-      else if (fy === '2024-2025') g.fy2024 += arrears;
-      else if (fy === '2025-2026') g.fy2025 += arrears;
-
-      if (status === 'Closed') g.closed++;
-      else if (status === 'Suspended') g.suspended++;
-      else if (status === 'Open') g.open++;
-      else g.active++;
-
-      uniqueSectors[sectorKey] = true;
+      // Aggregate tab-level totals
       tabTotals[rateType]++;
       tabArrears[rateType] += arrears;
       if (fy === '2023-2024') tabGrandFY[rateType].fy2023 += arrears;
@@ -611,39 +572,100 @@ function toggleSection(id) {
       else if (status === 'Suspended') tabGrandStatus[rateType].suspended++;
       else if (status === 'Open') tabGrandStatus[rateType].open++;
       else tabGrandStatus[rateType].active++;
+
+      if (rateType === 'Domestic') {
+        // DOMESTIC: group by sector
+        var sectorKey = normaliseSector(sector);
+        if (!domesticSectorMap[sectorKey]) {
+          domesticSectorMap[sectorKey] = {
+            sector: sector, localities: {},
+            fy2023: 0, fy2024: 0, fy2025: 0,
+            closed: 0, suspended: 0, active: 0, open: 0,
+            total_connections: 0, total_arrears: 0
+          };
+        }
+        var g = domesticSectorMap[sectorKey];
+        if (sector.length > g.sector.length) g.sector = sector;
+        if (locality) {
+          var locKey = locality.toLowerCase().trim();
+          if (locKey && !g.localities[locKey]) g.localities[locKey] = locality;
+        }
+        g.total_connections++;
+        g.total_arrears += arrears;
+        if (fy === '2023-2024') g.fy2023 += arrears;
+        else if (fy === '2024-2025') g.fy2024 += arrears;
+        else if (fy === '2025-2026') g.fy2025 += arrears;
+        if (status === 'Closed') g.closed++;
+        else if (status === 'Suspended') g.suspended++;
+        else if (status === 'Open') g.open++;
+        else g.active++;
+      } else {
+        // COMMERCIAL: group by locality
+        var localityKey = normaliseSector(locality || 'unknown');
+        if (!commercialLocalityMap[localityKey]) {
+          commercialLocalityMap[localityKey] = {
+            locality: locality || 'Unknown Commercial Locality',
+            fy2023: 0, fy2024: 0, fy2025: 0,
+            closed: 0, suspended: 0, active: 0, open: 0,
+            total_connections: 0, total_arrears: 0
+          };
+        }
+        var cg = commercialLocalityMap[localityKey];
+        if (locality.length > cg.locality.length) cg.locality = locality;
+        cg.total_connections++;
+        cg.total_arrears += arrears;
+        if (fy === '2023-2024') cg.fy2023 += arrears;
+        else if (fy === '2024-2025') cg.fy2024 += arrears;
+        else if (fy === '2025-2026') cg.fy2025 += arrears;
+        if (status === 'Closed') cg.closed++;
+        else if (status === 'Suspended') cg.suspended++;
+        else if (status === 'Open') cg.open++;
+        else cg.active++;
+      }
     }
 
-    // Build rows for each tab
-    var tabRows = { Domestic: [], Commercial: [] };
-    var tabSectors = { Domestic: {}, Commercial: {} };
-
-    ['Domestic', 'Commercial'].forEach(function(tab) {
-      var sm = tabMaps[tab];
-      var serial = 0;
-      Object.keys(sm).forEach(function(key) {
-        var g = sm[key];
-        serial++;
-        tabRows[tab].push({
-          serial: serial,
-          sector: g.sector,
-          locality: buildLocalityDisplay(g.localities),
-          fy2023: g.fy2023,
-          fy2024: g.fy2024,
-          fy2025: g.fy2025,
-          closed: g.closed,
-          suspended: g.suspended,
-          active: g.active,
-          open: g.open,
-          total_connections: g.total_connections,
-          total_arrears: g.total_arrears
-        });
-        tabSectors[tab][g.sector.toLowerCase()] = true;
+    // Build Domestic rows — grouped by sector
+    var domesticRows = [];
+    var domesticSectors = {};
+    var domesticSerial = 0;
+    Object.keys(domesticSectorMap).forEach(function(key) {
+      var g = domesticSectorMap[key];
+      domesticSerial++;
+      domesticRows.push({
+        serial: domesticSerial,
+        sector: g.sector,
+        locality: buildLocalityDisplay(g.localities),
+        fy2023: g.fy2023, fy2024: g.fy2024, fy2025: g.fy2025,
+        closed: g.closed, suspended: g.suspended, active: g.active, open: g.open,
+        total_connections: g.total_connections, total_arrears: g.total_arrears
       });
-      tabSectorCount[tab] = Object.keys(sm).length;
+      domesticSectors[g.sector.toLowerCase()] = true;
     });
 
-    var totalDomestic = tabRows.Domestic.length;
-    var totalCommercial = tabRows.Commercial.length;
+    // Build Commercial rows — grouped by locality
+    var commercialRows = [];
+    var commercialSerial = 0;
+    Object.keys(commercialLocalityMap).forEach(function(key) {
+      var cg = commercialLocalityMap[key];
+      commercialSerial++;
+      commercialRows.push({
+        serial: commercialSerial,
+        sector: 'COMMERCIAL',
+        locality: cg.locality,
+        fy2023: cg.fy2023, fy2024: cg.fy2024, fy2025: cg.fy2025,
+        closed: cg.closed, suspended: cg.suspended, active: cg.active, open: cg.open,
+        total_connections: cg.total_connections, total_arrears: cg.total_arrears
+      });
+    });
+
+    // Debug logs
+    console.log('[ArrearCalculator] Domestic grouping: sector');
+    console.log('[ArrearCalculator] Commercial grouping: locality');
+    console.log('[ArrearCalculator] Commercial unique localities: ' + Object.keys(commercialLocalityMap).length);
+    console.log('[ArrearCalculator] Commercial final rows: ' + commercialRows.length);
+
+    var totalDomestic = domesticRows.length;
+    var totalCommercial = commercialRows.length;
 
     var payload = {
       filename: currentFileName,
@@ -663,8 +685,8 @@ function toggleSection(id) {
         open: tabGrandStatus.Domestic.open + tabGrandStatus.Commercial.open
       },
       domestic: {
-        rows: tabRows.Domestic,
-        sector_count: tabSectorCount.Domestic,
+        rows: domesticRows,
+        sector_count: Object.keys(domesticSectorMap).length,
         total_connections: tabTotals.Domestic,
         grand_total_arrears: tabArrears.Domestic,
         grand_fy2023: tabGrandFY.Domestic.fy2023,
@@ -673,8 +695,8 @@ function toggleSection(id) {
         grand_status: tabGrandStatus.Domestic
       },
       commercial: {
-        rows: tabRows.Commercial,
-        sector_count: tabSectorCount.Commercial,
+        rows: commercialRows,
+        sector_count: Object.keys(commercialLocalityMap).length,
         total_connections: tabTotals.Commercial,
         grand_total_arrears: tabArrears.Commercial,
         grand_fy2023: tabGrandFY.Commercial.fy2023,

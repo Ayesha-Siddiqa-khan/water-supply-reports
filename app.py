@@ -8919,12 +8919,13 @@ def export_consumer_report(fmt_type: str):
         PDF_GRID = colors.HexColor("#6fa8a0")
         PDF_BODY_FG = colors.HexColor("#2c3e50")
 
-        # -- Page setup: A4 portrait --
+        # -- Page setup: A4 portrait (match Consumer PDF margins) --
         page_w, page_h = A4
-        top_m = 18 * mm
-        bottom_m = 15 * mm
-        left_m = 15 * mm
-        right_m = 15 * mm
+        top_m = 14 * mm
+        bottom_m = 12 * mm
+        left_m = 8 * mm
+        right_m = 8 * mm
+        usable_w = page_w - left_m - right_m
 
         buf = io.BytesIO()
         doc = SimpleDocTemplate(
@@ -8967,22 +8968,24 @@ def export_consumer_report(fmt_type: str):
             spaceAfter=6 * mm,
         )
 
-        # -- Styles for wrapping text inside cells --
+        # -- Styles for wrapping text inside cells (match Consumer PDF) --
         cell_wrap_style = ParagraphStyle(
             "CommCellWrap",
             parent=styles["Normal"],
-            fontSize=8,
+            fontSize=8.2,
             fontName="Helvetica",
             textColor=PDF_BODY_FG,
-            leading=10,
+            leading=10.8,
+            alignment=0,
         )
         cell_center_style = ParagraphStyle(
             "CommCellCenter",
             parent=styles["Normal"],
-            fontSize=8,
+            fontSize=8.2,
             fontName="Helvetica",
             textColor=PDF_BODY_FG,
             alignment=1,
+            leading=10.8,
         )
         header_cell_style = ParagraphStyle(
             "CommHeaderCell",
@@ -9024,7 +9027,7 @@ def export_consumer_report(fmt_type: str):
             "suspended": cell_center_style,
             "active": cell_center_style,
             "total": cell_center_style,
-            "budget": ParagraphStyle("CellBudgetComm", parent=cell_center_style, alignment=2),
+            "budget": ParagraphStyle("CellBudgetComm", parent=cell_center_style, alignment=1),
         }
 
         # Header row — only include selected columns
@@ -9059,16 +9062,24 @@ def export_consumer_report(fmt_type: str):
         table_data.append(gt_cells)
         row_types.append("grand_total")
 
-        # -- Column widths (mm) — dynamic based on selected columns --
-        total_fixed = sum(COL_DEFS[c][2] for c in active_cols)
-        usable_mm = 180
-        if total_fixed > 0 and total_fixed < usable_mm:
-            scale = usable_mm / total_fixed
-            col_widths = [COL_DEFS[c][2] * scale * mm for c in active_cols]
-        else:
-            col_widths = [COL_DEFS[c][2] * mm for c in active_cols]
+        # -- Column widths (mm) — match Consumer PDF proportional layout --
+        consumer_col_weights = {
+            "sr": 11,
+            "sector": 56,
+            "locality": 64,
+            "closed": 16,
+            "suspended": 19,
+            "active": 16,
+            "total": 21,
+            "budget": 28,
+        }
+        total_weight = sum(consumer_col_weights.get(c, COL_DEFS[c][2]) for c in active_cols)
+        col_widths = [
+            usable_w * (consumer_col_weights.get(c, COL_DEFS[c][2]) / total_weight)
+            for c in active_cols
+        ]
 
-        t = Table(table_data, colWidths=col_widths, repeatRows=1)
+        t = Table(table_data, colWidths=col_widths, repeatRows=1, hAlign="CENTER")
 
         # -- Build table style commands --
         style_cmds = [
@@ -9076,10 +9087,11 @@ def export_consumer_report(fmt_type: str):
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("GRID", (0, 0), (-1, -1), 0.75, PDF_GRID),
             ("BOX", (0, 0), (-1, -1), 0.9, PDF_GRID),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            # More padding gives wrapped text breathing room and avoids a tight grid.
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 5),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
         ]
 
         # Alternate row backgrounds
@@ -9280,6 +9292,16 @@ def _build_arrear_export_rows(rows, selected_keys):
 
 def _sort_arrear_rows(rows, priority, order):
     """Sort rows by the given status priority and order."""
+    sign = -1 if order == "desc" else 1
+    if priority == "none":
+        return sorted(
+            rows,
+            key=lambda r: (
+                sign * r.get("total_arrears", 0),
+                r.get("sector", "").lower(),
+                r.get("locality", "").lower(),
+            ),
+        )
     key_map = {
         "active_first": "active",
         "suspended_first": "suspended",
@@ -9287,7 +9309,6 @@ def _sort_arrear_rows(rows, priority, order):
         "open_first": "open",
     }
     sort_key = key_map.get(priority, "active")
-    sign = -1 if order == "desc" else 1
     return sorted(
         rows,
         key=lambda r: (
@@ -9327,7 +9348,7 @@ def export_arrear_calculator(fmt_type: str):
         tab_label = " Domestic"
 
     # Sort rows
-    priority = request.args.get("priority", "active_first")
+    priority = request.args.get("priority", "none")
     order = request.args.get("order", "desc")
     rows = _sort_arrear_rows(summary["rows"], priority, order)
 
@@ -9409,8 +9430,9 @@ def export_arrear_calculator(fmt_type: str):
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle(
             "ArrearTitle", parent=styles["Heading1"],
-            fontSize=13, spaceAfter=2, spaceBefore=0,
-            textColor=rl_colors.HexColor("#1a1a2e"),
+            fontName="Helvetica-Bold",
+            fontSize=16, leading=19, spaceAfter=6, spaceBefore=0,
+            textColor=rl_colors.HexColor("#10243f"),
         )
         meta_style = ParagraphStyle(
             "ArrearMeta", parent=styles["Normal"],
@@ -9436,16 +9458,16 @@ def export_arrear_calculator(fmt_type: str):
 
         elements = []
         elements.append(Paragraph(f"Arrear Calculator Report{tab_label}", title_style))
-        meta_parts = []
-        if summary.get("filename"):
-            meta_parts.append(f"Source: {summary['filename']}")
-        meta_parts.append(f"Generated: {datetime.now().strftime('%d %b %Y %H:%M')}")
-        meta_parts.append(f"Records: {summary.get('total_rows', 0):,}")
-        meta_parts.append(f"Sectors: {summary.get('sector_count', 0)}")
-        meta_parts.append(f"Localities: {summary.get('locality_count', 0)}")
-        meta_parts.append(f"Grand Total Arrears: {summary.get('grand_total_arrears', 0):,.0f}")
-        elements.append(Paragraph(" | ".join(meta_parts), meta_style))
-        elements.append(Spacer(1, 4))
+        gen = datetime.now().strftime("%d %b %Y, %H:%M")
+        meta_parts = [
+            f"Generated: {gen}",
+            f"Records: {summary.get('total_rows', 0):,}",
+            f"Sectors: {summary.get('sector_count', 0)}",
+            f"Localities: {summary.get('locality_count', 0)}",
+            f"Grand Total Arrears: {summary.get('grand_total_arrears', 0):,.0f}",
+        ]
+        elements.append(Paragraph("   |   ".join(meta_parts), meta_style))
+        elements.append(Spacer(1, 6))
 
         # Build table data with Paragraph objects for wrapping
         left_align_cols = {"sector", "locality"}
@@ -9462,20 +9484,47 @@ def export_arrear_calculator(fmt_type: str):
                 cells.append(Paragraph(txt, st))
             table_data.append(cells)
 
-        # Column widths — tuned for A4 landscape with 10mm margins
+        # Adaptive column widths: Sector + Locality absorb spare space;
+        # numeric/status/year columns stay compact. No rigid fixed layout.
         usable = page_w - 2 * margin
-        WIDTH_MAP = {
-            "sr": 28, "sector": 115, "locality": 115,
-            "closed": 40, "suspended": 48, "active": 40,
-            "open": 34, "total": 48, "fy2023": 58,
-            "fy2024": 58, "fy2025": 58, "arrears": 68,
+        MIN_WIDTHS = {
+            "sr": 22, "closed": 30, "suspended": 34, "active": 30,
+            "open": 26, "total": 34, "fy2023": 50, "fy2024": 50,
+            "fy2025": 50, "arrears": 56,
         }
-        col_widths = [WIDTH_MAP.get(k, 50) for k, _ in col_defs]
-        # Scale if total exceeds usable width
-        total_w = sum(col_widths)
-        if total_w > usable:
-            scale = usable / total_w
-            col_widths = [w * scale for w in col_widths]
+        FLEX_KEYS = {"sector", "locality"}
+
+        col_widths = []
+        flex_idx = []
+        for k, _ in col_defs:
+            if k in FLEX_KEYS:
+                flex_idx.append(len(col_widths))
+                col_widths.append(0)
+            else:
+                col_widths.append(MIN_WIDTHS.get(k, 40))
+
+        # Remainder after the fixed minimums goes entirely to Sector/Locality
+        reserved = sum(MIN_WIDTHS.get(k, 40) for k, _ in col_defs if k not in FLEX_KEYS)
+        remaining = usable - reserved
+
+        if flex_idx:
+            per_flex = remaining / len(flex_idx) if remaining > 0 else 70
+            # Soft cap avoids one column becoming absurdly wide, but we still
+            # scale afterwards so the table always fills the full width.
+            per_flex = min(per_flex, 300)
+            for i in flex_idx:
+                col_widths[i] = per_flex
+            # Scale so the table exactly fills the usable width (no wasted space)
+            total = sum(col_widths)
+            if total > 0:
+                scale = usable / total
+                col_widths = [w * scale for w in col_widths]
+        else:
+            # No flexible columns: stretch the rest to use full width
+            total = sum(col_widths)
+            if total > 0 and total < usable:
+                scale = usable / total
+                col_widths = [w * scale for w in col_widths]
 
         tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
         accent = rl_colors.HexColor("#2f6f6d")

@@ -364,7 +364,7 @@ body {
 
 /* ===================== PAGE CONTENT ===================== */
 .page { display: block; }
-.content { padding: 32px; max-width: 1120px; }
+.content { padding: 32px 40px; }
 
 /* ===================== PAGE HEADER ===================== */
 .page-header { margin-bottom: 32px; }
@@ -388,7 +388,7 @@ body {
 }
 .page-subtitle {
   font-size: 13px; color: var(--text-secondary);
-  max-width: 520px; line-height: 1.6;
+  line-height: 1.6;
 }
 .dashboard-title {
   font-family: var(--font-ui);
