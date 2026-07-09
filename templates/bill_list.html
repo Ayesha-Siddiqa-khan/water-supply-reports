@@ -229,7 +229,7 @@
         <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
-        <div class="export-bar" data-col-config="generalReport">
+        <div class="export-bar" data-col-config="generalReport" data-row-scope="general-sector">
           <a class="chip" href="{{ url_for('export_bill_list', fmt_type='pdf') }}">&#11015; Download PDF</a>
           <a class="chip" href="{{ url_for('export_bill_list', fmt_type='csv') }}">&#11015; Download CSV</a>
           <a class="chip" href="{{ url_for('export_bill_list', fmt_type='xlsx') }}">&#11015; Download Excel</a>
@@ -325,20 +325,20 @@
               <details class="dropdown-panel amount-breakdown">
                 <summary style="display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;padding:8px 0;color:var(--text-secondary);font-size:13px;font-weight:600;">
                   <span>{{ title }}</span>
-                  <span class="section-downloads" data-col-config="unpaidExpired" style="display:inline-flex;flex-wrap:wrap;gap:6px;">
+                  <span class="section-downloads" data-col-config="unpaidExpired" data-row-scope="unpaid-{{ section_key }}" style="display:inline-flex;flex-wrap:wrap;gap:6px;">
                     <a class="chip" href="{{ url_for('export_unpaid_amount_section', section_key=section_key, fmt_type='pdf') }}">&#11015; PDF</a>
                     <a class="chip" href="{{ url_for('export_unpaid_amount_section', section_key=section_key, fmt_type='csv') }}">&#11015; CSV</a>
                     <a class="chip" href="{{ url_for('export_unpaid_amount_section', section_key=section_key, fmt_type='xlsx') }}">&#11015; Excel</a>
                   </span>
                 </summary>
                 <div class="table-wrapper">
-                  <table class="data-table">
+                  <table class="data-table" data-select-scope="unpaid-{{ section_key }}">
                     <thead>
                       <tr><th>Sr</th><th>{{ label }}</th><th>Bills</th><th>Total Bill Amount</th><th>Total Arrears Amount</th><th>Current Bill Amount</th></tr>
                     </thead>
                     <tbody>
                       {% for row in rows %}
-                        <tr><td>{{ row.sr }}</td><td>{{ row.name }}</td><td class="mono">{{ "{:,}".format(row.bill_count) }}</td><td class="mono">{{ "{:,.0f}".format(row.total_bill_amount) }}</td><td class="mono">{{ "{:,.0f}".format(row.total_arrears_amount) }}</td><td class="mono">{{ "{:,.0f}".format(row.current_bill_amount) }}</td></tr>
+                        <tr data-row-key="{{ row.name }}"><td>{{ row.sr }}</td><td>{{ row.name }}</td><td class="mono">{{ "{:,}".format(row.bill_count) }}</td><td class="mono">{{ "{:,.0f}".format(row.total_bill_amount) }}</td><td class="mono">{{ "{:,.0f}".format(row.total_arrears_amount) }}</td><td class="mono">{{ "{:,.0f}".format(row.current_bill_amount) }}</td></tr>
                       {% else %}
                         <tr><td colspan="6">No unpaid or expired bills found.</td></tr>
                       {% endfor %}
@@ -351,13 +351,13 @@
           <details class="dropdown-panel" style="margin-top:12px;">
             <summary style="cursor:pointer;padding:8px 0;color:var(--text-secondary);font-size:13px;font-weight:600;list-style:none;">Sector-wise Details</summary>
             <div class="table-wrapper">
-              <table class="data-table">
+              <table class="data-table" data-select-scope="general-sector">
                 <thead>
                   <tr><th>Sr</th><th>Sector</th><th>Total Bills</th><th>Received Bills</th><th>Remaining Bills</th><th>Total Received Amount</th><th>Pending Amount</th></tr>
                 </thead>
                 <tbody>
                   {% for row in report_rows %}
-                    <tr><td>{{ row.sr }}</td><td>{{ row.sector }}</td><td class="mono">{{ "{:,}".format(row.total_bills) }}</td><td class="mono">{{ "{:,}".format(row.received_bills) }}</td><td class="mono">{{ "{:,}".format(row.remaining_bills) }}</td><td class="mono accent-teal">{{ "{:,.0f}".format(row.total_received_amount) }}</td><td class="mono accent-coral">{{ "{:,.0f}".format(row.remaining_amount) }}</td></tr>
+                    <tr data-row-key="{{ row.sector }}"><td>{{ row.sr }}</td><td>{{ row.sector }}</td><td class="mono">{{ "{:,}".format(row.total_bills) }}</td><td class="mono">{{ "{:,}".format(row.received_bills) }}</td><td class="mono">{{ "{:,}".format(row.remaining_bills) }}</td><td class="mono accent-teal">{{ "{:,.0f}".format(row.total_received_amount) }}</td><td class="mono accent-coral">{{ "{:,.0f}".format(row.remaining_amount) }}</td></tr>
                   {% else %}
                     <tr><td colspan="7">No bill data uploaded yet.</td></tr>
                   {% endfor %}
@@ -606,7 +606,7 @@
               {% endfor %}
             </select>
           </label>
-          <div class="export-bar" style="align-self:flex-end;" data-col-config="zoneWise">
+          <div class="export-bar" style="align-self:flex-end;" data-col-config="zoneWise" data-row-scope="zone-wise">
             <a class="chip zone-export-link" data-format="pdf" href="{{ url_for('export_bill_list_zone', fmt_type='pdf') }}?zone=All">&#11015; Zone PDF</a>
             <a class="chip zone-export-link" data-format="csv" href="{{ url_for('export_bill_list_zone', fmt_type='csv') }}?zone=All">&#11015; Zone CSV</a>
             <a class="chip zone-export-link" data-format="xlsx" href="{{ url_for('export_bill_list_zone', fmt_type='xlsx') }}?zone=All">&#11015; Zone Excel</a>
@@ -656,11 +656,11 @@
         </form>
 
         <div class="table-wrapper" style="margin-bottom:20px;">
-          <table class="data-table">
+          <table class="data-table" data-select-scope="zone-wise">
             <thead><tr><th>Zone</th><th>Sector</th><th>Localities</th><th>Bills</th></tr></thead>
             <tbody>
               {% for row in zones %}
-                <tr><td>{{ row.zone }}</td><td>{{ row.sector }}</td><td class="mono">{{ "{:,}".format(row.locality_count) }}</td><td class="mono">{{ "{:,}".format(row.bill_count) }}</td></tr>
+                <tr data-row-key="{{ row.zone }}|||{{ row.sector }}"><td>{{ row.zone }}</td><td>{{ row.sector }}</td><td class="mono">{{ "{:,}".format(row.locality_count) }}</td><td class="mono">{{ "{:,}".format(row.bill_count) }}</td></tr>
               {% else %}
                 <tr><td colspan="4">No zone data yet.</td></tr>
               {% endfor %}
@@ -690,6 +690,86 @@
   // ── SECTION TOGGLE ──
   function toggleSection(id) {
     document.getElementById(id).classList.toggle('collapsed');
+  }
+
+  function initRowSelectionTables() {
+    document.querySelectorAll('table[data-select-scope]').forEach(function(table) {
+      if (table.dataset.rowSelectReady === '1') return;
+      var scope = table.getAttribute('data-select-scope');
+      var bodyRows = Array.from(table.querySelectorAll('tbody tr[data-row-key]'));
+      var headRow = table.querySelector('thead tr');
+      if (!scope || !headRow || !bodyRows.length) return;
+      table.dataset.rowSelectReady = '1';
+
+      var headCell = document.createElement('th');
+      headCell.className = 'row-select-cell';
+      headCell.style.width = '38px';
+      headCell.style.textAlign = 'center';
+      var master = document.createElement('input');
+      master.type = 'checkbox';
+      master.className = 'bill-row-select-master';
+      master.checked = true;
+      master.title = 'Select all rows for export';
+      headCell.appendChild(master);
+      headRow.insertBefore(headCell, headRow.firstChild);
+
+      bodyRows.forEach(function(row) {
+        var cell = document.createElement('td');
+        cell.className = 'row-select-cell';
+        cell.style.textAlign = 'center';
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = 'bill-row-select';
+        cb.checked = true;
+        cb.dataset.scope = scope;
+        cb.dataset.rowKey = row.getAttribute('data-row-key') || '';
+        cb.title = 'Include this row in PDF, CSV, and Excel exports';
+        cell.appendChild(cb);
+        row.insertBefore(cell, row.firstChild);
+      });
+
+      function syncMaster() {
+        var checks = Array.from(table.querySelectorAll('tbody .bill-row-select'));
+        var checkedCount = checks.filter(function(cb) { return cb.checked; }).length;
+        master.checked = checkedCount === checks.length;
+        master.indeterminate = checkedCount > 0 && checkedCount < checks.length;
+      }
+
+      master.addEventListener('change', function() {
+        table.querySelectorAll('tbody .bill-row-select').forEach(function(cb) { cb.checked = master.checked; });
+        refreshAllExportLinks();
+      });
+
+      table.addEventListener('change', function(e) {
+        if (!e.target.classList.contains('bill-row-select')) return;
+        syncMaster();
+        refreshAllExportLinks();
+      });
+
+      syncMaster();
+    });
+  }
+
+  function applyRowSelectionParams(url, scope) {
+    url.searchParams.delete('row_mode');
+    url.searchParams.delete('row_key');
+    if (!scope) return;
+    var checks = Array.from(document.querySelectorAll('.bill-row-select')).filter(function(cb) { return cb.dataset.scope === scope; });
+    if (!checks.length) return;
+
+    var selected = checks.filter(function(cb) { return cb.checked; }).map(function(cb) { return cb.dataset.rowKey || ''; }).filter(Boolean);
+    var unselected = checks.filter(function(cb) { return !cb.checked; }).map(function(cb) { return cb.dataset.rowKey || ''; }).filter(Boolean);
+    if (selected.length === checks.length) return;
+
+    // Export links carry row selections explicitly so PDF, CSV, and Excel use
+    // the same checked rows the user sees in the table.
+    if (selected.length <= unselected.length) {
+      url.searchParams.set('row_mode', 'include');
+      selected.forEach(function(key) { url.searchParams.append('row_key', key); });
+    } else {
+      url.searchParams.set('row_mode', 'exclude');
+      unselected.forEach(function(key) { url.searchParams.append('row_key', key); });
+    }
   }
 
   // ── MULTI-SELECT DROPDOWN COMPONENT ──
@@ -1171,6 +1251,9 @@
         if (cols) url.searchParams.set('cols', cols);
         else url.searchParams.delete('cols');
       }
+      var rowScopeParent = link.closest('[data-row-scope]');
+      var rowScope = link.getAttribute('data-row-scope') || (rowScopeParent ? rowScopeParent.getAttribute('data-row-scope') : '');
+      applyRowSelectionParams(url, rowScope);
       // Add summary_cols for staff export links
       if (link.classList.contains('staff-export-link') && sumCols) {
         url.searchParams.set('summary_cols', sumCols);
@@ -1217,6 +1300,7 @@
     seasonSelect.addEventListener('change', refreshAllExportLinks);
   }
 
+  initRowSelectionTables();
   refreshAllExportLinks();
 </script>
 {% endblock %}

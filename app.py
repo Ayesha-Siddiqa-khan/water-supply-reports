@@ -16,6 +16,7 @@ from flask import (
     Flask,
     Response,
     flash,
+    has_request_context,
     redirect,
     render_template,
     request,
@@ -1612,6 +1613,33 @@ def parse_export_cols(cols_param, col_map, headers, rows):
         return headers, rows
     filtered_rows = [[row[i] for i in selected_indices] for row in rows]
     return filtered_headers, filtered_rows
+
+
+def _export_row_selection() -> tuple[str, set[str]]:
+    """Read bill-list row checkbox selection from export query params."""
+    if not has_request_context():
+        return "", set()
+    mode = (request.args.get("row_mode") or "").strip().lower()
+    if mode not in ("include", "exclude"):
+        return "", set()
+    keys = {str(key) for key in request.args.getlist("row_key") if str(key).strip()}
+    return mode, keys
+
+
+def _filter_rows_by_selection(rows: list, key_func) -> list:
+    """Keep only bill-list rows selected by the page checkboxes before exporting."""
+    mode, keys = _export_row_selection()
+    if not mode:
+        return rows
+    if mode == "include":
+        return [row for row in rows if key_func(row) in keys]
+    return [row for row in rows if key_func(row) not in keys]
+
+
+def _selection_has_filter() -> bool:
+    mode, _ = _export_row_selection()
+    return bool(mode)
+
 
 # Column key maps for dashboard cards (index.html)
 CARD_COL_MAPS = {
@@ -4278,6 +4306,17 @@ def bill_list_export_rows():
     return headers, rows, context["summary"]
 
 
+def _bill_list_summary_from_rows(rows: list[list]) -> dict:
+    """Recalculate sector export totals from checked rows only."""
+    return {
+        "total_bills": sum(parse_number(row[2]) for row in rows),
+        "received_bills": sum(parse_number(row[3]) for row in rows),
+        "remaining_bills": sum(parse_number(row[4]) for row in rows),
+        "total_received_amount": sum(parse_number(row[5]) for row in rows),
+        "remaining_amount": sum(parse_number(row[6]) for row in rows),
+    }
+
+
 def unpaid_amount_export_data():
     init_bill_list_db()
     with get_db() as conn:
@@ -4327,6 +4366,16 @@ def unpaid_amount_section(sections: list[tuple[str, str, list[str], list[list]]]
         if key == section_key:
             return key, title, headers, rows
     return None
+
+
+def _unpaid_total_from_section_rows(rows: list[list]) -> dict:
+    """Recalculate unpaid amount totals from checked section rows only."""
+    return {
+        "bill_count": sum(parse_number(row[2]) for row in rows),
+        "total_bill_amount": sum(parse_number(row[3]) for row in rows),
+        "total_arrears_amount": sum(parse_number(row[4]) for row in rows),
+        "current_bill_amount": sum(parse_number(row[5]) for row in rows),
+    }
 
 
 def generate_unpaid_amount_pdf(sections: list[tuple[str, str, list[str], list[list]]], total: dict, show_summary: bool = True) -> bytes:
@@ -4469,6 +4518,7 @@ def bill_list_zone_export_rows(selected_zone: str = "All"):
                 fmt(row["remaining_amount"] or 0),
             ]
         )
+    base_rows = _filter_rows_by_selection(base_rows, lambda row: f"{row[1]}|||{row[2]}")
 
     rows = []
     if selected_zone == "All":
@@ -5640,6 +5690,9 @@ def bill_list():
 @app.route("/bill-list/export/<fmt_type>")
 def export_bill_list(fmt_type: str):
     headers, rows, summary = bill_list_export_rows()
+    rows = _filter_rows_by_selection(rows, lambda row: str(row[1]))
+    if _selection_has_filter():
+        summary = _bill_list_summary_from_rows(rows)
     cols_param = request.args.get("cols")
     headers, rows = parse_export_cols(cols_param, SECTOR_COL_MAP, headers, rows)
     if fmt_type == "pdf":
@@ -5761,6 +5814,9 @@ def export_unpaid_amount_section(section_key: str, fmt_type: str):
         return redirect(url_for("bill_list"))
 
     key, title, headers, rows = section
+    rows = _filter_rows_by_selection(rows, lambda row: str(row[1]))
+    if key != "summary" and _selection_has_filter():
+        total = _unpaid_total_from_section_rows(rows)
     cols_param = request.args.get("cols")
     if key == "summary":
         col_map = UNPAID_SUMMARY_COL_MAP
