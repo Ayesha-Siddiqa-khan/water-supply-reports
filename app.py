@@ -7770,11 +7770,14 @@ def _parse_consumer_csv(file_storage) -> tuple[list[dict], list[str]]:
                 _normalize_consumer_col(_get(row, "rate_type", "")) == "rate type":
             continue
 
-        # Prefer Consumer Status because it is the clean Active/In-Active flag;
-        # fall back to Status for files that do not include Consumer Status.
-        status_val = _get(row, "consumer_status", "")
+        # Suspended is stored in the Status column in consumer exports, while
+        # Consumer Status may still say In-Active.  Read explicit Suspended
+        # from Status first, then keep the existing Consumer Status preference.
+        connection_status_val = _get(row, "connection_status", "")
+        consumer_status_val = _get(row, "consumer_status", "")
+        status_val = connection_status_val if _classify_connection_status(connection_status_val) == "Suspended" else consumer_status_val
         if not status_val.strip():
-            status_val = _get(row, "connection_status", "")
+            status_val = connection_status_val
         rows.append({
             "serial_number": _get(row, "serial"),
             "consumer_name": _get(row, "consumer_name"),

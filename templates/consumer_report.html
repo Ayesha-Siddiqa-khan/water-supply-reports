@@ -518,13 +518,15 @@
     }
 
     function classifyRowStatus(fields, colMap) {
-      // Prefer Consumer Status when present because it is the clean Active /
-      // In-Active flag.  Fall back to Status for files without that column.
+      // Suspended is stored in the Status column in consumer exports, while
+      // Consumer Status may still say In-Active.  Read explicit Suspended
+      // from Status first, then keep the existing Consumer Status preference.
+      var statusVal = '';
+      if (colMap.connection_status !== undefined) statusVal = fields[colMap.connection_status] || '';
+      if (classifyStatus(statusVal) === 'Suspended') return 'Suspended';
       var consumerStatus = '';
       if (colMap.consumer_status !== undefined) consumerStatus = fields[colMap.consumer_status] || '';
       if (consumerStatus && consumerStatus.trim()) return classifyStatus(consumerStatus);
-      var statusVal = '';
-      if (colMap.connection_status !== undefined) statusVal = fields[colMap.connection_status] || '';
       return classifyStatus(statusVal);
     }
 
