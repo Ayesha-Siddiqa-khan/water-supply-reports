@@ -9441,7 +9441,7 @@ def export_arrear_calculator(fmt_type: str):
         )
         cell_style = ParagraphStyle(
             "Cell", parent=styles["Normal"],
-            fontSize=7, leading=8, spaceBefore=0, spaceAfter=0,
+            fontSize=7.2, leading=9, spaceBefore=0, spaceAfter=0,
         )
         cell_left = ParagraphStyle(
             "CellLeft", parent=cell_style, alignment=TA_LEFT,
@@ -9451,13 +9451,13 @@ def export_arrear_calculator(fmt_type: str):
         )
         hdr_style = ParagraphStyle(
             "HdrCell", parent=styles["Normal"],
-            fontSize=7, leading=8, alignment=TA_CENTER,
+            fontSize=7.5, leading=9, alignment=TA_CENTER,
             textColor=rl_colors.white, fontName="Helvetica-Bold",
             spaceBefore=0, spaceAfter=0,
         )
 
         elements = []
-        elements.append(Paragraph(f"Arrear Calculator Report{tab_label}", title_style))
+        elements.append(Paragraph(f"Arrear Report{tab_label}", title_style))
         gen = datetime.now().strftime("%d %b %Y, %H:%M")
         meta_parts = [
             f"Generated: {gen}",
@@ -9484,43 +9484,48 @@ def export_arrear_calculator(fmt_type: str):
                 cells.append(Paragraph(txt, st))
             table_data.append(cells)
 
-        # Adaptive column widths: Sector + Locality absorb spare space;
-        # numeric/status/year columns stay compact. No rigid fixed layout.
+        # Adaptive column widths: flexible columns absorb spare space.
+        # Priority: Sector > Locality > Total Arrears > Year cols > others.
         usable = page_w - 2 * margin
+
+        # Minimum base widths for each column type
         MIN_WIDTHS = {
-            "sr": 22, "closed": 30, "suspended": 34, "active": 30,
-            "open": 26, "total": 34, "fy2023": 50, "fy2024": 50,
-            "fy2025": 50, "arrears": 56,
+            "sr": 20, "closed": 26, "suspended": 30, "active": 26,
+            "open": 22, "total": 30,
         }
-        FLEX_KEYS = {"sector", "locality"}
+        # Flexible columns with proportional weights — extra space is
+        # distributed roughly in proportion to these weights.
+        FLEX_WEIGHTS = {
+            "sector": 56, "locality": 64,
+            "fy2023": 40, "fy2024": 40, "fy2025": 40,
+            "arrears": 48,
+        }
 
         col_widths = []
         flex_idx = []
+        fixed_total = 0
         for k, _ in col_defs:
-            if k in FLEX_KEYS:
+            if k in FLEX_WEIGHTS:
                 flex_idx.append(len(col_widths))
                 col_widths.append(0)
             else:
-                col_widths.append(MIN_WIDTHS.get(k, 40))
+                w = MIN_WIDTHS.get(k, 30)
+                col_widths.append(w)
+                fixed_total += w
 
-        # Remainder after the fixed minimums goes entirely to Sector/Locality
-        reserved = sum(MIN_WIDTHS.get(k, 40) for k, _ in col_defs if k not in FLEX_KEYS)
-        remaining = usable - reserved
-
-        if flex_idx:
-            per_flex = remaining / len(flex_idx) if remaining > 0 else 70
-            # Soft cap avoids one column becoming absurdly wide, but we still
-            # scale afterwards so the table always fills the full width.
-            per_flex = min(per_flex, 300)
+        # Distribute remaining width among flexible columns by weight
+        remaining = usable - fixed_total
+        if flex_idx and remaining > 0:
+            total_weight = sum(FLEX_WEIGHTS[col_defs[i][0]] for i in flex_idx)
             for i in flex_idx:
-                col_widths[i] = per_flex
-            # Scale so the table exactly fills the usable width (no wasted space)
+                k = col_defs[i][0]
+                col_widths[i] = remaining * (FLEX_WEIGHTS[k] / total_weight)
+            # Scale so the table exactly fills the usable width
             total = sum(col_widths)
             if total > 0:
                 scale = usable / total
                 col_widths = [w * scale for w in col_widths]
         else:
-            # No flexible columns: stretch the rest to use full width
             total = sum(col_widths)
             if total > 0 and total < usable:
                 scale = usable / total
@@ -9534,10 +9539,10 @@ def export_arrear_calculator(fmt_type: str):
             ("BACKGROUND", (0, 0), (-1, 0), accent),
             ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, 0), 7),
+            ("FONTSIZE", (0, 0), (-1, 0), 7.5),
             # Body
             ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-            ("FONTSIZE", (0, 1), (-1, -1), 7),
+            ("FONTSIZE", (0, 1), (-1, -1), 7.2),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             # Sector + Locality left-aligned
@@ -9551,11 +9556,11 @@ def export_arrear_calculator(fmt_type: str):
             # Grand total row
             ("BACKGROUND", (0, -1), (-1, -1), rl_colors.HexColor("#e8f5e9")),
             ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-            # Compact padding
-            ("TOPPADDING", (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-            ("LEFTPADDING", (0, 0), (-1, -1), 3),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+            # Comfortable padding for readability
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
         ]))
         elements.append(tbl)
         doc.build(elements)
