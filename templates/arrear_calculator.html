@@ -4,6 +4,47 @@
 {% block active_page %}arrear_calc{% endblock %}
 {% block breadcrumb %}Arrear Calculator{% endblock %}
 
+{% block head_extra %}
+<style>
+  /* Scoped to Arrear Calculator page only — do not modify */
+  .arrear-calc-content { max-width: none !important; padding: 32px 40px !important; }
+  .arrear-calc-content .page-subtitle { max-width: 100%; }
+  .arrear-calc-content .section-body { padding: 16px 20px; }
+  .arrear-calc-content .table-wrapper { max-width: none; }
+  /* Compact arrear table — no min-width, fill available space */
+  .arrear-tab-table { min-width: 0 !important; width: 100% !important; table-layout: fixed; }
+  /* Column widths — compact numeric, balanced text */
+  .arrear-tab-table th:nth-child(1), .arrear-tab-table td:nth-child(1) { width: 32px; }  /* checkbox */
+  .arrear-tab-table th:nth-child(2), .arrear-tab-table td:nth-child(2) { width: 32px; }  /* SR */
+  .arrear-tab-table th:nth-child(3), .arrear-tab-table td:nth-child(3) { width: 18%; }   /* Sector */
+  .arrear-tab-table th:nth-child(4), .arrear-tab-table td:nth-child(4) { width: 18%; }   /* Localities */
+  .arrear-tab-table th:nth-child(5), .arrear-tab-table td:nth-child(5) { width: 52px; }  /* Closed */
+  .arrear-tab-table th:nth-child(6), .arrear-tab-table td:nth-child(6) { width: 62px; }  /* Suspended */
+  .arrear-tab-table th:nth-child(7), .arrear-tab-table td:nth-child(7) { width: 52px; }  /* Active */
+  .arrear-tab-table th:nth-child(8), .arrear-tab-table td:nth-child(8) { width: 44px; }  /* Open */
+  .arrear-tab-table th:nth-child(9), .arrear-tab-table td:nth-child(9) { width: 60px; }  /* Total Conn. */
+  .arrear-tab-table th:nth-child(10), .arrear-tab-table td:nth-child(10) { width: 82px; } /* 2023-2024 */
+  .arrear-tab-table th:nth-child(11), .arrear-tab-table td:nth-child(11) { width: 82px; } /* 2024-2025 */
+  .arrear-tab-table th:nth-child(12), .arrear-tab-table td:nth-child(12) { width: 82px; } /* 2025-2026 */
+  .arrear-tab-table th:nth-child(13), .arrear-tab-table td:nth-child(13) { width: 90px; } /* Total Arrears */
+  /* Sector and Localities wrap safely, compact row height */
+  .arrear-tab-table th:nth-child(3), .arrear-tab-table td:nth-child(3),
+  .arrear-tab-table th:nth-child(4), .arrear-tab-table td:nth-child(4) {
+    white-space: normal; word-wrap: break-word; line-height: 1.35;
+  }
+  /* Numeric cells stay single-line */
+  .arrear-tab-table td:nth-child(n+5) { white-space: nowrap; }
+  /* Responsive: allow horizontal scroll on small screens */
+  @media (max-width: 1280px) {
+    .arrear-calc-content { padding: 20px 20px !important; }
+    .arrear-tab-table { table-layout: auto; min-width: 900px !important; }
+  }
+  @media (max-width: 900px) {
+    .arrear-calc-content { padding: 14px 12px !important; }
+  }
+</style>
+{% endblock %}
+
 {% block topbar_actions %}
   <div id="topbar-export-btns" style="display:none;">
     <div style="display:flex;gap:8px;align-items:center;">
@@ -30,7 +71,7 @@
 
 {% block content %}
 <div class="page">
-  <div class="content">
+  <div class="content arrear-calc-content">
     <div class="page-header">
       <div class="page-tag">Arrear Calculator</div>
       <h1 class="page-title">Arrear Calculator</h1>
@@ -203,19 +244,19 @@
             <input type="checkbox" class="pdf-col-toggle" data-col="locality" checked> Localities
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="closed" checked> Closed
+            <input type="checkbox" class="pdf-col-toggle" data-col="closed"> Closed
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="suspended" checked> Suspended
+            <input type="checkbox" class="pdf-col-toggle" data-col="suspended"> Suspended
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="active" checked> Active
+            <input type="checkbox" class="pdf-col-toggle" data-col="active"> Active
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="open" checked> Open
+            <input type="checkbox" class="pdf-col-toggle" data-col="open"> Open
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="total" checked> Total Connections
+            <input type="checkbox" class="pdf-col-toggle" data-col="total"> Total Connections
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
             <input type="checkbox" class="pdf-col-toggle" data-col="fy2023" checked> 2023-2024
@@ -407,21 +448,21 @@ function toggleSection(id) {
 
   function buildTableHTML(rows, grandStatus, grandFY2023, grandFY2024, grandFY2025, grandTotal, grandArrears, tab) {
     var prefix = tab === 'domestic' ? 'dom' : 'com';
-    var html = '<table class="data-table arrear-tab-table" id="arrear-table-' + tab + '" style="width:100%;min-width:1100px;">';
+    var html = '<table class="data-table arrear-tab-table" id="arrear-table-' + tab + '">';
     html += '<thead><tr>';
-    html += '<th style="width:36px;text-align:center"><input type="checkbox" class="select-all-tab" data-tab="' + tab + '" checked title="Select/Deselect All"></th>';
-    html += '<th style="width:40px;text-align:center">SR</th>';
-    html += '<th style="text-align:left;min-width:130px;">Sector</th>';
-    html += '<th style="text-align:left;min-width:130px;">Localities</th>';
-    html += '<th style="width:50px;text-align:center">Closed</th>';
-    html += '<th style="width:58px;text-align:center">Suspended</th>';
-    html += '<th style="width:50px;text-align:center">Active</th>';
-    html += '<th style="width:44px;text-align:center">Open</th>';
-    html += '<th style="width:62px;text-align:center">Total Conn.</th>';
-    html += '<th style="width:80px;text-align:right">2023-2024</th>';
-    html += '<th style="width:80px;text-align:right">2024-2025</th>';
-    html += '<th style="width:80px;text-align:right">2025-2026</th>';
-    html += '<th style="width:90px;text-align:right">Total Arrears</th>';
+    html += '<th style="text-align:center"><input type="checkbox" class="select-all-tab" data-tab="' + tab + '" checked title="Select/Deselect All"></th>';
+    html += '<th style="text-align:center">SR</th>';
+    html += '<th style="text-align:left">Sector</th>';
+    html += '<th style="text-align:left">Localities</th>';
+    html += '<th style="text-align:center">Closed</th>';
+    html += '<th style="text-align:center">Suspended</th>';
+    html += '<th style="text-align:center">Active</th>';
+    html += '<th style="text-align:center">Open</th>';
+    html += '<th style="text-align:center">Total Conn.</th>';
+    html += '<th style="text-align:right">2023-2024</th>';
+    html += '<th style="text-align:right">2024-2025</th>';
+    html += '<th style="text-align:right">2025-2026</th>';
+    html += '<th style="text-align:right">Total Arrears</th>';
     html += '</tr></thead><tbody>';
 
     for (var i = 0; i < rows.length; i++) {
@@ -893,7 +934,13 @@ function toggleSection(id) {
         e.preventDefault();
         var storedData = null;
         try { storedData = JSON.parse(localStorage.getItem('arrear_calculator_data')); } catch(ex) {}
-        if (!storedData || !storedData.rows || !storedData.rows.length) {
+        // Data lives in domestic.rows / commercial.rows (flat .rows is intentionally empty)
+        var hasData = !!storedData && (
+          (storedData.domestic && storedData.domestic.rows && storedData.domestic.rows.length) ||
+          (storedData.commercial && storedData.commercial.rows && storedData.commercial.rows.length) ||
+          (storedData.rows && storedData.rows.length)
+        );
+        if (!hasData) {
           alert('Please upload a CSV file first to generate a report.');
           return;
         }

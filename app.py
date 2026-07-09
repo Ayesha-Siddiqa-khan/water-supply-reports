@@ -21,6 +21,7 @@ from flask import (
     render_template,
     request,
     send_from_directory,
+    session,
     url_for,
 )
 from reportlab.lib import colors
@@ -9165,6 +9166,10 @@ def arrear_calculator():
 
             _arrear_calc_data = data
             _arrear_calc_filename = data.get("filename", "upload.csv")
+            # Persist in session so the data survives the redirect on
+            # serverless platforms (stateless globals).
+            session["arrear_calc_data"] = data
+            session["arrear_calc_filename"] = _arrear_calc_filename
 
             msg = (
                 f"File uploaded. Found {data.get('total_connections', 0):,} connections "
@@ -9185,16 +9190,28 @@ def arrear_calculator():
         if action == "clear":
             _arrear_calc_data = None
             _arrear_calc_filename = None
+            session.pop("arrear_calc_data", None)
+            session.pop("arrear_calc_filename", None)
             flash("Arrear Calculator data cleared.")
             return redirect(url_for("arrear_calculator"))
 
-    # GET
+    # GET — fall back to session data (serverless-safe)
     if _arrear_calc_data:
+        summary = _arrear_calc_data
+        filename = _arrear_calc_filename
+    elif session.get("arrear_calc_data"):
+        summary = session.get("arrear_calc_data")
+        filename = session.get("arrear_calc_filename")
+    else:
+        summary = None
+        filename = None
+
+    if summary:
         return render_template(
             "arrear_calculator.html",
-            summary=_arrear_calc_data,
-            filename=_arrear_calc_filename,
-            total_rows=_arrear_calc_data.get("total_rows", 0),
+            summary=summary,
+            filename=filename,
+            total_rows=summary.get("total_rows", 0),
             active_page="arrear_calc",
         )
     return render_template(
@@ -9295,7 +9312,7 @@ def export_arrear_calculator(fmt_type: str):
             except (json.JSONDecodeError, TypeError):
                 pass
     if not summary:
-        summary = _arrear_calc_data
+        summary = _arrear_calc_data or session.get("arrear_calc_data")
 
     if not summary or not summary.get("rows"):
         flash("No arrear data to export. Upload a CSV first.")
