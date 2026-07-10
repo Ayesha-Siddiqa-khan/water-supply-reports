@@ -171,34 +171,65 @@
           <a class="chip export-link" href="{{ url_for('export_consumer_sector_remaining', fmt_type='pdf', year=year, season=season) }}">&#11015; Download PDF</a>
         </div>
 
+        <!-- Column Visibility -->
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);">
+          <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">Columns:</span>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="col-toggle" data-col="select" checked> Select
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="col-toggle" data-col="sr" checked> SR
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="col-toggle" data-col="sector" checked> Sector
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="col-toggle" data-col="locality" checked> Locality
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="col-toggle" data-col="active" checked> Active
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="col-toggle" data-col="budget" checked> Budget
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="col-toggle" data-col="remaining" checked> {{ season_label }} Remaining
+          </label>
+        </div>
+
         <div class="table-wrapper">
           <table class="data-table" id="remaining-table">
             <thead>
               <tr>
-                <th style="width:50px;text-align:center">SR</th>
-                <th style="text-align:left">Sector</th>
-                <th style="text-align:left">Locality</th>
-                <th style="width:80px;text-align:center">Active</th>
-                <th style="width:120px;text-align:right">Budget (Rs.)</th>
-                <th style="width:140px;text-align:right">{{ season_label }} Remaining</th>
+                <th data-col="select" style="width:40px;text-align:center"><input type="checkbox" id="select-all" class="select-all-cb" checked title="Select/Deselect All"></th>
+                <th data-col="sr" style="width:50px;text-align:center">SR</th>
+                <th data-col="sector" style="text-align:left">Sector</th>
+                <th data-col="locality" style="text-align:left">Locality</th>
+                <th data-col="active" style="width:80px;text-align:center">Active</th>
+                <th data-col="budget" style="width:120px;text-align:right">Budget (Rs.)</th>
+                <th data-col="remaining" style="width:140px;text-align:right">{{ season_label }} Remaining</th>
               </tr>
             </thead>
             <tbody>
               {% for row in rows %}
               <tr>
-                <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
-                <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
-                <td style="text-align:left;">{{ row.locality }}</td>
-                <td style="text-align:center;color:var(--teal);">{{ row.active }}</td>
-                <td style="text-align:right;font-weight:500;color:var(--teal);">{{ "{:,.0f}".format(row.budget) }}</td>
-                <td style="text-align:right;font-weight:600;color:var(--coral);">{{ "{:,.0f}".format(row.remaining) }}</td>
+                <td data-col="select" style="text-align:center;"><input type="checkbox" class="row-select" checked></td>
+                <td data-col="sr" style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
+                <td data-col="sector" style="text-align:left;font-weight:500;">{{ row.sector }}</td>
+                <td data-col="locality" style="text-align:left;">{{ row.locality }}</td>
+                <td data-col="active" style="text-align:center;color:var(--teal);">{{ row.active }}</td>
+                <td data-col="budget" style="text-align:right;font-weight:500;color:var(--teal);">{{ "{:,.0f}".format(row.budget) }}</td>
+                <td data-col="remaining" style="text-align:right;font-weight:600;color:var(--coral);">{{ "{:,.0f}".format(row.remaining) }}</td>
               </tr>
               {% endfor %}
               <tr class="grand-total-row" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
-                <td colspan="3" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL</td>
-                <td style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ grand_active }}</td>
-                <td style="text-align:right;font-weight:700;color:var(--teal);font-size:14px;">{{ "{:,.0f}".format(grand_budget) }}</td>
-                <td style="text-align:right;font-weight:700;color:var(--coral);font-size:14px;">{{ "{:,.0f}".format(grand_remaining) }}</td>
+                <td data-col="select" style="display:none;"></td>
+                <td data-col="sr" colspan="1" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL</td>
+                <td data-col="sector" style="display:none;"></td>
+                <td data-col="locality" style="display:none;"></td>
+                <td data-col="active" style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ grand_active }}</td>
+                <td data-col="budget" style="text-align:right;font-weight:700;color:var(--teal);font-size:14px;">{{ "{:,.0f}".format(grand_budget) }}</td>
+                <td data-col="remaining" style="text-align:right;font-weight:700;color:var(--coral);font-size:14px;">{{ "{:,.0f}".format(grand_remaining) }}</td>
               </tr>
             </tbody>
           </table>
@@ -444,6 +475,33 @@
       var year = yearSelect.value;
       window.location.href = '{{ url_for("consumer_sector_remaining_report") }}?season=' + season + '&year=' + year;
     });
+
+    /* ================================================================
+       COLUMN VISIBILITY TOGGLES
+       ================================================================ */
+    var colToggles = document.querySelectorAll('.col-toggle');
+    colToggles.forEach(function(cb) {
+      cb.addEventListener('change', function() {
+        var col = cb.getAttribute('data-col');
+        var show = cb.checked;
+        document.querySelectorAll('[data-col="' + col + '"]').forEach(function(el) {
+          el.style.display = show ? '' : 'none';
+        });
+      });
+    });
+
+    /* ================================================================
+       SELECT ALL CHECKBOX
+       ================================================================ */
+    var selectAllCb = document.getElementById('select-all');
+    if (selectAllCb) {
+      selectAllCb.addEventListener('change', function() {
+        var checked = selectAllCb.checked;
+        document.querySelectorAll('.row-select').forEach(function(cb) {
+          cb.checked = checked;
+        });
+      });
+    }
   });
 </script>
 {% endblock %}
