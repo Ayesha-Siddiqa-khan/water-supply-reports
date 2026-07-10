@@ -357,7 +357,16 @@
 
         if (isSummaryFormat) {
           /* --- SUMMARY FORMAT: Sector, Active, Locality?, Budget? --- */
-          var serial = 0;
+          // Merge similar sectors (e.g., "PHASE 1", "PHASE 2" → single entry)
+          function getSectorBase(name) {
+            return name.replace(/\s*\(?\s*phase\s*\d+\s*\)?/gi, '')
+                       .replace(/\s*\(?\s*block\s*[a-z]?\s*\)?/gi, '')
+                       .replace(/\s*\(?\s*section\s*\d+\s*\)?/gi, '')
+                       .replace(/\s+/g, ' ').trim().toLowerCase();
+          }
+
+          var mergedMap = {};
+          var totalRows = 0;
           for (var i = 1; i < lines.length; i++) {
             var fields = parseCSVLine(lines[i]);
             var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
@@ -366,14 +375,31 @@
             var closed = colMap.closed_count !== undefined ? (parseInt(fields[colMap.closed_count]) || 0) : 0;
             var suspended = colMap.suspended_count !== undefined ? (parseInt(fields[colMap.suspended_count]) || 0) : 0;
             var budget = colMap.budget !== undefined ? parseNumber(fields[colMap.budget]) : 0;
-            serial++;
-            summaryRows.push({
-              serial: serial, sector: sector, locality: locality || sector,
-              closed: closed, suspended: suspended, active: active,
-              total: closed + suspended + active || active, budget: budget
-            });
+
+            var baseKey = getSectorBase(sector);
+            if (!mergedMap[baseKey]) {
+              mergedMap[baseKey] = { sector: sector, localities: locality, closed: 0, suspended: 0, active: 0, budget: 0 };
+            }
+            mergedMap[baseKey].closed += closed;
+            mergedMap[baseKey].suspended += suspended;
+            mergedMap[baseKey].active += active;
+            mergedMap[baseKey].budget += budget;
+            if (locality && mergedMap[baseKey].localities.indexOf(locality) === -1) {
+              mergedMap[baseKey].localities = mergedMap[baseKey].localities ? mergedMap[baseKey].localities + ', ' + locality : locality;
+            }
             totalRows += active + closed + suspended;
           }
+
+          var serial = 0;
+          Object.keys(mergedMap).forEach(function(key) {
+            var s = mergedMap[key];
+            serial++;
+            summaryRows.push({
+              serial: serial, sector: s.sector, locality: s.localities || s.sector,
+              closed: s.closed, suspended: s.suspended, active: s.active,
+              total: s.closed + s.suspended + s.active, budget: s.budget
+            });
+          });
         } else {
           /* --- RAW FORMAT: Sector, Connection Status columns --- */
           var sectorMap = {};

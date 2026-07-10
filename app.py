@@ -10021,7 +10021,17 @@ def consumer_sector_remaining_report():
 
                 if has_sector_name and has_pending:
                     # Summary format: store pending amounts directly as JSON
+                    import re
+
+                    def _sector_base(name: str) -> str:
+                        """Extract base sector name by removing phase/block/section numbers."""
+                        n = re.sub(r"\s*\(?\s*phase\s*\d+\s*\)?", "", name, flags=re.IGNORECASE)
+                        n = re.sub(r"\s*\(?\s*block\s*[a-z]?\s*\)?", "", n, flags=re.IGNORECASE)
+                        n = re.sub(r"\s*\(?\s*section\s*\d+\s*\)?", "", n, flags=re.IGNORECASE)
+                        return " ".join(n.split()).strip().lower()
+
                     pending_lookup = {}
+                    base_to_original: dict[str, str] = {}
                     for _, row in df.iterrows():
                         sector_col = [c for c in df.columns if "sector" in str(c).lower() and "name" in str(c).lower()][0]
                         pending_col = [c for c in df.columns if "pending" in str(c).lower() and "amount" in str(c).lower()][0]
@@ -10032,12 +10042,20 @@ def consumer_sector_remaining_report():
                         except (ValueError, TypeError):
                             pending_val = 0.0
                         if sector_name:
-                            pending_lookup[sector_name] = pending_val
+                            base = _sector_base(sector_name)
+                            if base in pending_lookup:
+                                pending_lookup[base] += pending_val
+                            else:
+                                pending_lookup[base] = pending_val
+                                base_to_original[base] = sector_name
+
+                    # Use original (shortest) name for each merged group
+                    merged_lookup = {base_to_original[k]: v for k, v in pending_lookup.items()}
 
                     cache_path = os.path.join(app.config["UPLOAD_FOLDER"], "bill_pending_cache.json")
                     with open(cache_path, "w", encoding="utf-8") as f:
-                        json.dump({"pending": pending_lookup, "filename": file.name}, f, ensure_ascii=False, indent=2)
-                    msg = f"Bill summary uploaded. {len(pending_lookup)} sectors with pending amounts."
+                        json.dump({"pending": merged_lookup, "filename": file.name}, f, ensure_ascii=False, indent=2)
+                    msg = f"Bill summary uploaded. {len(merged_lookup)} sectors with pending amounts."
                 else:
                     # Raw bill format: import to database
                     imported, duplicates = import_bill_list_dataframe(df)
