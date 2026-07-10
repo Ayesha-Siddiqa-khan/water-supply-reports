@@ -648,6 +648,48 @@
       </div>
     </div>
 
+    <!-- ONE YEAR SECTOR-WISE -->
+    <div class="section collapsed" id="sec-year-sector">
+      <div class="section-header" onclick="toggleSection('sec-year-sector')">
+        <div class="section-header-icon">&#128202;</div>
+        <div class="section-title">One Year Sector-Wise Report</div>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="section-body">
+        <p class="muted" style="margin-bottom:16px;">
+          Calculates bill information sector-wise for a complete selected year (January to December).
+        </p>
+        <div style="margin-bottom:16px;">
+          <label class="field" style="min-width:220px;">
+            <span>Select Year</span>
+            <select class="filter-select" id="year-select">
+              <option value="2024">2024</option>
+              <option value="2025">2025</option>
+              <option value="2026" selected>2026</option>
+            </select>
+          </label>
+        </div>
+        <div class="export-bar" data-col-config="yearSector" data-row-scope="year-sector">
+          <a class="chip year-sector-export-link" data-format="pdf" href="{{ url_for('export_year_sector_pitch', fmt_type='pdf') }}?year=2026">&#11015; Year Sector PDF</a>
+          <a class="chip year-sector-export-link" data-format="csv" href="{{ url_for('export_year_sector_pitch', fmt_type='csv') }}?year=2026">&#11015; Year Sector CSV</a>
+          <a class="chip year-sector-export-link" data-format="xlsx" href="{{ url_for('export_year_sector_pitch', fmt_type='xlsx') }}?year=2026">&#11015; Year Sector Excel</a>
+        </div>
+        <div class="col-select-area">
+          <div class="col-select-label">Select Columns for Export</div>
+          <div class="col-chips" id="col-chips-yearSector"></div>
+        </div>
+        <div class="column-selector-wrapper" data-col-config="yearSector" style="display:none;"></div>
+        <div class="table-wrapper" style="max-height:260px;margin-top:12px;">
+          <table class="data-table" data-select-scope="year-sector">
+            <thead><tr><th>Sr</th><th>Sector</th><th>Total Bills</th><th>Received Bills</th><th>Remaining Bills</th><th>Total Amount</th><th>Amount Received</th><th>Pending Amount</th></tr></thead>
+            <tbody>
+              <tr><td colspan="8">Select a year and export to view sector-wise data.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- ZONES -->
     <div class="section collapsed" id="sec-zones">
       <div class="section-header" onclick="toggleSection('sec-zones')">
@@ -1241,6 +1283,16 @@
       { key: "totalAmount", label: "Total Amount", checked: false },
       { key: "amountReceived", label: "Amount Received", checked: true },
       { key: "currentBillAmount", label: "Pending Amount", checked: true }
+    ],
+    yearSector: [
+      { key: "sr", label: "Sr", checked: true },
+      { key: "sector", label: "Sector", checked: true },
+      { key: "totalBills", label: "Total Bills", checked: true },
+      { key: "receivedBills", label: "Received Bills", checked: true },
+      { key: "remainingBills", label: "Remaining Bills", checked: true },
+      { key: "totalAmount", label: "Total Amount", checked: true },
+      { key: "amountReceived", label: "Amount Received", checked: true },
+      { key: "pendingAmount", label: "Pending Amount", checked: true }
     ]
   };
 
@@ -1359,6 +1411,23 @@
       seasonSelect.value = 'jul-dec';
     }
     seasonSelect.addEventListener('change', refreshAllExportLinks);
+  }
+
+  // Year selector for Year Sector report
+  var yearSelect = document.getElementById('year-select');
+  if (yearSelect) {
+    yearSelect.addEventListener('change', function() {
+      var year = yearSelect.value;
+      document.querySelectorAll('.year-sector-export-link').forEach(function(link) {
+        var href = link.getAttribute('href');
+        if (!href) return;
+        try {
+          var url = new URL(href, window.location.origin);
+          url.searchParams.set('year', year);
+          link.setAttribute('href', url.pathname + url.search);
+        } catch(e) {}
+      });
+    });
   }
 
   initRowSelectionTables();

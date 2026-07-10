@@ -6008,6 +6008,124 @@ def _get_season_bill_ids(season: str) -> set[int]:
     return ids
 
 
+def _get_year_bill_ids(year: int) -> set[int]:
+    """Return set of bill IDs whose due date falls in the given calendar year."""
+    init_bill_list_db()
+    ids: set[int] = set()
+    with get_db() as conn:
+        rows = conn.execute("SELECT id, raw_data FROM bills").fetchall()
+    for row in rows:
+        try:
+            data = json.loads(row["raw_data"])
+            due = data.get("due date")
+            if due:
+                dt = pd.to_datetime(str(due), dayfirst=True, errors="coerce")
+                if pd.notna(dt) and dt.year == year:
+                    ids.add(row["id"])
+        except Exception:
+            continue
+    return ids
+
+
+def _get_year_bill_ids_sql(year: int) -> tuple[str, list]:
+    """Return SQL clause and params to filter bills by due date year.
+    Uses the raw_data JSON field for due date, same as _get_year_bill_ids."""
+    ids = _get_year_bill_ids(year)
+    if not ids:
+        return "AND 1=0", []
+    id_list = ",".join(str(i) for i in ids)
+    return f"AND b.id IN ({id_list})", []
+
+
+def bill_list_sector_yearly_export_rows(year: int):
+    """Build sector-wise yearly report rows for the given calendar year.
+
+    Returns (headers, detail_rows, grand_total_row) where each detail row is:
+    [sr, sector_name, total_bills, received_bills, remaining_bills, total_amount, amount_received, pending_amount]
+    """
+    init_bill_list_db()
+    year_bill_ids = _get_year_bill_ids(year)
+
+    headers = [
+        "Sr",
+        "Sector",
+        "Total Bills",
+        "Received Bills",
+        "Remaining Bills",
+        "Total Amount",
+        "Amount Received",
+        "Pending Amount",
+    ]
+
+    if not year_bill_ids:
+        return headers, [], ["", "Grand Total", "0", "0", "0", "0", "0", "0"]
+
+    id_list = ",".join(str(i) for i in year_bill_ids)
+
+    with get_db() as conn:
+        sector_data = conn.execute(
+            f"""
+            SELECT
+                COALESCE(NULLIF(TRIM(b.sector), ''), 'Unassigned Sector') AS sector,
+                COUNT(b.id) AS total_bills,
+                COUNT(CASE WHEN b.amount_received > 0 THEN b.id END) AS received_bills,
+                SUM(COALESCE(b.total_bill, 0)) AS total_amount,
+                SUM(COALESCE(b.amount_received, 0)) AS amount_received,
+                SUM(CASE WHEN b.total_bill > b.amount_received THEN b.total_bill - b.amount_received ELSE 0 END) AS pending_amount
+            FROM bills b
+            WHERE b.id IN ({id_list})
+            GROUP BY sector
+            ORDER BY LOWER(sector)
+            """
+        ).fetchall()
+
+    def pn(v):
+        return parse_number(str(v).replace(",", ""))
+
+    rows = []
+    grand = {"total_bills": 0, "received_bills": 0, "remaining_bills": 0,
+             "total_amount": 0, "amount_received": 0, "pending_amount": 0}
+
+    for idx, row in enumerate(sector_data, start=1):
+        total_bills = int(row["total_bills"] or 0)
+        received_bills = int(row["received_bills"] or 0)
+        remaining_bills = total_bills - received_bills
+        total_amount = float(row["total_amount"] or 0)
+        amount_received = float(row["amount_received"] or 0)
+        pending_amount = float(row["pending_amount"] or 0)
+
+        rows.append([
+            idx,
+            row["sector"],
+            fmt(total_bills),
+            fmt(received_bills),
+            fmt(remaining_bills),
+            fmt(total_amount),
+            fmt(amount_received),
+            fmt(pending_amount),
+        ])
+
+        grand["total_bills"] += total_bills
+        grand["received_bills"] += received_bills
+        grand["remaining_bills"] += remaining_bills
+        grand["total_amount"] += total_amount
+        grand["amount_received"] += amount_received
+        grand["pending_amount"] += pending_amount
+
+    grand_row = [
+        "",
+        "Grand Total",
+        fmt(grand["total_bills"]),
+        fmt(grand["received_bills"]),
+        fmt(grand["remaining_bills"]),
+        fmt(grand["total_amount"]),
+        fmt(grand["amount_received"]),
+        fmt(grand["pending_amount"]),
+    ]
+
+    return headers, rows, grand_row
+
+
 @app.route("/bill-list/export/six-month-pitch/<fmt_type>")
 def export_six_month_pitch(fmt_type: str):
     cols_param = request.args.get("cols")
@@ -6150,6 +6268,102 @@ def export_six_month_pitch(fmt_type: str):
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             df.to_excel(writer, sheet_name="SixMonthPitch", index=False)
+        buf.seek(0)
+        return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename={file_slug}.xlsx"})
+
+    flash("Unknown export format.")
+    return redirect(url_for("bill_list"))
+
+
+# Column key map for yearly sector-wise report: Sr, Sector, Total Bills, Received Bills, Remaining Bills, Total Amount, Amount Received, Pending Amount
+YEAR_SECTOR_COL_MAP = {"sr": 0, "sector": 1, "totalBills": 2, "receivedBills": 3, "remainingBills": 4, "totalAmount": 5, "amountReceived": 6, "pendingAmount": 7}
+
+
+@app.route("/bill-list/export/year-sector/<fmt_type>")
+def export_year_sector_pitch(fmt_type: str):
+    cols_param = request.args.get("cols")
+    year_param = request.args.get("year", "").strip()
+
+    # Validate year
+    try:
+        year = int(year_param)
+    except (TypeError, ValueError):
+        year = datetime.now().year
+
+    report_title = f"One Year Sector-Wise Report ({year})"
+    file_slug = f"One_Year_Sector_Wise_Report_{year}"
+
+    headers, detail_rows, grand_row = bill_list_sector_yearly_export_rows(year)
+
+    # Row selection filtering
+    detail_rows = _filter_rows_by_selection(detail_rows, lambda row: str(row[1]))
+    if _selection_has_filter():
+        grand_row = [
+            "",
+            "Grand Total",
+            fmt(sum(parse_number(str(r[2]).replace(",", "")) for r in detail_rows)),
+            fmt(sum(parse_number(str(r[3]).replace(",", "")) for r in detail_rows)),
+            fmt(sum(parse_number(str(r[4]).replace(",", "")) for r in detail_rows)),
+            fmt(sum(parse_number(str(r[5]).replace(",", "")) for r in detail_rows)),
+            fmt(sum(parse_number(str(r[6]).replace(",", "")) for r in detail_rows)),
+            fmt(sum(parse_number(str(r[7]).replace(",", "")) for r in detail_rows)),
+        ]
+
+    # Column filtering
+    _sel = []
+    if cols_param:
+        _sel = [k.strip() for k in cols_param.split(",") if k.strip() in YEAR_SECTOR_COL_MAP]
+    _pdf_cols = sorted([YEAR_SECTOR_COL_MAP[k] for k in _sel]) if _sel else list(range(8))
+    _filtered_headers = [headers[i] for i in _pdf_cols]
+    _left_cols = {_pdf_cols.index(1)} if 1 in _pdf_cols else set()
+
+    # PDF
+    if fmt_type == "pdf":
+        buf = io.BytesIO()
+        margins = 8 * mm
+        doc = SimpleDocTemplate(buf, pagesize=landscape(A4), topMargin=6*mm, bottomMargin=6*mm, leftMargin=6*mm, rightMargin=6*mm)
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle("YearSectorTitle", parent=styles["Heading1"], fontSize=20, textColor=ACCENT, alignment=1, spaceAfter=6*mm, fontName="Helvetica-Bold")
+        elements = [Paragraph(report_title, title_style)]
+        page_w = landscape(A4)[0] - 2 * margins
+        _all_pw = [page_w*0.04, page_w*0.28, page_w*0.09, page_w*0.11, page_w*0.11, page_w*0.12, page_w*0.12, page_w*0.13]
+        _pw = [_all_pw[i] for i in _pdf_cols]
+
+        def wrap_left(v):
+            return wrap_pdf_body_cells([[v]], font_size=9, left_columns={0})[0][0]
+
+        body_rows = []
+        for r in detail_rows:
+            full = [r[0], wrap_left(r[1]), r[2], r[3], r[4], r[5], r[6], r[7]]
+            body_rows.append([full[i] for i in _pdf_cols])
+        gt_full = [grand_row[0], wrap_left(grand_row[1]), grand_row[2], grand_row[3], grand_row[4], grand_row[5], grand_row[6], grand_row[7]]
+        body_rows.append([gt_full[i] for i in _pdf_cols])
+        table_data = [_filtered_headers] + body_rows
+        elements.append(_make_pdf_table(table_data, col_widths=_pw, left_cols=_left_cols, header_font_size=10, body_font_size=9, cell_padding=6))
+        doc.build(elements)
+        buf.seek(0)
+        return Response(buf.getvalue(), mimetype="application/pdf", headers={"Content-Disposition": f"attachment; filename={file_slug}.pdf"})
+
+    # CSV
+    if fmt_type == "csv":
+        _csv_rows = [[r[i] for i in _pdf_cols] for r in detail_rows]
+        _csv_gt = [grand_row[i] for i in _pdf_cols]
+        _csv_rows.append(_csv_gt)
+        out = io.StringIO()
+        writer = csv.writer(out)
+        writer.writerow(_filtered_headers)
+        writer.writerows(_csv_rows)
+        return Response(out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment; filename={file_slug}.csv"})
+
+    # Excel
+    if fmt_type == "xlsx":
+        _ex_rows = [[r[i] for i in _pdf_cols] for r in detail_rows]
+        _ex_gt = [grand_row[i] for i in _pdf_cols]
+        _ex_rows.append(_ex_gt)
+        df = pd.DataFrame(_ex_rows, columns=_filtered_headers)
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            df.to_excel(writer, sheet_name="YearSectorWise", index=False)
         buf.seek(0)
         return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename={file_slug}.xlsx"})
 
