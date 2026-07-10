@@ -9925,9 +9925,16 @@ def build_consumer_sector_remaining_report(year: int, season: str) -> list[dict]
     return result
 
 
-@app.route("/consumer-sector-remaining-report")
+@app.route("/consumer-sector-remaining-report", methods=["GET", "POST"])
 def consumer_sector_remaining_report():
-    """Display the combined Consumer Sector Remaining Report."""
+    """Display the combined Consumer Sector Remaining Report.
+
+    Supports two upload modes:
+    - JSON body (Content-Type: application/json): client-side parsed consumer CSV
+    - Multipart form (action=upload_bills): server-side bill file import
+    """
+    global _consumer_report_data, _consumer_report_filename, _last_consumer_summary
+
     year_param = request.args.get("year", "").strip()
     season = request.args.get("season", "").strip().lower()
 
@@ -9942,12 +9949,90 @@ def consumer_sector_remaining_report():
         year = datetime.now().year
 
     season_label = "January to June" if season == "jan-jun" else "July to December"
+
+    # ---- POST handling ----
+    if request.method == "POST":
+        # Mode 1: JSON consumer CSV upload (client-side parsed)
+        if request.is_json:
+            data = request.get_json(silent=True)
+            if not data or "summary_rows" not in data:
+                return ajax_error("Invalid consumer data payload.")
+
+            _consumer_report_data = data.get("summary_rows", [])
+            _consumer_report_filename = data.get("filename", "upload.csv")
+
+            summary = {
+                "summary_rows": data.get("summary_rows", []),
+                "sector_totals": data.get("sector_totals", {}),
+                "grand_total": data.get("grand_total", {"closed": 0, "suspended": 0, "active": 0, "total": 0, "budget": 0}),
+                "sector_count": data.get("sector_count", 0),
+                "locality_count": data.get("locality_count", 0),
+                "total_connections": data.get("total_connections", 0),
+                "total_budget": data.get("total_budget", 0),
+                "commercial_detailed_rows": data.get("commercial_detailed_rows", []),
+                "commercial_grand_total": data.get("commercial_grand_total", {"closed": 0, "suspended": 0, "active": 0, "total": 0, "budget": 0}),
+                "unmatched_rate_types": data.get("unmatched_rate_types", []),
+                "unmatched_budget_count": data.get("unmatched_budget_count", 0),
+            }
+            summary = _filter_active_rows(summary)
+            _last_consumer_summary = summary
+            _save_consumer_summary_cache(summary, _consumer_report_filename, data.get("total_rows", 0))
+
+            msg = f"Consumer data uploaded. {summary['sector_count']} sectors, {summary['total_connections']:,} connections."
+            return ajax_ok(message=msg, redirect_url=url_for("consumer_sector_remaining_report",
+                                                             season=season, year=year))
+
+        # Mode 2: Bill file upload (multipart form)
+        action = request.form.get("action", "")
+        if action == "upload_bills":
+            file = request.files.get("bill_file")
+            if not file or not file.filename:
+                flash("Please choose a bill file first.")
+                return redirect(url_for("consumer_sector_remaining_report", season=season, year=year))
+            if not allowed_file(file.filename):
+                flash(f"Unsupported file type: {file.filename}")
+                return redirect(url_for("consumer_sector_remaining_report", season=season, year=year))
+
+            filename = secure_filename(file.filename)
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+            save_path = os.path.join(app.config["UPLOAD_FOLDER"], f"bill_remaining_{timestamp}_{filename}")
+            file.save(save_path)
+            try:
+                df = read_dataframe(save_path)
+                imported, duplicates = import_bill_list_dataframe(df)
+                msg = f"Bill data saved. Imported {imported:,} row(s)."
+                if duplicates:
+                    msg += f" Skipped {duplicates:,} duplicate(s)."
+                flash(msg)
+            except Exception as exc:
+                flash(f"Failed to import bill file: {exc}")
+            return redirect(url_for("consumer_sector_remaining_report", season=season, year=year))
+
+        flash("Unknown upload action.")
+        return redirect(url_for("consumer_sector_remaining_report", season=season, year=year))
+
+    # ---- GET: build and render ----
     rows = build_consumer_sector_remaining_report(year, season)
 
     # Grand totals
     grand_active = sum(r["active"] for r in rows)
     grand_budget = sum(r["budget"] for r in rows)
     grand_remaining = sum(r["remaining"] for r in rows)
+
+    # Upload status context
+    consumer_filename = _consumer_report_filename
+    consumer_rows = 0
+    if _last_consumer_summary:
+        consumer_rows = _last_consumer_summary.get("total_connections", 0)
+
+    # Count bills in database
+    bill_count = 0
+    bill_filename = None
+    try:
+        with get_db() as conn:
+            bill_count = conn.execute("SELECT COUNT(*) FROM bills").fetchone()[0]
+    except Exception:
+        pass
 
     return render_template(
         "consumer_sector_remaining_report.html",
@@ -9958,6 +10043,10 @@ def consumer_sector_remaining_report():
         grand_active=grand_active,
         grand_budget=grand_budget,
         grand_remaining=grand_remaining,
+        consumer_filename=consumer_filename,
+        consumer_rows=consumer_rows,
+        bill_filename=bill_filename,
+        bill_count=bill_count,
     )
 
 

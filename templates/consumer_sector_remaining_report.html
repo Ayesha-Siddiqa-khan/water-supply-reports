@@ -34,7 +34,65 @@
     <div class="page-header">
       <div class="page-tag">Combined Report</div>
       <h1 class="page-title">Consumer Sector Remaining Report</h1>
-      <p class="page-subtitle">Combines consumer sector statistics with the selected six-month sector pending amounts.</p>
+      <p class="page-subtitle">Upload Consumer CSV and Bill files below, then view the combined sector report with pending amounts.</p>
+    </div>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div style="padding:10px 16px;border-radius:8px;margin-bottom:12px;font-size:13px;{% if category == 'error' %}background:rgba(248,113,113,0.1);color:var(--coral);border:1px solid rgba(248,113,113,0.2);{% else %}background:rgba(45,212,191,0.1);color:var(--teal);border:1px solid rgba(45,212,191,0.2);{% endif %}">
+      {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <!-- DUAL UPLOAD ZONES -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+      <!-- Consumer CSV Upload -->
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--teal);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">&#128203; Consumer Data</div>
+        <div id="consumer-upload-area" class="upload-area" onclick="document.getElementById('consumer-csv-input').click();" style="min-height:120px;">
+          <div class="upload-icon-box">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+            </svg>
+          </div>
+          <div class="upload-text">
+            <strong>Upload Consumer CSV</strong>
+            <span>CSV/XLSX with Sector, Locality, Connection Status, Rate Type columns</span>
+          </div>
+          <div id="consumer-upload-status" style="display:none;margin-top:10px;font-size:12px;color:var(--teal);"></div>
+          <input type="file" id="consumer-csv-input" accept=".csv,.xlsx" style="display:none;">
+        </div>
+        {% if consumer_filename %}
+        <div style="margin-top:6px;font-size:11px;color:var(--text-muted);">&#10003; Loaded: {{ consumer_filename }} ({{ consumer_rows|int }} rows)</div>
+        {% endif %}
+      </div>
+
+      <!-- Bill File Upload -->
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--amber);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">&#128196; Bill Data</div>
+        <form method="post" enctype="multipart/form-data" action="{{ url_for('consumer_sector_remaining_report') }}" style="margin:0;">
+          <input type="hidden" name="action" value="upload_bills">
+          <div class="upload-area" onclick="this.querySelector('input[type=file]').click();" style="min-height:120px;">
+            <div class="upload-icon-box">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+              </svg>
+            </div>
+            <div class="upload-text">
+              <strong>Upload Bill File</strong>
+              <span>CSV/XLSX with Sector, Water Fee, Due Date, Amount Received columns</span>
+            </div>
+            <input type="file" name="bill_file" accept=".csv,.xlsx" onchange="this.form.submit();" style="display:none;">
+          </div>
+        </form>
+        {% if bill_filename %}
+        <div style="margin-top:6px;font-size:11px;color:var(--text-muted);">&#10003; Loaded: {{ bill_filename }} ({{ bill_count|int }} bills)</div>
+        {% endif %}
+      </div>
     </div>
 
     <!-- Filters -->
@@ -64,11 +122,7 @@
       <div class="empty-state-icon">&#128203;</div>
       <div class="empty-state-title">No data available</div>
       <div class="empty-state-desc">
-        {% if not rows %}
-        No consumer sector data found. Please upload a consumer CSV on the <a href="{{ url_for('consumer_report') }}">Consumer Report</a> page first, then return here to view the combined report.
-        {% else %}
-        No matching data found for the selected filters. Try adjusting the season or year.
-        {% endif %}
+        Upload a Consumer CSV and/or Bill file above to generate the combined report.
       </div>
     </div>
     {% endif %}
@@ -160,6 +214,179 @@
     document.getElementById(id).classList.toggle('collapsed');
   }
 
+  /* ================================================================
+     CONSUMER CSV UPLOAD — client-side parsing, sends JSON to server
+     ================================================================ */
+  (function() {
+    var statusEl = document.getElementById('consumer-upload-status');
+    var uploadArea = document.getElementById('consumer-upload-area');
+    var fileInput = document.getElementById('consumer-csv-input');
+
+    function showStatus(msg) {
+      statusEl.style.display = 'block';
+      statusEl.innerHTML = msg;
+    }
+
+    function parseCSVLine(line) {
+      var result = [];
+      var current = '';
+      var inQuotes = false;
+      for (var i = 0; i < line.length; i++) {
+        var ch = line[i];
+        if (inQuotes) {
+          if (ch === '"') {
+            if (i + 1 < line.length && line[i + 1] === '"') {
+              current += '"';
+              i++;
+            } else {
+              inQuotes = false;
+            }
+          } else {
+            current += ch;
+          }
+        } else {
+          if (ch === '"') {
+            inQuotes = true;
+          } else if (ch === ',') {
+            result.push(current.trim());
+            current = '';
+          } else {
+            current += ch;
+          }
+        }
+      }
+      result.push(current.trim());
+      return result;
+    }
+
+    function resolveColumns(headers) {
+      var map = {};
+      headers.forEach(function(h, idx) {
+        var lower = h.toLowerCase().trim();
+        if (lower.indexOf('sector') !== -1) map.sector = idx;
+        if (lower.indexOf('locality') !== -1 && lower.indexOf('address') === -1) map.locality = idx;
+        if (lower.indexOf('connection status') !== -1 || lower === 'connection_status') map.connection_status = idx;
+        if (lower.indexOf('consumer status') !== -1 || lower === 'consumer_status') map.consumer_status = idx;
+        if (lower.indexOf('rate type') !== -1 || lower === 'rate_type') map.rate_type = idx;
+        if (lower.indexOf('connection') !== -1 && lower.indexOf('old') === -1 && lower.indexOf('status') === -1) map.connection = idx;
+        if (lower.indexOf('serial') !== -1 || lower === 'sr.' || lower === 'sr') map.serial = idx;
+        if (lower.indexOf('consumer name') !== -1 || lower.indexOf('name') !== -1) map.consumer_name = idx;
+        if (lower.indexOf('father') !== -1 || lower.indexOf('f/h') !== -1) map.father_name = idx;
+        if (lower.indexOf('mobile') !== -1) map.mobile = idx;
+        if (lower.indexOf('old connection') !== -1) map.old_connection = idx;
+        if (lower.indexOf('action') !== -1) map.action = idx;
+        if (lower.indexOf('address') !== -1) map.address = idx;
+        if (lower.indexOf('order') !== -1) map.order = idx;
+      });
+      return map;
+    }
+
+    function classifyStatus(fields, colMap) {
+      var status = '';
+      if (colMap.connection_status !== undefined) status = (fields[colMap.connection_status] || '').trim();
+      if (!status && colMap.consumer_status !== undefined) status = (fields[colMap.consumer_status] || '').trim();
+      var lower = status.toLowerCase();
+      if (lower === 'active' || lower === 'a') return 'Active';
+      if (lower.indexOf('close') !== -1 || lower === 'd' || lower === 'disconnected') return 'Closed';
+      if (lower.indexOf('suspend') !== -1 || lower === 's') return 'Suspended';
+      return 'Active';
+    }
+
+    function normalizeSector(name) {
+      return (name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    }
+
+    fileInput.addEventListener('change', function() {
+      if (!fileInput.files || !fileInput.files.length) return;
+      var file = fileInput.files[0];
+      showStatus('Reading ' + file.name + '...');
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var text = e.target.result;
+        var lines = text.split(/\r?\n/).filter(function(l) { return l.trim().length > 0; });
+        if (lines.length < 2) { showStatus('Error: CSV has no data rows.'); return; }
+
+        var headers = parseCSVLine(lines[0]);
+        var colMap = resolveColumns(headers);
+        if (colMap.sector === undefined || colMap.connection_status === undefined) {
+          showStatus('Error: Missing required columns (Sector, Connection Status).');
+          return;
+        }
+
+        var sectorMap = {};
+        var totalRows = 0;
+        for (var i = 1; i < lines.length; i++) {
+          var fields = parseCSVLine(lines[i]);
+          var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
+          var locality = (fields[colMap.locality] || '').trim() || 'Unspecified';
+          var status = classifyStatus(fields, colMap);
+          var rateType = '';
+          if (colMap.rate_type !== undefined) rateType = (fields[colMap.rate_type] || '').trim();
+          var normKey = normalizeSector(sector);
+
+          if (!sectorMap[normKey]) {
+            sectorMap[normKey] = { original: sector, localities: locality, closed: 0, suspended: 0, active: 0, budget: 0 };
+          }
+          if (status === 'Suspended') sectorMap[normKey].suspended++;
+          else if (status === 'Closed') sectorMap[normKey].closed++;
+          else sectorMap[normKey].active++;
+          totalRows++;
+        }
+
+        var summaryRows = [];
+        var serial = 0;
+        Object.keys(sectorMap).forEach(function(key) {
+          var s = sectorMap[key];
+          serial++;
+          summaryRows.push({
+            serial: serial, sector: s.original, locality: s.localities,
+            closed: s.closed, suspended: s.suspended, active: s.active,
+            total: s.closed + s.suspended + s.active, budget: 0
+          });
+        });
+
+        var grandActive = 0, grandClosed = 0, grandSuspended = 0;
+        summaryRows.forEach(function(r) {
+          grandActive += r.active;
+          grandClosed += r.closed;
+          grandSuspended += r.suspended;
+        });
+
+        showStatus('Uploading ' + summaryRows.length + ' sectors (' + totalRows + ' records)...');
+
+        var payload = {
+          summary_rows: summaryRows,
+          grand_total: { closed: grandClosed, suspended: grandSuspended, active: grandActive, total: totalRows, budget: 0 },
+          sector_count: summaryRows.length,
+          total_connections: totalRows,
+          filename: file.name,
+          total_rows: totalRows
+        };
+
+        fetch('{{ url_for("consumer_sector_remaining_report") }}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).then(function(resp) {
+          return resp.json();
+        }).then(function(data) {
+          if (data.ok) {
+            showStatus('&#10003; ' + data.message);
+            setTimeout(function() { location.reload(); }, 800);
+          } else {
+            showStatus('Error: ' + (data.error || 'Upload failed'));
+          }
+        }).catch(function(err) {
+          showStatus('Network error: ' + err.message);
+        });
+      };
+      reader.readAsText(file);
+    });
+  })();
+
+  /* ================================================================
+     FILTERS
+     ================================================================ */
   document.addEventListener('DOMContentLoaded', function() {
     var seasonSelect = document.getElementById('season-select');
     var yearSelect = document.getElementById('year-select');
