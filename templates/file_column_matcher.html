@@ -1,0 +1,969 @@
+{% extends "base.html" %}
+{% block title %}Water Supply Report — File Column Matcher{% endblock %}
+{% block meta_description %}Match and merge columns between two CSV or Excel files based on matching values.{% endblock %}
+{% block active_page %}file_column_matcher{% endblock %}
+{% block breadcrumb %}File Column Matcher{% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+{% endblock %}
+
+{% block pill_label %}Column Matcher{% endblock %}
+{% block pill_detail %}Match & merge{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="content">
+    <div class="page-header">
+      <div class="page-tag">File Tools</div>
+      <h1 class="dashboard-title">File Column Matcher</h1>
+      <p class="dashboard-subtitle">Upload two files, match rows by a common column, and attach selected columns from the secondary file to the primary file. All processing happens in your browser — no data is sent to the server.</p>
+    </div>
+
+    <!-- Status Message -->
+    <div id="global-status" class="merger-status" style="margin-bottom:16px;font-size:13px;"></div>
+
+    <!-- ============================================================
+         SECTION 1: PRIMARY FILE UPLOAD
+         ============================================================ -->
+    <div class="section" id="primary-section">
+      <div class="section-header" onclick="toggleSection('primary-section')">
+        <div class="section-header-icon">📋</div>
+        <span class="section-title">Primary File</span>
+        <span class="section-badge" id="primary-badge">No file</span>
+        <div class="section-toggle">
+          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+      <div class="section-body">
+        <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">This is the main file to which new columns will be attached.</p>
+
+        <!-- Upload Area -->
+        <div class="upload-area" id="primary-drop" onclick="document.getElementById('primary-input').click();">
+          <div class="upload-icon-box">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+            </svg>
+          </div>
+          <div class="upload-text">
+            <strong>Drop CSV / Excel file here or click to browse</strong>
+            <span>Accepts .csv and .xlsx files. One file only.</span>
+          </div>
+          <input type="file" id="primary-input" accept=".csv,.xlsx" style="display:none;" onchange="handlePrimaryFile(this.files)">
+        </div>
+
+        <!-- File Info Card -->
+        <div id="primary-info" class="fcm-file-info" style="display:none;">
+          <div class="fcm-file-header">
+            <div class="fcm-file-icon" id="primary-icon">CSV</div>
+            <div class="fcm-file-details">
+              <div class="fcm-file-name" id="primary-name">—</div>
+              <div class="fcm-file-meta" id="primary-meta">—</div>
+            </div>
+            <div class="fcm-file-actions">
+              <button type="button" class="fcm-btn fcm-btn-replace" onclick="document.getElementById('primary-input').click();">Replace</button>
+              <button type="button" class="fcm-btn fcm-btn-remove" onclick="removePrimaryFile()">Remove</button>
+            </div>
+          </div>
+          <div class="fcm-file-headers" id="primary-headers"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SECTION 2: SECONDARY FILE UPLOAD
+         ============================================================ -->
+    <div class="section" id="secondary-section">
+      <div class="section-header" onclick="toggleSection('secondary-section')">
+        <div class="section-header-icon">📎</div>
+        <span class="section-title">Secondary File</span>
+        <span class="section-badge" id="secondary-badge">No file</span>
+        <div class="section-toggle">
+          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+      <div class="section-body">
+        <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">This file provides the matching values and the columns that will be attached to the primary file.</p>
+
+        <!-- Upload Area -->
+        <div class="upload-area" id="secondary-drop" onclick="document.getElementById('secondary-input').click();">
+          <div class="upload-icon-box">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+            </svg>
+          </div>
+          <div class="upload-text">
+            <strong>Drop CSV / Excel file here or click to browse</strong>
+            <span>Accepts .csv and .xlsx files. One file only.</span>
+          </div>
+          <input type="file" id="secondary-input" accept=".csv,.xlsx" style="display:none;" onchange="handleSecondaryFile(this.files)">
+        </div>
+
+        <!-- File Info Card -->
+        <div id="secondary-info" class="fcm-file-info" style="display:none;">
+          <div class="fcm-file-header">
+            <div class="fcm-file-icon" id="secondary-icon">CSV</div>
+            <div class="fcm-file-details">
+              <div class="fcm-file-name" id="secondary-name">—</div>
+              <div class="fcm-file-meta" id="secondary-meta">—</div>
+            </div>
+            <div class="fcm-file-actions">
+              <button type="button" class="fcm-btn fcm-btn-replace" onclick="document.getElementById('secondary-input').click();">Replace</button>
+              <button type="button" class="fcm-btn fcm-btn-remove" onclick="removeSecondaryFile()">Remove</button>
+            </div>
+          </div>
+          <div class="fcm-file-headers" id="secondary-headers"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SECTION 3: COLUMN MAPPING CONFIGURATION
+         Only visible after both files are uploaded.
+         ============================================================ -->
+    <div class="section collapsed" id="mapping-section" style="display:none;">
+      <div class="section-header" onclick="toggleSection('mapping-section')">
+        <div class="section-header-icon">🔗</div>
+        <span class="section-title">Column Mapping</span>
+        <div class="section-toggle">
+          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="fcm-mapping-grid">
+          <!-- Primary Matching Column -->
+          <label class="field">
+            <span>Primary matching column</span>
+            <select class="filter-select" id="primary-match-col">
+              <option value="">— Select —</option>
+            </select>
+          </label>
+
+          <!-- Secondary Matching Column -->
+          <label class="field">
+            <span>Secondary matching column</span>
+            <select class="filter-select" id="secondary-match-col">
+              <option value="">— Select —</option>
+            </select>
+          </label>
+
+          <!-- Columns to Attach -->
+          <label class="field">
+            <span>Columns to attach (hold Ctrl/Cmd for multiple)</span>
+            <select class="filter-select" id="attach-cols" multiple style="min-height:80px;">
+            </select>
+          </label>
+
+          <!-- Output Column Name -->
+          <label class="field">
+            <span>Output column name</span>
+            <input type="text" class="filter-select" id="output-col-name" placeholder="e.g. Pending Amount" style="width:100%;">
+          </label>
+
+          <!-- Insert Position -->
+          <label class="field">
+            <span>Insert position</span>
+            <select class="filter-select" id="insert-position">
+              <option value="end">At the end</option>
+              <optgroup label="Before a column">
+                <!-- Populated dynamically -->
+              </optgroup>
+              <optgroup label="After a column">
+                <!-- Populated dynamically -->
+              </optgroup>
+            </select>
+          </label>
+        </div>
+
+        <!-- Duplicate Handling -->
+        <div style="margin-top:16px;">
+          <span style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:8px;">When multiple secondary rows match one primary row:</span>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+              <input type="radio" name="dup-handling" value="first" checked> Take first match only
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+              <input type="radio" name="dup-handling" value="last"> Take last match only
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+              <input type="radio" name="dup-handling" value="sum"> Sum values
+            </label>
+          </div>
+        </div>
+
+        <!-- Unmatched Row Handling -->
+        <div style="margin-top:12px;">
+          <span style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:8px;">For primary rows with no match in secondary file:</span>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+              <input type="radio" name="unmatched-handling" value="keep" checked> Keep row (empty cell for attached columns)
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+              <input type="radio" name="unmatched-handling" value="exclude"> Exclude row from output
+            </label>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="fcm-action-bar">
+          <button type="button" class="topbar-btn" id="preview-btn" onclick="previewMatches()" disabled>
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 7s2.5-5 6-5 6 5 6 5-2.5 5-6 5-6-5-6-5z"/><circle cx="7" cy="7" r="2"/></svg>
+            <span>Preview Matches</span>
+          </button>
+          <button type="button" class="topbar-btn primary" id="merge-btn" onclick="mergeAndDownload()" disabled>
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 4l3-3 3 3"/></svg>
+            <span>Merge and Download</span>
+          </button>
+        </div>
+
+        <!-- Preview Status -->
+        <div id="preview-status" class="merger-status" style="margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         SECTION 4: MATCH PREVIEW TABLE
+         ============================================================ -->
+    <div class="section collapsed" id="preview-section" style="display:none;">
+      <div class="section-header" onclick="toggleSection('preview-section')">
+        <div class="section-header-icon">📊</div>
+        <span class="section-title">Match Preview</span>
+        <span class="section-badge" id="preview-count">0 rows</span>
+        <div class="section-toggle">
+          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+      <div class="section-body">
+        <div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap;">
+          <div class="fcm-stat-card">
+            <div class="fcm-stat-value" id="stat-matched">0</div>
+            <div class="fcm-stat-label">Matched</div>
+          </div>
+          <div class="fcm-stat-card fcm-stat-unmatched">
+            <div class="fcm-stat-value" id="stat-unmatched">0</div>
+            <div class="fcm-stat-label">Unmatched</div>
+          </div>
+          <div class="fcm-stat-card fcm-stat-duplicate">
+            <div class="fcm-stat-value" id="stat-duplicates">0</div>
+            <div class="fcm-stat-label">Duplicates</div>
+          </div>
+        </div>
+        <div class="table-wrapper" style="max-height:400px;">
+          <table class="data-table" id="preview-table">
+            <thead id="preview-thead"></thead>
+            <tbody id="preview-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<style>
+/* ============================================================
+   FILE COLUMN MATCHER PAGE — Scoped styles
+   ============================================================ */
+
+.fcm-file-info {
+  margin-top: 12px;
+  padding: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.fcm-file-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fcm-file-icon {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; flex-shrink: 0;
+  background: var(--teal-dim); color: var(--teal);
+  border: 1px solid rgba(15, 212, 176, 0.15);
+}
+.fcm-file-icon.csv { background: var(--amber-dim); color: var(--amber); border-color: rgba(245, 166, 35, 0.15); }
+.fcm-file-icon.xlsx { background: var(--violet-dim); color: var(--violet); border-color: rgba(157, 127, 248, 0.15); }
+
+.fcm-file-details { flex: 1; min-width: 0; }
+.fcm-file-name {
+  font-weight: 600; font-size: 13px; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fcm-file-meta { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+.fcm-file-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+.fcm-btn {
+  padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600;
+  cursor: pointer; border: 1px solid var(--border); transition: all 0.15s;
+}
+.fcm-btn-replace {
+  background: var(--card); color: var(--text-secondary);
+}
+.fcm-btn-replace:hover { background: var(--card-hover); border-color: var(--border-bright); }
+.fcm-btn-remove {
+  background: var(--card); color: var(--coral);
+}
+.fcm-btn-remove:hover { background: var(--coral-dim); border-color: rgba(224, 62, 62, 0.3); }
+
+.fcm-file-headers {
+  margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--text-muted);
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.fcm-header-tag {
+  padding: 3px 8px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 4px; font-size: 10px; font-weight: 500;
+}
+
+.fcm-mapping-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 640px) {
+  .fcm-mapping-grid { grid-template-columns: 1fr; }
+}
+
+.fcm-action-bar {
+  display: flex; gap: 10px; margin-top: 20px;
+  padding-top: 16px; border-top: 1px solid var(--border);
+}
+
+.fcm-stat-card {
+  padding: 12px 20px; background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); text-align: center; min-width: 100px;
+}
+.fcm-stat-value { font-size: 20px; font-weight: 700; color: var(--teal); }
+.fcm-stat-label { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+.fcm-stat-unmatched .fcm-stat-value { color: var(--coral); }
+.fcm-stat-duplicate .fcm-stat-value { color: var(--amber); }
+</style>
+
+<script>
+/* ============================================================
+   FILE COLUMN MATCHER — Client-side match & merge logic
+   All processing happens in the browser using SheetJS.
+   No files are sent to the server.
+   ============================================================ */
+
+// ── State ──────────────────────────────────────────────────────
+var primaryData = null;  // { file, headers, rows (array-of-arrays), name, size }
+var secondaryData = null;
+
+// ── Helpers ────────────────────────────────────────────────────
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+function getExt(name) {
+  return name.split('.').pop().toLowerCase();
+}
+
+function escapeHtml(text) {
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(text));
+  return div.innerHTML;
+}
+
+function showGlobalStatus(msg, type) {
+  var el = document.getElementById('global-status');
+  el.textContent = msg;
+  el.className = 'merger-status ' + (type || '');
+}
+
+function toggleSection(sectionId) {
+  var el = document.getElementById(sectionId);
+  if (el) el.classList.toggle('collapsed');
+}
+
+function getStatusMessage() {
+  if (!primaryData && !secondaryData) return 'Upload both files to configure column matching.';
+  if (primaryData && !secondaryData) return 'Please upload the second file to continue.';
+  if (!primaryData && secondaryData) return 'Please upload the primary file to continue.';
+  return '';
+}
+
+function updateGlobalStatus() {
+  var msg = getStatusMessage();
+  if (msg) {
+    showGlobalStatus(msg, 'loading');
+  } else {
+    showGlobalStatus('');
+  }
+}
+
+function updateMappingSection() {
+  var section = document.getElementById('mapping-section');
+  var previewBtn = document.getElementById('preview-btn');
+  var mergeBtn = document.getElementById('merge-btn');
+
+  if (primaryData && secondaryData) {
+    section.style.display = '';
+    previewBtn.disabled = false;
+    mergeBtn.disabled = false;
+    populateDropdowns();
+  } else {
+    section.style.display = 'none';
+    previewBtn.disabled = true;
+    mergeBtn.disabled = true;
+  }
+}
+
+// ── File Reading ───────────────────────────────────────────────
+function readFile(file) {
+  return new Promise(function(resolve, reject) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        var data = new Uint8Array(e.target.result);
+        var workbook = XLSX.read(data, { type: 'array' });
+        var sheetName = workbook.SheetNames[0];
+        var sheet = workbook.Sheets[sheetName];
+        var rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        if (rows.length === 0) {
+          reject(new Error('File is empty'));
+          return;
+        }
+        var headers = rows[0].map(function(h) { return String(h || '').trim(); });
+        var dataRows = rows.slice(1);
+        resolve({ headers: headers, rows: dataRows });
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = function() { reject(new Error('Failed to read file')); };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ── Primary File Handling ──────────────────────────────────────
+function handlePrimaryFile(fileList) {
+  if (!fileList || fileList.length === 0) return;
+  var file = fileList[0];
+  var ext = getExt(file.name);
+  if (ext !== 'csv' && ext !== 'xlsx') {
+    showGlobalStatus('Unsupported file type: ' + file.name + '. Only .csv and .xlsx are accepted.', 'error');
+    return;
+  }
+
+  showGlobalStatus('Reading primary file...', 'loading');
+  readFile(file).then(function(result) {
+    primaryData = {
+      file: file,
+      headers: result.headers,
+      rows: result.rows,
+      name: file.name,
+      size: file.size
+    };
+    renderPrimaryInfo();
+    updateGlobalStatus();
+    updateMappingSection();
+    clearPreview();
+  }).catch(function(err) {
+    showGlobalStatus('Failed to read primary file: ' + err.message, 'error');
+  });
+
+  document.getElementById('primary-input').value = '';
+}
+
+function renderPrimaryInfo() {
+  if (!primaryData) {
+    document.getElementById('primary-info').style.display = 'none';
+    document.getElementById('primary-badge').textContent = 'No file';
+    return;
+  }
+
+  document.getElementById('primary-info').style.display = '';
+  document.getElementById('primary-badge').textContent = '1 file';
+
+  var ext = getExt(primaryData.name);
+  var iconEl = document.getElementById('primary-icon');
+  iconEl.textContent = ext.toUpperCase();
+  iconEl.className = 'fcm-file-icon ' + ext;
+
+  document.getElementById('primary-name').textContent = primaryData.name;
+  document.getElementById('primary-meta').textContent =
+    formatSize(primaryData.size) + ' · ' +
+    primaryData.rows.length + ' rows · ' +
+    primaryData.headers.length + ' columns';
+
+  var headersEl = document.getElementById('primary-headers');
+  headersEl.innerHTML = primaryData.headers.map(function(h) {
+    return '<span class="fcm-header-tag">' + escapeHtml(h) + '</span>';
+  }).join('');
+}
+
+function removePrimaryFile() {
+  primaryData = null;
+  renderPrimaryInfo();
+  updateGlobalStatus();
+  updateMappingSection();
+  clearPreview();
+}
+
+// ── Secondary File Handling ────────────────────────────────────
+function handleSecondaryFile(fileList) {
+  if (!fileList || fileList.length === 0) return;
+  var file = fileList[0];
+  var ext = getExt(file.name);
+  if (ext !== 'csv' && ext !== 'xlsx') {
+    showGlobalStatus('Unsupported file type: ' + file.name + '. Only .csv and .xlsx are accepted.', 'error');
+    return;
+  }
+
+  showGlobalStatus('Reading secondary file...', 'loading');
+  readFile(file).then(function(result) {
+    secondaryData = {
+      file: file,
+      headers: result.headers,
+      rows: result.rows,
+      name: file.name,
+      size: file.size
+    };
+    renderSecondaryInfo();
+    updateGlobalStatus();
+    updateMappingSection();
+    clearPreview();
+  }).catch(function(err) {
+    showGlobalStatus('Failed to read secondary file: ' + err.message, 'error');
+  });
+
+  document.getElementById('secondary-input').value = '';
+}
+
+function renderSecondaryInfo() {
+  if (!secondaryData) {
+    document.getElementById('secondary-info').style.display = 'none';
+    document.getElementById('secondary-badge').textContent = 'No file';
+    return;
+  }
+
+  document.getElementById('secondary-info').style.display = '';
+  document.getElementById('secondary-badge').textContent = '1 file';
+
+  var ext = getExt(secondaryData.name);
+  var iconEl = document.getElementById('secondary-icon');
+  iconEl.textContent = ext.toUpperCase();
+  iconEl.className = 'fcm-file-icon ' + ext;
+
+  document.getElementById('secondary-name').textContent = secondaryData.name;
+  document.getElementById('secondary-meta').textContent =
+    formatSize(secondaryData.size) + ' · ' +
+    secondaryData.rows.length + ' rows · ' +
+    secondaryData.headers.length + ' columns';
+
+  var headersEl = document.getElementById('secondary-headers');
+  headersEl.innerHTML = secondaryData.headers.map(function(h) {
+    return '<span class="fcm-header-tag">' + escapeHtml(h) + '</span>';
+  }).join('');
+}
+
+function removeSecondaryFile() {
+  secondaryData = null;
+  renderSecondaryInfo();
+  updateGlobalStatus();
+  updateMappingSection();
+  clearPreview();
+}
+
+// ── Populate Dropdowns ─────────────────────────────────────────
+function populateDropdowns() {
+  if (!primaryData || !secondaryData) return;
+
+  // Primary matching column
+  var primarySelect = document.getElementById('primary-match-col');
+  primarySelect.innerHTML = '<option value="">— Select —</option>';
+  primaryData.headers.forEach(function(h) {
+    if (!h) return;
+    var opt = document.createElement('option');
+    opt.value = h;
+    opt.textContent = h;
+    primarySelect.appendChild(opt);
+  });
+
+  // Secondary matching column
+  var secondarySelect = document.getElementById('secondary-match-col');
+  secondarySelect.innerHTML = '<option value="">— Select —</option>';
+  secondaryData.headers.forEach(function(h) {
+    if (!h) return;
+    var opt = document.createElement('option');
+    opt.value = h;
+    opt.textContent = h;
+    secondarySelect.appendChild(opt);
+  });
+
+  // Columns to attach (multi-select)
+  var attachSelect = document.getElementById('attach-cols');
+  attachSelect.innerHTML = '';
+  secondaryData.headers.forEach(function(h) {
+    if (!h) return;
+    var opt = document.createElement('option');
+    opt.value = h;
+    opt.textContent = h;
+    attachSelect.appendChild(opt);
+  });
+
+  // Insert position dropdown
+  var posSelect = document.getElementById('insert-position');
+  posSelect.innerHTML = '<option value="end">At the end</option>';
+  var optBefore = document.createElement('optgroup');
+  optBefore.label = 'Before a column';
+  var optAfter = document.createElement('optgroup');
+  optAfter.label = 'After a column';
+  primaryData.headers.forEach(function(h) {
+    if (!h) return;
+    var ob = document.createElement('option');
+    ob.value = 'before:' + h;
+    ob.textContent = h;
+    optBefore.appendChild(ob);
+    var oa = document.createElement('option');
+    oa.value = 'after:' + h;
+    oa.textContent = h;
+    optAfter.appendChild(oa);
+  });
+  posSelect.appendChild(optBefore);
+  posSelect.appendChild(optAfter);
+}
+
+// ── Preview Matches ────────────────────────────────────────────
+function previewMatches() {
+  if (!primaryData || !secondaryData) {
+    showGlobalStatus('Please upload both files first.', 'error');
+    return;
+  }
+
+  var primaryCol = document.getElementById('primary-match-col').value;
+  var secondaryCol = document.getElementById('secondary-match-col').value;
+  var attachCols = Array.from(document.getElementById('attach-cols').selectedOptions).map(function(o) { return o.value; });
+
+  if (!primaryCol) {
+    showGlobalStatus('Please select a primary matching column.', 'error');
+    return;
+  }
+  if (!secondaryCol) {
+    showGlobalStatus('Please select a secondary matching column.', 'error');
+    return;
+  }
+  if (attachCols.length === 0) {
+    showGlobalStatus('Please select at least one column to attach.', 'error');
+    return;
+  }
+
+  showGlobalStatus('Building match preview...', 'loading');
+
+  setTimeout(function() {
+    try {
+      var primaryIdx = primaryData.headers.indexOf(primaryCol);
+      var secondaryIdx = secondaryData.headers.indexOf(secondaryCol);
+      var attachIndices = attachCols.map(function(c) { return secondaryData.headers.indexOf(c); });
+
+      // Build secondary lookup: normalized value → array of row indices
+      var secondaryLookup = {};
+      secondaryData.rows.forEach(function(row, idx) {
+        var val = String(row[secondaryIdx] || '').trim().toLowerCase();
+        if (!secondaryLookup[val]) secondaryLookup[val] = [];
+        secondaryLookup[val].push(idx);
+      });
+
+      var dupHandling = document.querySelector('input[name="dup-handling"]:checked').value;
+      var unmatchedHandling = document.querySelector('input[name="unmatched-handling"]:checked').value;
+
+      var matchedCount = 0;
+      var unmatchedCount = 0;
+      var duplicateCount = 0;
+      var previewRows = [];
+
+      primaryData.rows.forEach(function(pRow, pIdx) {
+        var pVal = String(pRow[primaryIdx] || '').trim().toLowerCase();
+        var matchIndices = secondaryLookup[pVal] || [];
+
+        if (matchIndices.length === 0) {
+          unmatchedCount++;
+          if (unmatchedHandling === 'keep') {
+            var rowData = { type: 'unmatched', primary: pRow, attached: attachCols.map(function() { return ''; }) };
+            previewRows.push(rowData);
+          }
+          return;
+        }
+
+        if (matchIndices.length > 1) duplicateCount++;
+        matchedCount++;
+
+        // Apply duplicate handling
+        var selectedIdx;
+        if (dupHandling === 'first') {
+          selectedIdx = matchIndices[0];
+        } else if (dupHandling === 'last') {
+          selectedIdx = matchIndices[matchIndices.length - 1];
+        } else {
+          // Sum: average the values for numeric columns, otherwise take first
+          selectedIdx = matchIndices[0];
+        }
+
+        var sRow = secondaryData.rows[selectedIdx];
+        var attached = attachIndices.map(function(sIdx, i) {
+          if (dupHandling === 'sum') {
+            // Try to sum numeric values across all matches
+            var total = 0;
+            var isNumeric = true;
+            matchIndices.forEach(function(mi) {
+              var v = parseFloat(String(secondaryData.rows[mi][attachIndices[i]] || '').replace(/,/g, ''));
+              if (isNaN(v)) isNumeric = false;
+              else total += v;
+            });
+            if (isNumeric && matchIndices.length > 1) {
+              return total;
+            }
+          }
+          return sRow[attachIndices[i]] || '';
+        });
+
+        previewRows.push({ type: 'matched', primary: pRow, attached: attached });
+      });
+
+      // Store for merge
+      window._previewResult = {
+        previewRows: previewRows,
+        attachCols: attachCols,
+        primaryCol: primaryCol,
+        primaryIdx: primaryIdx
+      };
+
+      // Update stats
+      document.getElementById('stat-matched').textContent = matchedCount;
+      document.getElementById('stat-unmatched').textContent = unmatchedCount;
+      document.getElementById('stat-duplicates').textContent = duplicateCount;
+
+      // Render preview table
+      renderPreviewTable(previewRows, attachCols);
+
+      document.getElementById('preview-count').textContent = previewRows.length + ' rows';
+      document.getElementById('preview-section').style.display = '';
+      document.getElementById('preview-section').classList.remove('collapsed');
+
+      var statusEl = document.getElementById('preview-status');
+      statusEl.textContent = 'Preview ready: ' + matchedCount + ' matched, ' + unmatchedCount + ' unmatched, ' + duplicateCount + ' duplicates.';
+      statusEl.className = 'merger-status success';
+
+      showGlobalStatus('');
+    } catch (err) {
+      showGlobalStatus('Preview failed: ' + err.message, 'error');
+    }
+  }, 50);
+}
+
+function renderPreviewTable(previewRows, attachCols) {
+  var thead = document.getElementById('preview-thead');
+  var tbody = document.getElementById('preview-tbody');
+
+  // Build headers: all primary headers + attached columns
+  var allHeaders = primaryData.headers.concat(attachCols);
+  thead.innerHTML = '<tr>' + allHeaders.map(function(h) {
+    return '<th style="text-align:left;">' + escapeHtml(h) + '</th>';
+  }).join('') + '</tr>';
+
+  // Build rows (limit to first 200 for performance)
+  var displayRows = previewRows.slice(0, 200);
+  tbody.innerHTML = displayRows.map(function(r) {
+    var cells = r.primary.concat(r.attached);
+    var rowStyle = r.type === 'unmatched' ? ' style="opacity:0.5;"' : '';
+    return '<tr' + rowStyle + '>' + cells.map(function(c) {
+      return '<td style="text-align:left;font-size:11px;">' + escapeHtml(String(c == null ? '' : c)) + '</td>';
+    }).join('') + '</tr>';
+  }).join('');
+
+  if (previewRows.length > 200) {
+    tbody.innerHTML += '<tr><td colspan="' + allHeaders.length + '" style="text-align:center;color:var(--text-muted);font-size:11px;padding:8px;">… showing first 200 of ' + previewRows.length + ' rows</td></tr>';
+  }
+}
+
+function clearPreview() {
+  document.getElementById('preview-section').style.display = 'none';
+  document.getElementById('preview-status').textContent = '';
+  document.getElementById('preview-status').className = 'merger-status';
+  window._previewResult = null;
+}
+
+// ── Merge and Download ─────────────────────────────────────────
+function mergeAndDownload() {
+  if (!primaryData || !secondaryData) {
+    showGlobalStatus('Please upload both files first.', 'error');
+    return;
+  }
+
+  var primaryCol = document.getElementById('primary-match-col').value;
+  var secondaryCol = document.getElementById('secondary-match-col').value;
+  var attachCols = Array.from(document.getElementById('attach-cols').selectedOptions).map(function(o) { return o.value; });
+  var outputName = document.getElementById('output-col-name').value.trim();
+  var insertPos = document.getElementById('insert-position').value;
+  var dupHandling = document.querySelector('input[name="dup-handling"]:checked').value;
+  var unmatchedHandling = document.querySelector('input[name="unmatched-handling"]:checked').value;
+
+  if (!primaryCol || !secondaryCol || attachCols.length === 0) {
+    showGlobalStatus('Please configure all mapping fields before merging.', 'error');
+    return;
+  }
+
+  showGlobalStatus('Merging files...', 'loading');
+
+  setTimeout(function() {
+    try {
+      var primaryIdx = primaryData.headers.indexOf(primaryCol);
+      var secondaryIdx = secondaryData.headers.indexOf(secondaryCol);
+      var attachIndices = attachCols.map(function(c) { return secondaryData.headers.indexOf(c); });
+
+      // Build secondary lookup
+      var secondaryLookup = {};
+      secondaryData.rows.forEach(function(row, idx) {
+        var val = String(row[secondaryIdx] || '').trim().toLowerCase();
+        if (!secondaryLookup[val]) secondaryLookup[val] = [];
+        secondaryLookup[val].push(idx);
+      });
+
+      // Determine output headers
+      var outHeaders = primaryData.headers.slice();
+      var effectiveAttachNames = attachCols.map(function(c, i) {
+        return outputName && attachCols.length === 1 ? outputName : c;
+      });
+
+      // Insert position
+      var insertIdx = outHeaders.length;
+      if (insertPos !== 'end') {
+        var parts = insertPos.split(':');
+        var refCol = parts[1];
+        var refIdx = primaryData.headers.indexOf(refCol);
+        if (refIdx !== -1) {
+          insertIdx = parts[0] === 'before' ? refIdx : refIdx + 1;
+        }
+      }
+
+      // Insert effective names at position
+      effectiveAttachNames.forEach(function(name, i) {
+        outHeaders.splice(insertIdx + i, 0, name);
+      });
+
+      // Build output rows
+      var outRows = [];
+      primaryData.rows.forEach(function(pRow) {
+        var pVal = String(pRow[primaryIdx] || '').trim().toLowerCase();
+        var matchIndices = secondaryLookup[pVal] || [];
+
+        if (matchIndices.length === 0) {
+          if (unmatchedHandling === 'exclude') return;
+          var row = pRow.slice();
+          effectiveAttachNames.forEach(function() { row.push(''); });
+          outRows.push(row);
+          return;
+        }
+
+        // Duplicate handling
+        var sRow;
+        if (dupHandling === 'sum') {
+          // Sum numeric values across all matches
+          sRow = attachIndices.map(function(sIdx, i) {
+            var total = 0;
+            var isNumeric = true;
+            matchIndices.forEach(function(mi) {
+              var v = parseFloat(String(secondaryData.rows[mi][sIdx] || '').replace(/,/g, ''));
+              if (isNaN(v)) isNumeric = false;
+              else total += v;
+            });
+            return isNumeric ? total : (secondaryData.rows[matchIndices[0]][sIdx] || '');
+          });
+        } else {
+          var selIdx = dupHandling === 'first' ? matchIndices[0] : matchIndices[matchIndices.length - 1];
+          sRow = attachIndices.map(function(sIdx) { return secondaryData.rows[selIdx][sIdx] || ''; });
+        }
+
+        var row = pRow.slice();
+        sRow.forEach(function(val, i) {
+          row.splice(insertIdx + i, 0, val);
+        });
+        outRows.push(row);
+      });
+
+      // Create workbook
+      var allData = [outHeaders].concat(outRows);
+      var newWorkbook = XLSX.utils.book_new();
+      var newSheet = XLSX.utils.aoa_to_sheet(allData);
+      XLSX.utils.book_append_sheet(newWorkbook, newSheet, 'Merged Data');
+
+      // Download
+      var timestamp = getTimestamp();
+      var filename = 'matched_' + timestamp + '.xlsx';
+      var xlsxBuffer = XLSX.write(newWorkbook, { bookType: 'xlsx', type: 'array' });
+      downloadBlob(
+        new Blob([xlsxBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+        filename
+      );
+
+      var statusEl = document.getElementById('preview-status');
+      statusEl.textContent = 'Merged ' + outRows.length + ' rows — downloaded as ' + filename;
+      statusEl.className = 'merger-status success';
+
+      showGlobalStatus('');
+    } catch (err) {
+      showGlobalStatus('Merge failed: ' + err.message, 'error');
+    }
+  }, 50);
+}
+
+// ── Utility Functions ──────────────────────────────────────────
+function getTimestamp() {
+  var d = new Date();
+  return d.getFullYear() +
+    String(d.getMonth() + 1).padStart(2, '0') +
+    String(d.getDate()).padStart(2, '0') + '_' +
+    String(d.getHours()).padStart(2, '0') +
+    String(d.getMinutes()).padStart(2, '0') +
+    String(d.getSeconds()).padStart(2, '0');
+}
+
+function downloadBlob(blob, filename) {
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── Drag-and-Drop ──────────────────────────────────────────────
+function setupDragDrop(dropId, handler) {
+  var el = document.getElementById(dropId);
+  if (!el) return;
+  el.addEventListener('dragover', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    el.classList.add('drag-over');
+  });
+  el.addEventListener('dragleave', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    el.classList.remove('drag-over');
+  });
+  el.addEventListener('drop', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    el.classList.remove('drag-over');
+    handler(e.dataTransfer.files);
+  });
+}
+
+// ── Initialize ─────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  setupDragDrop('primary-drop', handlePrimaryFile);
+  setupDragDrop('secondary-drop', handleSecondaryFile);
+  updateGlobalStatus();
+});
+</script>
+{% endblock %}

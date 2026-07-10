@@ -9385,6 +9385,19 @@ def file_merger():
 
 
 # ---------------------------------------------------------------------------
+# File Column Matcher
+# Client-side page for matching and merging columns between two files.
+# No server-side processing required — all logic runs in the browser.
+# ---------------------------------------------------------------------------
+
+
+@app.route("/file-column-matcher")
+def file_column_matcher():
+    """Render the File Column Matcher page for matching columns between two files."""
+    return render_template("file_column_matcher.html", active_page="file_column_matcher")
+
+
+# ---------------------------------------------------------------------------
 # Arrear Calculator
 # ---------------------------------------------------------------------------
 _arrear_calc_data = None
