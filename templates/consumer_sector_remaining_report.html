@@ -61,7 +61,7 @@
           </div>
           <div class="upload-text">
             <strong>Upload Consumer CSV</strong>
-            <span>CSV/XLSX with Sector, Locality, Connection Status, Rate Type columns</span>
+            <span>CSV/XLSX with Sector + Active column (summary) or Sector + Connection Status (raw data)</span>
           </div>
           <div id="consumer-upload-status" style="display:none;margin-top:10px;font-size:12px;color:var(--teal);"></div>
           <input type="file" id="consumer-csv-input" accept=".csv,.xlsx" style="display:none;">
@@ -84,7 +84,7 @@
             </div>
             <div class="upload-text">
               <strong>Upload Bill File</strong>
-              <span>CSV/XLSX with Sector, Water Fee, Due Date, Amount Received columns</span>
+              <span>CSV/XLSX with Sector Name + Pending Amount (summary) or Sector + Water Fee + Amount Received (raw bills)</span>
             </div>
             <input type="file" name="bill_file" accept=".csv,.xlsx" onchange="this.form.submit();" style="display:none;">
           </div>
@@ -216,10 +216,12 @@
 
   /* ================================================================
      CONSUMER CSV UPLOAD — client-side parsing, sends JSON to server
+     Accepts two formats:
+       1) Raw consumer data: Sector, Locality, Connection Status columns
+       2) Summary format: Sector, Active (and optionally Locality, Budget) columns
      ================================================================ */
   (function() {
     var statusEl = document.getElementById('consumer-upload-status');
-    var uploadArea = document.getElementById('consumer-upload-area');
     var fileInput = document.getElementById('consumer-csv-input');
 
     function showStatus(msg) {
@@ -259,24 +261,28 @@
       return result;
     }
 
+    function parseNumber(val) {
+      if (!val) return 0;
+      var s = String(val).replace(/[,\s]/g, '').replace(/"/g, '');
+      var n = parseFloat(s);
+      return isNaN(n) ? 0 : n;
+    }
+
     function resolveColumns(headers) {
       var map = {};
       headers.forEach(function(h, idx) {
         var lower = h.toLowerCase().trim();
         if (lower.indexOf('sector') !== -1) map.sector = idx;
-        if (lower.indexOf('locality') !== -1 && lower.indexOf('address') === -1) map.locality = idx;
+        if ((lower.indexOf('locality') !== -1 && lower.indexOf('address') === -1) || lower === 'locality') map.locality = idx;
         if (lower.indexOf('connection status') !== -1 || lower === 'connection_status') map.connection_status = idx;
         if (lower.indexOf('consumer status') !== -1 || lower === 'consumer_status') map.consumer_status = idx;
         if (lower.indexOf('rate type') !== -1 || lower === 'rate_type') map.rate_type = idx;
-        if (lower.indexOf('connection') !== -1 && lower.indexOf('old') === -1 && lower.indexOf('status') === -1) map.connection = idx;
+        if (lower === 'active' || lower === 'active connections') map.active_count = idx;
+        if (lower === 'closed' || lower === 'closed connections') map.closed_count = idx;
+        if (lower === 'suspended' || lower === 'suspended connections') map.suspended_count = idx;
+        if (lower === 'total' || lower === 'total connections') map.total_count = idx;
+        if (lower.indexOf('budget') !== -1) map.budget = idx;
         if (lower.indexOf('serial') !== -1 || lower === 'sr.' || lower === 'sr') map.serial = idx;
-        if (lower.indexOf('consumer name') !== -1 || lower.indexOf('name') !== -1) map.consumer_name = idx;
-        if (lower.indexOf('father') !== -1 || lower.indexOf('f/h') !== -1) map.father_name = idx;
-        if (lower.indexOf('mobile') !== -1) map.mobile = idx;
-        if (lower.indexOf('old connection') !== -1) map.old_connection = idx;
-        if (lower.indexOf('action') !== -1) map.action = idx;
-        if (lower.indexOf('address') !== -1) map.address = idx;
-        if (lower.indexOf('order') !== -1) map.order = idx;
       });
       return map;
     }
@@ -308,42 +314,65 @@
 
         var headers = parseCSVLine(lines[0]);
         var colMap = resolveColumns(headers);
-        if (colMap.sector === undefined || colMap.connection_status === undefined) {
-          showStatus('Error: Missing required columns (Sector, Connection Status).');
+
+        if (colMap.sector === undefined) {
+          showStatus('Error: Missing required column (Sector).');
           return;
         }
 
-        var sectorMap = {};
-        var totalRows = 0;
-        for (var i = 1; i < lines.length; i++) {
-          var fields = parseCSVLine(lines[i]);
-          var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
-          var locality = (fields[colMap.locality] || '').trim() || 'Unspecified';
-          var status = classifyStatus(fields, colMap);
-          var rateType = '';
-          if (colMap.rate_type !== undefined) rateType = (fields[colMap.rate_type] || '').trim();
-          var normKey = normalizeSector(sector);
-
-          if (!sectorMap[normKey]) {
-            sectorMap[normKey] = { original: sector, localities: locality, closed: 0, suspended: 0, active: 0, budget: 0 };
-          }
-          if (status === 'Suspended') sectorMap[normKey].suspended++;
-          else if (status === 'Closed') sectorMap[normKey].closed++;
-          else sectorMap[normKey].active++;
-          totalRows++;
-        }
-
+        var isSummaryFormat = colMap.active_count !== undefined;
         var summaryRows = [];
-        var serial = 0;
-        Object.keys(sectorMap).forEach(function(key) {
-          var s = sectorMap[key];
-          serial++;
-          summaryRows.push({
-            serial: serial, sector: s.original, locality: s.localities,
-            closed: s.closed, suspended: s.suspended, active: s.active,
-            total: s.closed + s.suspended + s.active, budget: 0
+        var totalRows = 0;
+
+        if (isSummaryFormat) {
+          /* --- SUMMARY FORMAT: Sector, Active, Locality?, Budget? --- */
+          var serial = 0;
+          for (var i = 1; i < lines.length; i++) {
+            var fields = parseCSVLine(lines[i]);
+            var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
+            var locality = colMap.locality !== undefined ? (fields[colMap.locality] || '').trim() : '';
+            var active = parseInt(fields[colMap.active_count]) || 0;
+            var closed = colMap.closed_count !== undefined ? (parseInt(fields[colMap.closed_count]) || 0) : 0;
+            var suspended = colMap.suspended_count !== undefined ? (parseInt(fields[colMap.suspended_count]) || 0) : 0;
+            var budget = colMap.budget !== undefined ? parseNumber(fields[colMap.budget]) : 0;
+            serial++;
+            summaryRows.push({
+              serial: serial, sector: sector, locality: locality || sector,
+              closed: closed, suspended: suspended, active: active,
+              total: closed + suspended + active || active, budget: budget
+            });
+            totalRows += active + closed + suspended;
+          }
+        } else {
+          /* --- RAW FORMAT: Sector, Connection Status columns --- */
+          var sectorMap = {};
+          for (var i = 1; i < lines.length; i++) {
+            var fields = parseCSVLine(lines[i]);
+            var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
+            var locality = colMap.locality !== undefined ? (fields[colMap.locality] || '').trim() : sector;
+            var status = classifyStatus(fields, colMap);
+            var normKey = normalizeSector(sector);
+
+            if (!sectorMap[normKey]) {
+              sectorMap[normKey] = { original: sector, localities: locality, closed: 0, suspended: 0, active: 0 };
+            }
+            if (status === 'Suspended') sectorMap[normKey].suspended++;
+            else if (status === 'Closed') sectorMap[normKey].closed++;
+            else sectorMap[normKey].active++;
+            totalRows++;
+          }
+
+          var serial = 0;
+          Object.keys(sectorMap).forEach(function(key) {
+            var s = sectorMap[key];
+            serial++;
+            summaryRows.push({
+              serial: serial, sector: s.original, locality: s.localities,
+              closed: s.closed, suspended: s.suspended, active: s.active,
+              total: s.closed + s.suspended + s.active, budget: 0
+            });
           });
-        });
+        }
 
         var grandActive = 0, grandClosed = 0, grandSuspended = 0;
         summaryRows.forEach(function(r) {

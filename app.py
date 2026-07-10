@@ -9871,41 +9871,55 @@ def build_consumer_sector_remaining_report(year: int, season: str) -> list[dict]
     if not consumer_lookup:
         return []
 
-    # --- Step 2: Get pending amounts from bills database ---
-    season_bill_ids = _get_season_bill_ids(year, season)
-
-    # Build sector → pending_amount lookup from bills
+    # --- Step 2: Get pending amounts from bills database OR cache ---
     bill_sector_pending: dict[str, float] = {}
-    if season_bill_ids:
-        id_list = ",".join(str(i) for i in season_bill_ids)
-        with get_db() as conn:
-            bill_rows = conn.execute(
-                f"""
-                SELECT
-                    id,
-                    COALESCE(NULLIF(TRIM(sector), ''), 'Unassigned Sector') AS sector,
-                    amount_received,
-                    raw_data
-                FROM bills
-                WHERE id IN ({id_list})
-                """
-            ).fetchall()
 
-        for row in bill_rows:
-            sector = row["sector"]
-            amount_received = float(row["amount_received"] or 0)
-            if amount_received > 0:
-                continue  # only count remaining bills
-            try:
-                data = json.loads(row["raw_data"])
-                water_fee = 0.0
-                wf = data.get("water fee")
-                if wf is not None:
-                    water_fee = parse_number(str(wf).replace(",", ""))
-            except (json.JSONDecodeError, ValueError):
-                water_fee = 0.0
-            norm_sector = _normalize_sector_key(sector)
-            bill_sector_pending[norm_sector] = bill_sector_pending.get(norm_sector, 0.0) + water_fee
+    # First try bill pending cache (summary format upload)
+    cache_path = os.path.join(UPLOAD_FOLDER, "bill_pending_cache.json")
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                cache_data = json.load(f)
+            pending_lookup = cache_data.get("pending", {})
+            for sector_name, amount in pending_lookup.items():
+                norm_key = _normalize_sector_key(sector_name)
+                bill_sector_pending[norm_key] = float(amount or 0)
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # If no cache, try bills database (raw bill format upload)
+    if not bill_sector_pending:
+        season_bill_ids = _get_season_bill_ids(year, season)
+        if season_bill_ids:
+            id_list = ",".join(str(i) for i in season_bill_ids)
+            with get_db() as conn:
+                bill_rows = conn.execute(
+                    f"""
+                    SELECT
+                        id,
+                        COALESCE(NULLIF(TRIM(sector), ''), 'Unassigned Sector') AS sector,
+                        amount_received,
+                        raw_data
+                    FROM bills
+                    WHERE id IN ({id_list})
+                    """
+                ).fetchall()
+
+            for row in bill_rows:
+                sector = row["sector"]
+                amount_received = float(row["amount_received"] or 0)
+                if amount_received > 0:
+                    continue  # only count remaining bills
+                try:
+                    data = json.loads(row["raw_data"])
+                    water_fee = 0.0
+                    wf = data.get("water fee")
+                    if wf is not None:
+                        water_fee = parse_number(str(wf).replace(",", ""))
+                except (json.JSONDecodeError, ValueError):
+                    water_fee = 0.0
+                norm_sector = _normalize_sector_key(sector)
+                bill_sector_pending[norm_sector] = bill_sector_pending.get(norm_sector, 0.0) + water_fee
 
     # --- Step 3: Join consumer data with bill pending amounts ---
     result: list[dict] = []
@@ -9999,10 +10013,37 @@ def consumer_sector_remaining_report():
             file.save(save_path)
             try:
                 df = read_dataframe(save_path)
-                imported, duplicates = import_bill_list_dataframe(df)
-                msg = f"Bill data saved. Imported {imported:,} row(s)."
-                if duplicates:
-                    msg += f" Skipped {duplicates:,} duplicate(s)."
+                cols_lower = [str(c).strip().lower() for c in df.columns]
+
+                # Detect summary format: has "sector name" and "pending amount" columns
+                has_sector_name = any("sector" in c and "name" in c for c in cols_lower)
+                has_pending = any("pending" in c and "amount" in c for c in cols_lower)
+
+                if has_sector_name and has_pending:
+                    # Summary format: store pending amounts directly as JSON
+                    pending_lookup = {}
+                    for _, row in df.iterrows():
+                        sector_col = [c for c in df.columns if "sector" in str(c).lower() and "name" in str(c).lower()][0]
+                        pending_col = [c for c in df.columns if "pending" in str(c).lower() and "amount" in str(c).lower()][0]
+                        sector_name = str(row[sector_col]).strip()
+                        pending_val = str(row[pending_col]).replace(",", "").strip()
+                        try:
+                            pending_val = float(pending_val)
+                        except (ValueError, TypeError):
+                            pending_val = 0.0
+                        if sector_name:
+                            pending_lookup[sector_name] = pending_val
+
+                    cache_path = os.path.join(app.config["UPLOAD_FOLDER"], "bill_pending_cache.json")
+                    with open(cache_path, "w", encoding="utf-8") as f:
+                        json.dump({"pending": pending_lookup, "filename": file.name}, f, ensure_ascii=False, indent=2)
+                    msg = f"Bill summary uploaded. {len(pending_lookup)} sectors with pending amounts."
+                else:
+                    # Raw bill format: import to database
+                    imported, duplicates = import_bill_list_dataframe(df)
+                    msg = f"Bill data saved. Imported {imported:,} row(s)."
+                    if duplicates:
+                        msg += f" Skipped {duplicates:,} duplicate(s)."
                 flash(msg)
             except Exception as exc:
                 flash(f"Failed to import bill file: {exc}")
