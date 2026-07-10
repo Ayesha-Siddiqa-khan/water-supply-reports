@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}Water Supply Report — Consumer Sector Remaining Report{% endblock %}
+{% block meta_description %}Consumer sector statistics combined with six-month pending amounts.{% endblock %}
+{% block active_page %}consumer_sector_remaining{% endblock %}
+{% block breadcrumb %}Consumer Sector Remaining Report{% endblock %}
+
+{% block topbar_actions %}
+  {% if rows %}
+  <div style="display:flex;gap:8px;align-items:center;">
+    <a class="topbar-btn export-link" id="export-csv-btn" href="{{ url_for('export_consumer_sector_remaining', fmt_type='csv', year=year, season=season) }}">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 6l3 3 3-3"/></svg>
+      <span>CSV</span>
+    </a>
+    <a class="topbar-btn export-link" id="export-xlsx-btn" href="{{ url_for('export_consumer_sector_remaining', fmt_type='xlsx', year=year, season=season) }}">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 6l3 3 3-3"/></svg>
+      <span>Excel</span>
+    </a>
+    <a class="topbar-btn export-link" id="export-pdf-btn" href="{{ url_for('export_consumer_sector_remaining', fmt_type='pdf', year=year, season=season) }}">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 6l3 3 3-3"/></svg>
+      <span>PDF</span>
+    </a>
+  </div>
+  {% endif %}
+{% endblock %}
+
+{% block pill_label %}Consumer Sector{% endblock %}
+{% block pill_detail %}
+  {% if rows %}{{ rows|length }} sectors{% else %}Awaiting data{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="content">
+    <div class="page-header">
+      <div class="page-tag">Combined Report</div>
+      <h1 class="page-title">Consumer Sector Remaining Report</h1>
+      <p class="page-subtitle">Combines consumer sector statistics with the selected six-month sector pending amounts.</p>
+    </div>
+
+    <!-- Filters -->
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px;align-items:flex-end;">
+      <label class="field" style="min-width:180px;">
+        <span>Select Season</span>
+        <select class="filter-select" id="season-select">
+          <option value="jan-jun" {% if season == 'jan-jun' %}selected{% endif %}>January to June</option>
+          <option value="jul-dec" {% if season == 'jul-dec' %}selected{% endif %}>July to December</option>
+        </select>
+      </label>
+      <label class="field" style="min-width:140px;">
+        <span>Select Year</span>
+        <select class="filter-select" id="year-select">
+          {% for y in range(2024, 2031) %}
+          <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="button" class="topbar-btn" id="apply-filters-btn" style="background:var(--teal);color:white;border-color:var(--teal);">
+        Apply Filters
+      </button>
+    </div>
+
+    {% if not rows %}
+    <div class="empty-state">
+      <div class="empty-state-icon">&#128203;</div>
+      <div class="empty-state-title">No data available</div>
+      <div class="empty-state-desc">
+        {% if not rows %}
+        No consumer sector data found. Please upload a consumer CSV on the <a href="{{ url_for('consumer_report') }}">Consumer Report</a> page first, then return here to view the combined report.
+        {% else %}
+        No matching data found for the selected filters. Try adjusting the season or year.
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if rows %}
+    <!-- STAT GRID -->
+    <div class="stat-grid">
+      <div class="stat-card teal">
+        <div class="stat-card-icon">&#127970;</div>
+        <div class="stat-label">Sectors</div>
+        <div class="stat-value" data-count="{{ rows|length }}">0</div>
+        <div class="stat-delta">With active connections</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-card-icon">&#9989;</div>
+        <div class="stat-label">Active Connections</div>
+        <div class="stat-value" data-count="{{ grand_active }}">0</div>
+        <div class="stat-delta">Across all sectors</div>
+      </div>
+      <div class="stat-card violet">
+        <div class="stat-card-icon">&#128176;</div>
+        <div class="stat-label">Total Budget</div>
+        <div class="stat-value" data-count="{{ grand_budget|int }}">0</div>
+        <div class="stat-delta">Annual budget (Rs.)</div>
+      </div>
+      <div class="stat-card coral">
+        <div class="stat-card-icon">&#128200;</div>
+        <div class="stat-label">{{ season_label }} Remaining</div>
+        <div class="stat-value" data-count="{{ grand_remaining|int }}">0</div>
+        <div class="stat-delta">Pending amount (Rs.)</div>
+      </div>
+    </div>
+
+    <!-- Report Table -->
+    <div class="section collapsed" id="sec-remaining-report">
+      <div class="section-header" onclick="toggleSection('sec-remaining-report')">
+        <div class="section-header-icon">&#128202;</div>
+        <div class="section-title">{{ season_label }} Sector Details</div>
+        <span class="section-badge">{{ rows|length }} rows</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="section-body">
+        <div class="export-bar" style="margin-bottom:10px;">
+          <a class="chip export-link" href="{{ url_for('export_consumer_sector_remaining', fmt_type='csv', year=year, season=season) }}">&#11015; Download CSV</a>
+          <a class="chip export-link" href="{{ url_for('export_consumer_sector_remaining', fmt_type='xlsx', year=year, season=season) }}">&#11015; Download Excel</a>
+          <a class="chip export-link" href="{{ url_for('export_consumer_sector_remaining', fmt_type='pdf', year=year, season=season) }}">&#11015; Download PDF</a>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table" id="remaining-table">
+            <thead>
+              <tr>
+                <th style="width:50px;text-align:center">SR</th>
+                <th style="text-align:left">Sector</th>
+                <th style="text-align:left">Locality</th>
+                <th style="width:80px;text-align:center">Active</th>
+                <th style="width:120px;text-align:right">Budget (Rs.)</th>
+                <th style="width:140px;text-align:right">{{ season_label }} Remaining</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in rows %}
+              <tr>
+                <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
+                <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
+                <td style="text-align:left;">{{ row.locality }}</td>
+                <td style="text-align:center;color:var(--teal);">{{ row.active }}</td>
+                <td style="text-align:right;font-weight:500;color:var(--teal);">{{ "{:,.0f}".format(row.budget) }}</td>
+                <td style="text-align:right;font-weight:600;color:var(--coral);">{{ "{:,.0f}".format(row.remaining) }}</td>
+              </tr>
+              {% endfor %}
+              <tr class="grand-total-row" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
+                <td colspan="3" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL</td>
+                <td style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ grand_active }}</td>
+                <td style="text-align:right;font-weight:700;color:var(--teal);font-size:14px;">{{ "{:,.0f}".format(grand_budget) }}</td>
+                <td style="text-align:right;font-weight:700;color:var(--coral);font-size:14px;">{{ "{:,.0f}".format(grand_remaining) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  function toggleSection(id) {
+    document.getElementById(id).classList.toggle('collapsed');
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var seasonSelect = document.getElementById('season-select');
+    var yearSelect = document.getElementById('year-select');
+    var applyBtn = document.getElementById('apply-filters-btn');
+
+    function updateLinks() {
+      var season = seasonSelect.value;
+      var year = yearSelect.value;
+      document.querySelectorAll('.export-link').forEach(function(link) {
+        var href = link.getAttribute('href');
+        if (!href) return;
+        try {
+          var url = new URL(href, window.location.origin);
+          url.searchParams.set('season', season);
+          url.searchParams.set('year', year);
+          link.setAttribute('href', url.pathname + url.search);
+        } catch(e) {}
+      });
+    }
+
+    seasonSelect.addEventListener('change', updateLinks);
+    yearSelect.addEventListener('change', updateLinks);
+
+    applyBtn.addEventListener('click', function() {
+      var season = seasonSelect.value;
+      var year = yearSelect.value;
+      window.location.href = '{{ url_for("consumer_sector_remaining_report") }}?season=' + season + '&year=' + year;
+    });
+  });
+</script>
+{% endblock %}

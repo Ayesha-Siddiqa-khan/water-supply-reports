@@ -9806,6 +9806,232 @@ def export_arrear_calculator(fmt_type: str):
     return redirect(url_for("arrear_calculator"))
 
 
+# ---------------------------------------------------------------------------
+# Consumer Sector Remaining Report
+# Combines consumer sector statistics with six-month pending amounts.
+# ---------------------------------------------------------------------------
+
+def _normalize_sector_key(name: str) -> str:
+    """Normalize sector name for matching between consumer and bill data."""
+    return " ".join(str(name or "").strip().lower().split())
+
+
+def build_consumer_sector_remaining_report(year: int, season: str) -> list[dict]:
+    """Build combined consumer sector + remaining amount rows.
+
+    Joins consumer sector summary (from cached upload) with bill pending
+    amounts (from bills database) by normalized sector name.
+
+    Returns a list of dicts with keys:
+        serial, sector, locality, active, budget, remaining
+    """
+    # --- Step 1: Load consumer sector summary ---
+    cached_summary, _, _ = _load_consumer_summary_cache()
+    if not cached_summary or not cached_summary.get("summary_rows"):
+        return []
+
+    # Build lookup: normalized_sector → { sector, locality, active, budget }
+    consumer_lookup: dict[str, dict] = {}
+    for row in cached_summary.get("summary_rows", []):
+        sector_name = (row.get("sector") or "").strip()
+        if not sector_name:
+            continue
+        norm_key = _normalize_sector_key(sector_name)
+        active = int(row.get("active", 0))
+        if active <= 0:
+            continue  # skip zero-active rows
+        consumer_lookup[norm_key] = {
+            "sector": sector_name,
+            "locality": (row.get("locality") or "").strip(),
+            "active": active,
+            "budget": float(row.get("budget", 0)),
+        }
+
+    if not consumer_lookup:
+        return []
+
+    # --- Step 2: Get pending amounts from bills database ---
+    season_bill_ids = _get_season_bill_ids(year, season)
+
+    # Build sector → pending_amount lookup from bills
+    bill_sector_pending: dict[str, float] = {}
+    if season_bill_ids:
+        id_list = ",".join(str(i) for i in season_bill_ids)
+        with get_db() as conn:
+            bill_rows = conn.execute(
+                f"""
+                SELECT
+                    id,
+                    COALESCE(NULLIF(TRIM(sector), ''), 'Unassigned Sector') AS sector,
+                    amount_received,
+                    raw_data
+                FROM bills
+                WHERE id IN ({id_list})
+                """
+            ).fetchall()
+
+        for row in bill_rows:
+            sector = row["sector"]
+            amount_received = float(row["amount_received"] or 0)
+            if amount_received > 0:
+                continue  # only count remaining bills
+            try:
+                data = json.loads(row["raw_data"])
+                water_fee = 0.0
+                wf = data.get("water fee")
+                if wf is not None:
+                    water_fee = parse_number(str(wf).replace(",", ""))
+            except (json.JSONDecodeError, ValueError):
+                water_fee = 0.0
+            norm_sector = _normalize_sector_key(sector)
+            bill_sector_pending[norm_sector] = bill_sector_pending.get(norm_sector, 0.0) + water_fee
+
+    # --- Step 3: Join consumer data with bill pending amounts ---
+    result: list[dict] = []
+    serial = 0
+    for norm_key, cdata in sorted(consumer_lookup.items(), key=lambda x: x[1]["sector"].lower()):
+        serial += 1
+        remaining = bill_sector_pending.get(norm_key, 0.0)
+        result.append({
+            "serial": serial,
+            "sector": cdata["sector"],
+            "locality": cdata["locality"],
+            "active": cdata["active"],
+            "budget": cdata["budget"],
+            "remaining": remaining,
+        })
+
+    return result
+
+
+@app.route("/consumer-sector-remaining-report")
+def consumer_sector_remaining_report():
+    """Display the combined Consumer Sector Remaining Report."""
+    year_param = request.args.get("year", "").strip()
+    season = request.args.get("season", "").strip().lower()
+
+    # Validate season
+    if season not in ("jan-jun", "jul-dec"):
+        season = "jan-jun"
+
+    # Validate year
+    try:
+        year = int(year_param)
+    except (TypeError, ValueError):
+        year = datetime.now().year
+
+    season_label = "January to June" if season == "jan-jun" else "July to December"
+    rows = build_consumer_sector_remaining_report(year, season)
+
+    # Grand totals
+    grand_active = sum(r["active"] for r in rows)
+    grand_budget = sum(r["budget"] for r in rows)
+    grand_remaining = sum(r["remaining"] for r in rows)
+
+    return render_template(
+        "consumer_sector_remaining_report.html",
+        rows=rows,
+        year=year,
+        season=season,
+        season_label=season_label,
+        grand_active=grand_active,
+        grand_budget=grand_budget,
+        grand_remaining=grand_remaining,
+    )
+
+
+@app.route("/consumer-sector-remaining-report/export/<fmt_type>")
+def export_consumer_sector_remaining(fmt_type: str):
+    """Export the Consumer Sector Remaining Report as CSV, Excel, or PDF."""
+    year_param = request.args.get("year", "").strip()
+    season = request.args.get("season", "").strip().lower()
+
+    if season not in ("jan-jun", "jul-dec"):
+        season = "jan-jun"
+    try:
+        year = int(year_param)
+    except (TypeError, ValueError):
+        year = datetime.now().year
+
+    season_label = "January to June" if season == "jan-jun" else "July to December"
+    remaining_header = f"{season_label} Remaining"
+    file_slug = f"Consumer_Sector_Remaining_{season_label.replace(' ', '_')}_{year}"
+
+    rows = build_consumer_sector_remaining_report(year, season)
+
+    headers = ["SR", "Sector", "Locality", "Active", "Budget (Rs.)", remaining_header]
+
+    # Grand totals
+    grand_active = sum(r["active"] for r in rows)
+    grand_budget = sum(r["budget"] for r in rows)
+    grand_remaining = sum(r["remaining"] for r in rows)
+    grand_row = ["", "Grand Total", "", grand_active, grand_budget, grand_remaining]
+
+    # Build table data
+    table_data = []
+    for r in rows:
+        table_data.append([
+            r["serial"],
+            r["sector"],
+            r["locality"],
+            r["active"],
+            fmt(r["budget"]),
+            fmt(r["remaining"]),
+        ])
+    table_data.append(["", "Grand Total", "", grand_active, fmt(grand_budget), fmt(grand_remaining)])
+
+    # PDF
+    if fmt_type == "pdf":
+        buf = io.BytesIO()
+        margins = 8 * mm
+        doc = SimpleDocTemplate(buf, pagesize=landscape(A4), topMargin=6*mm, bottomMargin=6*mm, leftMargin=6*mm, rightMargin=6*mm)
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle("CSReportTitle", parent=styles["Heading1"], fontSize=18, textColor=ACCENT, alignment=1, spaceAfter=4*mm, fontName="Helvetica-Bold")
+        subtitle_style = ParagraphStyle("CSReportSubtitle", parent=styles["Normal"], fontSize=10, textColor=colors.HexColor("#555555"), alignment=1, spaceAfter=6*mm)
+        elements = [
+            Paragraph("Consumer Sector Remaining Report", title_style),
+            Paragraph(f"{season_label} &middot; {year}", subtitle_style),
+        ]
+
+        page_w = landscape(A4)[0] - 2 * margins
+        col_widths = [page_w * 0.05, page_w * 0.28, page_w * 0.27, page_w * 0.10, page_w * 0.15, page_w * 0.15]
+
+        def wrap_left(v):
+            return wrap_pdf_body_cells([[v]], font_size=8, left_columns={0})[0][0]
+
+        body_rows = []
+        for r in table_data:
+            body_rows.append([
+                r[0], wrap_left(r[1]), wrap_left(r[2]), r[3], r[4], r[5]
+            ])
+
+        full_table = [headers] + body_rows
+        elements.append(_make_pdf_table(full_table, col_widths=col_widths, left_cols={1, 2}, header_font_size=9, body_font_size=8, cell_padding=5))
+        doc.build(elements)
+        buf.seek(0)
+        return Response(buf.getvalue(), mimetype="application/pdf", headers={"Content-Disposition": f"attachment; filename={file_slug}.pdf"})
+
+    # CSV
+    if fmt_type == "csv":
+        out = io.StringIO()
+        writer = csv.writer(out)
+        writer.writerow(headers)
+        writer.writerows(table_data)
+        return Response(out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment; filename={file_slug}.csv"})
+
+    # Excel
+    if fmt_type == "xlsx":
+        df = pd.DataFrame(table_data, columns=headers)
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            df.to_excel(writer, sheet_name="Consumer Sector Remaining", index=False)
+        buf.seek(0)
+        return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename={file_slug}.xlsx"})
+
+    flash("Unsupported export format.")
+    return redirect(url_for("consumer_sector_remaining_report"))
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("WATER_SUPPLY_PORT", "5000"))
     host = os.environ.get("WATER_SUPPLY_HOST", "127.0.0.1")
