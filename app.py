@@ -9839,7 +9839,15 @@ def build_consumer_sector_remaining_report(year: int, season: str) -> list[dict]
         serial, sector, locality, active, budget, remaining
     """
     # --- Step 1: Load consumer sector summary ---
+    # Try disk cache first, then fall back to in-memory globals
     cached_summary, _, _ = _load_consumer_summary_cache()
+    if not cached_summary or not cached_summary.get("summary_rows"):
+        # Fallback to in-memory consumer report data
+        if _last_consumer_summary and _last_consumer_summary.get("summary_rows"):
+            cached_summary = _last_consumer_summary
+        elif _consumer_report_data:
+            cached_summary = _build_consumer_sector_summary(_consumer_report_data)
+            cached_summary = _filter_active_rows(cached_summary)
     if not cached_summary or not cached_summary.get("summary_rows"):
         return []
 
