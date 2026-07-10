@@ -9857,13 +9857,26 @@ def build_consumer_sector_remaining_report(year: int, season: str) -> list[dict]
         sector_name = (row.get("sector") or "").strip()
         if not sector_name:
             continue
+        # Budget Suggestion must use the same cleaned Consumer Sector names as
+        # the main Consumer Report; otherwise address-derived rows appear as
+        # duplicate sectors in the remaining-budget table and exports.
+        if (
+            _is_faulty_empty_consumer_sector(sector_name)
+            or _is_extra_zain_city_13g_sector(sector_name)
+            or _is_extra_noor_mohalla_main_road_sector(sector_name)
+        ):
+            continue
+        sector_name, locality_name = _canonical_consumer_sector_locality(
+            sector_name,
+            (row.get("locality") or "").strip(),
+        )
         norm_key = _normalize_sector_key(sector_name)
         active = int(row.get("active", 0))
         if active <= 0:
             continue  # skip zero-active rows
         consumer_lookup[norm_key] = {
             "sector": sector_name,
-            "locality": (row.get("locality") or "").strip(),
+            "locality": locality_name,
             "active": active,
             "budget": float(row.get("budget", 0)),
         }
@@ -9882,6 +9895,15 @@ def build_consumer_sector_remaining_report(year: int, season: str) -> list[dict]
                 cache_data = json.load(f)
             pending_lookup = cache_data.get("pending", {})
             for sector_name, amount in pending_lookup.items():
+                # Keep pending-amount sector keys aligned with the cleaned
+                # consumer-sector keys so the join does not create duplicates.
+                if (
+                    _is_faulty_empty_consumer_sector(sector_name)
+                    or _is_extra_zain_city_13g_sector(sector_name)
+                    or _is_extra_noor_mohalla_main_road_sector(sector_name)
+                ):
+                    continue
+                sector_name, _ = _canonical_consumer_sector_locality(sector_name, "")
                 norm_key = _normalize_sector_key(sector_name)
                 bill_sector_pending[norm_key] = float(amount or 0)
         except (json.JSONDecodeError, OSError):
@@ -9918,6 +9940,15 @@ def build_consumer_sector_remaining_report(year: int, season: str) -> list[dict]
                         water_fee = parse_number(str(wf).replace(",", ""))
                 except (json.JSONDecodeError, ValueError):
                     water_fee = 0.0
+                # Raw bill imports can carry locality/address text as sector
+                # names; skip those known faulty duplicates before grouping.
+                if (
+                    _is_faulty_empty_consumer_sector(sector)
+                    or _is_extra_zain_city_13g_sector(sector)
+                    or _is_extra_noor_mohalla_main_road_sector(sector)
+                ):
+                    continue
+                sector, _ = _canonical_consumer_sector_locality(sector, "")
                 norm_sector = _normalize_sector_key(sector)
                 bill_sector_pending[norm_sector] = bill_sector_pending.get(norm_sector, 0.0) + water_fee
 
@@ -10042,6 +10073,15 @@ def consumer_sector_remaining_report():
                         except (ValueError, TypeError):
                             pending_val = 0.0
                         if sector_name:
+                            # Summary uploads are normalized before caching so
+                            # exports and previews read the same final dataset.
+                            if (
+                                _is_faulty_empty_consumer_sector(sector_name)
+                                or _is_extra_zain_city_13g_sector(sector_name)
+                                or _is_extra_noor_mohalla_main_road_sector(sector_name)
+                            ):
+                                continue
+                            sector_name, _ = _canonical_consumer_sector_locality(sector_name, "")
                             base = _sector_base(sector_name)
                             if base in pending_lookup:
                                 pending_lookup[base] += pending_val

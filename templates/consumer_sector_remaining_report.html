@@ -333,6 +333,28 @@
       return (name || '').trim().toLowerCase().replace(/\s+/g, ' ');
     }
 
+    function canonicalConsumerSectorLocality(sector, locality) {
+      var sectorText = (sector || '').trim();
+      var localityText = (locality || '').trim();
+      var normalized = sectorText.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      var compact = normalized.replace(/\s+/g, '');
+      if (compact.indexOf('zaincity') !== -1 && normalized.indexOf('private') !== -1) {
+        return { sector: 'ZAIN CITY (PRIVATE SOCITIES)', locality: 'ZAIN CITY Zone A' };
+      }
+      if (normalized === 'noor mohalla melad chowk mian road') {
+        return { sector: 'Noor Mohalla Melad Chowk Mian Road', locality: 'Noor Mohalla Zone A' };
+      }
+      return { sector: sectorText, locality: localityText };
+    }
+
+    function isSkippedConsumerSector(sector) {
+      var normalized = (sector || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      var compact = normalized.replace(/\s+/g, '');
+      return normalized === 'empty'
+        || (compact.indexOf('zaincity') !== -1 && normalized.indexOf('13') !== -1 && normalized.indexOf('private') === -1)
+        || normalized === 'noor mohala millad chowk main road';
+    }
+
     fileInput.addEventListener('change', function() {
       if (!fileInput.files || !fileInput.files.length) return;
       var file = fileInput.files[0];
@@ -371,6 +393,10 @@
             var fields = parseCSVLine(lines[i]);
             var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
             var locality = colMap.locality !== undefined ? (fields[colMap.locality] || '').trim() : '';
+            if (isSkippedConsumerSector(sector)) continue;
+            var canonicalPlace = canonicalConsumerSectorLocality(sector, locality);
+            sector = canonicalPlace.sector || 'Unspecified';
+            locality = canonicalPlace.locality || '';
             var active = parseInt(fields[colMap.active_count]) || 0;
             var closed = colMap.closed_count !== undefined ? (parseInt(fields[colMap.closed_count]) || 0) : 0;
             var suspended = colMap.suspended_count !== undefined ? (parseInt(fields[colMap.suspended_count]) || 0) : 0;
@@ -407,6 +433,10 @@
             var fields = parseCSVLine(lines[i]);
             var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
             var locality = colMap.locality !== undefined ? (fields[colMap.locality] || '').trim() : sector;
+            if (isSkippedConsumerSector(sector)) continue;
+            var canonicalPlace = canonicalConsumerSectorLocality(sector, locality);
+            sector = canonicalPlace.sector || 'Unspecified';
+            locality = canonicalPlace.locality || sector;
             var status = classifyStatus(fields, colMap);
             var normKey = normalizeSector(sector);
 
