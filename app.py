@@ -6079,7 +6079,7 @@ def bill_list_sector_seasonly_export_rows(year: int, season: str):
         try:
             data = json.loads(row["raw_data"])
             water_fee = 0.0
-            wf = data.get("Water Fee")
+            wf = data.get("water fee")
             if wf is not None:
                 water_fee = parse_number(str(wf).replace(",", ""))
         except (json.JSONDecodeError, ValueError):
