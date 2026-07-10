@@ -224,8 +224,8 @@
               {% endfor %}
               <tr class="grand-total-row" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
                 <td data-col="select" style="display:none;"></td>
-                <td data-col="sr" colspan="1" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL</td>
-                <td data-col="sector" style="display:none;"></td>
+                <td data-col="sr" style="display:none;"></td>
+                <td data-col="sector" colspan="2" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL</td>
                 <td data-col="locality" style="display:none;"></td>
                 <td data-col="active" style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ grand_active }}</td>
                 <td data-col="budget" style="text-align:right;font-weight:700;color:var(--teal);font-size:14px;">{{ "{:,.0f}".format(grand_budget) }}</td>
