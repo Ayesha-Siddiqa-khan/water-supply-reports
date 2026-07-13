@@ -6653,7 +6653,7 @@ def generate_connection_rate_pdf(rows: list[list], total_row: list[str]) -> byte
         parent=body_style,
         fontName="Helvetica-Bold",
     )
-    headers = ["Sr No.", "Description", "No of\nConnections", "Rate per\nConnection", "Total amount"]
+    headers = ["Sr No.", "Description", "No of\nConnections", "Rate per\nConnection\n(Year)", "Total amount"]
     table_rows = [[Paragraph(h.replace("\n", "<br/>"), header_style) for h in headers]]
     for row in rows:
         table_rows.append([
@@ -8717,16 +8717,16 @@ def _load_rates_csv() -> list[dict]:
 
 
 CONNECTION_RATE_CATEGORIES = [
-    ("domestic", "Domestic", 300),
-    ("domestic_private_societies", "Domestic private societies", 800),
-    ("bank_hamam_tea_stall_samosa", "BANK/HAMAM/TEA STALL/SAMOSA SHOP ETC", 500),
-    ("college_schools", "College And Schools", 500),
-    ("petrol_pump", "Petrol Pump", 500),
-    ("private_hospital", "Private Hospital", 500),
-    ("hotel_marriage_sweet_bakery", "HOTEL/ MARRIAGE HALL/ SWEET SHOP /BAKERY", 1000),
-    ("park", "Park", 1000),
-    ("service_station", "Service Station", 2500),
-    ("factory_commercial", "Factory Commercial", 3000),
+    ("domestic", "Domestic", 4800),
+    ("domestic_private_societies", "Domestic private societies", 9600),
+    ("bank_hamam_tea_stall_samosa", "BANK/HAMAM/TEA STALL/SAMOSA SHOP ETC", 6000),
+    ("college_schools", "College And Schools", 6000),
+    ("petrol_pump", "Petrol Pump", 6000),
+    ("private_hospital", "Private Hospital", 6000),
+    ("hotel_marriage_sweet_bakery", "HOTEL/ MARRIAGE HALL/ SWEET SHOP /BAKERY", 12000),
+    ("park", "Park", 12000),
+    ("service_station", "Service Station", 30000),
+    ("factory_commercial", "Factory Commercial", 36000),
 ]
 
 
@@ -8761,61 +8761,165 @@ def _connection_rate_category(row: dict) -> str:
     return "bank_hamam_tea_stall_samosa"
 
 
-def _build_connection_rate_report(rows: list[dict]) -> dict:
-    counts = {key: 0 for key, _, _ in CONNECTION_RATE_CATEGORIES}
-    for row in rows:
-        if row.get("connection_status", "Active") != "Active":
+def _annualize_connection_rate(rate: float, period: str) -> float:
+    period_text = str(period or "").lower()
+    if "six" in period_text or "half" in period_text or "semi" in period_text:
+        return rate * 2
+    if "quarter" in period_text:
+        return rate * 4
+    if "year" in period_text or "annual" in period_text:
+        return rate
+    return rate * 12
+
+
+def _connection_rate_lookup() -> dict:
+    lookup = {}
+    for row in _load_rates_csv():
+        title = (row.get("Rate Title") or "").strip()
+        key = _normalize_rate_title(title)
+        if not key:
             continue
-        counts[_connection_rate_category(row)] += 1
+        try:
+            rate = float(str(row.get("Water Rate (Rs.)") or "0").replace(",", "").strip())
+        except ValueError:
+            rate = 0
+        if rate > 0 and key not in lookup:
+            lookup[key] = {"rate": rate, "period": row.get("Billing Period", ""), "title": title}
+    _add_rate_alias(lookup, 'PRIVATE SOCIETY(3" DIA)NEW CONNECTION', '3" Dia Connection For Private Socities (New Connection)')
+    return lookup
+
+
+def _connection_rate_default(category: str) -> float:
+    for key, _, rate in CONNECTION_RATE_CATEGORIES:
+        if key == category:
+            return float(rate)
+    return 0.0
+
+
+def _connection_report_annual_rate(row: dict, category: str, rate_lookup: dict) -> float:
+    rate_type = row.get("rate_type", "")
+    sector = row.get("sector", "")
+    locality = row.get("locality", "")
+    domestic_override = None
+    combined = _normalize_rate_title(" ".join([rate_type or "", sector or "", locality or ""]))
+    rate_key = _normalize_rate_title(rate_type)
+    if "COMMERCIAL" not in rate_key and "COMERCIAL" not in rate_key:
+        if "PRIVATE" in combined and ("SOCIETY" in combined or "SOCIETIES" in combined or "SOCITIES" in combined or "SOCITES" in combined or "SOCITY" in combined):
+            domestic_override = 9600.0
+        elif "DOMESTIC" in rate_key or "MONTH JAN26 TO JUNE26" in rate_key:
+            domestic_override = 4800.0
+    if domestic_override is not None:
+        return domestic_override
+    if rate_key in rate_lookup:
+        rl = rate_lookup[rate_key]
+        return _annualize_connection_rate(rl["rate"], rl["period"])
+    return _connection_rate_default(category)
+
+
+def _connection_rate_report_from_counts(counts: dict[tuple[str, int], int]) -> dict:
     report_rows = []
-    for idx, (key, description, rate) in enumerate(CONNECTION_RATE_CATEGORIES, start=1):
-        count = counts.get(key, 0)
-        report_rows.append({
-            "sr": idx,
-            "key": key,
-            "description": description,
-            "connections": count,
-            "rate": rate,
-            "total": count * rate * 12,
-        })
+    serial = 1
+    for category, description, default_rate in CONNECTION_RATE_CATEGORIES:
+        matches = sorted((rate, count) for (key, rate), count in counts.items() if key == category)
+        if not matches:
+            matches = [(int(default_rate), 0)]
+        for rate, count in matches:
+            report_rows.append({
+                "sr": serial,
+                "key": category,
+                "description": description,
+                "connections": count,
+                "rate": rate,
+                "total": count * rate,
+            })
+            serial += 1
     return {
+        "version": 2,
         "rows": report_rows,
         "grand_total": {
             "connections": sum(r["connections"] for r in report_rows),
             "total": sum(r["total"] for r in report_rows),
         },
     }
+
+
+def _build_connection_rate_report(rows: list[dict]) -> dict:
+    counts: dict[tuple[str, int], int] = {}
+    rate_lookup = _connection_rate_lookup()
+    for row in rows:
+        if row.get("connection_status", "Active") != "Active":
+            continue
+        sector = row.get("sector", "")
+        locality = row.get("locality", "")
+        if _is_faulty_empty_consumer_sector(sector) or _is_extra_zain_city_13g_sector(sector) or _is_extra_noor_mohalla_main_road_sector(sector):
+            continue
+        sector, locality = _canonical_consumer_sector_locality(sector, locality)
+        clean_row = dict(row, sector=sector, locality=locality)
+        category = _connection_rate_category(clean_row)
+        annual_rate = int(round(_connection_report_annual_rate(clean_row, category, rate_lookup)))
+        counts[(category, annual_rate)] = counts.get((category, annual_rate), 0) + 1
+    return _connection_rate_report_from_counts(counts)
 
 
 def _build_connection_rate_report_from_summary(summary: dict) -> dict:
     """Fallback for already-cached Consumer Report data without raw upload rows."""
-    counts = {key: 0 for key, _, _ in CONNECTION_RATE_CATEGORIES}
+    stats: dict[tuple[str, int], dict] = {}
     for row in summary.get("summary_rows", []):
-        if (row.get("active") or 0) <= 0:
+        active = int(row.get("active") or 0)
+        if active <= 0:
             continue
-        counts[_connection_rate_category({
+        category = _connection_rate_category({
             "sector": row.get("sector", ""),
             "locality": row.get("locality", ""),
             "rate_type": "COMMERCIAL" if str(row.get("sector", "")).upper().startswith("COMMERCIAL") else "DOMESTIC",
-        })] += int(row.get("active") or 0)
-    report_rows = []
-    for idx, (key, description, rate) in enumerate(CONNECTION_RATE_CATEGORIES, start=1):
-        count = counts.get(key, 0)
-        report_rows.append({
-            "sr": idx,
-            "key": key,
-            "description": description,
-            "connections": count,
-            "rate": rate,
-            "total": count * rate * 12,
         })
+        # Cached summaries may not have raw Rate Type rows anymore.  Use the
+        # row budget per active connection so rebuilt rate reports still match
+        # the Consumer/Commercial budget totals exactly.
+        if row.get("budget") and active:
+            annual_rate = int(round(float(row.get("budget") or 0) / active))
+        else:
+            annual_rate = int(round(row.get("rate") or _connection_rate_default(category)))
+        key = (category, annual_rate)
+        if key not in stats:
+            stats[key] = {"connections": 0, "total": 0.0}
+        stats[key]["connections"] += active
+        stats[key]["total"] += float(row.get("budget") or (active * annual_rate))
+
+    report_rows = []
+    serial = 1
+    for category, description, default_rate in CONNECTION_RATE_CATEGORIES:
+        matches = sorted((rate, values) for (key, rate), values in stats.items() if key == category)
+        if not matches:
+            matches = [(int(default_rate), {"connections": 0, "total": 0.0})]
+        for rate, values in matches:
+            report_rows.append({
+                "sr": serial,
+                "key": category,
+                "description": description,
+                "connections": values["connections"],
+                "rate": rate,
+                "total": values["total"],
+            })
+            serial += 1
     return {
+        "version": 2,
         "rows": report_rows,
         "grand_total": {
             "connections": sum(r["connections"] for r in report_rows),
             "total": sum(r["total"] for r in report_rows),
         },
     }
+
+
+def _ensure_connection_rate_report(summary: dict) -> dict:
+    report = summary.get("connection_rate_report") or {}
+    expected_total = int(round(summary.get("grand_total", {}).get("budget") or summary.get("total_budget") or 0))
+    actual_total = int(round(report.get("grand_total", {}).get("total") or 0))
+    if report.get("version") != 2 or actual_total != expected_total:
+        summary = dict(summary)
+        summary["connection_rate_report"] = _build_connection_rate_report_from_summary(summary)
+    return summary
 
 
 def _connection_rate_rows_from_payload(payload: dict) -> list[dict]:
@@ -8828,7 +8932,7 @@ def _connection_rate_rows_from_payload(payload: dict) -> list[dict]:
             "description": str(row.get("description", "")).strip(),
             "connections": connections,
             "rate": rate,
-            "total": connections * rate * 12,
+            "total": connections * rate,
         })
     return rows
 
@@ -8841,7 +8945,7 @@ def export_connection_rate_report(fmt_type: str):
         flash("No connection rate report data available.")
         return redirect(url_for("consumer_report"))
 
-    headers = ["Sr No.", "Description", "No of Connections", "Rate per Connection", "Total amount"]
+    headers = ["Sr No.", "Description", "No of Connections", "Rate per Connection (Year)", "Total amount"]
     data_rows = [[r["sr"], r["description"], r["connections"], fmt(r["rate"]), fmt(r["total"])] for r in rows]
     total_row = ["", "Total", sum(r["connections"] for r in rows), "", fmt(sum(r["total"] for r in rows))]
 
@@ -8971,16 +9075,14 @@ def consumer_report():
     rates_json_str = json.dumps(_load_rates_csv())
     cached_summary, cached_filename, cached_rows = _load_consumer_summary_cache()
     if cached_summary:
-        if not cached_summary.get("connection_rate_report"):
-            cached_summary["connection_rate_report"] = _build_connection_rate_report_from_summary(cached_summary)
+        cached_summary = _ensure_connection_rate_report(cached_summary)
         normal_summary, commercial_summary = _split_summary_by_type(cached_summary)
         return render_template("consumer_report.html", summary=cached_summary,
                                normal_summary=normal_summary, commercial_summary=commercial_summary,
                                filename=cached_filename, total_rows=cached_rows,
                                rates_json=rates_json_str)
     if _last_consumer_summary:
-        if not _last_consumer_summary.get("connection_rate_report"):
-            _last_consumer_summary["connection_rate_report"] = _build_connection_rate_report_from_summary(_last_consumer_summary)
+        _last_consumer_summary = _ensure_connection_rate_report(_last_consumer_summary)
         normal_summary, commercial_summary = _split_summary_by_type(_last_consumer_summary)
         return render_template("consumer_report.html", summary=_last_consumer_summary,
                                normal_summary=normal_summary, commercial_summary=commercial_summary,

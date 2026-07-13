@@ -333,7 +333,7 @@
                 <th style="width:55px;text-align:center">Sr No.</th>
                 <th style="text-align:left">Description</th>
                 <th style="width:145px;text-align:center">No of Connections</th>
-                <th style="width:145px;text-align:center">Rate per Connection</th>
+                <th style="width:145px;text-align:center">Rate per Connection (Year)</th>
                 <th style="width:145px;text-align:right">Total amount</th>
               </tr>
             </thead>
@@ -605,16 +605,16 @@
     }
 
     var CONNECTION_RATE_CATEGORIES = [
-      { key: 'domestic', description: 'Domestic', rate: 300 },
-      { key: 'domestic_private_societies', description: 'Domestic private societies', rate: 800 },
-      { key: 'bank_hamam_tea_stall_samosa', description: 'BANK/HAMAM/TEA STALL/SAMOSA SHOP ETC', rate: 500 },
-      { key: 'college_schools', description: 'College And Schools', rate: 500 },
-      { key: 'petrol_pump', description: 'Petrol Pump', rate: 500 },
-      { key: 'private_hospital', description: 'Private Hospital', rate: 500 },
-      { key: 'hotel_marriage_sweet_bakery', description: 'HOTEL/ MARRIAGE HALL/ SWEET SHOP /BAKERY', rate: 1000 },
-      { key: 'park', description: 'Park', rate: 1000 },
-      { key: 'service_station', description: 'Service Station', rate: 2500 },
-      { key: 'factory_commercial', description: 'Factory Commercial', rate: 3000 }
+      { key: 'domestic', description: 'Domestic', rate: 4800 },
+      { key: 'domestic_private_societies', description: 'Domestic private societies', rate: 9600 },
+      { key: 'bank_hamam_tea_stall_samosa', description: 'BANK/HAMAM/TEA STALL/SAMOSA SHOP ETC', rate: 6000 },
+      { key: 'college_schools', description: 'College And Schools', rate: 6000 },
+      { key: 'petrol_pump', description: 'Petrol Pump', rate: 6000 },
+      { key: 'private_hospital', description: 'Private Hospital', rate: 6000 },
+      { key: 'hotel_marriage_sweet_bakery', description: 'HOTEL/ MARRIAGE HALL/ SWEET SHOP /BAKERY', rate: 12000 },
+      { key: 'park', description: 'Park', rate: 12000 },
+      { key: 'service_station', description: 'Service Station', rate: 30000 },
+      { key: 'factory_commercial', description: 'Factory Commercial', rate: 36000 }
     ];
 
     function normalizeConnectionRateText(value) {
@@ -642,19 +642,42 @@
       return 'bank_hamam_tea_stall_samosa';
     }
 
+    function defaultConnectionAnnualRate(category) {
+      for (var i = 0; i < CONNECTION_RATE_CATEGORIES.length; i++) {
+        if (CONNECTION_RATE_CATEGORIES[i].key === category) return CONNECTION_RATE_CATEGORIES[i].rate;
+      }
+      return 0;
+    }
+
+    function addConnectionRateCount(counts, category, annualRate) {
+      var rate = Math.round(annualRate || defaultConnectionAnnualRate(category) || 0);
+      var key = category + '|||' + rate;
+      counts[key] = (counts[key] || 0) + 1;
+    }
+
     function buildConnectionRateReport(counts) {
-      var rows = CONNECTION_RATE_CATEGORIES.map(function(cat, idx) {
-        var count = counts[cat.key] || 0;
-        return {
-          sr: idx + 1,
-          key: cat.key,
-          description: cat.description,
-          connections: count,
-          rate: cat.rate,
-          total: count * cat.rate * 12
-        };
+      var rows = [];
+      CONNECTION_RATE_CATEGORIES.forEach(function(cat) {
+        var matches = [];
+        Object.keys(counts).forEach(function(key) {
+          var parts = key.split('|||');
+          if (parts[0] === cat.key) matches.push({ rate: parseInt(parts[1], 10) || 0, count: counts[key] || 0 });
+        });
+        matches.sort(function(a, b) { return a.rate - b.rate; });
+        if (!matches.length) matches.push({ rate: cat.rate, count: 0 });
+        matches.forEach(function(match) {
+          rows.push({
+            sr: rows.length + 1,
+            key: cat.key,
+            description: cat.description,
+            connections: match.count,
+            rate: match.rate,
+            total: match.count * match.rate
+          });
+        });
       });
       return {
+        version: 2,
         rows: rows,
         grand_total: {
           connections: rows.reduce(function(sum, row) { return sum + row.connections; }, 0),
@@ -773,7 +796,6 @@
       var sectorMap = {};
       var totalRows = 0;
       var connectionRateCounts = {};
-      CONNECTION_RATE_CATEGORIES.forEach(function(cat) { connectionRateCounts[cat.key] = 0; });
 
       for (var i = 1; i < lines.length; i++) {
         var fields = parseCSVLine(lines[i]);
@@ -793,9 +815,6 @@
         // Closed/inactive/disconnected records get budget = 0.
         var rateType = '';
         if (colMap.rate_type !== undefined) rateType = (fields[colMap.rate_type] || '').trim();
-        if (status === 'Active') {
-          connectionRateCounts[connectionRateCategory(sector, locality, rateType)]++;
-        }
         var rowBudget = 0;
         var annualRate = 0;
         var cleanRateType = cleanRateTypeName(rateType);
@@ -811,6 +830,10 @@
           // the clean Rate Type value instead of a mixed/full row string.
           if (unmatchedRateTypes.indexOf(cleanRateType) === -1) unmatchedRateTypes.push(cleanRateType);
           totalUnmatchedBudget++;
+        }
+        if (status === 'Active') {
+          var reportCategory = connectionRateCategory(sector, locality, rateType);
+          addConnectionRateCount(connectionRateCounts, reportCategory, annualRate);
         }
 
         var normKey = normalizeSector(sector);
@@ -1518,7 +1541,7 @@
       table.querySelectorAll('tbody tr:not(.grand-total-row)').forEach(function(tr, idx) {
         var count = Math.round(numberValue(tr.querySelector('.rate-count')));
         var rate = numberValue(tr.querySelector('.rate-value'));
-        var total = count * rate * 12;
+        var total = count * rate;
         tr.querySelector('.rate-sr-cell').textContent = idx + 1;
         tr.querySelector('.rate-total').textContent = Math.round(total).toLocaleString();
         totalConnections += count;
