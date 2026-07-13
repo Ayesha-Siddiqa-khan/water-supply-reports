@@ -8796,6 +8796,10 @@ def _connection_rate_default(category: str) -> float:
     return 0.0
 
 
+def _connection_rate_description(category: str, locality: str) -> str:
+    return locality if category not in ("domestic", "domestic_private_societies") else ""
+
+
 def _connection_report_annual_rate(row: dict, category: str, rate_lookup: dict) -> float:
     rate_type = row.get("rate_type", "")
     sector = row.get("sector", "")
@@ -8816,86 +8820,13 @@ def _connection_report_annual_rate(row: dict, category: str, rate_lookup: dict) 
     return _connection_rate_default(category)
 
 
-def _connection_rate_report_from_counts(counts: dict[tuple[str, str, int], int]) -> dict:
+def _connection_rate_report_from_groups(groups: dict[tuple[str, str, int], dict]) -> dict:
     report_rows = []
     serial = 1
     for category, description, default_rate in CONNECTION_RATE_CATEGORIES:
-        matches = sorted((desc, rate, count) for (key, desc, rate), count in counts.items() if key == category)
+        matches = sorted((desc, rate, values) for (key, desc, rate), values in groups.items() if key == category)
         if not matches:
-            matches = [(description, int(default_rate), 0)]
-        for desc, rate, count in matches:
-            report_rows.append({
-                "sr": serial,
-                "key": category,
-                "description": desc or description,
-                "connections": count,
-                "rate": rate,
-                "total": count * rate,
-            })
-            serial += 1
-    return {
-        "version": 2,
-        "rows": report_rows,
-        "grand_total": {
-            "connections": sum(r["connections"] for r in report_rows),
-            "total": sum(r["total"] for r in report_rows),
-        },
-    }
-
-
-def _build_connection_rate_report(rows: list[dict]) -> dict:
-    counts: dict[tuple[str, str, int], int] = {}
-    rate_lookup = _connection_rate_lookup()
-    for row in rows:
-        if row.get("connection_status", "Active") != "Active":
-            continue
-        sector = row.get("sector", "")
-        locality = row.get("locality", "")
-        if _is_faulty_empty_consumer_sector(sector) or _is_extra_zain_city_13g_sector(sector) or _is_extra_noor_mohalla_main_road_sector(sector):
-            continue
-        sector, locality = _canonical_consumer_sector_locality(sector, locality)
-        clean_row = dict(row, sector=sector, locality=locality)
-        category = _connection_rate_category(clean_row)
-        annual_rate = int(round(_connection_report_annual_rate(clean_row, category, rate_lookup)))
-        # Commercial rate report rows use the locality as Description so the
-        # summary matches the Commercial PDF and is easier to verify.
-        description = locality if category not in ("domestic", "domestic_private_societies") else ""
-        counts[(category, description, annual_rate)] = counts.get((category, description, annual_rate), 0) + 1
-    return _connection_rate_report_from_counts(counts)
-
-
-def _build_connection_rate_report_from_summary(summary: dict) -> dict:
-    """Fallback for already-cached Consumer Report data without raw upload rows."""
-    stats: dict[tuple[str, str, int], dict] = {}
-    for row in summary.get("summary_rows", []):
-        active = int(row.get("active") or 0)
-        if active <= 0:
-            continue
-        category = _connection_rate_category({
-            "sector": row.get("sector", ""),
-            "locality": row.get("locality", ""),
-            "rate_type": "COMMERCIAL" if str(row.get("sector", "")).upper().startswith("COMMERCIAL") else "DOMESTIC",
-        })
-        # Cached summaries may not have raw Rate Type rows anymore.  Use the
-        # row budget per active connection so rebuilt rate reports still match
-        # the Consumer/Commercial budget totals exactly.
-        if row.get("budget") and active:
-            annual_rate = int(round(float(row.get("budget") or 0) / active))
-        else:
-            annual_rate = int(round(row.get("rate") or _connection_rate_default(category)))
-        description = row.get("locality", "") if category not in ("domestic", "domestic_private_societies") else ""
-        key = (category, description, annual_rate)
-        if key not in stats:
-            stats[key] = {"connections": 0, "total": 0.0}
-        stats[key]["connections"] += active
-        stats[key]["total"] += float(row.get("budget") or (active * annual_rate))
-
-    report_rows = []
-    serial = 1
-    for category, description, default_rate in CONNECTION_RATE_CATEGORIES:
-        matches = sorted((desc, rate, values) for (key, desc, rate), values in stats.items() if key == category)
-        if not matches:
-            matches = [(description, int(default_rate), {"connections": 0, "total": 0.0})]
+            matches = [(description, int(default_rate), {"connections": 0, "total": 0})]
         for desc, rate, values in matches:
             report_rows.append({
                 "sr": serial,
@@ -8914,6 +8845,65 @@ def _build_connection_rate_report_from_summary(summary: dict) -> dict:
             "total": sum(r["total"] for r in report_rows),
         },
     }
+
+
+def _connection_rate_bucket(category: str, description: str, annual_rate: int, connections: int = 1) -> tuple[str, str, int, int]:
+    # Fold bundled domestic rows, e.g. National Telecommunication 19,200 = 4 x 4,800.
+    if category == "domestic" and annual_rate > 4800 and annual_rate % 4800 == 0:
+        return category, "", 4800, connections * (annual_rate // 4800)
+    return category, description, annual_rate, connections
+
+
+def _build_connection_rate_report(rows: list[dict]) -> dict:
+    groups: dict[tuple[str, str, int], dict] = {}
+    rate_lookup = _connection_rate_lookup()
+    for row in rows:
+        if row.get("connection_status", "Active") != "Active":
+            continue
+        sector = row.get("sector", "")
+        locality = row.get("locality", "")
+        if _is_faulty_empty_consumer_sector(sector) or _is_extra_zain_city_13g_sector(sector) or _is_extra_noor_mohalla_main_road_sector(sector):
+            continue
+        sector, locality = _canonical_consumer_sector_locality(sector, locality)
+        clean_row = dict(row, sector=sector, locality=locality)
+        category = _connection_rate_category(clean_row)
+        annual_rate = int(round(_connection_report_annual_rate(clean_row, category, rate_lookup)))
+        # Commercial rows use Locality as Description to match the Commercial PDF.
+        description = _connection_rate_description(category, locality)
+        category, description, annual_rate, count_weight = _connection_rate_bucket(category, description, annual_rate)
+        key = (category, description, annual_rate)
+        groups.setdefault(key, {"connections": 0, "total": 0})
+        groups[key]["connections"] += count_weight
+        groups[key]["total"] += count_weight * annual_rate
+    return _connection_rate_report_from_groups(groups)
+
+
+def _build_connection_rate_report_from_summary(summary: dict) -> dict:
+    """Fallback for already-cached Consumer Report data without raw upload rows."""
+    groups: dict[tuple[str, str, int], dict] = {}
+    for row in summary.get("summary_rows", []):
+        active = int(row.get("active") or 0)
+        if active <= 0:
+            continue
+        category = _connection_rate_category({
+            "sector": row.get("sector", ""),
+            "locality": row.get("locality", ""),
+            "rate_type": "COMMERCIAL" if str(row.get("sector", "")).upper().startswith("COMMERCIAL") else "DOMESTIC",
+        })
+        # Cached summaries may not have raw Rate Type rows anymore.  Use the
+        # row budget per active connection so rebuilt rate reports still match
+        # the Consumer/Commercial budget totals exactly.
+        if row.get("budget") and active:
+            annual_rate = int(round(float(row.get("budget") or 0) / active))
+        else:
+            annual_rate = int(round(row.get("rate") or _connection_rate_default(category)))
+        description = _connection_rate_description(category, row.get("locality", ""))
+        category, description, annual_rate, active = _connection_rate_bucket(category, description, annual_rate, active)
+        key = (category, description, annual_rate)
+        groups.setdefault(key, {"connections": 0, "total": 0.0})
+        groups[key]["connections"] += active
+        groups[key]["total"] += float(row.get("budget") or (active * annual_rate))
+    return _connection_rate_report_from_groups(groups)
 
 
 def _ensure_connection_rate_report(summary: dict) -> dict:

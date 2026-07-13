@@ -654,8 +654,16 @@
 
     function addConnectionRateCount(counts, category, annualRate, description) {
       var rate = Math.round(annualRate || defaultConnectionAnnualRate(category) || 0);
+      var weight = 1;
+      // Special domestic records can represent several 4,800/year domestic
+      // connections in one row; fold them into the main Domestic row.
+      if (category === 'domestic' && rate > 4800 && rate % 4800 === 0) {
+        weight = rate / 4800;
+        rate = 4800;
+        description = '';
+      }
       var key = category + '|||' + rate + '|||' + (description || '');
-      counts[key] = (counts[key] || 0) + 1;
+      counts[key] = (counts[key] || 0) + weight;
     }
 
     function buildConnectionRateReport(counts) {
@@ -1563,11 +1571,15 @@
       document.getElementById('connection-rate-grand-total').textContent = Math.round(totalAmount).toLocaleString();
     }
 
+    function connectionRateRows() {
+      return Array.prototype.slice.call(table.querySelectorAll('tbody tr:not(.grand-total-row)'));
+    }
+
     function connectionRatePayload() {
       var rows = [];
       // Connection Rate exports use only checked rows from the current editable
       // Consumer Report table, so unchecked rows are exempt from PDF/CSV/Excel.
-      table.querySelectorAll('tbody tr:not(.grand-total-row)').forEach(function(tr) {
+      connectionRateRows().forEach(function(tr) {
         var cb = tr.querySelector('.connection-rate-checkbox');
         if (cb && !cb.checked) return;
         rows.push({
@@ -1582,9 +1594,9 @@
     table.addEventListener('input', recalcConnectionRateTable);
     table.addEventListener('change', function(e) {
       if (e.target && e.target.classList.contains('connection-rate-checkbox')) {
-        var all = Array.prototype.slice.call(table.querySelectorAll('.connection-rate-checkbox'));
         var selectAll = document.getElementById('select-all-connection-rate');
-        if (selectAll) selectAll.checked = all.length > 0 && all.every(function(cb) { return cb.checked; });
+        var boxes = Array.prototype.slice.call(table.querySelectorAll('.connection-rate-checkbox'));
+        if (selectAll) selectAll.checked = boxes.length > 0 && boxes.every(function(cb) { return cb.checked; });
       }
       recalcConnectionRateTable();
     });
