@@ -680,7 +680,7 @@
         var normKey = normalizeSector(sector);
 
         if (!sectorMap[normKey]) {
-          sectorMap[normKey] = { original: sector, localities: '', closed: 0, suspended: 0, active: 0, budget: 0 };
+          sectorMap[normKey] = { original: sector, localities: '', closed: 0, suspended: 0, active: 0, budget: 0, rate_sum: 0, rate_count: 0 };
         }
         if (sector.length < sectorMap[normKey].original.length) {
           sectorMap[normKey].original = sector;
@@ -692,6 +692,12 @@
         else if (status === 'Closed') sectorMap[normKey].closed++;
         else sectorMap[normKey].active++;
         sectorMap[normKey].budget += rowBudget;
+
+        // Track per-period rate for active rows (used by Rate column)
+        if (status === 'Active' && rateKey && rateLookup[rateKey]) {
+          sectorMap[normKey].rate_sum += rateLookup[rateKey].rate;
+          sectorMap[normKey].rate_count++;
+        }
 
         totalRows++;
       }
@@ -730,7 +736,8 @@
         normalSerial++;
         normalSummaryRows.push({
           serial: normalSerial, sector: s.original, locality: localityVal,
-          closed: s.closed, suspended: s.suspended, active: s.active, total: total, budget: s.budget
+          closed: s.closed, suspended: s.suspended, active: s.active, total: total, budget: s.budget,
+          rate: s.rate_count > 0 ? Math.round(s.rate_sum / s.rate_count) : 0
         });
         normalSectorTotals[s.original] = { closed: s.closed, suspended: s.suspended, active: s.active, total: total, budget: s.budget };
         normalGrandClosed += s.closed;
@@ -766,7 +773,7 @@
         var locKey = normalizeSector(sector) + '|||' + normalizeSector(locality);
 
         if (!commercialLocalityMap[locKey]) {
-          commercialLocalityMap[locKey] = { sector: sector, locality: locality, closed: 0, suspended: 0, active: 0, budget: 0 };
+          commercialLocalityMap[locKey] = { sector: sector, locality: locality, closed: 0, suspended: 0, active: 0, budget: 0, rate_sum: 0, rate_count: 0 };
         }
         if (status === 'Suspended') commercialLocalityMap[locKey].suspended++;
         else if (status === 'Closed') commercialLocalityMap[locKey].closed++;
@@ -779,6 +786,9 @@
         if (status === 'Active' && rateKey && rateLookup[rateKey]) {
           var rl = rateLookup[rateKey];
           commercialLocalityMap[locKey].budget += calcAnnualBudget(rl.rate, rl.period);
+          // Track per-period rate for Rate column
+          commercialLocalityMap[locKey].rate_sum += rl.rate;
+          commercialLocalityMap[locKey].rate_count++;
         }
       }
 
@@ -789,7 +799,8 @@
         commercialSerial++;
         commercialSummaryRows.push({
           serial: commercialSerial, sector: cl.sector, locality: cl.locality,
-          closed: cl.closed, suspended: cl.suspended, active: cl.active, total: total, budget: cl.budget
+          closed: cl.closed, suspended: cl.suspended, active: cl.active, total: total, budget: cl.budget,
+          rate: cl.rate_count > 0 ? Math.round(cl.rate_sum / cl.rate_count) : 0
         });
         if (!commercialSectorTotals[cl.sector]) {
           commercialSectorTotals[cl.sector] = { closed: 0, suspended: 0, active: 0, total: 0, budget: 0 };
