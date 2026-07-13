@@ -174,16 +174,19 @@
             <input type="checkbox" class="pdf-col-toggle" data-col="locality" checked> Locality
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="closed" checked> Closed
+            <input type="checkbox" class="pdf-col-toggle" data-col="rate"> Rate
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="suspended" checked> Suspended
+            <input type="checkbox" class="pdf-col-toggle" data-col="closed"> Closed
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" class="pdf-col-toggle" data-col="suspended"> Suspended
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
             <input type="checkbox" class="pdf-col-toggle" data-col="active" checked> Active
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="total" checked> Total Connections
+            <input type="checkbox" class="pdf-col-toggle" data-col="total"> Total Connections
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
             <input type="checkbox" class="pdf-col-toggle" data-col="budget" checked> Budget
@@ -204,6 +207,7 @@
                   <th style="width:50px;text-align:center">SR</th>
                   <th style="text-align:left">Sector</th>
                   <th style="text-align:left">Locality</th>
+                  <th style="width:80px;text-align:center">Rate</th>
                   <th style="width:80px;text-align:center">Closed</th>
                   <th style="width:90px;text-align:center">Suspended</th>
                   <th style="width:80px;text-align:center">Active</th>
@@ -213,11 +217,12 @@
               </thead>
               <tbody>
                 {% for row in normal_summary.summary_rows %}
-                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-suspended="{{ row.suspended|default(0) }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}" data-budget-rate="{{ ((row.budget|default(0)|float) / (row.active|int)) if (row.active|int) else 0 }}" data-sector="{{ row.sector }}" data-locality="{{ row.locality }}">
+                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-suspended="{{ row.suspended|default(0) }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}" data-budget-rate="{{ ((row.budget|default(0)|float) / (row.active|int)) if (row.active|int) else 0 }}" data-rate="{{ row.rate|default(0) }}" data-sector="{{ row.sector }}" data-locality="{{ row.locality }}">
                   <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="normal" data-serial="{{ row.serial }}" checked></td>
                   <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
                   <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
                   <td style="text-align:left;">{{ row.locality }}</td>
+                  <td style="text-align:center;font-weight:500;color:var(--text-primary);">{{ "{:,.0f}".format(row.rate|default(0)) }}</td>
                   <td style="text-align:center;color:var(--coral);">{{ row.closed }}</td>
                   <td style="text-align:center;color:var(--amber);">{{ row.suspended|default(0) }}</td>
                   <td style="text-align:center;color:var(--teal);">
@@ -228,7 +233,7 @@
                 </tr>
                 {% endfor %}
                 <tr class="grand-total-row" data-gt-for="normal" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
-                  <td colspan="4" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL <span class="selected-count" data-gt-for="normal" style="font-size:11px;font-weight:400;color:var(--text-muted);"></span></td>
+                  <td colspan="5" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL <span class="selected-count" data-gt-for="normal" style="font-size:11px;font-weight:400;color:var(--text-muted);"></span></td>
                   <td class="gt-closed" data-gt-for="normal" style="text-align:center;font-weight:700;color:var(--coral);font-size:15px;">{{ normal_summary.grand_total.closed }}</td>
                   <td class="gt-suspended" data-gt-for="normal" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ normal_summary.grand_total.suspended|default(0) }}</td>
                   <td class="gt-active" data-gt-for="normal" style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ normal_summary.grand_total.active }}</td>
@@ -259,6 +264,7 @@
                   <th style="width:50px;text-align:center">SR</th>
                   <th style="text-align:left">Sector</th>
                   <th style="text-align:left">Locality</th>
+                  <th style="width:80px;text-align:center">Rate</th>
                   <th style="width:80px;text-align:center">Closed</th>
                   <th style="width:90px;text-align:center">Suspended</th>
                   <th style="width:80px;text-align:center">Active</th>
@@ -268,11 +274,12 @@
               </thead>
               <tbody>
                 {% for row in commercial_summary.summary_rows %}
-                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-suspended="{{ row.suspended|default(0) }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}" data-sector="{{ row.sector }}" data-locality="{{ row.locality }}">
+                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-suspended="{{ row.suspended|default(0) }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}" data-rate="{{ row.rate|default(0) }}" data-sector="{{ row.sector }}" data-locality="{{ row.locality }}">
                   <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="commercial" data-serial="{{ row.serial }}" checked></td>
                   <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
                   <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
                   <td style="text-align:left;">{{ row.locality }}</td>
+                  <td style="text-align:center;font-weight:500;color:var(--text-primary);">{{ "{:,.0f}".format(row.rate|default(0)) }}</td>
                   <td style="text-align:center;color:var(--coral);">{{ row.closed }}</td>
                   <td style="text-align:center;color:var(--amber);">{{ row.suspended|default(0) }}</td>
                   <td style="text-align:center;color:var(--teal);">{{ row.active }}</td>
@@ -281,7 +288,7 @@
                 </tr>
                 {% endfor %}
                 <tr class="grand-total-row" data-gt-for="commercial" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
-                  <td colspan="4" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL <span class="selected-count" data-gt-for="commercial" style="font-size:11px;font-weight:400;color:var(--text-muted);"></span></td>
+                  <td colspan="5" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL <span class="selected-count" data-gt-for="commercial" style="font-size:11px;font-weight:400;color:var(--text-muted);"></span></td>
                   <td class="gt-closed" data-gt-for="commercial" style="text-align:center;font-weight:700;color:var(--coral);font-size:15px;">{{ commercial_summary.grand_total.closed }}</td>
                   <td class="gt-suspended" data-gt-for="commercial" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ commercial_summary.grand_total.suspended|default(0) }}</td>
                   <td class="gt-active" data-gt-for="commercial" style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ commercial_summary.grand_total.active }}</td>
@@ -1128,6 +1135,7 @@
             serial: selectedRows.length + 1,
             sector: tr.getAttribute('data-sector') || '',
             locality: tr.getAttribute('data-locality') || '',
+            rate: parseFloat(tr.getAttribute('data-rate')) || 0,
             closed: parseInt(tr.getAttribute('data-closed')) || 0,
             suspended: parseInt(tr.getAttribute('data-suspended')) || 0,
             active: parseInt(tr.getAttribute('data-active')) || 0,

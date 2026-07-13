@@ -8175,6 +8175,8 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
                 "suspended": 0,
                 "active": 0,
                 "budget": 0.0,
+                "rate_sum": 0.0,
+                "rate_count": 0,
             }
 
         # Keep the shortest original sector name for cleaner display
@@ -8223,6 +8225,11 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
             sector_map[norm_key]["active"] += 1
         sector_map[norm_key]["budget"] += row_budget
 
+        # Track rate for this sector (most common rate used for display)
+        if status == "Active" and rate_key and rate_key in rate_lookup:
+            sector_map[norm_key]["rate_sum"] += rate_lookup[rate_key]["rate"]
+            sector_map[norm_key]["rate_count"] += 1
+
         # Fix: commercial records also keep a locality-level map so they never
         # collapse into one COMMERCIAL row in the Commercial tab or exports.
         if sector_raw.upper().startswith("COMMERCIAL"):
@@ -8235,6 +8242,8 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
                     "suspended": 0,
                     "active": 0,
                     "budget": 0.0,
+                    "rate_sum": 0.0,
+                    "rate_count": 0,
                 }
             if status == "Suspended":
                 commercial_locality_map[loc_key]["suspended"] += 1
@@ -8243,6 +8252,10 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
             else:
                 commercial_locality_map[loc_key]["active"] += 1
             commercial_locality_map[loc_key]["budget"] += row_budget
+            # Track rate for commercial locality (most common rate for display)
+            if status == "Active" and rate_key and rate_key in rate_lookup:
+                commercial_locality_map[loc_key]["rate_sum"] += rate_lookup[rate_key]["rate"]
+                commercial_locality_map[loc_key]["rate_count"] += 1
 
     # Build summary rows — one row per normalized sector
     summary_rows: list[dict] = []
@@ -8271,6 +8284,7 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
             "active": active,
             "total": total,
             "budget": budget,
+            "rate": round(s_data["rate_sum"] / s_data["rate_count"]) if s_data["rate_count"] > 0 else 0,
         })
         sector_totals[original_sector] = {"closed": closed, "suspended": suspended, "active": active, "total": total, "budget": budget}
         grand_closed += closed
@@ -8297,6 +8311,7 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
             "active": c_active,
             "total": c_closed + c_suspended + c_active,
             "budget": c_budget,
+            "rate": round(c_data["rate_sum"] / c_data["rate_count"]) if c_data["rate_count"] > 0 else 0,
         })
         commercial_closed += c_closed
         commercial_suspended += c_suspended
@@ -8455,6 +8470,7 @@ def _split_summary_by_type(summary: dict) -> tuple[dict, dict]:
                 "active": r["active"],
                 "total": r["total"],
                 "budget": budget,
+                "rate": r.get("rate", 0),
             })
             sector_totals[r["sector"]] = {
                 "closed": r["closed"],
@@ -8827,12 +8843,13 @@ def export_consumer_report(fmt_type: str):
     if cols_param:
         selected_cols = [c.strip().lower() for c in cols_param.split(",") if c.strip()]
     else:
-        selected_cols = ["sr", "sector", "locality", "closed", "suspended", "active", "total", "budget"]
+        selected_cols = ["sr", "sector", "locality", "rate", "closed", "suspended", "active", "total", "budget"]
 
     COL_DEFS = {
         "sr":     ("SR",     lambda r: r["serial"],             12),
         "sector": ("Sector", lambda r: r["sector"],             58),
         "locality": ("Locality", lambda r: r["locality"],       54),
+        "rate":   ("Rate",   lambda r: int(r.get("rate", 0)),    18),
         "closed": ("Closed", lambda r: r["closed"],             16),
         "suspended": ("Suspended", lambda r: r.get("suspended", 0), 18),
         "active": ("Active", lambda r: r["active"],             16),
@@ -8840,7 +8857,7 @@ def export_consumer_report(fmt_type: str):
         "budget": ("Budget (Rs.)", lambda r: r.get("budget", 0), 22),
     }
 
-    active_cols = [c for c in ["sr", "sector", "locality", "closed", "suspended", "active", "total", "budget"] if c in selected_cols]
+    active_cols = [c for c in ["sr", "sector", "locality", "rate", "closed", "suspended", "active", "total", "budget"] if c in selected_cols]
 
     # -----------------------------------------------------------------------
     # Shared export dataset: headers, rows, and grand total computed ONLY from
@@ -8867,6 +8884,8 @@ def export_consumer_report(fmt_type: str):
         elif c == "sector":
             grand.append("GRAND TOTAL")
         elif c == "locality":
+            grand.append("")
+        elif c == "rate":
             grand.append("")
         elif c == "budget":
             grand.append(gt_vals.get("budget", 0))
@@ -9010,6 +9029,7 @@ def export_consumer_report(fmt_type: str):
             "sr": cell_center_style,
             "sector": cell_wrap_style,
             "locality": cell_wrap_style,
+            "rate": ParagraphStyle("CellRate", parent=cell_center_style, alignment=1),
             "closed": cell_center_style,
             "suspended": cell_center_style,
             "active": cell_center_style,
@@ -9044,6 +9064,8 @@ def export_consumer_report(fmt_type: str):
                 gt_cells.append(Paragraph("GRAND TOTAL", ParagraphStyle("GrandLabel", parent=cell_wrap_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)))
             elif c == "locality":
                 gt_cells.append(Paragraph("", cell_center_style))
+            elif c == "rate":
+                gt_cells.append(Paragraph("", cell_center_style))
             else:
                 gt_val = {"closed": non_commercial_closed, "suspended": non_commercial_suspended, "active": non_commercial_active, "total": non_commercial_total, "budget": non_commercial_budget}.get(c, 0)
                 gt_cells.append(Paragraph(str(int(gt_val)) if c == "budget" else str(gt_val), ParagraphStyle(f"Grand{c}", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)))
@@ -9057,8 +9079,9 @@ def export_consumer_report(fmt_type: str):
         # get most of the room for wrapping; numeric columns stay compact.
         consumer_col_weights = {
             "sr": 11,
-            "sector": 56,
-            "locality": 64,
+            "sector": 50,
+            "locality": 56,
+            "rate": 18,
             "closed": 16,
             "suspended": 19,
             "active": 16,
@@ -9254,6 +9277,7 @@ def export_consumer_report(fmt_type: str):
             "sr": cell_center_style,
             "sector": cell_wrap_style,
             "locality": cell_wrap_style,
+            "rate": ParagraphStyle("CellRateComm", parent=cell_center_style, alignment=1),
             "closed": cell_center_style,
             "suspended": cell_center_style,
             "active": cell_center_style,
@@ -9287,6 +9311,8 @@ def export_consumer_report(fmt_type: str):
                 gt_cells.append(Paragraph("GRAND TOTAL", ParagraphStyle("CommGrandLabel", parent=cell_wrap_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)))
             elif c == "locality":
                 gt_cells.append(Paragraph("", cell_center_style))
+            elif c == "rate":
+                gt_cells.append(Paragraph("", cell_center_style))
             else:
                 gt_val = {"closed": commercial_closed, "suspended": commercial_suspended, "active": commercial_active, "total": commercial_total, "budget": commercial_budget}.get(c, 0)
                 gt_cells.append(Paragraph(str(int(gt_val)) if c == "budget" else str(gt_val), ParagraphStyle(f"CommGrand{c}", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)))
@@ -9296,8 +9322,9 @@ def export_consumer_report(fmt_type: str):
         # -- Column widths (mm) — match Consumer PDF proportional layout --
         consumer_col_weights = {
             "sr": 11,
-            "sector": 56,
-            "locality": 64,
+            "sector": 50,
+            "locality": 56,
+            "rate": 18,
             "closed": 16,
             "suspended": 19,
             "active": 16,
