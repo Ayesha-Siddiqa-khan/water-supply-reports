@@ -330,6 +330,7 @@
           <table class="data-table" id="connection-rate-table">
             <thead>
               <tr>
+                <th style="width:40px;text-align:center"><input type="checkbox" id="select-all-connection-rate" checked title="Select/Deselect All"></th>
                 <th style="width:55px;text-align:center">Sr No.</th>
                 <th style="text-align:left">Description</th>
                 <th style="width:145px;text-align:center">No of Connections</th>
@@ -340,6 +341,7 @@
             <tbody>
               {% for row in summary.connection_rate_report.rows %}
               <tr>
+                <td style="text-align:center"><input type="checkbox" class="connection-rate-checkbox" checked title="Include in export"></td>
                 <td class="rate-sr-cell" style="text-align:center;color:var(--text-muted)">{{ row.sr }}</td>
                 <td><input class="rate-desc" value="{{ row.description }}" style="width:100%;background:transparent;border:0;color:var(--text-primary);font-weight:600;text-align:left;"></td>
                 <td style="text-align:center"><input class="rate-count" type="number" min="0" step="1" value="{{ row.connections }}" style="width:110px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);padding:5px;"></td>
@@ -348,6 +350,7 @@
               </tr>
               {% endfor %}
               <tr class="grand-total-row">
+                <td></td>
                 <td></td>
                 <td style="font-weight:800;color:var(--amber);text-align:left;">Total</td>
                 <td id="connection-rate-grand-count" style="text-align:center;font-weight:800;color:var(--teal);">{{ summary.connection_rate_report.grand_total.connections }}</td>
@@ -649,9 +652,9 @@
       return 0;
     }
 
-    function addConnectionRateCount(counts, category, annualRate) {
+    function addConnectionRateCount(counts, category, annualRate, description) {
       var rate = Math.round(annualRate || defaultConnectionAnnualRate(category) || 0);
-      var key = category + '|||' + rate;
+      var key = category + '|||' + rate + '|||' + (description || '');
       counts[key] = (counts[key] || 0) + 1;
     }
 
@@ -661,15 +664,18 @@
         var matches = [];
         Object.keys(counts).forEach(function(key) {
           var parts = key.split('|||');
-          if (parts[0] === cat.key) matches.push({ rate: parseInt(parts[1], 10) || 0, count: counts[key] || 0 });
+          if (parts[0] === cat.key) matches.push({ rate: parseInt(parts[1], 10) || 0, description: parts.slice(2).join('|||'), count: counts[key] || 0 });
         });
-        matches.sort(function(a, b) { return a.rate - b.rate; });
-        if (!matches.length) matches.push({ rate: cat.rate, count: 0 });
+        matches.sort(function(a, b) {
+          if (a.description !== b.description) return a.description < b.description ? -1 : 1;
+          return a.rate - b.rate;
+        });
+        if (!matches.length) matches.push({ rate: cat.rate, description: cat.description, count: 0 });
         matches.forEach(function(match) {
           rows.push({
             sr: rows.length + 1,
             key: cat.key,
-            description: cat.description,
+            description: match.description || cat.description,
             connections: match.count,
             rate: match.rate,
             total: match.count * match.rate
@@ -833,7 +839,10 @@
         }
         if (status === 'Active') {
           var reportCategory = connectionRateCategory(sector, locality, rateType);
-          addConnectionRateCount(connectionRateCounts, reportCategory, annualRate);
+          // Commercial rows use Locality in Description so the rate report can
+          // be checked against the Commercial PDF locality list.
+          var reportDescription = (reportCategory === 'domestic' || reportCategory === 'domestic_private_societies') ? '' : locality;
+          addConnectionRateCount(connectionRateCounts, reportCategory, annualRate, reportDescription);
         }
 
         var normKey = normalizeSector(sector);
@@ -1539,13 +1548,16 @@
       var totalConnections = 0;
       var totalAmount = 0;
       table.querySelectorAll('tbody tr:not(.grand-total-row)').forEach(function(tr, idx) {
+        var cb = tr.querySelector('.connection-rate-checkbox');
         var count = Math.round(numberValue(tr.querySelector('.rate-count')));
         var rate = numberValue(tr.querySelector('.rate-value'));
         var total = count * rate;
         tr.querySelector('.rate-sr-cell').textContent = idx + 1;
         tr.querySelector('.rate-total').textContent = Math.round(total).toLocaleString();
-        totalConnections += count;
-        totalAmount += total;
+        if (!cb || cb.checked) {
+          totalConnections += count;
+          totalAmount += total;
+        }
       });
       document.getElementById('connection-rate-grand-count').textContent = totalConnections.toLocaleString();
       document.getElementById('connection-rate-grand-total').textContent = Math.round(totalAmount).toLocaleString();
@@ -1553,8 +1565,11 @@
 
     function connectionRatePayload() {
       var rows = [];
-      // Connection Rate exports use the current editable table from Consumer Report.
+      // Connection Rate exports use only checked rows from the current editable
+      // Consumer Report table, so unchecked rows are exempt from PDF/CSV/Excel.
       table.querySelectorAll('tbody tr:not(.grand-total-row)').forEach(function(tr) {
+        var cb = tr.querySelector('.connection-rate-checkbox');
+        if (cb && !cb.checked) return;
         rows.push({
           description: tr.querySelector('.rate-desc').value,
           connections: Math.round(numberValue(tr.querySelector('.rate-count'))),
@@ -1565,11 +1580,29 @@
     }
 
     table.addEventListener('input', recalcConnectionRateTable);
+    table.addEventListener('change', function(e) {
+      if (e.target && e.target.classList.contains('connection-rate-checkbox')) {
+        var all = Array.prototype.slice.call(table.querySelectorAll('.connection-rate-checkbox'));
+        var selectAll = document.getElementById('select-all-connection-rate');
+        if (selectAll) selectAll.checked = all.length > 0 && all.every(function(cb) { return cb.checked; });
+      }
+      recalcConnectionRateTable();
+    });
+    var selectAllRate = document.getElementById('select-all-connection-rate');
+    if (selectAllRate) {
+      selectAllRate.addEventListener('change', function() {
+        table.querySelectorAll('.connection-rate-checkbox').forEach(function(cb) {
+          cb.checked = selectAllRate.checked;
+        });
+        recalcConnectionRateTable();
+      });
+    }
     var addBtn = document.getElementById('add-connection-rate-row');
     if (addBtn) {
       addBtn.addEventListener('click', function() {
         var tr = document.createElement('tr');
-        tr.innerHTML = '<td class="rate-sr-cell" style="text-align:center;color:var(--text-muted)"></td>' +
+        tr.innerHTML = '<td style="text-align:center"><input type="checkbox" class="connection-rate-checkbox" checked title="Include in export"></td>' +
+          '<td class="rate-sr-cell" style="text-align:center;color:var(--text-muted)"></td>' +
           '<td><input class="rate-desc" value="New category" style="width:100%;background:transparent;border:0;color:var(--text-primary);font-weight:600;text-align:left;"></td>' +
           '<td style="text-align:center"><input class="rate-count" type="number" min="0" step="1" value="0" style="width:110px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);padding:5px;"></td>' +
           '<td style="text-align:center"><input class="rate-value" type="number" min="0" step="1" value="0" style="width:110px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);padding:5px;"></td>' +
@@ -1583,10 +1616,15 @@
       btn.addEventListener('click', function() {
         recalcConnectionRateTable();
         var outFmt = btn.getAttribute('data-rate-export');
+        var exportPayload = connectionRatePayload();
+        if (!exportPayload.rows.length) {
+          alert('Please select at least one row for export.');
+          return;
+        }
         fetch('{{ url_for("export_connection_rate_report", fmt_type="__FMT__") }}'.replace('__FMT__', outFmt), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(connectionRatePayload())
+          body: JSON.stringify(exportPayload)
         }).then(function(resp) {
           if (!resp.ok) throw new Error('Export failed');
           return resp.blob();

@@ -8816,18 +8816,18 @@ def _connection_report_annual_rate(row: dict, category: str, rate_lookup: dict) 
     return _connection_rate_default(category)
 
 
-def _connection_rate_report_from_counts(counts: dict[tuple[str, int], int]) -> dict:
+def _connection_rate_report_from_counts(counts: dict[tuple[str, str, int], int]) -> dict:
     report_rows = []
     serial = 1
     for category, description, default_rate in CONNECTION_RATE_CATEGORIES:
-        matches = sorted((rate, count) for (key, rate), count in counts.items() if key == category)
+        matches = sorted((desc, rate, count) for (key, desc, rate), count in counts.items() if key == category)
         if not matches:
-            matches = [(int(default_rate), 0)]
-        for rate, count in matches:
+            matches = [(description, int(default_rate), 0)]
+        for desc, rate, count in matches:
             report_rows.append({
                 "sr": serial,
                 "key": category,
-                "description": description,
+                "description": desc or description,
                 "connections": count,
                 "rate": rate,
                 "total": count * rate,
@@ -8844,7 +8844,7 @@ def _connection_rate_report_from_counts(counts: dict[tuple[str, int], int]) -> d
 
 
 def _build_connection_rate_report(rows: list[dict]) -> dict:
-    counts: dict[tuple[str, int], int] = {}
+    counts: dict[tuple[str, str, int], int] = {}
     rate_lookup = _connection_rate_lookup()
     for row in rows:
         if row.get("connection_status", "Active") != "Active":
@@ -8857,13 +8857,16 @@ def _build_connection_rate_report(rows: list[dict]) -> dict:
         clean_row = dict(row, sector=sector, locality=locality)
         category = _connection_rate_category(clean_row)
         annual_rate = int(round(_connection_report_annual_rate(clean_row, category, rate_lookup)))
-        counts[(category, annual_rate)] = counts.get((category, annual_rate), 0) + 1
+        # Commercial rate report rows use the locality as Description so the
+        # summary matches the Commercial PDF and is easier to verify.
+        description = locality if category not in ("domestic", "domestic_private_societies") else ""
+        counts[(category, description, annual_rate)] = counts.get((category, description, annual_rate), 0) + 1
     return _connection_rate_report_from_counts(counts)
 
 
 def _build_connection_rate_report_from_summary(summary: dict) -> dict:
     """Fallback for already-cached Consumer Report data without raw upload rows."""
-    stats: dict[tuple[str, int], dict] = {}
+    stats: dict[tuple[str, str, int], dict] = {}
     for row in summary.get("summary_rows", []):
         active = int(row.get("active") or 0)
         if active <= 0:
@@ -8880,7 +8883,8 @@ def _build_connection_rate_report_from_summary(summary: dict) -> dict:
             annual_rate = int(round(float(row.get("budget") or 0) / active))
         else:
             annual_rate = int(round(row.get("rate") or _connection_rate_default(category)))
-        key = (category, annual_rate)
+        description = row.get("locality", "") if category not in ("domestic", "domestic_private_societies") else ""
+        key = (category, description, annual_rate)
         if key not in stats:
             stats[key] = {"connections": 0, "total": 0.0}
         stats[key]["connections"] += active
@@ -8889,14 +8893,14 @@ def _build_connection_rate_report_from_summary(summary: dict) -> dict:
     report_rows = []
     serial = 1
     for category, description, default_rate in CONNECTION_RATE_CATEGORIES:
-        matches = sorted((rate, values) for (key, rate), values in stats.items() if key == category)
+        matches = sorted((desc, rate, values) for (key, desc, rate), values in stats.items() if key == category)
         if not matches:
-            matches = [(int(default_rate), {"connections": 0, "total": 0.0})]
-        for rate, values in matches:
+            matches = [(description, int(default_rate), {"connections": 0, "total": 0.0})]
+        for desc, rate, values in matches:
             report_rows.append({
                 "sr": serial,
                 "key": category,
-                "description": description,
+                "description": desc or description,
                 "connections": values["connections"],
                 "rate": rate,
                 "total": values["total"],
