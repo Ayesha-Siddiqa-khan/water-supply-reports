@@ -7850,6 +7850,8 @@ def export_daily_staff_receive(fmt_type: str):
 _consumer_report_data: list[dict] | None = None
 _consumer_report_filename: str | None = None
 _last_consumer_summary: dict | None = None
+_last_connection_rate_report: dict | None = None
+_connection_rate_report_filename: str | None = None
 
 
 def _save_consumer_summary_cache(summary: dict, filename: str | None, total_rows: int = 0) -> None:
@@ -8139,6 +8141,18 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
             return rate * 12
         return rate * 12  # Default: treat as monthly
 
+    def _domestic_annual_rate_override(rate_type: str, sector: str, locality: str) -> float | None:
+        """Use approved annual domestic tariffs instead of inconsistent period labels."""
+        combined = _normalize_rate_title(" ".join([rate_type or "", sector or "", locality or ""]))
+        rate_key = _normalize_rate_title(rate_type)
+        if "COMMERCIAL" in rate_key or "COMERCIAL" in rate_key:
+            return None
+        if "PRIVATE" in combined and ("SOCIETY" in combined or "SOCIETIES" in combined or "SOCITIES" in combined or "SOCITES" in combined or "SOCITY" in combined):
+            return 9600.0
+        if "DOMESTIC" in rate_key or "MONTH JAN26 TO JUNE26" in rate_key:
+            return 4800.0
+        return None
+
     rate_lookup = _build_rate_lookup()
 
     # sector_map: normalized_key → { original, localities_set, closed, active, budget }
@@ -8175,8 +8189,7 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
                 "suspended": 0,
                 "active": 0,
                 "budget": 0.0,
-                "rate_sum": 0.0,
-                "rate_count": 0,
+                "annual_rate": 0.0,
             }
 
         # Keep the shortest original sector name for cleaner display
@@ -8207,11 +8220,15 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
         # Fix: calculate the per-row annual budget once from the consumer
         # Rate Type -> rate-list Rate Title match, and apply it only to Active rows.
         row_budget = 0.0
+        annual_rate = 0.0
         clean_rate_type = _clean_rate_type_name(rate_type)
         rate_key = _normalize_rate_title(rate_type)
         if status == "Active" and rate_key and rate_key in rate_lookup:
             rl = rate_lookup[rate_key]
-            row_budget = _calc_annual_budget(rl["rate"], rl["period"])
+            annual_rate = _domestic_annual_rate_override(rate_type, sector_raw, locality_raw)
+            if annual_rate is None:
+                annual_rate = _calc_annual_budget(rl["rate"], rl["period"])
+            row_budget = annual_rate
         elif status == "Active" and clean_rate_type:
             if clean_rate_type not in unmatched_rate_types:
                 unmatched_rate_types.append(clean_rate_type)
@@ -8225,15 +8242,17 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
             sector_map[norm_key]["active"] += 1
         sector_map[norm_key]["budget"] += row_budget
 
-        # Track rate for this sector (most common rate used for display)
-        if status == "Active" and rate_key and rate_key in rate_lookup:
-            sector_map[norm_key]["rate_sum"] += rate_lookup[rate_key]["rate"]
-            sector_map[norm_key]["rate_count"] += 1
+        # Rate display must show the annual tariff, never an average derived
+        # from Budget/counts. Domestic rows have one tariff per grouped sector.
+        if status == "Active" and annual_rate:
+            sector_map[norm_key]["annual_rate"] = annual_rate
 
         # Fix: commercial records also keep a locality-level map so they never
         # collapse into one COMMERCIAL row in the Commercial tab or exports.
         if sector_raw.upper().startswith("COMMERCIAL"):
-            loc_key = norm_key + "|||" + _normalize_sector(locality_raw)
+            # Include annual tariff in the key so mixed-diameter/category
+            # commercial records are split instead of averaged into one row.
+            loc_key = norm_key + "|||" + _normalize_sector(locality_raw) + "|||" + str(int(annual_rate or 0))
             if loc_key not in commercial_locality_map:
                 commercial_locality_map[loc_key] = {
                     "sector": sector_raw,
@@ -8242,8 +8261,7 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
                     "suspended": 0,
                     "active": 0,
                     "budget": 0.0,
-                    "rate_sum": 0.0,
-                    "rate_count": 0,
+                    "annual_rate": annual_rate,
                 }
             if status == "Suspended":
                 commercial_locality_map[loc_key]["suspended"] += 1
@@ -8252,10 +8270,8 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
             else:
                 commercial_locality_map[loc_key]["active"] += 1
             commercial_locality_map[loc_key]["budget"] += row_budget
-            # Track rate for commercial locality (most common rate for display)
-            if status == "Active" and rate_key and rate_key in rate_lookup:
-                commercial_locality_map[loc_key]["rate_sum"] += rate_lookup[rate_key]["rate"]
-                commercial_locality_map[loc_key]["rate_count"] += 1
+            if status == "Active" and annual_rate:
+                commercial_locality_map[loc_key]["annual_rate"] = annual_rate
 
     # Build summary rows — one row per normalized sector
     summary_rows: list[dict] = []
@@ -8284,7 +8300,7 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
             "active": active,
             "total": total,
             "budget": budget,
-            "rate": round(s_data["rate_sum"] / s_data["rate_count"]) if s_data["rate_count"] > 0 else 0,
+            "rate": s_data.get("annual_rate", 0),
         })
         sector_totals[original_sector] = {"closed": closed, "suspended": suspended, "active": active, "total": total, "budget": budget}
         grand_closed += closed
@@ -8311,7 +8327,7 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
             "active": c_active,
             "total": c_closed + c_suspended + c_active,
             "budget": c_budget,
-            "rate": round(c_data["rate_sum"] / c_data["rate_count"]) if c_data["rate_count"] > 0 else 0,
+            "rate": c_data.get("annual_rate", 0),
         })
         commercial_closed += c_closed
         commercial_suspended += c_suspended
@@ -8593,6 +8609,147 @@ def _load_rates_csv() -> list[dict]:
         return [row for row in reader if (row.get("Rate Title") or "").strip()]
 
 
+CONNECTION_RATE_CATEGORIES = [
+    ("domestic", "Domestic", 300),
+    ("domestic_private_societies", "Domestic private societies", 800),
+    ("bank_hamam_tea_stall_samosa", "BANK/HAMAM/TEA STALL/SAMOSA SHOP ETC", 500),
+    ("college_schools", "College And Schools", 500),
+    ("petrol_pump", "Petrol Pump", 500),
+    ("private_hospital", "Private Hospital", 500),
+    ("hotel_marriage_sweet_bakery", "HOTEL/ MARRIAGE HALL/ SWEET SHOP /BAKERY", 1000),
+    ("park", "Park", 1000),
+    ("service_station", "Service Station", 2500),
+    ("factory_commercial", "Factory Commercial", 3000),
+]
+
+
+def _norm_report_text(value: str) -> str:
+    return re.sub(r"[^A-Z0-9]+", " ", str(value or "").upper()).strip()
+
+
+def _connection_rate_category(row: dict) -> str:
+    sector = row.get("sector", "")
+    locality = row.get("locality", "")
+    rate_type = row.get("rate_type", "")
+    text = _norm_report_text(" ".join([sector, locality, rate_type]))
+    rate_key = _normalize_rate_title(rate_type)
+    if "PRIVATE" in text and any(word in text for word in ("SOCIETY", "SOCIETIES", "SOCITIES", "SOCITES", "SOCITY")):
+        return "domestic_private_societies"
+    if "COMMERCIAL" not in rate_key and "COMERCIAL" not in rate_key and "COMMERCIAL" not in text and "COMERCIAL" not in text:
+        return "domestic"
+    if any(word in text for word in ("SCHOOL", "COLLEGE")):
+        return "college_schools"
+    if "PETROL" in text:
+        return "petrol_pump"
+    if "HOSPITAL" in text:
+        return "private_hospital"
+    if any(word in text for word in ("HOTEL", "MARRIAGE", "SWEET", "BAKERY", "BAKERIES")):
+        return "hotel_marriage_sweet_bakery"
+    if "PARK" in text:
+        return "park"
+    if "SERVICE" in text and "STATION" in text:
+        return "service_station"
+    if "FACTORY" in text:
+        return "factory_commercial"
+    return "bank_hamam_tea_stall_samosa"
+
+
+def _build_connection_rate_report(rows: list[dict]) -> dict:
+    counts = {key: 0 for key, _, _ in CONNECTION_RATE_CATEGORIES}
+    for row in rows:
+        if row.get("connection_status", "Active") != "Active":
+            continue
+        counts[_connection_rate_category(row)] += 1
+    report_rows = []
+    for idx, (key, description, rate) in enumerate(CONNECTION_RATE_CATEGORIES, start=1):
+        count = counts.get(key, 0)
+        report_rows.append({
+            "sr": idx,
+            "key": key,
+            "description": description,
+            "connections": count,
+            "rate": rate,
+            "total": count * rate * 12,
+        })
+    return {
+        "rows": report_rows,
+        "grand_total": {
+            "connections": sum(r["connections"] for r in report_rows),
+            "total": sum(r["total"] for r in report_rows),
+        },
+    }
+
+
+def _connection_rate_rows_from_payload(payload: dict) -> list[dict]:
+    rows = []
+    for idx, row in enumerate(payload.get("rows", []), start=1):
+        connections = int(parse_number(row.get("connections", 0)))
+        rate = float(parse_number(row.get("rate", 0)))
+        rows.append({
+            "sr": idx,
+            "description": str(row.get("description", "")).strip(),
+            "connections": connections,
+            "rate": rate,
+            "total": connections * rate * 12,
+        })
+    return rows
+
+
+@app.route("/connection-rate-report", methods=["GET", "POST"])
+def connection_rate_report():
+    global _last_connection_rate_report, _connection_rate_report_filename
+    if request.method == "POST":
+        if request.form.get("action") == "clear":
+            _last_connection_rate_report = None
+            _connection_rate_report_filename = None
+            return redirect(url_for("connection_rate_report"))
+        file = request.files.get("consumer_file")
+        if not file or not file.filename:
+            flash("Please choose a consumer CSV or Excel file first.")
+            return redirect(url_for("connection_rate_report"))
+        rows, errors = _parse_consumer_csv(file)
+        if errors:
+            flash("Upload failed: " + "; ".join(errors))
+            return redirect(url_for("connection_rate_report"))
+        _last_connection_rate_report = _build_connection_rate_report(rows)
+        _connection_rate_report_filename = secure_filename(file.filename or "upload.csv")
+        flash("Connection rate report generated.")
+        return redirect(url_for("connection_rate_report"))
+    return render_template(
+        "connection_rate_report.html",
+        report=_last_connection_rate_report,
+        filename=_connection_rate_report_filename,
+        active_page="connection_rate_report",
+    )
+
+
+@app.route("/connection-rate-report/export/<fmt_type>", methods=["POST"])
+def export_connection_rate_report(fmt_type: str):
+    payload = request.get_json(silent=True) or {}
+    rows = _connection_rate_rows_from_payload(payload)
+    if not rows:
+        flash("No connection rate report data available.")
+        return redirect(url_for("connection_rate_report"))
+
+    headers = ["Sr No.", "Description", "No of Connections", "Rate per Connection", "Total amount"]
+    data_rows = [[r["sr"], r["description"], r["connections"], fmt(r["rate"]), fmt(r["total"])] for r in rows]
+    total_row = ["", "Total", sum(r["connections"] for r in rows), "", fmt(sum(r["total"] for r in rows))]
+
+    if fmt_type == "csv":
+        df = pd.DataFrame(data_rows + [total_row], columns=headers)
+        return Response(df.to_csv(index=False), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=connection_rate_report.csv"})
+    if fmt_type == "xlsx":
+        buf = io.BytesIO()
+        pd.DataFrame(data_rows + [total_row], columns=headers).to_excel(buf, index=False)
+        buf.seek(0)
+        return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=connection_rate_report.xlsx"})
+    if fmt_type == "pdf":
+        pdf_bytes = generate_summary_pdf("Connection Rate Report", headers, data_rows, total_row, show_summary=True)
+        return Response(pdf_bytes, mimetype="application/pdf", headers={"Content-Disposition": "attachment; filename=connection_rate_report.pdf"})
+    flash("Unknown export format.")
+    return redirect(url_for("connection_rate_report"))
+
+
 @app.route("/consumer-report", methods=["GET", "POST"])
 def consumer_report():
     global _consumer_report_data, _consumer_report_filename, _last_consumer_summary
@@ -8849,7 +9006,7 @@ def export_consumer_report(fmt_type: str):
         "sr":     ("SR",     lambda r: r["serial"],             12),
         "sector": ("Sector", lambda r: r["sector"],             58),
         "locality": ("Locality", lambda r: r["locality"],       54),
-        "rate":   ("Rate",   lambda r: int(r.get("rate", 0)),    18),
+        "rate":   ("Rate (Rs./Year)", lambda r: int(r.get("rate", 0)), 18),
         "closed": ("Closed", lambda r: r["closed"],             16),
         "suspended": ("Suspended", lambda r: r.get("suspended", 0), 18),
         "active": ("Active", lambda r: r["active"],             16),

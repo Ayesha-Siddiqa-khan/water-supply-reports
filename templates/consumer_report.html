@@ -207,7 +207,7 @@
                   <th style="width:50px;text-align:center">SR</th>
                   <th style="text-align:left">Sector</th>
                   <th style="text-align:left">Locality</th>
-                  <th style="width:80px;text-align:center">Rate</th>
+                  <th style="width:90px;text-align:center">Rate (Rs./Year)</th>
                   <th style="width:80px;text-align:center">Closed</th>
                   <th style="width:90px;text-align:center">Suspended</th>
                   <th style="width:80px;text-align:center">Active</th>
@@ -264,7 +264,7 @@
                   <th style="width:50px;text-align:center">SR</th>
                   <th style="text-align:left">Sector</th>
                   <th style="text-align:left">Locality</th>
-                  <th style="width:80px;text-align:center">Rate</th>
+                  <th style="width:90px;text-align:center">Rate (Rs./Year)</th>
                   <th style="width:80px;text-align:center">Closed</th>
                   <th style="width:90px;text-align:center">Suspended</th>
                   <th style="width:80px;text-align:center">Active</th>
@@ -535,6 +535,21 @@
       return rate * 12;
     }
 
+    function domesticAnnualRateOverride(rateType, sector, locality) {
+      // Domestic annual tariffs are fixed by category; legacy rate labels are inconsistent.
+      var combined = normalizeRateTitle([rateType || '', sector || '', locality || ''].join(' '));
+      var rateKey = normalizeRateTitle(rateType || '');
+      if (rateKey.indexOf('COMMERCIAL') !== -1 || rateKey.indexOf('COMERCIAL') !== -1) return null;
+      if (combined.indexOf('PRIVATE') !== -1 && (
+          combined.indexOf('SOCIETY') !== -1 ||
+          combined.indexOf('SOCIETIES') !== -1 ||
+          combined.indexOf('SOCITIES') !== -1 ||
+          combined.indexOf('SOCITES') !== -1 ||
+          combined.indexOf('SOCITY') !== -1)) return 9600;
+      if (rateKey.indexOf('DOMESTIC') !== -1 || rateKey.indexOf('MONTH JAN26 TO JUNE26') !== -1) return 4800;
+      return null;
+    }
+
     // Simple CSV line parser (handles quoted fields with commas)
     function parseCSVLine(line) {
       var result = [];
@@ -664,11 +679,14 @@
         var rateType = '';
         if (colMap.rate_type !== undefined) rateType = (fields[colMap.rate_type] || '').trim();
         var rowBudget = 0;
+        var annualRate = 0;
         var cleanRateType = cleanRateTypeName(rateType);
         var rateKey = normalizeRateTitle(rateType);
         if (status === 'Active' && rateKey && rateLookup[rateKey]) {
           var rl = rateLookup[rateKey];
-          rowBudget = calcAnnualBudget(rl.rate, rl.period);
+          annualRate = domesticAnnualRateOverride(rateType, sector, locality);
+          if (annualRate === null) annualRate = calcAnnualBudget(rl.rate, rl.period);
+          rowBudget = annualRate;
           totalMatchedBudget += rowBudget;
         } else if (status === 'Active' && cleanRateType) {
           // Fix: warn only for active rows that need a budget, and show just
@@ -680,7 +698,7 @@
         var normKey = normalizeSector(sector);
 
         if (!sectorMap[normKey]) {
-          sectorMap[normKey] = { original: sector, localities: '', closed: 0, suspended: 0, active: 0, budget: 0, rate_sum: 0, rate_count: 0 };
+          sectorMap[normKey] = { original: sector, localities: '', closed: 0, suspended: 0, active: 0, budget: 0, annual_rate: 0 };
         }
         if (sector.length < sectorMap[normKey].original.length) {
           sectorMap[normKey].original = sector;
@@ -693,11 +711,8 @@
         else sectorMap[normKey].active++;
         sectorMap[normKey].budget += rowBudget;
 
-        // Track per-period rate for active rows (used by Rate column)
-        if (status === 'Active' && rateKey && rateLookup[rateKey]) {
-          sectorMap[normKey].rate_sum += rateLookup[rateKey].rate;
-          sectorMap[normKey].rate_count++;
-        }
+        // Rate column displays the actual annual tariff, never Budget/count averages.
+        if (status === 'Active' && annualRate) sectorMap[normKey].annual_rate = annualRate;
 
         totalRows++;
       }
@@ -737,7 +752,7 @@
         normalSummaryRows.push({
           serial: normalSerial, sector: s.original, locality: localityVal,
           closed: s.closed, suspended: s.suspended, active: s.active, total: total, budget: s.budget,
-          rate: s.rate_count > 0 ? Math.round(s.rate_sum / s.rate_count) : 0
+          rate: s.annual_rate || 0
         });
         normalSectorTotals[s.original] = { closed: s.closed, suspended: s.suspended, active: s.active, total: total, budget: s.budget };
         normalGrandClosed += s.closed;
@@ -769,26 +784,31 @@
 
         if (sector.toUpperCase().indexOf('COMMERCIAL') !== 0) continue;
 
-        // Use sector+locality as key so each locality stays separate
-        var locKey = normalizeSector(sector) + '|||' + normalizeSector(locality);
+        var rateType = '';
+        if (colMap.rate_type !== undefined) rateType = (fields[colMap.rate_type] || '').trim();
+        var rateKey = normalizeRateTitle(rateType);
+        var annualRate = 0;
+        if (status === 'Active' && rateKey && rateLookup[rateKey]) {
+          var rl = rateLookup[rateKey];
+          annualRate = domesticAnnualRateOverride(rateType, sector, locality);
+          if (annualRate === null) annualRate = calcAnnualBudget(rl.rate, rl.period);
+        }
+
+        // Include annual tariff in the key so mixed commercial sizes/categories
+        // split into clear tariff rows instead of showing an average rate.
+        var locKey = normalizeSector(sector) + '|||' + normalizeSector(locality) + '|||' + Math.round(annualRate || 0);
 
         if (!commercialLocalityMap[locKey]) {
-          commercialLocalityMap[locKey] = { sector: sector, locality: locality, closed: 0, suspended: 0, active: 0, budget: 0, rate_sum: 0, rate_count: 0 };
+          commercialLocalityMap[locKey] = { sector: sector, locality: locality, closed: 0, suspended: 0, active: 0, budget: 0, annual_rate: annualRate };
         }
         if (status === 'Suspended') commercialLocalityMap[locKey].suspended++;
         else if (status === 'Closed') commercialLocalityMap[locKey].closed++;
         else commercialLocalityMap[locKey].active++;
 
-        // Calculate budget for this commercial row — only Active records contribute
-        var rateType = '';
-        if (colMap.rate_type !== undefined) rateType = (fields[colMap.rate_type] || '').trim();
-        var rateKey = normalizeRateTitle(rateType);
-        if (status === 'Active' && rateKey && rateLookup[rateKey]) {
-          var rl = rateLookup[rateKey];
-          commercialLocalityMap[locKey].budget += calcAnnualBudget(rl.rate, rl.period);
-          // Track per-period rate for Rate column
-          commercialLocalityMap[locKey].rate_sum += rl.rate;
-          commercialLocalityMap[locKey].rate_count++;
+        // Calculate budget for this commercial row - only Active records contribute.
+        if (status === 'Active' && annualRate) {
+          commercialLocalityMap[locKey].budget += annualRate;
+          commercialLocalityMap[locKey].annual_rate = annualRate;
         }
       }
 
@@ -800,7 +820,7 @@
         commercialSummaryRows.push({
           serial: commercialSerial, sector: cl.sector, locality: cl.locality,
           closed: cl.closed, suspended: cl.suspended, active: cl.active, total: total, budget: cl.budget,
-          rate: cl.rate_count > 0 ? Math.round(cl.rate_sum / cl.rate_count) : 0
+          rate: cl.annual_rate || 0
         });
         if (!commercialSectorTotals[cl.sector]) {
           commercialSectorTotals[cl.sector] = { closed: 0, suspended: 0, active: 0, total: 0, budget: 0 };
