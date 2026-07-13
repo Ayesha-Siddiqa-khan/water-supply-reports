@@ -6594,6 +6594,115 @@ def generate_summary_pdf(title: str, headers: list[str], rows: list[list], total
     )
 
 
+def generate_connection_rate_pdf(rows: list[list], total_row: list[str]) -> bytes:
+    """Print-friendly Consumer Report rate summary with wrapped descriptions."""
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=A4,
+        topMargin=16 * mm,
+        bottomMargin=14 * mm,
+        leftMargin=12 * mm,
+        rightMargin=12 * mm,
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "ConnectionRateTitle",
+        parent=styles["Heading1"],
+        fontSize=18,
+        leading=22,
+        alignment=1,
+        textColor=ACCENT,
+        fontName="Helvetica-Bold",
+        spaceAfter=7 * mm,
+    )
+    meta_style = ParagraphStyle(
+        "ConnectionRateMeta",
+        parent=styles["Normal"],
+        fontSize=10,
+        leading=13,
+        alignment=0,
+        spaceAfter=11 * mm,
+    )
+    header_style = ParagraphStyle(
+        "ConnectionRateHeader",
+        parent=styles["Normal"],
+        fontSize=9,
+        leading=11,
+        alignment=1,
+        textColor=HEADER_FG,
+        fontName="Helvetica-Bold",
+    )
+    desc_style = ParagraphStyle(
+        "ConnectionRateDescription",
+        parent=styles["Normal"],
+        fontSize=9,
+        leading=11,
+        alignment=0,
+        wordWrap="CJK",
+    )
+    body_style = ParagraphStyle(
+        "ConnectionRateBody",
+        parent=styles["Normal"],
+        fontSize=9,
+        leading=11,
+        alignment=1,
+    )
+    bold_style = ParagraphStyle(
+        "ConnectionRateBold",
+        parent=body_style,
+        fontName="Helvetica-Bold",
+    )
+    headers = ["Sr No.", "Description", "No of\nConnections", "Rate per\nConnection", "Total amount"]
+    table_rows = [[Paragraph(h.replace("\n", "<br/>"), header_style) for h in headers]]
+    for row in rows:
+        table_rows.append([
+            Paragraph(str(row[0]), body_style),
+            Paragraph(str(row[1]), desc_style),
+            Paragraph(str(row[2]), body_style),
+            Paragraph(str(row[3]), body_style),
+            Paragraph(str(row[4]), body_style),
+        ])
+    table_rows.append([
+        "",
+        Paragraph(str(total_row[1]), bold_style),
+        Paragraph(str(total_row[2]), bold_style),
+        "",
+        Paragraph(str(total_row[4]), bold_style),
+    ])
+
+    page_w = A4[0] - 24 * mm
+    col_widths = [18 * mm, page_w - (18 + 32 + 32 + 34) * mm, 32 * mm, 32 * mm, 34 * mm]
+    table = Table(table_rows, colWidths=col_widths, repeatRows=1, hAlign="CENTER")
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
+        ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
+        ("GRID", (0, 0), (-1, -1), 0.75, colors.HexColor("#b8aa98")),
+        ("BOX", (0, 0), (-1, -1), 0.9, colors.HexColor("#8f7e6a")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (0, -1), "CENTER"),
+        ("ALIGN", (1, 1), (1, -1), "LEFT"),
+        ("ALIGN", (2, 1), (-1, -1), "CENTER"),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#e6d8c8")),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+    ]))
+    for idx in range(1, len(table_rows) - 1):
+        if idx % 2 == 0:
+            table.setStyle(TableStyle([("BACKGROUND", (0, idx), (-1, idx), ALT_ROW)]))
+
+    doc.build([
+        Paragraph("Connection Rate Report", title_style),
+        Paragraph(f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}", meta_style),
+        table,
+    ])
+    buf.seek(0)
+    return buf.getvalue()
+
+
 def export_summary_response(fmt_type: str, title: str, data: list[dict], filename_prefix: str, show_summary: bool = True, cols_param: str = None):
     # Summary card exports are filtered by the row checkboxes before totals are generated.
     data = _filter_rows_by_selection(data, lambda item: str(item["name"]))
@@ -7850,8 +7959,6 @@ def export_daily_staff_receive(fmt_type: str):
 _consumer_report_data: list[dict] | None = None
 _consumer_report_filename: str | None = None
 _last_consumer_summary: dict | None = None
-_last_connection_rate_report: dict | None = None
-_connection_rate_report_filename: str | None = None
 
 
 def _save_consumer_summary_cache(summary: dict, filename: str | None, total_rows: int = 0) -> None:
@@ -8680,6 +8787,37 @@ def _build_connection_rate_report(rows: list[dict]) -> dict:
     }
 
 
+def _build_connection_rate_report_from_summary(summary: dict) -> dict:
+    """Fallback for already-cached Consumer Report data without raw upload rows."""
+    counts = {key: 0 for key, _, _ in CONNECTION_RATE_CATEGORIES}
+    for row in summary.get("summary_rows", []):
+        if (row.get("active") or 0) <= 0:
+            continue
+        counts[_connection_rate_category({
+            "sector": row.get("sector", ""),
+            "locality": row.get("locality", ""),
+            "rate_type": "COMMERCIAL" if str(row.get("sector", "")).upper().startswith("COMMERCIAL") else "DOMESTIC",
+        })] += int(row.get("active") or 0)
+    report_rows = []
+    for idx, (key, description, rate) in enumerate(CONNECTION_RATE_CATEGORIES, start=1):
+        count = counts.get(key, 0)
+        report_rows.append({
+            "sr": idx,
+            "key": key,
+            "description": description,
+            "connections": count,
+            "rate": rate,
+            "total": count * rate * 12,
+        })
+    return {
+        "rows": report_rows,
+        "grand_total": {
+            "connections": sum(r["connections"] for r in report_rows),
+            "total": sum(r["total"] for r in report_rows),
+        },
+    }
+
+
 def _connection_rate_rows_from_payload(payload: dict) -> list[dict]:
     rows = []
     for idx, row in enumerate(payload.get("rows", []), start=1):
@@ -8695,41 +8833,13 @@ def _connection_rate_rows_from_payload(payload: dict) -> list[dict]:
     return rows
 
 
-@app.route("/connection-rate-report", methods=["GET", "POST"])
-def connection_rate_report():
-    global _last_connection_rate_report, _connection_rate_report_filename
-    if request.method == "POST":
-        if request.form.get("action") == "clear":
-            _last_connection_rate_report = None
-            _connection_rate_report_filename = None
-            return redirect(url_for("connection_rate_report"))
-        file = request.files.get("consumer_file")
-        if not file or not file.filename:
-            flash("Please choose a consumer CSV or Excel file first.")
-            return redirect(url_for("connection_rate_report"))
-        rows, errors = _parse_consumer_csv(file)
-        if errors:
-            flash("Upload failed: " + "; ".join(errors))
-            return redirect(url_for("connection_rate_report"))
-        _last_connection_rate_report = _build_connection_rate_report(rows)
-        _connection_rate_report_filename = secure_filename(file.filename or "upload.csv")
-        flash("Connection rate report generated.")
-        return redirect(url_for("connection_rate_report"))
-    return render_template(
-        "connection_rate_report.html",
-        report=_last_connection_rate_report,
-        filename=_connection_rate_report_filename,
-        active_page="connection_rate_report",
-    )
-
-
-@app.route("/connection-rate-report/export/<fmt_type>", methods=["POST"])
+@app.route("/consumer-report/connection-rate-export/<fmt_type>", methods=["POST"])
 def export_connection_rate_report(fmt_type: str):
     payload = request.get_json(silent=True) or {}
     rows = _connection_rate_rows_from_payload(payload)
     if not rows:
         flash("No connection rate report data available.")
-        return redirect(url_for("connection_rate_report"))
+        return redirect(url_for("consumer_report"))
 
     headers = ["Sr No.", "Description", "No of Connections", "Rate per Connection", "Total amount"]
     data_rows = [[r["sr"], r["description"], r["connections"], fmt(r["rate"]), fmt(r["total"])] for r in rows]
@@ -8744,10 +8854,10 @@ def export_connection_rate_report(fmt_type: str):
         buf.seek(0)
         return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=connection_rate_report.xlsx"})
     if fmt_type == "pdf":
-        pdf_bytes = generate_summary_pdf("Connection Rate Report", headers, data_rows, total_row, show_summary=True)
+        pdf_bytes = generate_connection_rate_pdf(data_rows, total_row)
         return Response(pdf_bytes, mimetype="application/pdf", headers={"Content-Disposition": "attachment; filename=connection_rate_report.pdf"})
     flash("Unknown export format.")
-    return redirect(url_for("connection_rate_report"))
+    return redirect(url_for("consumer_report"))
 
 
 @app.route("/consumer-report", methods=["GET", "POST"])
@@ -8786,6 +8896,7 @@ def consumer_report():
                 "total_budget": data.get("total_budget", 0),
                 "commercial_detailed_rows": data.get("commercial_detailed_rows", []),
                 "commercial_grand_total": data.get("commercial_grand_total", {"closed": 0, "suspended": 0, "active": 0, "total": 0, "budget": 0}),
+                "connection_rate_report": data.get("connection_rate_report", {}),
                 "unmatched_rate_types": data.get("unmatched_rate_types", []),
                 "unmatched_budget_count": data.get("unmatched_budget_count", 0),
             }
@@ -8839,6 +8950,7 @@ def consumer_report():
             _consumer_report_filename = secure_filename(file.filename or "upload.csv")
 
             summary = _build_consumer_sector_summary(rows)
+            summary["connection_rate_report"] = _build_connection_rate_report(rows)
             # Fix: form uploads must update the same filtered cache as browser
             # JSON uploads; otherwise GET/export can reuse an older report.
             summary = _filter_active_rows(summary)
@@ -8859,12 +8971,16 @@ def consumer_report():
     rates_json_str = json.dumps(_load_rates_csv())
     cached_summary, cached_filename, cached_rows = _load_consumer_summary_cache()
     if cached_summary:
+        if not cached_summary.get("connection_rate_report"):
+            cached_summary["connection_rate_report"] = _build_connection_rate_report_from_summary(cached_summary)
         normal_summary, commercial_summary = _split_summary_by_type(cached_summary)
         return render_template("consumer_report.html", summary=cached_summary,
                                normal_summary=normal_summary, commercial_summary=commercial_summary,
                                filename=cached_filename, total_rows=cached_rows,
                                rates_json=rates_json_str)
     if _last_consumer_summary:
+        if not _last_consumer_summary.get("connection_rate_report"):
+            _last_consumer_summary["connection_rate_report"] = _build_connection_rate_report_from_summary(_last_consumer_summary)
         normal_summary, commercial_summary = _split_summary_by_type(_last_consumer_summary)
         return render_template("consumer_report.html", summary=_last_consumer_summary,
                                normal_summary=normal_summary, commercial_summary=commercial_summary,
@@ -8872,6 +8988,7 @@ def consumer_report():
                                rates_json=rates_json_str)
     if _consumer_report_data:
         summary = _build_consumer_sector_summary(_consumer_report_data)
+        summary["connection_rate_report"] = _build_connection_rate_report(_consumer_report_data)
         normal_summary, commercial_summary = _split_summary_by_type(summary)
         return render_template("consumer_report.html", summary=summary,
                                normal_summary=normal_summary, commercial_summary=commercial_summary,

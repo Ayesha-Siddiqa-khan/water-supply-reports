@@ -308,6 +308,60 @@
       </div>
     </div>
 
+    {% if summary and summary.connection_rate_report and summary.connection_rate_report.rows %}
+    <div class="section collapsed" id="sec-connection-rate-report">
+      <div class="section-header" onclick="toggleSection('sec-connection-rate-report')">
+        <div class="section-header-icon">&#128202;</div>
+        <div class="section-title">Connection Rate Report</div>
+        <span class="section-badge">{{ summary.connection_rate_report.rows|length }} rows</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="section-body">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">
+          Uses the same uploaded Consumer Report data. You can edit Description, No of Connections, and Rate before export.
+        </div>
+        <div class="export-bar" style="margin-bottom:10px;">
+          <button class="chip" type="button" data-rate-export="csv">Download CSV</button>
+          <button class="chip" type="button" data-rate-export="xlsx">Download Excel</button>
+          <button class="chip" type="button" data-rate-export="pdf">Download PDF</button>
+          <button class="chip" type="button" id="add-connection-rate-row">+ Add Row</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="connection-rate-table">
+            <thead>
+              <tr>
+                <th style="width:55px;text-align:center">Sr No.</th>
+                <th style="text-align:left">Description</th>
+                <th style="width:145px;text-align:center">No of Connections</th>
+                <th style="width:145px;text-align:center">Rate per Connection</th>
+                <th style="width:145px;text-align:right">Total amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in summary.connection_rate_report.rows %}
+              <tr>
+                <td class="rate-sr-cell" style="text-align:center;color:var(--text-muted)">{{ row.sr }}</td>
+                <td><input class="rate-desc" value="{{ row.description }}" style="width:100%;background:transparent;border:0;color:var(--text-primary);font-weight:600;text-align:left;"></td>
+                <td style="text-align:center"><input class="rate-count" type="number" min="0" step="1" value="{{ row.connections }}" style="width:110px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);padding:5px;"></td>
+                <td style="text-align:center"><input class="rate-value" type="number" min="0" step="1" value="{{ row.rate }}" style="width:110px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);padding:5px;"></td>
+                <td class="rate-total" style="text-align:right;color:var(--teal);font-weight:700;">{{ "{:,.0f}".format(row.total) }}</td>
+              </tr>
+              {% endfor %}
+              <tr class="grand-total-row">
+                <td></td>
+                <td style="font-weight:800;color:var(--amber);text-align:left;">Total</td>
+                <td id="connection-rate-grand-count" style="text-align:center;font-weight:800;color:var(--teal);">{{ summary.connection_rate_report.grand_total.connections }}</td>
+                <td></td>
+                <td id="connection-rate-grand-total" style="text-align:right;font-weight:800;color:var(--teal);">{{ "{:,.0f}".format(summary.connection_rate_report.grand_total.total) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    {% endif %}
+
     <!-- Clear Data -->
     <form method="post" action="{{ url_for('consumer_report') }}" style="margin-top:16px;">
       <input type="hidden" name="action" value="clear">
@@ -550,6 +604,65 @@
       return null;
     }
 
+    var CONNECTION_RATE_CATEGORIES = [
+      { key: 'domestic', description: 'Domestic', rate: 300 },
+      { key: 'domestic_private_societies', description: 'Domestic private societies', rate: 800 },
+      { key: 'bank_hamam_tea_stall_samosa', description: 'BANK/HAMAM/TEA STALL/SAMOSA SHOP ETC', rate: 500 },
+      { key: 'college_schools', description: 'College And Schools', rate: 500 },
+      { key: 'petrol_pump', description: 'Petrol Pump', rate: 500 },
+      { key: 'private_hospital', description: 'Private Hospital', rate: 500 },
+      { key: 'hotel_marriage_sweet_bakery', description: 'HOTEL/ MARRIAGE HALL/ SWEET SHOP /BAKERY', rate: 1000 },
+      { key: 'park', description: 'Park', rate: 1000 },
+      { key: 'service_station', description: 'Service Station', rate: 2500 },
+      { key: 'factory_commercial', description: 'Factory Commercial', rate: 3000 }
+    ];
+
+    function normalizeConnectionRateText(value) {
+      return String(value || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+    }
+
+    function connectionRateCategory(sector, locality, rateType) {
+      var text = normalizeConnectionRateText([sector || '', locality || '', rateType || ''].join(' '));
+      var rateKey = normalizeRateTitle(rateType || '');
+      if (text.indexOf('PRIVATE') !== -1 && (
+          text.indexOf('SOCIETY') !== -1 ||
+          text.indexOf('SOCIETIES') !== -1 ||
+          text.indexOf('SOCITIES') !== -1 ||
+          text.indexOf('SOCITES') !== -1 ||
+          text.indexOf('SOCITY') !== -1)) return 'domestic_private_societies';
+      if (rateKey.indexOf('COMMERCIAL') === -1 && rateKey.indexOf('COMERCIAL') === -1 &&
+          text.indexOf('COMMERCIAL') === -1 && text.indexOf('COMERCIAL') === -1) return 'domestic';
+      if (text.indexOf('SCHOOL') !== -1 || text.indexOf('COLLEGE') !== -1) return 'college_schools';
+      if (text.indexOf('PETROL') !== -1) return 'petrol_pump';
+      if (text.indexOf('HOSPITAL') !== -1) return 'private_hospital';
+      if (text.indexOf('HOTEL') !== -1 || text.indexOf('MARRIAGE') !== -1 || text.indexOf('SWEET') !== -1 || text.indexOf('BAKERY') !== -1 || text.indexOf('BAKERIES') !== -1) return 'hotel_marriage_sweet_bakery';
+      if (text.indexOf('PARK') !== -1) return 'park';
+      if (text.indexOf('SERVICE') !== -1 && text.indexOf('STATION') !== -1) return 'service_station';
+      if (text.indexOf('FACTORY') !== -1) return 'factory_commercial';
+      return 'bank_hamam_tea_stall_samosa';
+    }
+
+    function buildConnectionRateReport(counts) {
+      var rows = CONNECTION_RATE_CATEGORIES.map(function(cat, idx) {
+        var count = counts[cat.key] || 0;
+        return {
+          sr: idx + 1,
+          key: cat.key,
+          description: cat.description,
+          connections: count,
+          rate: cat.rate,
+          total: count * cat.rate * 12
+        };
+      });
+      return {
+        rows: rows,
+        grand_total: {
+          connections: rows.reduce(function(sum, row) { return sum + row.connections; }, 0),
+          total: rows.reduce(function(sum, row) { return sum + row.total; }, 0)
+        }
+      };
+    }
+
     // Simple CSV line parser (handles quoted fields with commas)
     function parseCSVLine(line) {
       var result = [];
@@ -659,6 +772,8 @@
       // Build sector map: normalized_sector → { original, localities, closed, active }
       var sectorMap = {};
       var totalRows = 0;
+      var connectionRateCounts = {};
+      CONNECTION_RATE_CATEGORIES.forEach(function(cat) { connectionRateCounts[cat.key] = 0; });
 
       for (var i = 1; i < lines.length; i++) {
         var fields = parseCSVLine(lines[i]);
@@ -678,6 +793,9 @@
         // Closed/inactive/disconnected records get budget = 0.
         var rateType = '';
         if (colMap.rate_type !== undefined) rateType = (fields[colMap.rate_type] || '').trim();
+        if (status === 'Active') {
+          connectionRateCounts[connectionRateCategory(sector, locality, rateType)]++;
+        }
         var rowBudget = 0;
         var annualRate = 0;
         var cleanRateType = cleanRateTypeName(rateType);
@@ -863,12 +981,14 @@
         total_connections: commercialGrandClosed + commercialGrandSuspended + commercialGrandActive,
         total_budget: commercialGrandBudget
       };
+      var connectionRateReport = buildConnectionRateReport(connectionRateCounts);
 
       // Persist both payloads in localStorage so exports work across
       // Vercel serverless invocations (global state is not kept between requests)
       try {
         localStorage.setItem('consumer_report_summary', JSON.stringify(normalPayload));
         localStorage.setItem('consumer_report_commercial', JSON.stringify(commercialPayload));
+        localStorage.setItem('consumer_connection_rate_report', JSON.stringify(connectionRateReport));
       } catch(e) {}
 
       // Send the FULL (unsplit) summary to server for caching.
@@ -893,6 +1013,7 @@
         // Detailed commercial rows: one row per locality (not sector-aggregated)
         commercial_detailed_rows: commercialSummaryRows,
         commercial_grand_total: { closed: commercialGrandClosed, suspended: commercialGrandSuspended, active: commercialGrandActive, total: commercialGrandClosed + commercialGrandSuspended + commercialGrandActive, budget: commercialGrandBudget },
+        connection_rate_report: connectionRateReport,
         unmatched_rate_types: unmatchedRateTypes,
         unmatched_budget_count: totalUnmatchedBudget
       };
@@ -1379,6 +1500,89 @@
       applyPreviewSort('normal');
       applyPreviewSort('commercial');
     });
+  })();
+</script>
+<script>
+  (function() {
+    var table = document.getElementById('connection-rate-table');
+    if (!table) return;
+
+    function numberValue(input) {
+      var n = parseFloat(input.value || '0');
+      return isNaN(n) || n < 0 ? 0 : n;
+    }
+
+    function recalcConnectionRateTable() {
+      var totalConnections = 0;
+      var totalAmount = 0;
+      table.querySelectorAll('tbody tr:not(.grand-total-row)').forEach(function(tr, idx) {
+        var count = Math.round(numberValue(tr.querySelector('.rate-count')));
+        var rate = numberValue(tr.querySelector('.rate-value'));
+        var total = count * rate * 12;
+        tr.querySelector('.rate-sr-cell').textContent = idx + 1;
+        tr.querySelector('.rate-total').textContent = Math.round(total).toLocaleString();
+        totalConnections += count;
+        totalAmount += total;
+      });
+      document.getElementById('connection-rate-grand-count').textContent = totalConnections.toLocaleString();
+      document.getElementById('connection-rate-grand-total').textContent = Math.round(totalAmount).toLocaleString();
+    }
+
+    function connectionRatePayload() {
+      var rows = [];
+      // Connection Rate exports use the current editable table from Consumer Report.
+      table.querySelectorAll('tbody tr:not(.grand-total-row)').forEach(function(tr) {
+        rows.push({
+          description: tr.querySelector('.rate-desc').value,
+          connections: Math.round(numberValue(tr.querySelector('.rate-count'))),
+          rate: numberValue(tr.querySelector('.rate-value'))
+        });
+      });
+      return { rows: rows };
+    }
+
+    table.addEventListener('input', recalcConnectionRateTable);
+    var addBtn = document.getElementById('add-connection-rate-row');
+    if (addBtn) {
+      addBtn.addEventListener('click', function() {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td class="rate-sr-cell" style="text-align:center;color:var(--text-muted)"></td>' +
+          '<td><input class="rate-desc" value="New category" style="width:100%;background:transparent;border:0;color:var(--text-primary);font-weight:600;text-align:left;"></td>' +
+          '<td style="text-align:center"><input class="rate-count" type="number" min="0" step="1" value="0" style="width:110px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);padding:5px;"></td>' +
+          '<td style="text-align:center"><input class="rate-value" type="number" min="0" step="1" value="0" style="width:110px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);padding:5px;"></td>' +
+          '<td class="rate-total" style="text-align:right;color:var(--teal);font-weight:700;">0</td>';
+        table.querySelector('tbody').insertBefore(tr, table.querySelector('.grand-total-row'));
+        recalcConnectionRateTable();
+      });
+    }
+
+    document.querySelectorAll('[data-rate-export]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        recalcConnectionRateTable();
+        var outFmt = btn.getAttribute('data-rate-export');
+        fetch('{{ url_for("export_connection_rate_report", fmt_type="__FMT__") }}'.replace('__FMT__', outFmt), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(connectionRatePayload())
+        }).then(function(resp) {
+          if (!resp.ok) throw new Error('Export failed');
+          return resp.blob();
+        }).then(function(blob) {
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'connection_rate_report.' + outFmt;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        }).catch(function(err) {
+          alert(err.message || 'Export failed.');
+        });
+      });
+    });
+
+    recalcConnectionRateTable();
   })();
 </script>
 {% endblock %}
