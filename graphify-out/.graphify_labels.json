@@ -23,5 +23,8 @@
   "21": "Advanced Bill Filters Feature Prompt",
   "22": "match_staff_assignment",
   "23": "download_card",
-  "24": "_calc_daily_summary_col_widths"
+  "24": "_calc_daily_summary_col_widths",
+  "25": "consumer_report",
+  "26": "consumer_sector_remaining_report",
+  "27": "export_consumer_report"
 }

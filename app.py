@@ -8537,6 +8537,16 @@ def _ncd_annual_pdf(report: dict, payload: dict | None = None) -> bytes:
     return buf.getvalue()
 
 
+def _ncd_safe_annual_pdf(report: dict, payload: dict | None = None) -> bytes:
+    try:
+        return _ncd_annual_pdf(report, payload)
+    except Exception:
+        headers, data_rows = _ncd_annual_payload(report, payload)
+        # Keep the financial summary PDF downloadable even if a browser posts an
+        # unusual selected-column payload that ReportLab refuses to table-wrap.
+        return _ncd_table_pdf("New Connection Detail - Financial Year Summary", headers, data_rows, landscape_page=True)
+
+
 def _ncd_general_pdf(report: dict, payload: dict | None = None) -> bytes:
     payload = payload or {}
     buf = io.BytesIO()
@@ -9621,7 +9631,7 @@ def export_new_connection_detail(fmt_type: str):
                 payload = {}
         headers, rows = _ncd_annual_payload(report, payload)
         if fmt_type == "annual-pdf":
-            return Response(_ncd_annual_pdf(report, payload), mimetype="application/pdf", headers={"Content-Disposition": "attachment; filename=New_Connection_Detail_Financial_Year_Summary.pdf"})
+            return Response(_ncd_safe_annual_pdf(report, payload), mimetype="application/pdf", headers={"Content-Disposition": "attachment; filename=New_Connection_Detail_Financial_Year_Summary.pdf"})
         if fmt_type == "annual-csv":
             out = io.StringIO()
             writer = csv.writer(out)
