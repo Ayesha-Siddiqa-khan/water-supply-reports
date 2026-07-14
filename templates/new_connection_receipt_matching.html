@@ -4,7 +4,16 @@
 {% block pill_label %}Receipt Matching{% endblock %}
 {% block pill_detail %}New Connection receipts{% endblock %}
 {% block head_extra %}
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script>
+  function loadSheetJsFallback() {
+    if (window.XLSX || document.getElementById('sheetjs-fallback')) return;
+    var script = document.createElement('script');
+    script.id = 'sheetjs-fallback';
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    document.head.appendChild(script);
+  }
+</script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" onerror="loadSheetJsFallback()"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 <style>
@@ -134,6 +143,16 @@
   }
   function money(v) { return Number(v || 0).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
   function norm(v) { return String(v || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+  function waitForXlsx() {
+    if (window.XLSX) return Promise.resolve();
+    loadSheetJsFallback();
+    return new Promise(function(resolve, reject) {
+      var tries = 0, timer = setInterval(function() {
+        if (window.XLSX) { clearInterval(timer); resolve(); }
+        else if (++tries > 80) { clearInterval(timer); reject(new Error('Excel/CSV library failed to load. Please refresh and try again.')); }
+      }, 100);
+    });
+  }
   function readFile(file) {
     return new Promise(function(resolve, reject) {
       var reader = new FileReader();
@@ -176,8 +195,11 @@
   function process() {
     var msg = document.getElementById('match-message');
     if (!state.refFile || !state.receiptFile) { msg.textContent = 'Please choose both files first.'; msg.className = 'match-status error'; return; }
-    msg.innerHTML = '<span class="match-spinner"></span> Matching receipts...'; msg.className = 'match-status loading';
-    Promise.all([readFile(state.refFile), readFile(state.receiptFile)]).then(function(files) {
+    msg.innerHTML = '<span class="match-spinner"></span> Loading Excel/CSV parser...'; msg.className = 'match-status loading';
+    waitForXlsx().then(function() {
+      msg.innerHTML = '<span class="match-spinner"></span> Matching receipts...';
+      return Promise.all([readFile(state.refFile), readFile(state.receiptFile)]);
+    }).then(function(files) {
       var refRaw = files[0], recRaw = files[1];
       var refHeaders = Object.keys((refRaw[0] || {}).row || {}), recHeaders = Object.keys((recRaw[0] || {}).row || {});
       var refDate = pick(refHeaders, ['Received Date', 'Receive Date']), refAmount = pick(refHeaders, ['Total Receivable', 'Total Recievable']);
@@ -305,11 +327,13 @@
     var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8' })); a.download = 'new_connection_receipt_matching.csv'; a.click();
   }
   function exportXlsx() {
-    var cols = selectedCols(), rows = selectedRows(), wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.map(function(r) { var o = {}; cols.forEach(function(c) { o[c] = r.values[c] || ''; }); return o; })), 'Matched Report');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ Metric:'Reference records', Value:state.refs.length }, { Metric:'Receipt records', Value:state.receipts.length }, { Metric:'Selected records', Value:rows.length }, { Metric:'Selected amount', Value:rows.reduce(function(s,r){ return s + (r.receipt ? r.receipt.amount : 0); }, 0) }]), 'Summary');
-    ['Unmatched','Ambiguous','Invalid'].forEach(function(st) { XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.results.filter(function(r) { return r.status === st; }).map(function(r) { return r.values; })), st + ' records'); });
-    XLSX.writeFile(wb, 'new_connection_receipt_matching.xlsx');
+    waitForXlsx().then(function() {
+      var cols = selectedCols(), rows = selectedRows(), wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.map(function(r) { var o = {}; cols.forEach(function(c) { o[c] = r.values[c] || ''; }); return o; })), 'Matched Report');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ Metric:'Reference records', Value:state.refs.length }, { Metric:'Receipt records', Value:state.receipts.length }, { Metric:'Selected records', Value:rows.length }, { Metric:'Selected amount', Value:rows.reduce(function(s,r){ return s + (r.receipt ? r.receipt.amount : 0); }, 0) }]), 'Summary');
+      ['Unmatched','Ambiguous','Invalid'].forEach(function(st) { XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.results.filter(function(r) { return r.status === st; }).map(function(r) { return r.values; })), st + ' records'); });
+      XLSX.writeFile(wb, 'new_connection_receipt_matching.xlsx');
+    }).catch(function(err) { alert(err.message || err); });
   }
   function exportPdf() {
     var jsPDF = window.jspdf && window.jspdf.jsPDF;
