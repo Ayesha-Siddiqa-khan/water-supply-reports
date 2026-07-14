@@ -442,13 +442,14 @@ function mergeCsv(fmt) {
         var headers = null;
 
         fileResults.forEach(function(result) {
-          // Parse the file with SheetJS (handles both CSV and XLSX)
-          var workbook = XLSX.read(result.data, { type: 'array' });
+          // Parse displayed values instead of raw Excel internals so date
+          // columns stay as dates like 1/7/2023, not serials like 44933.
+          var workbook = XLSX.read(result.data, { type: 'array', cellDates: true, dateNF: 'd/m/yyyy' });
           var sheetName = workbook.SheetNames[0];
           var sheet = workbook.Sheets[sheetName];
 
-          // Convert sheet to JSON array-of-arrays (raw cell values)
-          var raw = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+          // Preserve the formatted text that users see in Excel.
+          var raw = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, dateNF: 'd/m/yyyy', defval: '' });
 
           if (raw.length === 0) return; // skip empty files
 
