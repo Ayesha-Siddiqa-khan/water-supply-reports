@@ -155,6 +155,7 @@
   }
   function money(v) { return Number(v || 0).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
   function norm(v) { return String(v || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+  function sum(items, key) { return items.reduce(function(total, item) { return total + (Number(item[key]) || 0); }, 0); }
   function waitForXlsx() {
     if (window.XLSX) return Promise.resolve();
     loadSheetJsFallback();
@@ -184,6 +185,35 @@
     return joined && clean(item.row[dateCol]) !== clean(dateCol) && clean(item.row[amountCol]) !== clean(amountCol);
   }
   function isNewConnectionReceipt(item) { return receiptCols.bill && norm(item.row[receiptCols.bill]) === 'new connection'; }
+  function combineReceipts(items) {
+    if (!items.length) return null;
+    if (items.length === 1) return items[0];
+    var row = {};
+    receiptHeaders.forEach(function(k) {
+      var vals = Array.from(new Set(items.map(function(item) { return item.row[k] || ''; }).filter(Boolean)));
+      row[k] = vals.join(' | ');
+    });
+    row[receiptCols.consumer] = items.length + ' New Connection receipts';
+    row[receiptCols.connection] = items.map(function(item) { return item.row[receiptCols.connection] || ''; }).filter(Boolean).join(' | ');
+    row[receiptCols.billNo] = items.map(function(item) { return item.row[receiptCols.billNo] || ''; }).filter(Boolean).join(' | ');
+    row[receiptCols.bill] = 'New Connection';
+    row[receiptCols.payment] = Array.from(new Set(items.map(function(item) { return item.row[receiptCols.payment] || ''; }).filter(Boolean))).join(' | ');
+    row['Amount Received'] = money(sum(items, 'amount'));
+    row['Total Bill'] = money(sum(items, 'matchAmount'));
+    return { row:row, dateIso:items[0].dateIso, amount:sum(items, 'amount'), matchAmount:sum(items, 'matchAmount'), used:false, isNewConnection:true, parts:items };
+  }
+  function exactSum(items, target, maxParts) {
+    var list = items.filter(function(item) { return !item.used && item.matchAmount !== null && item.matchAmount <= target; });
+    if (maxParts) list = list.slice(0, Math.max(maxParts * 3, maxParts));
+    var limit = maxParts || Math.min(list.length, 8), found = null;
+    function walk(start, chosen, total) {
+      if (found || total > target || chosen.length > limit) return;
+      if (total === target && chosen.length > 1) { found = chosen.slice(); return; }
+      for (var i = start; i < list.length; i++) walk(i + 1, chosen.concat([list[i]]), total + list[i].matchAmount);
+    }
+    walk(0, [], 0);
+    return found;
+  }
   function result(ref, status, receipt, candidates, issue) {
     var rr = receipt ? receipt.row : {}, values = {
       'Match Status': status,
@@ -228,26 +258,33 @@
         locality: pick(recHeaders, ['Locality']),
         bill: pick(recHeaders, ['BillType', 'Bill Type']),
         billNo: pick(recHeaders, ['Bill No', 'Bill Number']),
-        payment: pick(recHeaders, ['Payment Method'])
+        payment: pick(recHeaders, ['Payment Method']),
+        totalBill: pick(recHeaders, ['Total Bill'])
       };
       var refs = [], invalid = [];
       refRaw.filter(function(x) { return isData(x, refDate, refAmount); }).forEach(function(x) {
         x.dateIso = dateIso(x.row[refDate]); x.amount = amount(x.row[refAmount]);
+        x.count = amount(x.row[pick(refHeaders, ['No of Connection', 'No of Connections'])]);
         if (!x.dateIso || x.amount === null) invalid.push(result(x, 'Invalid', null, [], 'Invalid reference date or amount'));
         else refs.push(x);
       });
       var receipts = recRaw.filter(function(x) { return isData(x, recDate, recAmount); }).map(function(x) {
         x.dateIso = dateIso(x.row[recDate]); x.amount = amount(x.row[recAmount]); x.used = false;
-        x.validMatch = x.dateIso && x.amount !== null;
+        x.matchAmount = amount(receiptCols.totalBill ? x.row[receiptCols.totalBill] : x.row[recAmount]);
+        x.validMatch = x.dateIso && x.matchAmount !== null;
         x.isNewConnection = isNewConnectionReceipt(x);
         return x;
       });
-      var refByKey = {}, recByKey = {}, newRecByKey = {};
+      var refByKey = {}, recByKey = {}, newRecByKey = {}, recByDate = {}, newRecByDate = {};
       refs.forEach(function(x) { (refByKey[x.dateIso + '|' + x.amount] = refByKey[x.dateIso + '|' + x.amount] || []).push(x); });
       receipts.forEach(function(x) {
         if (!x.validMatch) return;
-        (recByKey[x.dateIso + '|' + x.amount] = recByKey[x.dateIso + '|' + x.amount] || []).push(x);
-        if (x.isNewConnection) (newRecByKey[x.dateIso + '|' + x.amount] = newRecByKey[x.dateIso + '|' + x.amount] || []).push(x);
+        (recByKey[x.dateIso + '|' + x.matchAmount] = recByKey[x.dateIso + '|' + x.matchAmount] || []).push(x);
+        (recByDate[x.dateIso] = recByDate[x.dateIso] || []).push(x);
+        if (x.isNewConnection) {
+          (newRecByKey[x.dateIso + '|' + x.matchAmount] = newRecByKey[x.dateIso + '|' + x.matchAmount] || []).push(x);
+          (newRecByDate[x.dateIso] = newRecByDate[x.dateIso] || []).push(x);
+        }
       });
       var results = invalid.slice();
       Object.keys(refByKey).forEach(function(key) {
@@ -260,7 +297,14 @@
             match.used = true;
             results.push(result(ref, 'Matched', match, [], match.isNewConnection ? 'New Connection receipt match' : 'Date and amount fallback match'));
           } else {
-            results.push(result(ref, 'Unmatched', null, [], 'No receipt with same date and amount'));
+            var combo = exactSum(newRecByDate[ref.dateIso] || [], ref.amount, ref.count);
+            if (!combo) combo = exactSum(recByDate[ref.dateIso] || [], ref.amount, ref.count);
+            if (combo) {
+              combo.forEach(function(item) { item.used = true; });
+              results.push(result(ref, 'Matched', combineReceipts(combo), [], 'Same date receipts total match'));
+            } else {
+              results.push(result(ref, 'Unmatched', null, [], 'No receipt with same date and amount'));
+            }
           }
         });
       });
