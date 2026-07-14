@@ -131,16 +131,22 @@
     return matches.length === 1 ? matches[0] : '';
   }
   function dateIso(v) {
-    if (v instanceof Date && !isNaN(v)) return v.toISOString().slice(0, 10);
+    function ymd(y, m, d) { return [String(y), String(m).padStart(2, '0'), String(d).padStart(2, '0')].join('-'); }
+    if (v instanceof Date && !isNaN(v)) return ymd(v.getFullYear(), v.getMonth() + 1, v.getDate());
     var s = String(v || '').trim();
     if (!s) return '';
-    if (/^\d{5}(\.\d+)?$/.test(s)) return new Date(Math.round((Number(s) - 25569) * 86400 * 1000)).toISOString().slice(0, 10);
+    if (/^\d{5}(\.\d+)?$/.test(s)) { var serialDate = new Date(Math.round((Number(s) - 25569) * 86400 * 1000)); return ymd(serialDate.getFullYear(), serialDate.getMonth() + 1, serialDate.getDate()); }
     var m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
-    if (m) return [m[1], m[2].padStart(2, '0'), m[3].padStart(2, '0')].join('-');
+    if (m) return ymd(m[1], m[2], m[3]);
     m = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
-    if (m) return [m[3], m[2].padStart(2, '0'), m[1].padStart(2, '0')].join('-');
+    if (m) return ymd(m[3], m[2], m[1]);
+    m = s.match(/^([a-z]+)\s+(\d{1,2}),?\s+(\d{4})$/i);
+    if (m) {
+      var month = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(m[1].slice(0, 3).toLowerCase()) + 1;
+      if (month) return ymd(m[3], month, m[2]);
+    }
     var d = new Date(s.replace(/,/g, ''));
-    return isNaN(d) ? '' : d.toISOString().slice(0, 10);
+    return isNaN(d) ? '' : ymd(d.getFullYear(), d.getMonth() + 1, d.getDate());
   }
   function showDate(iso) { if (!iso) return ''; var p = iso.split('-'); return p[2] + '-' + p[1] + '-' + p[0]; }
   function amount(v) {
