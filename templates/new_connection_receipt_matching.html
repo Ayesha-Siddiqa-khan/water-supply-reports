@@ -110,6 +110,11 @@
         <tbody></tbody>
       </table>
     </div>
+    <div class="export-bar" style="gap:10px;flex-wrap:wrap;margin-top:12px;">
+      <button class="chip match-export-csv" type="button">Download CSV</button>
+      <button class="chip match-export-xlsx" type="button">Download Excel</button>
+      <button class="chip match-export-pdf" type="button">Download PDF</button>
+    </div>
   </div>
 </div>
 
@@ -117,7 +122,8 @@
 (function() {
   var state = { refFile:null, receiptFile:null, refs:[], receipts:[], results:[], columns:[], sortDir:{} };
   var receiptCols = {};
-  var defaultCols = ['SR', 'Match Status', 'Reference Received Date', 'Reference Total Receivable', 'Receipt Received Date', 'Amount Received', 'Consumer Name', 'Connection Type', 'Connection No', 'Sector', 'Locality', 'Bill Type', 'Bill No', 'Payment Method'];
+  var receiptHeaders = [];
+  var defaultCols = ['SR', 'Match Status', 'Received Date', 'Amount Received', 'Consumer Name', 'Connection Type', 'Connection No', 'Sector', 'Locality', 'BillType', 'Bill No', 'Payment Method'];
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function(ch) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; }); }
   function clean(v) { return String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
   function pick(headers, aliases) {
@@ -171,25 +177,27 @@
     var joined = Object.values(item.row).join('').trim();
     return joined && clean(item.row[dateCol]) !== clean(dateCol) && clean(item.row[amountCol]) !== clean(amountCol);
   }
-  function isEligibleReceipt(item) { return !receiptCols.bill || norm(item.row[receiptCols.bill]) === 'new connection'; }
+  function isNewConnectionReceipt(item) { return receiptCols.bill && norm(item.row[receiptCols.bill]) === 'new connection'; }
   function result(ref, status, receipt, candidates, issue) {
     var rr = receipt ? receipt.row : {}, values = {
       'Match Status': status,
-      'Reference Received Date': showDate(ref.dateIso),
-      'Reference Total Receivable': money(ref.amount),
-      'Receipt Received Date': receipt ? showDate(receipt.dateIso) : '',
+      'Expected Received Date': showDate(ref.dateIso),
+      'Expected Amount': money(ref.amount),
       'Amount Received': receipt ? money(receipt.amount) : '',
       'Consumer Name': rr[receiptCols.consumer] || '',
       'Connection Type': rr[receiptCols.type] || '',
       'Connection No': rr[receiptCols.connection] || '',
       'Sector': rr[receiptCols.sector] || '',
       'Locality': rr[receiptCols.locality] || '',
-      'Bill Type': rr[receiptCols.bill] || '',
+      'BillType': rr[receiptCols.bill] || '',
       'Bill No': rr[receiptCols.billNo] || '',
       'Payment Method': rr[receiptCols.payment] || ''
     };
-    Object.keys(ref.row).forEach(function(k) { values['Reference ' + k] = ref.row[k]; });
-    Object.keys(rr).forEach(function(k) { values['Receipt ' + k] = rr[k]; });
+    receiptHeaders.forEach(function(k) { values[k] = rr[k] || ''; });
+    if (receipt) {
+      values['Received Date'] = showDate(receipt.dateIso);
+      values['Amount Received'] = money(receipt.amount);
+    }
     return { id:'m' + Math.random().toString(36).slice(2), selected:status === 'Matched', status:status, issue:issue || '', ref:ref, receipt:receipt || null, candidates:candidates || [], values:values };
   }
   function process() {
@@ -202,6 +210,7 @@
     }).then(function(files) {
       var refRaw = files[0], recRaw = files[1];
       var refHeaders = Object.keys((refRaw[0] || {}).row || {}), recHeaders = Object.keys((recRaw[0] || {}).row || {});
+      receiptHeaders = recHeaders.filter(function(h) { return clean(h); });
       var refDate = pick(refHeaders, ['Received Date', 'Receive Date']), refAmount = pick(refHeaders, ['Total Receivable', 'Total Recievable']);
       var recDate = pick(recHeaders, ['Received Date', 'Receive Date']), recAmount = pick(recHeaders, ['Amount Received', 'Received Amount']);
       if (!refDate || !refAmount || !recDate || !recAmount) throw new Error('Required columns missing. File A needs Received Date + Total Receivable. File B needs Received Date + Amount Received.');
@@ -223,27 +232,34 @@
       });
       var receipts = recRaw.filter(function(x) { return isData(x, recDate, recAmount); }).map(function(x) {
         x.dateIso = dateIso(x.row[recDate]); x.amount = amount(x.row[recAmount]); x.used = false;
-        x.eligible = x.dateIso && x.amount !== null && isEligibleReceipt(x);
+        x.validMatch = x.dateIso && x.amount !== null;
+        x.isNewConnection = isNewConnectionReceipt(x);
         return x;
       });
-      var refByKey = {}, recByKey = {};
+      var refByKey = {}, recByKey = {}, newRecByKey = {};
       refs.forEach(function(x) { (refByKey[x.dateIso + '|' + x.amount] = refByKey[x.dateIso + '|' + x.amount] || []).push(x); });
-      receipts.forEach(function(x) { if (x.eligible) (recByKey[x.dateIso + '|' + x.amount] = recByKey[x.dateIso + '|' + x.amount] || []).push(x); });
+      receipts.forEach(function(x) {
+        if (!x.validMatch) return;
+        (recByKey[x.dateIso + '|' + x.amount] = recByKey[x.dateIso + '|' + x.amount] || []).push(x);
+        if (x.isNewConnection) (newRecByKey[x.dateIso + '|' + x.amount] = newRecByKey[x.dateIso + '|' + x.amount] || []).push(x);
+      });
       var results = invalid.slice();
       Object.keys(refByKey).forEach(function(key) {
-        var group = refByKey[key], candidates = (recByKey[key] || []).filter(function(x) { return !x.used; });
-        if (!receiptCols.bill && candidates.length > 1) {
-          group.forEach(function(ref) { results.push(result(ref, 'Ambiguous', null, candidates, 'BillType missing; choose manually')); });
-        } else if (candidates.length === group.length) {
-          group.forEach(function(ref, i) { candidates[i].used = true; results.push(result(ref, 'Matched', candidates[i], [], 'Automatic match')); });
-        } else if (!candidates.length) {
-          group.forEach(function(ref) { results.push(result(ref, 'Unmatched', null, [], 'No receipt with same date and amount')); });
-        } else {
-          group.forEach(function(ref) { results.push(result(ref, 'Ambiguous', null, candidates, 'Choose the correct receipt manually')); });
-        }
+        var group = refByKey[key], preferred = (newRecByKey[key] || []).filter(function(x) { return !x.used; });
+        var fallback = (recByKey[key] || []).filter(function(x) { return !x.used && !x.isNewConnection; });
+        var candidates = preferred.length ? preferred : fallback;
+        group.forEach(function(ref) {
+          var match = candidates.shift();
+          if (match) {
+            match.used = true;
+            results.push(result(ref, 'Matched', match, [], match.isNewConnection ? 'New Connection receipt match' : 'Date and amount fallback match'));
+          } else {
+            results.push(result(ref, 'Unmatched', null, [], 'No receipt with same date and amount'));
+          }
+        });
       });
       state.refs = refs; state.receipts = receipts; state.results = results;
-      state.columns = Array.from(new Set(defaultCols.concat.apply(defaultCols, results.map(function(r) { return Object.keys(r.values); }))));
+      state.columns = Array.from(new Set(defaultCols.concat(receiptHeaders)));
       renderColumns(); renderFilters(); renderTable(); renderStats();
       msg.textContent = 'Processed ' + refs.length + ' reference row(s) and ' + receipts.length + ' receipt row(s).';
       msg.className = 'match-status success';
@@ -369,6 +385,9 @@
   document.getElementById('export-csv').addEventListener('click', exportCsv);
   document.getElementById('export-xlsx').addEventListener('click', exportXlsx);
   document.getElementById('export-pdf').addEventListener('click', exportPdf);
+  document.querySelectorAll('.match-export-csv').forEach(function(b) { b.addEventListener('click', exportCsv); });
+  document.querySelectorAll('.match-export-xlsx').forEach(function(b) { b.addEventListener('click', exportXlsx); });
+  document.querySelectorAll('.match-export-pdf').forEach(function(b) { b.addEventListener('click', exportPdf); });
 })();
 </script>
 {% endblock %}
