@@ -1,16 +1,16 @@
 # Graph Report - water suppy report  (2026-07-14)
 
 ## Corpus Check
-- 29 files · ~87,127 words
+- 29 files · ~87,231 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 384 nodes · 980 edges · 23 communities (21 shown, 2 thin omitted)
+- 385 nodes · 984 edges · 25 communities (22 shown, 3 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 14 edges (avg confidence: 0.6)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `6f93f10e`
+- Built from commit: `5581491f`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -29,6 +29,8 @@
 - Claude Code CLI Prompt: Advanced Bill List Filters and Export
 - Advanced Bill Filters Feature Prompt
 - match_staff_assignment
+- download_card
+- _calc_daily_summary_col_widths
 
 ## God Nodes (most connected - your core abstractions)
 1. `fmt()` - 31 edges
@@ -62,27 +64,27 @@
 - **Client-side-only file tools (no server route, use browser CDN libraries)** — tpl_fcm, tpl_merge, ext_sheetjs, ext_pdflib [INFERRED]
 - **Report pages with PDF/CSV/XLSX export endpoint families** — tpl_index, tpl_bill_list, tpl_consumer, tpl_consumer_remaining, tpl_daily, tpl_arrear, exp_index, exp_bill_list, exp_consumer, exp_consumer_remaining, exp_daily, exp_arrear [INFERRED]
 
-## Communities (23 total, 2 thin omitted)
+## Communities (25 total, 3 thin omitted)
 
 ### Community 0 - "BytesIO"
 Cohesion: 0.07
-Nodes (61): bill_list_export_rows(), _bracket_rich_text(), build_connection_summary(), _calc_col_widths(), _card_rows_to_df(), commercial_daily_income_export_rows(), daily_staff_receive_export_response(), daily_staff_receive_export_tables() (+53 more)
+Nodes (61): bill_list_export_rows(), _bracket_rich_text(), _calc_col_widths(), _calc_daily_detail_col_widths(), daily_staff_receive_export_response(), daily_staff_receive_export_tables(), export_advanced_bills_response(), export_bill_list() (+53 more)
 
 ### Community 1 - "app.py"
-Cohesion: 0.05
-Nodes (59): allowed_file(), _build_new_connection_detail_report(), _calc_daily_detail_col_widths(), _calc_daily_summary_col_widths(), clean_cell(), _clear_new_connection_detail_cache(), _closest_staff_key(), _deep_normalize_sector() (+51 more)
+Cohesion: 0.06
+Nodes (67): apply_manual_zone_overrides(), backfill_bill_arrears(), bill_list(), bill_list_sector_seasonly_export_rows(), bill_list_staff_export_rows(), bill_list_zone_export_rows(), build_unpaid_amount_summary(), clean_cell() (+59 more)
 
 ### Community 2 - "DataFrame"
-Cohesion: 0.09
-Nodes (42): build_bill_key(), build_commercial_daily_income_rows(), build_commercial_mask(), build_commercial_month_wise_summary(), build_commercial_rows(), build_daily_rows(), build_daily_staff_receive_report(), build_dashboard_results() (+34 more)
+Cohesion: 0.07
+Nodes (54): _bill_list_summary_from_rows(), build_bill_key(), build_commercial_daily_income_rows(), build_commercial_mask(), build_commercial_month_wise_summary(), build_commercial_rows(), build_daily_rows(), build_daily_staff_receive_report() (+46 more)
 
 ### Community 3 - "consumer_report"
 Cohesion: 0.06
 Nodes (56): _add_rate_alias(), _annualize_connection_rate(), _build_connection_rate_report(), _build_connection_rate_report_from_summary(), build_consumer_sector_remaining_report(), _build_consumer_sector_summary(), _canonical_consumer_sector_locality(), _classify_connection_status() (+48 more)
 
 ### Community 4 - "get_db"
-Cohesion: 0.10
-Nodes (39): apply_manual_zone_overrides(), bill_list(), bill_list_sector_seasonly_export_rows(), bill_list_staff_export_rows(), bill_list_zone_export_rows(), build_unpaid_amount_summary(), clear_bill_list_data(), export_bill_list_staff() (+31 more)
+Cohesion: 0.15
+Nodes (18): _build_new_connection_detail_report(), _clear_new_connection_detail_cache(), _load_new_connection_detail_cache(), _ncd_classification(), _ncd_decimal(), _ncd_financial_year(), _ncd_int(), _ncd_load_file() (+10 more)
 
 ### Community 5 - "Base Template"
 Cohesion: 0.09
@@ -93,12 +95,12 @@ Cohesion: 0.44
 Nodes (10): bindUploadForms(), createOverlay(), getUploadFileLabel(), handleUpload(), removeOverlay(), setFormLoading(), shouldUseNativeUpload(), showToast() (+2 more)
 
 ### Community 7 - "export_arrear_calculator"
-Cohesion: 0.31
-Nodes (10): ajax_error(), ajax_ok(), arrear_calculator(), daily_staff_receive(), index(), is_ajax(), _load_results_cache(), remove_pdf_column() (+2 more)
+Cohesion: 0.23
+Nodes (13): ajax_error(), ajax_ok(), allowed_file(), arrear_calculator(), daily_staff_receive(), index(), is_ajax(), _load_results_cache() (+5 more)
 
 ### Community 8 - "export_advanced_bills"
-Cohesion: 0.10
-Nodes (21): backfill_bill_arrears(), _bill_list_summary_from_rows(), _connection_rate_rows_from_payload(), export_advanced_bills(), generate_zip_of_group_pdfs(), group_bills(), is_large_pdf_text(), merge_sector_list_rows() (+13 more)
+Cohesion: 0.33
+Nodes (7): export_advanced_bills(), generate_zip_of_group_pdfs(), group_bills(), Return sort key for zone ordering: A=1, B=2, C=3, Commercial=4, unknown=99., Group bills by sector/zone/staff.      Returns:       - sector/zone: list of, sanitize_filename(), _zone_sort_key()
 
 ### Community 9 - "vercel.json"
 Cohesion: 0.40
@@ -112,10 +114,14 @@ Nodes (10): Agent Instructions, Auto-Update on Changes, Commands, Development Gu
 Cohesion: 0.29
 Nodes (7): _build_arrear_export_rows(), export_arrear_calculator(), _parse_arrear_export_cols(), Parse comma-separated column keys into an ordered list.      Fixed column orde, Build export rows from summary data, selecting only requested columns., Sort rows by the given status priority and order., _sort_arrear_rows()
 
+### Community 23 - "download_card"
+Cohesion: 0.20
+Nodes (11): build_connection_summary(), _card_rows_to_df(), commercial_daily_income_export_rows(), download_card(), _filter_card_export(), fiscal_label_to_calendar_full_label(), fiscal_label_to_calendar_label(), format_calendar_month() (+3 more)
+
 ## Knowledge Gaps
 - **18 isolated node(s):** `$schema`, `maxDuration`, `Ponytail - Lazy Senior Dev Mode`, `Project Overview`, `Graph Status` (+13 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **2 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **3 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
@@ -124,13 +130,13 @@ _Questions this graph is uniquely positioned to answer:_
   _High betweenness centrality (0.039) - this node is a cross-community bridge._
 - **Why does `generate_grouped_advanced_pdf()` connect `BytesIO` to `app.py`?**
   _High betweenness centrality (0.009) - this node is a cross-community bridge._
-- **Why does `_get_season_bill_ids()` connect `get_db` to `app.py`, `consumer_report`?**
+- **Why does `_get_season_bill_ids()` connect `app.py` to `consumer_report`?**
   _High betweenness centrality (0.009) - this node is a cross-community bridge._
 - **What connects `Aggressively normalize a sector/locality name for robust matching.`, `Extract significant keywords from a sector/locality name.`, `Return display name: paired staff on separate lines, else as-is.` to the rest of the system?**
   _82 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `BytesIO` be split into smaller, more focused modules?**
-  _Cohesion score 0.07081377151799687 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07198748043818466 - nodes in this community are weakly interconnected._
 - **Should `app.py` be split into smaller, more focused modules?**
-  _Cohesion score 0.053613053613053616 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06034801925212884 - nodes in this community are weakly interconnected._
 - **Should `DataFrame` be split into smaller, more focused modules?**
-  _Cohesion score 0.09291521486643438 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06708595387840671 - nodes in this community are weakly interconnected._

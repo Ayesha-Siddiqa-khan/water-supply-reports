@@ -8337,6 +8337,19 @@ def _ncd_table_pdf(title: str, headers: list[str], rows: list[list], footer_rows
     return buf.getvalue()
 
 
+def _ncd_pdf_col_widths(headers: list[str], available_width: float) -> list[float]:
+    if not headers:
+        return []
+    narrow = {"Sr No.", "Sr #"}
+    narrow_count = sum(1 for h in headers if h in narrow)
+    if not narrow_count:
+        return [available_width / len(headers)] * len(headers)
+    sr_width = 12 * mm if len(headers) > 8 else 20 * mm
+    remaining = available_width - (sr_width * narrow_count)
+    normal_width = remaining / max(len(headers) - narrow_count, 1)
+    return [sr_width if h in narrow else normal_width for h in headers]
+
+
 def _ncd_detail_pdf(title: str, headers: list[str], rows: list[list], source_rows: list[dict], footer_rows: list[list]) -> bytes:
     from xml.sax.saxutils import escape
 
@@ -8360,7 +8373,7 @@ def _ncd_detail_pdf(title: str, headers: list[str], rows: list[list], source_row
         grouped[fy or "Unknown Year"].append([v for i, v in enumerate(row) if i != fy_index])
 
     width = page_size[0] - doc.leftMargin - doc.rightMargin
-    col_widths = [width / max(len(pdf_headers), 1)] * len(pdf_headers)
+    col_widths = _ncd_pdf_col_widths(pdf_headers, width)
     for fy, group_rows in grouped.items():
         elements.append(Paragraph(escape(fy), year_style))
         table_rows = [[Paragraph(escape(str(h)), head_style) for h in pdf_headers]]
@@ -8501,11 +8514,13 @@ def _ncd_annual_pdf(report: dict, payload: dict | None = None) -> bytes:
     headers, data_rows = _ncd_annual_payload(report, payload)
     available_width = landscape(A4)[0] - doc.leftMargin - doc.rightMargin
     table_rows = [headers] + data_rows
-    tbl = Table(table_rows, repeatRows=1, hAlign="CENTER", colWidths=[available_width / max(len(headers), 1)] * len(headers))
+    tbl = Table(table_rows, repeatRows=1, hAlign="CENTER", colWidths=_ncd_pdf_col_widths(headers, available_width))
     tbl.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
         ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
         ("GRID", (0, 0), (-1, -1), 0.45, colors.HexColor("#8fb8b2")),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f1eb")]),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 10),
@@ -8543,11 +8558,13 @@ def _ncd_general_pdf(report: dict, payload: dict | None = None) -> bytes:
     for fy in sorted(grouped_years):
         elements.append(Paragraph(str(fy), ParagraphStyle("NcdFyHeading", parent=styles["Heading2"], fontSize=13, textColor=ACCENT, alignment=1, spaceBefore=2 * mm, spaceAfter=2 * mm, fontName="Helvetica-Bold")))
         headers, data_rows = _ncd_general_category_table(report, grouped_years[fy], cols)
-        tbl = Table([headers] + data_rows, repeatRows=1, hAlign="CENTER", colWidths=[available_width / max(len(headers), 1)] * len(headers))
+        tbl = Table([headers] + data_rows, repeatRows=1, hAlign="CENTER", colWidths=_ncd_pdf_col_widths(headers, available_width))
         tbl.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
             ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
             ("GRID", (0, 0), (-1, -1), 0.45, colors.HexColor("#8fb8b2")),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f1eb")]),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("FONTSIZE", (0, 0), (-1, -1), 10),
