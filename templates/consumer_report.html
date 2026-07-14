@@ -165,31 +165,31 @@
         <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);">
           <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">PDF Columns:</span>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="sr" checked> SR
+            <input type="checkbox" class="pdf-col-toggle" data-col="sr" autocomplete="off" checked> SR
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="sector" checked> Sector
+            <input type="checkbox" class="pdf-col-toggle" data-col="sector" autocomplete="off" checked> Sector
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="locality" checked> Locality
+            <input type="checkbox" class="pdf-col-toggle" data-col="locality" autocomplete="off" checked> Locality
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="rate"> Rate
+            <input type="checkbox" class="pdf-col-toggle" data-col="rate" autocomplete="off"> Rate
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="closed"> Closed
+            <input type="checkbox" class="pdf-col-toggle" data-col="closed" autocomplete="off"> Closed
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="suspended"> Suspended
+            <input type="checkbox" class="pdf-col-toggle" data-col="suspended" autocomplete="off"> Suspended
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="active" checked> Active
+            <input type="checkbox" class="pdf-col-toggle" data-col="active" autocomplete="off" checked> Active
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="total"> Total Connections
+            <input type="checkbox" class="pdf-col-toggle" data-col="total" autocomplete="off"> Total Connections
           </label>
           <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="budget" checked> Budget
+            <input type="checkbox" class="pdf-col-toggle" data-col="budget" autocomplete="off" checked> Budget
           </label>
         </div>
 
@@ -1197,13 +1197,21 @@
         }
       }
 
-      if (priorityEl && orderEl && pdfBtn) {
-        // Keep PDF defaults print-friendly on every load. Browsers can restore
-        // old checkbox state, so reset to SR/Sector/Locality/Active/Budget.
+      function applyDefaultPdfColumns() {
+        // PDF exports start from these print-friendly defaults. autocomplete/off
+        // plus this reset prevents the browser restoring old checked columns.
         colToggles.forEach(function(cb) {
           cb.checked = defaultPdfCols.indexOf(cb.getAttribute('data-col')) !== -1;
+          cb.defaultChecked = cb.checked;
         });
         updatePdfLink();
+      }
+
+      if (priorityEl && orderEl && pdfBtn) {
+        applyDefaultPdfColumns();
+        window.addEventListener('pageshow', applyDefaultPdfColumns);
+        setTimeout(applyDefaultPdfColumns, 0);
+        setTimeout(applyDefaultPdfColumns, 250);
         // Changing sort settings must reorder BOTH the preview table and the
         // export URLs so they stay in sync.
         priorityEl.addEventListener('change', function() {
