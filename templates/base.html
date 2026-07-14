@@ -53,6 +53,12 @@
         </svg>
         <span>Budget Suggestion</span>
       </a>
+      <a class="nav-item {% if active_page == 'new_connection_detail' %}active{% endif %}" href="{{ url_for('new_connection_detail') }}">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="2" width="14" height="16" rx="2"/><path d="M7 7h6M7 10h6M7 13h3"/><path d="M14 12v4M12 14h4"/>
+        </svg>
+        <span>New Connection Detail</span>
+      </a>
       <div class="nav-section-label" style="margin-top:16px;">Tools</div>
       <a class="nav-item {% if active_page == 'file_merger' %}active{% endif %}" href="{{ url_for('file_merger') }}">
         <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">

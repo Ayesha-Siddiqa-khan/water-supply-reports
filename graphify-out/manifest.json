@@ -1,8 +1,8 @@
 {
   "app.py": {
-    "mtime": 1783942062.338423,
-    "ast_hash": "90e93363e4fbe3b973c4f2e7497742f0",
-    "semantic_hash": "90e93363e4fbe3b973c4f2e7497742f0"
+    "mtime": 1784012370.8980675,
+    "ast_hash": "7bf8eaf8f0469d0f87981d7b5518af74",
+    "semantic_hash": ""
   },
   "check_bill_list.py": {
     "mtime": 1778831342.1176796,
@@ -235,8 +235,8 @@
     "semantic_hash": ""
   },
   "templates/base.html": {
-    "mtime": 1783661648.6170008,
-    "ast_hash": "977299547aa33bb4973461a83007b0a5",
+    "mtime": 1784012141.4999125,
+    "ast_hash": "c13c817d82de93ff43ae253e497b7d7f",
     "semantic_hash": ""
   },
   "templates/bill_list.html": {
@@ -245,8 +245,8 @@
     "semantic_hash": ""
   },
   "templates/consumer_report.html": {
-    "mtime": 1783602727.8362586,
-    "ast_hash": "58b5efc494d291f14a7433c8175d79e7",
+    "mtime": 1783942266.630219,
+    "ast_hash": "94ae931aa3a1a21ae28c422b4964ca7a",
     "semantic_hash": ""
   },
   "templates/consumer_sector_remaining_report.html": {
@@ -448,5 +448,15 @@
     "mtime": 1783578437.2545831,
     "ast_hash": "0bf39944998821293ad3c82ebba99a4a",
     "semantic_hash": "0bf39944998821293ad3c82ebba99a4a"
+  },
+  "AGENTS.md": {
+    "mtime": 1783933184.8124442,
+    "ast_hash": "69247afced5a03eab1c20128fae74f54",
+    "semantic_hash": ""
+  },
+  "templates/new_connection_detail.html": {
+    "mtime": 1784012399.2713847,
+    "ast_hash": "a42d1770e83535a7d5b6f47fa7eecd35",
+    "semantic_hash": ""
   }
 }

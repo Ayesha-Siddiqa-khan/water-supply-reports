@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Water Supply Report - New Connection Detail{% endblock %}
+{% block breadcrumb %}New Connection Detail{% endblock %}
+{% block pill_label %}New Connection Detail{% endblock %}
+{% block pill_detail %}{% if report %}{{ report.rows|length }} valid rows{% else %}Ready{% endif %}{% endblock %}
+{% block head_extra %}
+<style>
+  .ncd-status { display:flex; align-items:center; gap:10px; padding:14px 16px; border:1px solid var(--border); border-radius:12px; background:var(--surface); color:var(--text-muted); }
+  .ncd-dot { width:8px; height:8px; border-radius:50%; background:var(--teal); box-shadow:0 0 14px var(--teal); }
+  .ncd-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; }
+  .ncd-stat { border:1px solid var(--border); border-radius:12px; background:var(--surface); padding:16px; }
+  .ncd-stat span { display:block; color:var(--text-muted); font-size:12px; margin-bottom:8px; }
+  .ncd-stat strong { color:var(--teal); font-size:22px; }
+  .ncd-tabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:16px; overflow:auto; }
+  .ncd-tab { padding:13px 20px; border:0; border-bottom:2px solid transparent; background:transparent; color:var(--text-muted); font-weight:700; cursor:pointer; }
+  .ncd-tab.active { color:var(--text-primary); border-bottom-color:var(--teal); background:rgba(45,212,191,.04); }
+</style>
+{% endblock %}
+
+{% block topbar_actions %}
+  {% if report %}
+  <form method="post" action="{{ url_for('export_new_connection_detail', fmt_type='general-pdf') }}" style="margin:0;">
+    <button class="topbar-btn" type="submit">Download General PDF</button>
+  </form>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="content-wrap">
+  <div class="page-hero">
+    <div>
+      <div class="page-tag">New Connection Detail</div>
+      <h1 class="page-title">New Connection Detail</h1>
+      <p class="page-subtitle">Upload one or more CSV/XLSX files, validate rows, and export detailed or annual new-connection reports.</p>
+    </div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" data-upload-progress="true" action="{{ url_for('new_connection_detail') }}" style="margin:0 0 14px;">
+    <input type="hidden" name="action" value="upload">
+    <label class="upload-card" style="cursor:pointer;">
+      <input type="file" name="new_connection_files" accept=".csv,.xlsx" multiple style="display:none" onchange="this.form.submit()">
+      <div class="upload-icon">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
+      </div>
+      <div>
+        <strong>Choose New Connection Detail files</strong>
+        <span>CSV or XLSX - single or multiple files supported.</span>
+      </div>
+    </label>
+  </form>
+
+  {% if report %}
+  <div class="ncd-status" style="margin-bottom:16px;">
+    <div class="ncd-dot"></div>
+    <strong>Uploaded files:</strong>
+    <span>{{ report.source_files|join(', ') }}</span>
+    <form method="post" action="{{ url_for('new_connection_detail') }}" style="margin-left:auto;">
+      <input type="hidden" name="action" value="clear">
+      <button class="chip" type="submit" style="color:var(--coral);">Clear</button>
+    </form>
+  </div>
+
+  <div class="ncd-stats" style="margin-bottom:18px;">
+    <div class="ncd-stat"><span>Total uploaded records</span><strong>{{ "{:,.0f}".format(report.summary.uploaded_records) }}</strong></div>
+    <div class="ncd-stat"><span>Total new connections</span><strong>{{ "{:,.0f}".format(report.summary.total_new_connections) }}</strong></div>
+    <div class="ncd-stat"><span>Total amount</span><strong>{{ "{:,.0f}".format(report.summary.total_amount) }}</strong></div>
+    <div class="ncd-stat"><span>Domestic connections</span><strong>{{ "{:,.0f}".format(report.summary.domestic) }}</strong></div>
+    <div class="ncd-stat"><span>Domestic - Private Society</span><strong>{{ "{:,.0f}".format(report.summary.private) }}</strong></div>
+    <div class="ncd-stat"><span>Commercial connections</span><strong>{{ "{:,.0f}".format(report.summary.commercial) }}</strong></div>
+    <div class="ncd-stat"><span>Unclassified records</span><strong>{{ "{:,.0f}".format(report.summary.unclassified) }}</strong></div>
+  </div>
+
+  <div class="section" id="ncd-report">
+    <div class="ncd-tabs">
+      <button class="ncd-tab active" type="button" data-tab="general">General Report</button>
+      <button class="ncd-tab" type="button" data-tab="detailed">Detailed Report</button>
+      <button class="ncd-tab" type="button" data-tab="review">Needs Review ({{ report.review_rows|length }})</button>
+    </div>
+
+    <div class="tab-pane" id="tab-general">
+      <div class="export-bar">
+        <form method="post" action="{{ url_for('export_new_connection_detail', fmt_type='general-pdf') }}"><button class="chip" type="submit">Download General PDF</button></form>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th>Financial Year</th><th>Connections</th><th>Amount (Rs.)</th></tr></thead>
+          <tbody>
+            {% for row in report.annual_summary %}
+            <tr><td>{{ row.financial_year }}</td><td>{{ "{:,.0f}".format(row.connections) }}</td><td>{{ "{:,.0f}".format(row.amount) }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrapper" style="margin-top:14px;">
+        <table class="data-table">
+          <thead><tr><th>Financial Year</th><th>Connection Classification</th><th>Connections</th><th>Amount (Rs.)</th></tr></thead>
+          <tbody>
+            {% for row in report.category_summary %}
+            <tr><td>{{ row.financial_year }}</td><td>{{ row.classification }}</td><td>{{ "{:,.0f}".format(row.connections) }}</td><td>{{ "{:,.0f}".format(row.amount) }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-pane" id="tab-detailed" style="display:none;">
+      <div class="export-bar" style="gap:10px;flex-wrap:wrap;">
+        <select id="fy-filter" class="topbar-btn"><option value="">All financial years</option>{% for fy in report.financial_years %}<option value="{{ fy }}">{{ fy }}</option>{% endfor %}</select>
+        <select id="class-filter" class="topbar-btn"><option value="">All classifications</option>{% for cls in report.classifications %}<option value="{{ cls }}">{{ cls }}</option>{% endfor %}</select>
+        <select id="source-filter" class="topbar-btn"><option value="">All source files</option>{% for src in report.source_files %}<option value="{{ src }}">{{ src }}</option>{% endfor %}</select>
+        <input id="ncd-search" class="topbar-btn" style="min-width:220px;" placeholder="Search records">
+        <button class="chip" type="button" id="sort-date">Sort by date</button>
+        <button class="chip" type="button" id="sort-amount">Sort by amount</button>
+        <form class="ncd-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='detailed-pdf') }}"><input type="hidden" name="rows_json"><button class="chip" type="submit">Download Detailed PDF</button></form>
+        <form class="ncd-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='csv') }}"><input type="hidden" name="rows_json"><button class="chip" type="submit">Download CSV</button></form>
+        <form class="ncd-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='xlsx') }}"><input type="hidden" name="rows_json"><button class="chip" type="submit">Download Excel</button></form>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table" id="ncd-table">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="select-filtered" checked title="Select all filtered rows"></th>
+              {% for col in report.original_columns %}<th>{{ col }}</th>{% endfor %}
+              <th>Financial Year</th><th>Connection Classification</th><th>Source File</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in report.rows %}
+            <tr data-fy="{{ row.financial_year }}" data-class="{{ row.classification }}" data-source="{{ row.source_file }}" data-date="{{ row.received_date_iso }}" data-amount="{{ row.amount }}" data-search="{{ (row.original.values()|join(' ') ~ ' ' ~ row.financial_year ~ ' ' ~ row.classification ~ ' ' ~ row.source_file)|lower }}" data-row='{{ row|tojson }}'>
+              <td><input type="checkbox" class="ncd-row-check" checked></td>
+              {% for col in report.original_columns %}<td>{{ row.original.get(col, '') }}</td>{% endfor %}
+              <td>{{ row.financial_year }}</td><td>{{ row.classification }}</td><td>{{ row.source_file }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-pane" id="tab-review" style="display:none;">
+      <div class="export-bar">
+        <form method="post" action="{{ url_for('export_new_connection_detail', fmt_type='errors-csv') }}"><button class="chip" type="submit">Download Error Report</button></form>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th>Source File</th><th>Source Row Number</th><th>Validation Issue</th><th>Original Row Values</th></tr></thead>
+          <tbody>
+            {% for row in report.review_rows %}
+            <tr><td>{{ row.source_file }}</td><td>{{ row.source_row }}</td><td style="color:var(--coral);">{{ row.issue }}</td><td>{{ row.original }}</td></tr>
+            {% else %}
+            <tr><td colspan="4" style="text-align:center;color:var(--text-muted);">No invalid records found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">📊</div>
+    <h3>No New Connection Detail uploaded yet</h3>
+    <p>Upload CSV or Excel files to generate annual, detailed, and validation reports.</p>
+  </div>
+  {% endif %}
+</div>
+
+{% if report %}
+<script>
+  (function() {
+    var tabs = document.querySelectorAll('.ncd-tab');
+    tabs.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        tabs.forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        document.querySelectorAll('.tab-pane').forEach(function(p) { p.style.display = 'none'; });
+        document.getElementById('tab-' + btn.dataset.tab).style.display = '';
+      });
+    });
+
+    var table = document.getElementById('ncd-table');
+    if (!table) return;
+    var tbody = table.querySelector('tbody');
+    var dateAsc = true, amountAsc = false;
+    function rows() { return Array.from(tbody.querySelectorAll('tr')); }
+    function applyFilters() {
+      var fy = document.getElementById('fy-filter').value;
+      var cls = document.getElementById('class-filter').value;
+      var src = document.getElementById('source-filter').value;
+      var q = document.getElementById('ncd-search').value.toLowerCase().trim();
+      rows().forEach(function(row) {
+        var show = (!fy || row.dataset.fy === fy) && (!cls || row.dataset.class === cls) && (!src || row.dataset.source === src) && (!q || row.dataset.search.indexOf(q) !== -1);
+        row.style.display = show ? '' : 'none';
+      });
+    }
+    ['fy-filter', 'class-filter', 'source-filter', 'ncd-search'].forEach(function(id) {
+      document.getElementById(id).addEventListener('input', applyFilters);
+      document.getElementById(id).addEventListener('change', applyFilters);
+    });
+    document.getElementById('select-filtered').addEventListener('change', function() {
+      var checked = this.checked;
+      rows().forEach(function(row) {
+        if (row.style.display !== 'none') row.querySelector('.ncd-row-check').checked = checked;
+      });
+    });
+    document.getElementById('sort-date').addEventListener('click', function() {
+      rows().sort(function(a, b) { return (dateAsc ? 1 : -1) * a.dataset.date.localeCompare(b.dataset.date); }).forEach(function(r) { tbody.appendChild(r); });
+      dateAsc = !dateAsc;
+    });
+    document.getElementById('sort-amount').addEventListener('click', function() {
+      rows().sort(function(a, b) { return (amountAsc ? 1 : -1) * ((+a.dataset.amount || 0) - (+b.dataset.amount || 0)); }).forEach(function(r) { tbody.appendChild(r); });
+      amountAsc = !amountAsc;
+    });
+    document.querySelectorAll('.ncd-export-form').forEach(function(form) {
+      form.addEventListener('submit', function() {
+        var selected = rows().filter(function(row) {
+          return row.style.display !== 'none' && row.querySelector('.ncd-row-check').checked;
+        }).map(function(row) { return JSON.parse(row.dataset.row); });
+        form.querySelector('input[name="rows_json"]').value = JSON.stringify(selected);
+      });
+    });
+  })();
+</script>
+{% endif %}
+{% endblock %}

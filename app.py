@@ -10,6 +10,7 @@ import sys
 import threading
 import webbrowser
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 
 import pandas as pd
 from flask import (
@@ -64,6 +65,7 @@ SAVED_DASHBOARD_META = os.path.join(UPLOAD_FOLDER, "saved_dashboard_meta.json")
 # Persistent cache for the Consumer Sector Report summary so it survives across
 # serverless function invocations on Vercel (global state is not kept between requests)
 CONSUMER_REPORT_CACHE = os.path.join(UPLOAD_FOLDER, "consumer_report_cache.json")
+NEW_CONNECTION_DETAIL_CACHE = os.path.join(UPLOAD_FOLDER, "new_connection_detail_cache.json")
 BILL_LIST_DB = os.path.join(BASE_DIR, "bill_list.sqlite3")
 SEED_ASSIGNMENTS_JSON = resource_path("seed", "staff_assignments.json")
 SEED_ASSIGNMENTS_CSV = resource_path("seed", "staff_assignments.csv")
@@ -7996,6 +7998,339 @@ def _clear_consumer_summary_cache() -> None:
     except Exception:
         pass
 
+
+# ---------------------------------------------------------------------------
+# New Connection Detail - row-level upload validation and exports
+# ---------------------------------------------------------------------------
+
+_new_connection_detail_report: dict | None = None
+
+_NCD_REQUIRED_ALIASES = {
+    "received_date": ["received date", "receive date", "receipt date", "date received", "date"],
+    "connections": ["no of connection", "no of connections", "no. of connection", "no. of connections", "new connection", "connections"],
+    "amount": ["total receivable", "total recievable", "receivable", "amount", "amount received", "total amount"],
+    "security": ["security", "security amount", "security rs", "security fee"],
+}
+
+
+def _ncd_norm(value) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", str(value or "").strip().lower()).strip()
+
+
+def _ncd_pick_column(columns: list[str], aliases: list[str]) -> str | None:
+    norm_lookup = {_ncd_norm(col): col for col in columns}
+    for alias in aliases:
+        alias_norm = _ncd_norm(alias)
+        if alias_norm in norm_lookup:
+            return norm_lookup[alias_norm]
+    for alias in aliases:
+        alias_norm = _ncd_norm(alias)
+        for norm_col, original in norm_lookup.items():
+            if alias_norm and alias_norm in norm_col:
+                return original
+    return None
+
+
+def _ncd_decimal(value) -> Decimal | None:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    text = str(value).strip()
+    if not text or text.lower() in ("nan", "none", "null"):
+        return None
+    text = re.sub(r"(?i)rs\.?\s*", "", text).replace(",", "").replace('"', "").replace("'", "").strip()
+    try:
+        return Decimal(text)
+    except (InvalidOperation, ValueError):
+        return None
+
+
+def _ncd_int(value) -> int | None:
+    dec = _ncd_decimal(value)
+    if dec is None:
+        return None
+    try:
+        return int(dec)
+    except (ValueError, OverflowError):
+        return None
+
+
+def _ncd_parse_date(value):
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    if isinstance(value, datetime):
+        return value
+    text = str(value).strip()
+    if not text or text.lower() in ("nan", "none", "null"):
+        return None
+    if re.fullmatch(r"\d+(\.0+)?", text):
+        serial = float(text)
+        if 20000 <= serial <= 90000:
+            parsed = pd.to_datetime(serial, unit="D", origin="1899-12-30", errors="coerce")
+            return parsed.to_pydatetime() if pd.notna(parsed) else None
+    for fmt_s in ("%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d", "%m/%d/%Y", "%d/%m/%y", "%d-%m-%y"):
+        try:
+            return datetime.strptime(text, fmt_s)
+        except ValueError:
+            pass
+    parsed = pd.to_datetime(text, dayfirst=True, errors="coerce")
+    return parsed.to_pydatetime() if pd.notna(parsed) else None
+
+
+def _ncd_financial_year(dt: datetime) -> str:
+    start = dt.year if dt.month >= 7 else dt.year - 1
+    return f"{start}-{start + 1}"
+
+
+def _ncd_classification(security: Decimal) -> str:
+    if security == Decimal("4800"):
+        return "Domestic"
+    if security == Decimal("9600"):
+        return "Domestic - Private Society"
+    if security > Decimal("9600"):
+        return "Commercial"
+    return "Unclassified"
+
+
+def _ncd_load_file(file) -> pd.DataFrame:
+    _, ext = os.path.splitext(file.filename or "")
+    if ext.lower() == ".csv":
+        return pd.read_csv(file, dtype=str, keep_default_na=False)
+    return pd.read_excel(file, dtype=str, keep_default_na=False)
+
+
+def _ncd_recalculate(report: dict) -> dict:
+    rows = report.get("rows", [])
+    review = report.get("review_rows", [])
+    summary = {
+        "uploaded_records": report.get("uploaded_records", 0),
+        "total_new_connections": sum(int(r.get("connections") or 0) for r in rows),
+        "total_amount": sum(int(r.get("amount") or 0) for r in rows),
+        "domestic": sum(int(r.get("connections") or 0) for r in rows if r.get("classification") == "Domestic"),
+        "private": sum(int(r.get("connections") or 0) for r in rows if r.get("classification") == "Domestic - Private Society"),
+        "commercial": sum(int(r.get("connections") or 0) for r in rows if r.get("classification") == "Commercial"),
+        "unclassified": len([r for r in review if "Security" in r.get("issue", "")]),
+    }
+    annual: dict[str, dict] = {}
+    category: dict[str, dict] = {}
+    for r in rows:
+        fy = r["financial_year"]
+        cls = r["classification"]
+        annual.setdefault(fy, {"financial_year": fy, "connections": 0, "amount": 0})
+        annual[fy]["connections"] += int(r["connections"])
+        annual[fy]["amount"] += int(r["amount"])
+        key = f"{fy}|{cls}"
+        category.setdefault(key, {"financial_year": fy, "classification": cls, "connections": 0, "amount": 0})
+        category[key]["connections"] += int(r["connections"])
+        category[key]["amount"] += int(r["amount"])
+    report["summary"] = summary
+    report["annual_summary"] = sorted(annual.values(), key=lambda x: x["financial_year"])
+    report["category_summary"] = sorted(category.values(), key=lambda x: (x["financial_year"], x["classification"]))
+    report["financial_years"] = sorted(annual)
+    report["classifications"] = sorted({r["classification"] for r in rows})
+    return report
+
+
+def _build_new_connection_detail_report(files) -> dict:
+    """One shared builder for screen totals and exports."""
+    rows: list[dict] = []
+    review_rows: list[dict] = []
+    source_files: list[str] = []
+    original_columns: list[str] = []
+    seen_columns: set[str] = set()
+    seen_records: set[str] = set()
+    uploaded_records = 0
+
+    for file in files:
+        if not file or not file.filename:
+            continue
+        source = secure_filename(file.filename)
+        if not allowed_file(source):
+            continue
+        source_files.append(source)
+        df = _ncd_load_file(file)
+        df.columns = [str(c).strip() for c in df.columns]
+        for col in df.columns:
+            if col not in seen_columns:
+                seen_columns.add(col)
+                original_columns.append(col)
+
+        colmap = {key: _ncd_pick_column(list(df.columns), aliases) for key, aliases in _NCD_REQUIRED_ALIASES.items()}
+        missing_cols = [key for key, col in colmap.items() if not col]
+        for idx, rec in enumerate(df.to_dict(orient="records"), start=2):
+            uploaded_records += 1
+            original = {col: ("" if pd.isna(rec.get(col)) else str(rec.get(col, "")).strip()) for col in df.columns}
+            if missing_cols:
+                review_rows.append({"source_file": source, "source_row": idx, "issue": "Missing required column: " + ", ".join(missing_cols), "original": original})
+                continue
+
+            issue = []
+            dt = _ncd_parse_date(original.get(colmap["received_date"]))
+            connections = _ncd_int(original.get(colmap["connections"]))
+            amount_dec = _ncd_decimal(original.get(colmap["amount"]))
+            security_dec = _ncd_decimal(original.get(colmap["security"]))
+            if not str(original.get(colmap["received_date"], "")).strip():
+                issue.append("Missing Received Date")
+            elif dt is None:
+                issue.append("Invalid Received Date")
+            if not str(original.get(colmap["connections"], "")).strip():
+                issue.append("Missing No of Connection")
+            elif connections is None:
+                issue.append("Invalid No of Connection")
+            if not str(original.get(colmap["amount"], "")).strip():
+                issue.append("Missing Total Receivable")
+            elif amount_dec is None:
+                issue.append("Invalid Total Receivable")
+            if not str(original.get(colmap["security"], "")).strip():
+                issue.append("Missing or unsupported Security value")
+            elif security_dec is None or _ncd_classification(security_dec) == "Unclassified":
+                issue.append("Missing or unsupported Security value")
+
+            if issue:
+                review_rows.append({"source_file": source, "source_row": idx, "issue": "; ".join(issue), "original": original})
+                continue
+
+            record_key = json.dumps([_dedupe_value(original.get(c, "")) for c in original_columns], ensure_ascii=False)
+            if record_key in seen_records:
+                continue
+            seen_records.add(record_key)
+            amount_int = int(amount_dec)
+            security_int = int(security_dec)
+            row_id = len(rows) + 1
+            rows.append({
+                "_id": row_id,
+                "original": {col: original.get(col, "") for col in original_columns},
+                "source_file": source,
+                "source_row": idx,
+                "received_date_iso": dt.strftime("%Y-%m-%d"),
+                "received_date_display": dt.strftime("%d-%m-%Y"),
+                "financial_year": _ncd_financial_year(dt),
+                "classification": _ncd_classification(security_dec),
+                "connections": connections,
+                "amount": amount_int,
+                "security": security_int,
+            })
+
+    report = {
+        "rows": rows,
+        "review_rows": review_rows,
+        "source_files": source_files,
+        "original_columns": original_columns,
+        "uploaded_records": uploaded_records,
+        "generated_at": datetime.now().strftime("%d-%m-%Y %H:%M"),
+    }
+    return _ncd_recalculate(report)
+
+
+def _save_new_connection_detail_cache(report: dict) -> None:
+    try:
+        os.makedirs(os.path.dirname(NEW_CONNECTION_DETAIL_CACHE), exist_ok=True)
+        with open(NEW_CONNECTION_DETAIL_CACHE, "w", encoding="utf-8") as f:
+            json.dump(report, f)
+    except Exception:
+        pass
+
+
+def _load_new_connection_detail_cache() -> dict | None:
+    try:
+        if os.path.exists(NEW_CONNECTION_DETAIL_CACHE):
+            with open(NEW_CONNECTION_DETAIL_CACHE, encoding="utf-8") as f:
+                return _ncd_recalculate(json.load(f))
+    except Exception:
+        pass
+    return None
+
+
+def _clear_new_connection_detail_cache() -> None:
+    try:
+        if os.path.exists(NEW_CONNECTION_DETAIL_CACHE):
+            os.remove(NEW_CONNECTION_DETAIL_CACHE)
+    except Exception:
+        pass
+
+
+def _ncd_export_rows(rows: list[dict], original_columns: list[str]) -> tuple[list[str], list[list]]:
+    headers = original_columns + ["Financial Year", "Connection Classification", "Source File"]
+    data = []
+    for r in rows:
+        original = r.get("original", {})
+        data.append([original.get(col, "") for col in original_columns] + [r.get("financial_year", ""), r.get("classification", ""), r.get("source_file", "")])
+    return headers, data
+
+
+def _ncd_table_pdf(title: str, headers: list[str], rows: list[list], footer_rows: list[list] | None = None, landscape_page: bool = True) -> bytes:
+    from xml.sax.saxutils import escape
+
+    buf = io.BytesIO()
+    page_size = landscape(A4) if landscape_page else A4
+    doc = SimpleDocTemplate(buf, pagesize=page_size, topMargin=7 * mm, bottomMargin=7 * mm, leftMargin=6 * mm, rightMargin=6 * mm)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("NcdTitle", parent=styles["Heading1"], fontSize=16, textColor=ACCENT, alignment=1, spaceAfter=4 * mm, fontName="Helvetica-Bold")
+    cell_style = ParagraphStyle("NcdCell", fontSize=5.8, leading=7, wordWrap="CJK")
+    head_style = ParagraphStyle("NcdHead", fontSize=6.2, leading=7, textColor=HEADER_FG, alignment=1, fontName="Helvetica-Bold", wordWrap="CJK")
+    elements = [Paragraph(title, title_style)]
+    table_rows = [[Paragraph(escape(str(h)), head_style) for h in headers]]
+    for row in rows:
+        table_rows.append([Paragraph(escape(str(v)), cell_style) for v in row])
+    if footer_rows:
+        table_rows.extend([[Paragraph(escape(str(v)), cell_style) for v in row] for row in footer_rows])
+    width = page_size[0] - doc.leftMargin - doc.rightMargin
+    col_widths = [width / max(len(headers), 1)] * len(headers)
+    table = Table(table_rows, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
+        ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
+        ("GRID", (0, 0), (-1, -1), 0.45, colors.HexColor("#8fb8b2")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f1eb")]),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+    ]))
+    elements.append(table)
+    doc.build(elements)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def _ncd_general_pdf(report: dict) -> bytes:
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=10 * mm, bottomMargin=10 * mm, leftMargin=10 * mm, rightMargin=10 * mm)
+    styles = getSampleStyleSheet()
+    elements = [
+        Paragraph("New Connection Detail", ParagraphStyle("NcdGeneralTitle", parent=styles["Heading1"], fontSize=18, textColor=ACCENT, alignment=1, spaceAfter=4 * mm, fontName="Helvetica-Bold")),
+        Paragraph(f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}<br/>Source files: {', '.join(report.get('source_files', [])) or '-'}", ParagraphStyle("NcdMeta", parent=styles["Normal"], fontSize=9, leading=12, spaceAfter=4 * mm)),
+    ]
+
+    summary = report.get("summary", {})
+    main_rows = [
+        ["Metric", "Value"],
+        ["Total Uploaded Records", fmt(summary.get("uploaded_records", 0))],
+        ["Overall Connection Count", fmt(summary.get("total_new_connections", 0))],
+        ["Overall Amount (Rs.)", fmt(summary.get("total_amount", 0))],
+        ["Domestic Connections", fmt(summary.get("domestic", 0))],
+        ["Domestic - Private Society Connections", fmt(summary.get("private", 0))],
+        ["Commercial Connections", fmt(summary.get("commercial", 0))],
+        ["Unclassified Records", fmt(summary.get("unclassified", 0))],
+    ]
+    annual_rows = [["Financial Year", "Connections", "Amount (Rs.)"]] + [[r["financial_year"], fmt(r["connections"]), fmt(r["amount"])] for r in report.get("annual_summary", [])]
+    category_rows = [["Financial Year", "Classification", "Connections", "Amount (Rs.)"]] + [[r["financial_year"], r["classification"], fmt(r["connections"]), fmt(r["amount"])] for r in report.get("category_summary", [])]
+    for table_rows in (main_rows, annual_rows, category_rows):
+        tbl = Table(table_rows, repeatRows=1, hAlign="CENTER")
+        tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
+            ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
+            ("GRID", (0, 0), (-1, -1), 0.45, colors.HexColor("#8fb8b2")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f1eb")]),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        elements.extend([tbl, Spacer(1, 5 * mm)])
+    doc.build(elements)
+    buf.seek(0)
+    return buf.getvalue()
+
+
 # Flexible column aliases: maps a canonical key to a list of normalised
 # substrings that identify the column.  The first match wins.
 _CONSUMER_COL_ALIASES: dict[str, list[str]] = {
@@ -8956,6 +9291,104 @@ def export_connection_rate_report(fmt_type: str):
         return Response(pdf_bytes, mimetype="application/pdf", headers={"Content-Disposition": "attachment; filename=connection_rate_report.pdf"})
     flash("Unknown export format.")
     return redirect(url_for("consumer_report"))
+
+
+@app.route("/new-connection-detail", methods=["GET", "POST"])
+def new_connection_detail():
+    global _new_connection_detail_report
+
+    if request.method == "POST":
+        action = request.form.get("action", "upload")
+        if action == "clear":
+            _new_connection_detail_report = None
+            _clear_new_connection_detail_cache()
+            flash("New Connection Detail data cleared.")
+            return redirect(url_for("new_connection_detail"))
+
+        files = [f for f in request.files.getlist("new_connection_files") if f and f.filename]
+        if not files:
+            flash("Please choose one or more CSV or Excel files.")
+            return redirect(url_for("new_connection_detail"))
+        bad = [f.filename for f in files if not allowed_file(f.filename)]
+        if bad:
+            flash("Unsupported file type: " + ", ".join(bad))
+            return redirect(url_for("new_connection_detail"))
+        try:
+            _new_connection_detail_report = _build_new_connection_detail_report(files)
+            _save_new_connection_detail_cache(_new_connection_detail_report)
+            flash(f"New Connection Detail uploaded: {len(_new_connection_detail_report.get('rows', [])):,} valid rows.")
+        except Exception as exc:
+            flash(f"Upload failed: {exc}")
+        return redirect(url_for("new_connection_detail"))
+
+    report = _new_connection_detail_report or _load_new_connection_detail_cache()
+    if report:
+        _new_connection_detail_report = report
+    return render_template("new_connection_detail.html", report=report, active_page="new_connection_detail")
+
+
+@app.route("/new-connection-detail/export/<fmt_type>", methods=["POST"])
+def export_new_connection_detail(fmt_type: str):
+    report = _new_connection_detail_report or _load_new_connection_detail_cache()
+    if not report:
+        flash("No New Connection Detail data available. Please upload files first.")
+        return redirect(url_for("new_connection_detail"))
+
+    if fmt_type == "errors-csv":
+        headers = ["Source File", "Source Row Number", "Validation Issue", "Original Row Values"]
+        out = io.StringIO()
+        writer = csv.writer(out)
+        writer.writerow(headers)
+        for r in report.get("review_rows", []):
+            writer.writerow([r.get("source_file", ""), r.get("source_row", ""), r.get("issue", ""), json.dumps(r.get("original", {}), ensure_ascii=False)])
+        return Response(out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=New_Connection_Detail_errors.csv"})
+
+    if fmt_type == "general-pdf":
+        return Response(_ncd_general_pdf(report), mimetype="application/pdf", headers={"Content-Disposition": "attachment; filename=New_Connection_Detail_General.pdf"})
+
+    rows_json = request.form.get("rows_json") or ""
+    rows = []
+    if rows_json:
+        try:
+            loaded = json.loads(rows_json)
+            if isinstance(loaded, list):
+                rows = loaded
+        except Exception:
+            rows = []
+    if not rows:
+        rows = report.get("rows", [])
+
+    original_columns = report.get("original_columns", [])
+    headers, data_rows = _ncd_export_rows(rows, original_columns)
+    subtotals: dict[str, dict] = {}
+    for r in rows:
+        cls = r.get("classification", "")
+        subtotals.setdefault(cls, {"connections": 0, "amount": 0})
+        subtotals[cls]["connections"] += int(r.get("connections") or 0)
+        subtotals[cls]["amount"] += int(r.get("amount") or 0)
+    footer = [[""] * len(headers)]
+    footer.append(["Category Subtotals"] + [""] * (len(headers) - 1))
+    for cls, total in sorted(subtotals.items()):
+        footer.append([cls, f"Connections: {fmt(total['connections'])}", f"Amount (Rs.): {fmt(total['amount'])}"] + [""] * max(len(headers) - 3, 0))
+    footer.append(["Overall Total", f"Connections: {fmt(sum(v['connections'] for v in subtotals.values()))}", f"Amount (Rs.): {fmt(sum(v['amount'] for v in subtotals.values()))}"] + [""] * max(len(headers) - 3, 0))
+
+    if fmt_type == "detailed-pdf":
+        pdf = _ncd_table_pdf("New Connection Detail - Detailed Report", headers, data_rows, footer_rows=footer, landscape_page=True)
+        return Response(pdf, mimetype="application/pdf", headers={"Content-Disposition": "attachment; filename=New_Connection_Detail_Detailed.pdf"})
+    if fmt_type == "csv":
+        out = io.StringIO()
+        writer = csv.writer(out)
+        writer.writerow(headers)
+        writer.writerows(data_rows)
+        return Response(out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=New_Connection_Detail.csv"})
+    if fmt_type == "xlsx":
+        buf = io.BytesIO()
+        pd.DataFrame(data_rows, columns=headers).to_excel(buf, index=False)
+        buf.seek(0)
+        return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=New_Connection_Detail.xlsx"})
+
+    flash("Unknown export format.")
+    return redirect(url_for("new_connection_detail"))
 
 
 @app.route("/consumer-report", methods=["GET", "POST"])

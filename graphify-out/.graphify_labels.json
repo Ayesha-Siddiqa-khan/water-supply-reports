@@ -1,1 +1,24 @@
-{"0": "BytesIO", "1": "app.py", "2": "DataFrame", "3": "consumer_report", "4": "get_db", "5": "Base Template", "6": "upload-progress.js", "7": "export_arrear_calculator", "8": "export_advanced_bills", "9": "vercel.json", "10": "check_bill_list.py", "11": "check_csv.py", "12": "check_dup.py", "13": "check_import.py", "14": "check_keys.py", "15": "check_schema.py", "16": "temp_debug.py", "17": "temp_debug2.py", "18": "temp_debug3.py"}
+{
+  "0": "BytesIO",
+  "1": "app.py",
+  "2": "DataFrame",
+  "3": "consumer_report",
+  "4": "get_db",
+  "5": "Base Template",
+  "6": "upload-progress.js",
+  "7": "export_arrear_calculator",
+  "8": "export_advanced_bills",
+  "9": "vercel.json",
+  "10": "check_bill_list.py",
+  "11": "check_csv.py",
+  "12": "check_dup.py",
+  "13": "check_import.py",
+  "14": "check_keys.py",
+  "15": "check_schema.py",
+  "16": "temp_debug.py",
+  "17": "temp_debug2.py",
+  "18": "temp_debug3.py",
+  "19": "Agent Instructions",
+  "20": "Claude Code CLI Prompt: Advanced Bill List Filters and Export",
+  "21": "Advanced Bill Filters Feature Prompt"
+}
