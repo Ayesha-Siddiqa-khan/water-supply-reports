@@ -1,16 +1,16 @@
 # Graph Report - water suppy report  (2026-07-14)
 
 ## Corpus Check
-- 29 files · ~86,641 words
+- 29 files · ~87,127 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 382 nodes · 971 edges · 23 communities (21 shown, 2 thin omitted)
+- 384 nodes · 980 edges · 23 communities (21 shown, 2 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 14 edges (avg confidence: 0.6)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `f809f02b`
+- Built from commit: `6f93f10e`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -65,12 +65,12 @@
 ## Communities (23 total, 2 thin omitted)
 
 ### Community 0 - "BytesIO"
-Cohesion: 0.08
-Nodes (60): bill_list_export_rows(), _bracket_rich_text(), build_connection_summary(), _calc_daily_detail_col_widths(), _card_rows_to_df(), commercial_daily_income_export_rows(), daily_staff_receive_export_response(), daily_staff_receive_export_tables() (+52 more)
+Cohesion: 0.07
+Nodes (61): bill_list_export_rows(), _bracket_rich_text(), build_connection_summary(), _calc_col_widths(), _card_rows_to_df(), commercial_daily_income_export_rows(), daily_staff_receive_export_response(), daily_staff_receive_export_tables() (+53 more)
 
 ### Community 1 - "app.py"
 Cohesion: 0.05
-Nodes (55): _build_arrear_export_rows(), _build_new_connection_detail_report(), _calc_daily_summary_col_widths(), clean_cell(), _clear_new_connection_detail_cache(), _deep_normalize_sector(), download_file(), export_daily_staff_receive() (+47 more)
+Nodes (59): allowed_file(), _build_new_connection_detail_report(), _calc_daily_detail_col_widths(), _calc_daily_summary_col_widths(), clean_cell(), _clear_new_connection_detail_cache(), _closest_staff_key(), _deep_normalize_sector() (+51 more)
 
 ### Community 2 - "DataFrame"
 Cohesion: 0.09
@@ -78,11 +78,11 @@ Nodes (42): build_bill_key(), build_commercial_daily_income_rows(), build_commer
 
 ### Community 3 - "consumer_report"
 Cohesion: 0.06
-Nodes (51): _add_rate_alias(), _annualize_connection_rate(), _build_connection_rate_report(), _build_connection_rate_report_from_summary(), _build_consumer_sector_summary(), _canonical_consumer_sector_locality(), _classify_connection_status(), _clean_rate_type_name() (+43 more)
+Nodes (56): _add_rate_alias(), _annualize_connection_rate(), _build_connection_rate_report(), _build_connection_rate_report_from_summary(), build_consumer_sector_remaining_report(), _build_consumer_sector_summary(), _canonical_consumer_sector_locality(), _classify_connection_status() (+48 more)
 
 ### Community 4 - "get_db"
-Cohesion: 0.11
-Nodes (35): apply_manual_zone_overrides(), bill_list_sector_seasonly_export_rows(), bill_list_staff_export_rows(), bill_list_zone_export_rows(), build_consumer_sector_remaining_report(), build_unpaid_amount_summary(), clear_bill_list_data(), _closest_staff_key() (+27 more)
+Cohesion: 0.10
+Nodes (39): apply_manual_zone_overrides(), bill_list(), bill_list_sector_seasonly_export_rows(), bill_list_staff_export_rows(), bill_list_zone_export_rows(), build_unpaid_amount_summary(), clear_bill_list_data(), export_bill_list_staff() (+31 more)
 
 ### Community 5 - "Base Template"
 Cohesion: 0.09
@@ -93,12 +93,12 @@ Cohesion: 0.44
 Nodes (10): bindUploadForms(), createOverlay(), getUploadFileLabel(), handleUpload(), removeOverlay(), setFormLoading(), shouldUseNativeUpload(), showToast() (+2 more)
 
 ### Community 7 - "export_arrear_calculator"
-Cohesion: 0.16
-Nodes (20): ajax_error(), ajax_ok(), allowed_file(), arrear_calculator(), bill_list(), consumer_sector_remaining_report(), daily_staff_receive(), get_assignment_conflicts() (+12 more)
+Cohesion: 0.31
+Nodes (10): ajax_error(), ajax_ok(), arrear_calculator(), daily_staff_receive(), index(), is_ajax(), _load_results_cache(), remove_pdf_column() (+2 more)
 
 ### Community 8 - "export_advanced_bills"
-Cohesion: 0.15
-Nodes (14): backfill_bill_arrears(), _bill_list_summary_from_rows(), _connection_rate_rows_from_payload(), is_large_pdf_text(), merge_sector_list_rows(), merge_sector_rows(), normalise_sector(), parse_number() (+6 more)
+Cohesion: 0.10
+Nodes (21): backfill_bill_arrears(), _bill_list_summary_from_rows(), _connection_rate_rows_from_payload(), export_advanced_bills(), generate_zip_of_group_pdfs(), group_bills(), is_large_pdf_text(), merge_sector_list_rows() (+13 more)
 
 ### Community 9 - "vercel.json"
 Cohesion: 0.40
@@ -109,8 +109,8 @@ Cohesion: 0.18
 Nodes (10): Agent Instructions, Auto-Update on Changes, Commands, Development Guidelines, Graph Status, Graphify - Knowledge Graph, Key Architecture Nodes (from last graphify run), Ponytail - Lazy Senior Dev Mode (+2 more)
 
 ### Community 22 - "match_staff_assignment"
-Cohesion: 0.14
-Nodes (16): _calc_col_widths(), export_advanced_bills(), generate_grouped_advanced_pdf(), generate_single_group_pdf(), generate_zip_of_group_pdfs(), group_bills(), _GroupedPdfWrapper, Return sort key for zone ordering: A=1, B=2, C=3, Commercial=4, unknown=99. (+8 more)
+Cohesion: 0.29
+Nodes (7): _build_arrear_export_rows(), export_arrear_calculator(), _parse_arrear_export_cols(), Parse comma-separated column keys into an ordered list.      Fixed column orde, Build export rows from summary data, selecting only requested columns., Sort rows by the given status priority and order., _sort_arrear_rows()
 
 ## Knowledge Gaps
 - **18 isolated node(s):** `$schema`, `maxDuration`, `Ponytail - Lazy Senior Dev Mode`, `Project Overview`, `Graph Status` (+13 more)
@@ -120,17 +120,17 @@ Nodes (16): _calc_col_widths(), export_advanced_bills(), generate_grouped_advanc
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `_GroupedPdfWrapper` connect `match_staff_assignment` to `app.py`?**
+- **Why does `_GroupedPdfWrapper` connect `BytesIO` to `app.py`?**
   _High betweenness centrality (0.039) - this node is a cross-community bridge._
-- **Why does `generate_grouped_advanced_pdf()` connect `match_staff_assignment` to `BytesIO`, `app.py`?**
+- **Why does `generate_grouped_advanced_pdf()` connect `BytesIO` to `app.py`?**
   _High betweenness centrality (0.009) - this node is a cross-community bridge._
-- **Why does `_get_season_bill_ids()` connect `get_db` to `app.py`?**
+- **Why does `_get_season_bill_ids()` connect `get_db` to `app.py`, `consumer_report`?**
   _High betweenness centrality (0.009) - this node is a cross-community bridge._
 - **What connects `Aggressively normalize a sector/locality name for robust matching.`, `Extract significant keywords from a sector/locality name.`, `Return display name: paired staff on separate lines, else as-is.` to the rest of the system?**
   _82 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `BytesIO` be split into smaller, more focused modules?**
-  _Cohesion score 0.07909604519774012 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07081377151799687 - nodes in this community are weakly interconnected._
 - **Should `app.py` be split into smaller, more focused modules?**
-  _Cohesion score 0.053410893707033315 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.053613053613053616 - nodes in this community are weakly interconnected._
 - **Should `DataFrame` be split into smaller, more focused modules?**
   _Cohesion score 0.09291521486643438 - nodes in this community are weakly interconnected._

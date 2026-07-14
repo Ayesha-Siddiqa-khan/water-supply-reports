@@ -8004,6 +8004,7 @@ def _clear_consumer_summary_cache() -> None:
 # ---------------------------------------------------------------------------
 
 _new_connection_detail_report: dict | None = None
+_NCD_REPORT_VERSION = 2
 
 _NCD_REQUIRED_ALIASES = {
     "received_date": ["received date", "receive date", "receipt date", "date received", "date"],
@@ -8081,14 +8082,25 @@ def _ncd_financial_year(dt: datetime) -> str:
     return f"{start}-{start + 1}"
 
 
+def _ncd_year_from_source(source: str) -> str | None:
+    match = re.search(r"(?<!\d)(\d{2})\s*-\s*(\d{2})(?!\d)", str(source or ""))
+    if not match:
+        return None
+    start = 2000 + int(match.group(1))
+    end = 2000 + int(match.group(2))
+    if end < start:
+        end += 100
+    return f"{start}-{end}"
+
+
 def _ncd_classification(security: Decimal) -> str:
     if security == Decimal("4800"):
         return "Domestic"
     if security == Decimal("9600"):
         return "Domestic - Private Society"
-    if security > Decimal("9600"):
-        return "Commercial"
-    return "Unclassified"
+    # Only 4,800 and 9,600 are domestic categories; every other numeric
+    # security value is commercial, including 0 and 6,000.
+    return "Commercial"
 
 
 def _ncd_load_file(file) -> pd.DataFrame:
@@ -8101,13 +8113,19 @@ def _ncd_load_file(file) -> pd.DataFrame:
 def _ncd_recalculate(report: dict) -> dict:
     rows = report.get("rows", [])
     review = report.get("review_rows", [])
+    for row in rows:
+        security = _ncd_decimal(row.get("security"))
+        if security is not None:
+            # Re-apply the current security classification so old cached rows
+            # cannot keep obsolete Unclassified labels.
+            row["classification"] = _ncd_classification(security)
     summary = {
         "uploaded_records": report.get("uploaded_records", 0),
-        "total_new_connections": sum(int(r.get("connections") or 0) for r in rows),
+        "total_new_connections": len(rows),
         "total_amount": sum(int(r.get("amount") or 0) for r in rows),
-        "domestic": sum(int(r.get("connections") or 0) for r in rows if r.get("classification") == "Domestic"),
-        "private": sum(int(r.get("connections") or 0) for r in rows if r.get("classification") == "Domestic - Private Society"),
-        "commercial": sum(int(r.get("connections") or 0) for r in rows if r.get("classification") == "Commercial"),
+        "domestic": sum(1 for r in rows if r.get("classification") == "Domestic"),
+        "private": sum(1 for r in rows if r.get("classification") == "Domestic - Private Society"),
+        "commercial": sum(1 for r in rows if r.get("classification") == "Commercial"),
         "unclassified": len([r for r in review if "Security" in r.get("issue", "")]),
     }
     annual: dict[str, dict] = {}
@@ -8116,17 +8134,18 @@ def _ncd_recalculate(report: dict) -> dict:
         fy = r["financial_year"]
         cls = r["classification"]
         annual.setdefault(fy, {"financial_year": fy, "connections": 0, "amount": 0})
-        annual[fy]["connections"] += int(r["connections"])
+        annual[fy]["connections"] += 1
         annual[fy]["amount"] += int(r["amount"])
         key = f"{fy}|{cls}"
         category.setdefault(key, {"financial_year": fy, "classification": cls, "connections": 0, "amount": 0})
-        category[key]["connections"] += int(r["connections"])
+        category[key]["connections"] += 1
         category[key]["amount"] += int(r["amount"])
     report["summary"] = summary
     report["annual_summary"] = sorted(annual.values(), key=lambda x: x["financial_year"])
     report["category_summary"] = sorted(category.values(), key=lambda x: (x["financial_year"], x["classification"]))
     report["financial_years"] = sorted(annual)
     report["classifications"] = sorted({r["classification"] for r in rows})
+    report["version"] = _NCD_REPORT_VERSION
     return report
 
 
@@ -8182,7 +8201,7 @@ def _build_new_connection_detail_report(files) -> dict:
                 issue.append("Invalid Total Receivable")
             if not str(original.get(colmap["security"], "")).strip():
                 issue.append("Missing or unsupported Security value")
-            elif security_dec is None or _ncd_classification(security_dec) == "Unclassified":
+            elif security_dec is None:
                 issue.append("Missing or unsupported Security value")
 
             if issue:
@@ -8203,7 +8222,9 @@ def _build_new_connection_detail_report(files) -> dict:
                 "source_row": idx,
                 "received_date_iso": dt.strftime("%Y-%m-%d"),
                 "received_date_display": dt.strftime("%d-%m-%Y"),
-                "financial_year": _ncd_financial_year(dt),
+                # Year-named uploads such as 24-25.csv are treated as the
+                # authority for this report; otherwise fall back to Received Date.
+                "financial_year": _ncd_year_from_source(source) or _ncd_financial_year(dt),
                 "classification": _ncd_classification(security_dec),
                 "connections": connections,
                 "amount": amount_int,
@@ -8211,6 +8232,7 @@ def _build_new_connection_detail_report(files) -> dict:
             })
 
     report = {
+        "version": _NCD_REPORT_VERSION,
         "rows": rows,
         "review_rows": review_rows,
         "source_files": source_files,
@@ -8234,7 +8256,11 @@ def _load_new_connection_detail_cache() -> dict | None:
     try:
         if os.path.exists(NEW_CONNECTION_DETAIL_CACHE):
             with open(NEW_CONNECTION_DETAIL_CACHE, encoding="utf-8") as f:
-                return _ncd_recalculate(json.load(f))
+                report = json.load(f)
+            if report.get("version") != _NCD_REPORT_VERSION:
+                _clear_new_connection_detail_cache()
+                return None
+            return _ncd_recalculate(report)
     except Exception:
         pass
     return None
@@ -8302,6 +8328,70 @@ def _ncd_table_pdf(title: str, headers: list[str], rows: list[list], footer_rows
             ("FONTSIZE", (0, 0), (-1, -1), 9),
             ("LEFTPADDING", (0, 0), (-1, -1), 7),
             ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(summary_table)
+    doc.build(elements)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def _ncd_detail_pdf(title: str, headers: list[str], rows: list[list], source_rows: list[dict], footer_rows: list[list]) -> bytes:
+    from xml.sax.saxutils import escape
+
+    buf = io.BytesIO()
+    page_size = landscape(A4)
+    doc = SimpleDocTemplate(buf, pagesize=page_size, topMargin=7 * mm, bottomMargin=7 * mm, leftMargin=6 * mm, rightMargin=6 * mm)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("NcdDetailTitle", parent=styles["Heading1"], fontSize=17, textColor=ACCENT, alignment=1, spaceAfter=4 * mm, fontName="Helvetica-Bold")
+    year_style = ParagraphStyle("NcdDetailYear", parent=styles["Heading2"], fontSize=13, textColor=ACCENT, alignment=1, spaceBefore=3 * mm, spaceAfter=2 * mm, fontName="Helvetica-Bold")
+    # Detailed PDF groups by year, so the repeated Financial Year column is removed
+    # and all cells are centered for a cleaner printed table.
+    pdf_headers = [h for h in headers if h != "Financial Year"]
+    fy_index = headers.index("Financial Year") if "Financial Year" in headers else None
+    cell_style = ParagraphStyle("NcdDetailCell", fontSize=7.2, leading=8.8, alignment=1, wordWrap="CJK")
+    head_style = ParagraphStyle("NcdDetailHead", fontSize=7.5, leading=8.8, textColor=HEADER_FG, alignment=1, fontName="Helvetica-Bold", wordWrap="CJK")
+    elements = [Paragraph(title, title_style)]
+    grouped: dict[str, list[list]] = {}
+    for row, source in zip(rows, source_rows):
+        fy = str(source.get("financial_year") or (row[fy_index] if fy_index is not None and fy_index < len(row) else ""))
+        grouped.setdefault(fy or "Unknown Year", [])
+        grouped[fy or "Unknown Year"].append([v for i, v in enumerate(row) if i != fy_index])
+
+    width = page_size[0] - doc.leftMargin - doc.rightMargin
+    col_widths = [width / max(len(pdf_headers), 1)] * len(pdf_headers)
+    for fy, group_rows in grouped.items():
+        elements.append(Paragraph(escape(fy), year_style))
+        table_rows = [[Paragraph(escape(str(h)), head_style) for h in pdf_headers]]
+        table_rows.extend([[Paragraph(escape(str(v)), cell_style) for v in row] for row in group_rows])
+        table = Table(table_rows, colWidths=col_widths, repeatRows=1, hAlign="CENTER")
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
+            ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
+            ("GRID", (0, 0), (-1, -1), 0.55, colors.HexColor("#6aa8a0")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f1eb")]),
+            ("LEFTPADDING", (0, 0), (-1, -1), 3),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ]))
+        elements.append(table)
+
+    if footer_rows:
+        elements.append(Spacer(1, 5 * mm))
+        summary_table = Table(footer_rows, colWidths=[width * 0.45, width * 0.25, width * 0.30], repeatRows=1, hAlign="CENTER")
+        summary_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
+            ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
+            ("GRID", (0, 0), (-1, -1), 0.55, colors.HexColor("#6aa8a0")),
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#d8f0df")),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
             ("TOPPADDING", (0, 0), (-1, -1), 6),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
         ]))
@@ -9573,6 +9663,8 @@ def export_new_connection_detail(fmt_type: str):
     if not rows:
         rows = report.get("rows", [])
     detail_year = request.form.get("detail_year", "").strip()
+    if detail_year and not posted_rows:
+        rows = [r for r in rows if r.get("financial_year") == detail_year]
     file_suffix = f"_{detail_year}" if detail_year else ""
 
     original_columns = report.get("original_columns", [])
@@ -9589,7 +9681,7 @@ def export_new_connection_detail(fmt_type: str):
     for r in rows:
         cls = r.get("classification", "")
         subtotals.setdefault(cls, {"connections": 0, "amount": 0})
-        subtotals[cls]["connections"] += int(r.get("connections") or 0)
+        subtotals[cls]["connections"] += 1
         subtotals[cls]["amount"] += int(r.get("amount") or 0)
     footer = [["Category", "Connections", "Amount (Rs.)"]]
     for cls, total in sorted(subtotals.items()):
@@ -9598,7 +9690,7 @@ def export_new_connection_detail(fmt_type: str):
 
     if fmt_type == "detailed-pdf":
         title = f"New Connection Detail - {detail_year} Detailed Report" if detail_year else "New Connection Detail - Detailed Report"
-        pdf = _ncd_table_pdf(title, headers, data_rows, footer_rows=footer, landscape_page=True)
+        pdf = _ncd_detail_pdf(title, headers, data_rows, rows, footer)
         return Response(pdf, mimetype="application/pdf", headers={"Content-Disposition": f"attachment; filename=New_Connection_Detail_Detailed{file_suffix}.pdf"})
     if fmt_type == "csv":
         out = io.StringIO()
