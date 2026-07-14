@@ -83,12 +83,39 @@
 
   <div class="section" id="ncd-report">
     <div class="ncd-tabs">
-      <button class="ncd-tab active" type="button" data-tab="general">General Report</button>
+      <button class="ncd-tab active" type="button" data-tab="annual">Financial Year Summary</button>
+      <button class="ncd-tab" type="button" data-tab="general">General Report</button>
       <button class="ncd-tab" type="button" data-tab="detailed">Detailed Report</button>
       <button class="ncd-tab" type="button" data-tab="review">Needs Review ({{ report.review_rows|length }})</button>
     </div>
 
-    <div class="tab-pane" id="tab-general">
+    <div class="tab-pane" id="tab-annual">
+      <div class="export-bar" style="gap:10px;flex-wrap:wrap;">
+        <form class="ncd-annual-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='annual-pdf') }}"><input type="hidden" name="annual_json"><button class="chip" type="submit">Download Summary PDF</button></form>
+        <form class="ncd-annual-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='annual-csv') }}"><input type="hidden" name="annual_json"><button class="chip" type="submit">Download Summary CSV</button></form>
+        <form class="ncd-annual-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='annual-xlsx') }}"><input type="hidden" name="annual_json"><button class="chip" type="submit">Download Summary Excel</button></form>
+      </div>
+      <div class="export-bar" style="gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+        <strong style="color:var(--text-muted);font-size:12px;">Columns:</strong>
+        <label><input type="checkbox" class="ncd-annual-col" value="sr" checked> SR</label>
+        <label><input type="checkbox" class="ncd-annual-col" value="financial_year" checked> Financial Year</label>
+        <label><input type="checkbox" class="ncd-annual-col" value="connections" checked> Connections</label>
+        <label><input type="checkbox" class="ncd-annual-col" value="amount" checked> Amount</label>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table" id="ncd-annual-table">
+          <thead><tr><th><input type="checkbox" class="ncd-general-select-all" data-target="annual" checked></th><th>Sr No.</th><th>Financial Year</th><th>Connections</th><th>Amount (Rs.)</th></tr></thead>
+          <tbody>
+            {% for row in report.annual_summary %}
+            <tr data-year="{{ row.financial_year }}" data-row="{{ row|tojson|forceescape }}"><td><input type="checkbox" class="ncd-general-check ncd-annual-check" checked></td><td>{{ loop.index }}</td><td>{{ row.financial_year }}</td><td>{{ "{:,.0f}".format(row.connections) }}</td><td>{{ "{:,.0f}".format(row.amount) }}</td></tr>
+            {% endfor %}
+          </tbody>
+          <tfoot><tr><td></td><td></td><td>GRAND TOTAL</td><td>{{ "{:,.0f}".format(report.summary.total_new_connections) }}</td><td>{{ "{:,.0f}".format(report.summary.total_amount) }}</td></tr></tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-pane" id="tab-general" style="display:none;">
       <div class="export-bar" style="gap:10px;flex-wrap:wrap;">
         <form class="ncd-general-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='general-pdf') }}"><input type="hidden" name="general_json"><button class="chip" type="submit">Download All Years PDF</button></form>
         <form class="ncd-general-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='general-csv') }}"><input type="hidden" name="general_json"><button class="chip" type="submit">Download All Years CSV</button></form>
@@ -102,25 +129,15 @@
         <label><input type="checkbox" class="ncd-general-col" value="connections" checked> Connections</label>
         <label><input type="checkbox" class="ncd-general-col" value="amount" checked> Amount</label>
       </div>
-      <div class="table-wrapper">
-        <table class="data-table" id="ncd-annual-table">
-          <thead><tr><th><input type="checkbox" class="ncd-general-select-all" data-target="annual" checked></th><th>Sr No.</th><th>Financial Year</th><th>Connections</th><th>Amount (Rs.)</th></tr></thead>
-          <tbody>
-            {% for row in report.annual_summary %}
-            <tr data-year="{{ row.financial_year }}" data-row="{{ row|tojson|forceescape }}"><td><input type="checkbox" class="ncd-general-check ncd-annual-check" checked></td><td>{{ loop.index }}</td><td>{{ row.financial_year }}</td><td>{{ "{:,.0f}".format(row.connections) }}</td><td>{{ "{:,.0f}".format(row.amount) }}</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
       {% for fy, rows in report.category_summary|groupby('financial_year') %}
         <h3 style="text-align:center;color:var(--teal);font-size:16px;margin:18px 0 8px;">{{ fy }}</h3>
         <div class="export-bar" style="gap:10px;flex-wrap:wrap;margin-bottom:8px;">
           <form class="ncd-general-export-form" data-year="{{ fy }}" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='general-pdf') }}"><input type="hidden" name="general_json"><button class="chip" type="submit">{{ fy }} PDF</button></form>
           <form class="ncd-general-export-form" data-year="{{ fy }}" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='general-csv') }}"><input type="hidden" name="general_json"><button class="chip" type="submit">{{ fy }} CSV</button></form>
           <form class="ncd-general-export-form" data-year="{{ fy }}" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='general-xlsx') }}"><input type="hidden" name="general_json"><button class="chip" type="submit">{{ fy }} Excel</button></form>
-          <form class="ncd-detail-year-export" data-year="{{ fy }}" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='detailed-pdf') }}"><input type="hidden" name="rows_json"><input type="hidden" name="detail_year" value="{{ fy }}"><button class="chip" type="submit">{{ fy }} Detail PDF</button></form>
-          <form class="ncd-detail-year-export" data-year="{{ fy }}" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='csv') }}"><input type="hidden" name="rows_json"><input type="hidden" name="detail_year" value="{{ fy }}"><button class="chip" type="submit">{{ fy }} Detail CSV</button></form>
-          <form class="ncd-detail-year-export" data-year="{{ fy }}" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='xlsx') }}"><input type="hidden" name="rows_json"><input type="hidden" name="detail_year" value="{{ fy }}"><button class="chip" type="submit">{{ fy }} Detail Excel</button></form>
+          <form class="ncd-detail-year-export" data-year="{{ fy }}" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='detailed-pdf') }}"><input type="hidden" name="rows_json"><input type="hidden" name="detail_cols"><input type="hidden" name="detail_year" value="{{ fy }}"><button class="chip" type="submit">{{ fy }} Detail PDF</button></form>
+          <form class="ncd-detail-year-export" data-year="{{ fy }}" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='csv') }}"><input type="hidden" name="rows_json"><input type="hidden" name="detail_cols"><input type="hidden" name="detail_year" value="{{ fy }}"><button class="chip" type="submit">{{ fy }} Detail CSV</button></form>
+          <form class="ncd-detail-year-export" data-year="{{ fy }}" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='xlsx') }}"><input type="hidden" name="rows_json"><input type="hidden" name="detail_cols"><input type="hidden" name="detail_year" value="{{ fy }}"><button class="chip" type="submit">{{ fy }} Detail Excel</button></form>
         </div>
         <div class="table-wrapper" style="margin-top:8px;">
           <table class="data-table ncd-category-table">
@@ -130,6 +147,7 @@
               <tr data-year="{{ row.financial_year }}" data-row="{{ row|tojson|forceescape }}"><td><input type="checkbox" class="ncd-general-check ncd-category-check" checked></td><td>{{ loop.index }}</td><td>{{ row.classification }}</td><td>{{ "{:,.0f}".format(row.connections) }}</td><td>{{ "{:,.0f}".format(row.amount) }}</td></tr>
               {% endfor %}
             </tbody>
+            <tfoot><tr><td></td><td></td><td>GRAND TOTAL</td><td>{{ "{:,.0f}".format(rows|sum(attribute='connections')) }}</td><td>{{ "{:,.0f}".format(rows|sum(attribute='amount')) }}</td></tr></tfoot>
           </table>
         </div>
       {% endfor %}
@@ -143,27 +161,38 @@
         <input id="ncd-search" class="topbar-btn" style="min-width:220px;" placeholder="Search records">
         <button class="chip" type="button" id="sort-date">Sort by date</button>
         <button class="chip" type="button" id="sort-amount">Sort by amount</button>
-        <form class="ncd-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='detailed-pdf') }}"><input type="hidden" name="rows_json"><button class="chip" type="submit">Download Detailed PDF</button></form>
-        <form class="ncd-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='csv') }}"><input type="hidden" name="rows_json"><button class="chip" type="submit">Download CSV</button></form>
-        <form class="ncd-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='xlsx') }}"><input type="hidden" name="rows_json"><button class="chip" type="submit">Download Excel</button></form>
+        <form class="ncd-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='detailed-pdf') }}"><input type="hidden" name="rows_json"><input type="hidden" name="detail_cols"><button class="chip" type="submit">Download Detailed PDF</button></form>
+        <form class="ncd-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='csv') }}"><input type="hidden" name="rows_json"><input type="hidden" name="detail_cols"><button class="chip" type="submit">Download CSV</button></form>
+        <form class="ncd-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='xlsx') }}"><input type="hidden" name="rows_json"><input type="hidden" name="detail_cols"><button class="chip" type="submit">Download Excel</button></form>
+      </div>
+      {% set detail_default_hidden = ['Sr #', 'Connection Fee', 'Re-connection Fee', 'Transfer Connection Fee', 'Road Cut Charges', 'Sanitation Fee', 'Sewerage / Drainage Fee', 'Source File'] %}
+      <div class="export-bar" style="gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+        <strong style="color:var(--text-muted);font-size:12px;">Detail Columns:</strong>
+        <label><input type="checkbox" class="ncd-detail-col" value="Sr No." checked> SR</label>
+        {% for col in report.original_columns %}
+          <label><input type="checkbox" class="ncd-detail-col" value="{{ col }}" {% if col not in detail_default_hidden %}checked{% endif %}> {{ col }}</label>
+        {% endfor %}
+        <label><input type="checkbox" class="ncd-detail-col" value="Financial Year" checked> Financial Year</label>
+        <label><input type="checkbox" class="ncd-detail-col" value="Connection Classification" checked> Classification</label>
+        <label><input type="checkbox" class="ncd-detail-col" value="Source File"> Source File</label>
       </div>
       <div class="table-wrapper">
         <table class="data-table" id="ncd-table">
           <thead>
             <tr>
               <th><input type="checkbox" id="select-filtered" checked title="Select all filtered rows"></th>
-              <th>Sr No.</th>
-              {% for col in report.original_columns %}<th>{{ col }}</th>{% endfor %}
-              <th>Financial Year</th><th>Connection Classification</th><th>Source File</th>
+              <th data-detail-col="Sr No.">Sr No.</th>
+              {% for col in report.original_columns %}<th data-detail-col="{{ col }}">{{ col }}</th>{% endfor %}
+              <th data-detail-col="Financial Year">Financial Year</th><th data-detail-col="Connection Classification">Connection Classification</th><th data-detail-col="Source File">Source File</th>
             </tr>
           </thead>
           <tbody>
             {% for row in report.rows %}
             <tr data-fy="{{ row.financial_year }}" data-class="{{ row.classification }}" data-source="{{ row.source_file }}" data-date="{{ row.received_date_iso }}" data-amount="{{ row.amount }}" data-search="{{ (row.original.values()|join(' ') ~ ' ' ~ row.financial_year ~ ' ' ~ row.classification ~ ' ' ~ row.source_file)|lower }}" data-row="{{ row|tojson|forceescape }}">
               <td><input type="checkbox" class="ncd-row-check" checked></td>
-              <td>{{ loop.index }}</td>
-              {% for col in report.original_columns %}<td>{{ row.original.get(col, '') }}</td>{% endfor %}
-              <td>{{ row.financial_year }}</td><td>{{ row.classification }}</td><td>{{ row.source_file }}</td>
+              <td data-detail-col="Sr No.">{{ loop.index }}</td>
+              {% for col in report.original_columns %}<td data-detail-col="{{ col }}">{{ row.original.get(col, '') }}</td>{% endfor %}
+              <td data-detail-col="Financial Year">{{ row.financial_year }}</td><td data-detail-col="Connection Classification">{{ row.classification }}</td><td data-detail-col="Source File">{{ row.source_file }}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -215,7 +244,20 @@
       return Array.from(document.querySelectorAll(selector)).filter(function(row) {
         var box = row.querySelector('.ncd-general-check');
         return box && box.checked && (!year || row.dataset.year === year);
-      }).map(function(row) { return JSON.parse(row.dataset.row); });
+      }).map(readRowPayload).filter(Boolean);
+    }
+    function readRowPayload(row) {
+      try { return JSON.parse(row.dataset.row || '{}'); }
+      catch (err) { return null; }
+    }
+    function selectedDetailColumns() {
+      return Array.from(document.querySelectorAll('.ncd-detail-col:checked')).map(function(box) { return box.value; });
+    }
+    function applyDetailColumns() {
+      var selected = new Set(selectedDetailColumns());
+      document.querySelectorAll('#ncd-table [data-detail-col]').forEach(function(cell) {
+        cell.style.display = selected.has(cell.dataset.detailCol) ? '' : 'none';
+      });
     }
     document.querySelectorAll('.ncd-general-select-all').forEach(function(box) {
       box.addEventListener('change', function() {
@@ -235,13 +277,23 @@
         });
       });
     });
+    document.querySelectorAll('.ncd-annual-export-form').forEach(function(form) {
+      form.addEventListener('submit', function() {
+        var cols = Array.from(document.querySelectorAll('.ncd-annual-col:checked')).map(function(box) { return box.value; });
+        form.querySelector('input[name="annual_json"]').value = JSON.stringify({
+          cols: cols,
+          annual_rows: checkedGeneralRows('#ncd-annual-table tbody tr', '')
+        });
+      });
+    });
     document.querySelectorAll('.ncd-detail-year-export').forEach(function(form) {
       form.addEventListener('submit', function() {
         var year = form.dataset.year || '';
         var selected = Array.from(document.querySelectorAll('#ncd-table tbody tr')).filter(function(row) {
           return row.dataset.fy === year;
-        }).map(function(row) { return JSON.parse(row.dataset.row); });
+        }).map(readRowPayload).filter(Boolean);
         form.querySelector('input[name="rows_json"]').value = JSON.stringify(selected);
+        form.querySelector('input[name="detail_cols"]').value = JSON.stringify(selectedDetailColumns());
       });
     });
 
@@ -282,10 +334,15 @@
       form.addEventListener('submit', function() {
         var selected = rows().filter(function(row) {
           return row.style.display !== 'none' && row.querySelector('.ncd-row-check').checked;
-        }).map(function(row) { return JSON.parse(row.dataset.row); });
+        }).map(readRowPayload).filter(Boolean);
         form.querySelector('input[name="rows_json"]').value = JSON.stringify(selected);
+        form.querySelector('input[name="detail_cols"]').value = JSON.stringify(selectedDetailColumns());
       });
     });
+    document.querySelectorAll('.ncd-detail-col').forEach(function(box) {
+      box.addEventListener('change', applyDetailColumns);
+    });
+    applyDetailColumns();
   })();
 </script>
 {% endif %}
