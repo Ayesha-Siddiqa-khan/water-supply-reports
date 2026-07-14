@@ -329,8 +329,8 @@
   function renderTable() {
     var cols = selectedCols(), rows = state.results.filter(visible), table = document.getElementById('match-table');
     table.querySelector('thead').innerHTML = '<tr><th><input type="checkbox" id="match-select-all"></th>' + cols.map(function(c) { return '<th>' + esc(c) + '</th>'; }).join('') + '<th>Manual Resolve</th></tr>';
-    table.querySelector('tbody').innerHTML = rows.map(function(r) {
-      var cells = cols.map(function(c) { return '<td' + (c === 'Match Status' ? ' class="match-result ' + r.status.split(' ')[0] + '"' : '') + '>' + esc(r.values[c] || '') + '</td>'; }).join('');
+    table.querySelector('tbody').innerHTML = rows.map(function(r, index) {
+      var cells = cols.map(function(c) { return '<td' + (c === 'Match Status' ? ' class="match-result ' + r.status.split(' ')[0] + '"' : '') + '>' + esc(c === 'SR' ? index + 1 : r.values[c] || '') + '</td>'; }).join('');
       var options = '<option value="">Select receipt...</option>' + r.candidates.map(function(c, i) {
         return '<option value="' + i + '">' + esc(showDate(c.dateIso) + ' | ' + money(c.amount) + ' | ' + (c.row[receiptCols.consumer] || '') + ' | ' + (c.row[receiptCols.connection] || '')) + '</option>';
       }).join('');
@@ -372,13 +372,13 @@
   function selectedRows() { saveSelection(); return state.results.filter(function(r) { return r.selected && visible(r); }); }
   function exportCsv() {
     var cols = selectedCols(), lines = [cols.join(',')];
-    selectedRows().forEach(function(r) { lines.push(cols.map(function(c) { return '"' + String(r.values[c] || '').replace(/"/g, '""') + '"'; }).join(',')); });
+    selectedRows().forEach(function(r, index) { lines.push(cols.map(function(c) { return '"' + String(c === 'SR' ? index + 1 : r.values[c] || '').replace(/"/g, '""') + '"'; }).join(',')); });
     var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8' })); a.download = 'new_connection_receipt_matching.csv'; a.click();
   }
   function exportXlsx() {
     waitForXlsx().then(function() {
       var cols = selectedCols(), rows = selectedRows(), wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.map(function(r) { var o = {}; cols.forEach(function(c) { o[c] = r.values[c] || ''; }); return o; })), 'Matched Report');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.map(function(r, index) { var o = {}; cols.forEach(function(c) { o[c] = c === 'SR' ? index + 1 : r.values[c] || ''; }); return o; })), 'Matched Report');
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ Metric:'Reference records', Value:state.refs.length }, { Metric:'Receipt records', Value:state.receipts.length }, { Metric:'Selected records', Value:rows.length }, { Metric:'Selected amount', Value:rows.reduce(function(s,r){ return s + (r.receipt ? r.receipt.amount : 0); }, 0) }]), 'Summary');
       ['Unmatched','Ambiguous','Invalid'].forEach(function(st) { XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.results.filter(function(r) { return r.status === st; }).map(function(r) { return r.values; })), st + ' records'); });
       XLSX.writeFile(wb, 'new_connection_receipt_matching.xlsx');
@@ -388,18 +388,19 @@
     var jsPDF = window.jspdf && window.jspdf.jsPDF;
     if (!jsPDF) { alert('PDF library is loading. Please try again.'); return; }
     var cols = selectedCols(), rows = selectedRows(), doc = new jsPDF({ orientation:'landscape', unit:'pt', format:'a4' });
-    doc.setFontSize(14); doc.text('New Connection 2025-2026', 40, 35);
-    doc.setFontSize(9); doc.text('Generated: ' + new Date().toLocaleString(), 40, 52);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.text('New Connection 2025-2026', 40, 35);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text('Generated: ' + new Date().toLocaleDateString(), 40, 52);
     doc.text('Selected records: ' + rows.length + ' | Total selected amount: ' + money(rows.reduce(function(s,r){ return s + (r.receipt ? r.receipt.amount : 0); }, 0)), 40, 67);
     doc.autoTable({
       startY:82,
       head:[cols],
-      body:rows.map(function(r) { return cols.map(function(c) { return r.values[c] || ''; }); }),
+      body:rows.map(function(r, index) { return cols.map(function(c) { return c === 'SR' ? index + 1 : r.values[c] || ''; }); }),
       theme:'grid',
-      styles:{ fontSize:7, cellPadding:4, lineColor:[80,150,145], lineWidth:0.35, halign:'center', valign:'middle' },
-      headStyles:{ fillColor:[47,125,118], textColor:[255,255,255], halign:'center', lineColor:[80,150,145], lineWidth:0.45 },
-      alternateRowStyles:{ fillColor:[245,245,245] },
-      columnStyles:{ 0:{ cellWidth:28 }, 3:{ halign:'left' }, 4:{ halign:'left' } },
+      styles:{ fontSize:7.5, fontStyle:'bold', textColor:[0,0,0], cellPadding:4, lineColor:[0,0,0], lineWidth:0.65, halign:'center', valign:'middle' },
+      headStyles:{ fillColor:[255,255,255], textColor:[0,0,0], fontStyle:'bold', halign:'center', lineColor:[0,0,0], lineWidth:0.85 },
+      alternateRowStyles:{ fillColor:[255,255,255] },
+      columnStyles:{ 0:{ cellWidth:24 }, 1:{ cellWidth:50 }, 2:{ cellWidth:105, halign:'left' }, 3:{ halign:'left' }, 4:{ halign:'left' }, 5:{ cellWidth:58 } },
       margin:{ left:34, right:34 }
     });
     doc.save('new_connection_receipt_matching.pdf');
