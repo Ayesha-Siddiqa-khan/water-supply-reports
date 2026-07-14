@@ -8357,21 +8357,10 @@ def _ncd_general_pdf(report: dict, payload: dict | None = None) -> bytes:
         Paragraph(f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}<br/>Source files: {', '.join(report.get('source_files', [])) or '-'}", ParagraphStyle("NcdMeta", parent=styles["Normal"], fontSize=9, leading=12, spaceAfter=4 * mm)),
     ]
 
-    summary = report.get("summary", {})
-    main_rows = [
-        ["Metric", "Value"],
-        ["Total Uploaded Records", fmt(summary.get("uploaded_records", 0))],
-        ["Overall Connection Count", fmt(summary.get("total_new_connections", 0))],
-        ["Overall Amount (Rs.)", fmt(summary.get("total_amount", 0))],
-        ["Domestic Connections", fmt(summary.get("domestic", 0))],
-        ["Domestic - Private Society Connections", fmt(summary.get("private", 0))],
-        ["Commercial Connections", fmt(summary.get("commercial", 0))],
-        ["Unclassified Records", fmt(summary.get("unclassified", 0))],
-    ]
     annual_headers, annual_data, _category_with_headers = _ncd_general_payload(report, payload)
     annual_rows = [annual_headers] + annual_data
     available_width = landscape(A4)[0] - doc.leftMargin - doc.rightMargin
-    for table_rows in (main_rows, annual_rows):
+    for table_rows in (annual_rows,):
         tbl = Table(table_rows, repeatRows=1, hAlign="CENTER", colWidths=[available_width / max(len(table_rows[0]), 1)] * len(table_rows[0]))
         tbl.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
