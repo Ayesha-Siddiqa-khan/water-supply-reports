@@ -8249,11 +8249,11 @@ def _clear_new_connection_detail_cache() -> None:
 
 
 def _ncd_export_rows(rows: list[dict], original_columns: list[str]) -> tuple[list[str], list[list]]:
-    headers = original_columns + ["Financial Year", "Connection Classification", "Source File"]
+    headers = ["Sr No."] + original_columns + ["Financial Year", "Connection Classification", "Source File"]
     data = []
-    for r in rows:
+    for sr, r in enumerate(rows, start=1):
         original = r.get("original", {})
-        data.append([original.get(col, "") for col in original_columns] + [r.get("financial_year", ""), r.get("classification", ""), r.get("source_file", "")])
+        data.append([sr] + [original.get(col, "") for col in original_columns] + [r.get("financial_year", ""), r.get("classification", ""), r.get("source_file", "")])
     return headers, data
 
 
@@ -9327,7 +9327,7 @@ def new_connection_detail():
     return render_template("new_connection_detail.html", report=report, active_page="new_connection_detail")
 
 
-@app.route("/new-connection-detail/export/<fmt_type>", methods=["POST"])
+@app.route("/new-connection-detail/export/<fmt_type>", methods=["GET", "POST"])
 def export_new_connection_detail(fmt_type: str):
     report = _new_connection_detail_report or _load_new_connection_detail_cache()
     if not report:

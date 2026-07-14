@@ -19,8 +19,17 @@
 
 {% block topbar_actions %}
   {% if report %}
-  <form method="post" action="{{ url_for('export_new_connection_detail', fmt_type='general-pdf') }}" style="margin:0;">
-    <button class="topbar-btn" type="submit">Download General PDF</button>
+  <form class="ncd-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='csv') }}" style="margin:0;">
+    <input type="hidden" name="rows_json">
+    <button class="topbar-btn" type="submit">CSV</button>
+  </form>
+  <form class="ncd-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='xlsx') }}" style="margin:0;">
+    <input type="hidden" name="rows_json">
+    <button class="topbar-btn" type="submit">Excel</button>
+  </form>
+  <form class="ncd-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='detailed-pdf') }}" style="margin:0;">
+    <input type="hidden" name="rows_json">
+    <button class="topbar-btn" type="submit">Detailed PDF</button>
   </form>
   {% endif %}
 {% endblock %}
@@ -120,14 +129,16 @@
           <thead>
             <tr>
               <th><input type="checkbox" id="select-filtered" checked title="Select all filtered rows"></th>
+              <th>Sr No.</th>
               {% for col in report.original_columns %}<th>{{ col }}</th>{% endfor %}
               <th>Financial Year</th><th>Connection Classification</th><th>Source File</th>
             </tr>
           </thead>
           <tbody>
             {% for row in report.rows %}
-            <tr data-fy="{{ row.financial_year }}" data-class="{{ row.classification }}" data-source="{{ row.source_file }}" data-date="{{ row.received_date_iso }}" data-amount="{{ row.amount }}" data-search="{{ (row.original.values()|join(' ') ~ ' ' ~ row.financial_year ~ ' ' ~ row.classification ~ ' ' ~ row.source_file)|lower }}" data-row='{{ row|tojson }}'>
+            <tr data-fy="{{ row.financial_year }}" data-class="{{ row.classification }}" data-source="{{ row.source_file }}" data-date="{{ row.received_date_iso }}" data-amount="{{ row.amount }}" data-search="{{ (row.original.values()|join(' ') ~ ' ' ~ row.financial_year ~ ' ' ~ row.classification ~ ' ' ~ row.source_file)|lower }}" data-row="{{ row|tojson|forceescape }}">
               <td><input type="checkbox" class="ncd-row-check" checked></td>
+              <td>{{ loop.index }}</td>
               {% for col in report.original_columns %}<td>{{ row.original.get(col, '') }}</td>{% endfor %}
               <td>{{ row.financial_year }}</td><td>{{ row.classification }}</td><td>{{ row.source_file }}</td>
             </tr>
