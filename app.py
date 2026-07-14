@@ -9587,6 +9587,11 @@ def new_connection_detail():
     return render_template("new_connection_detail.html", report=report, active_page="new_connection_detail")
 
 
+@app.route("/new-connection-receipt-matching")
+def new_connection_receipt_matching():
+    return render_template("new_connection_receipt_matching.html", active_page="receipt_matching")
+
+
 @app.route("/new-connection-detail/export/<fmt_type>", methods=["GET", "POST"])
 def export_new_connection_detail(fmt_type: str):
     report = _new_connection_detail_report or _load_new_connection_detail_cache()

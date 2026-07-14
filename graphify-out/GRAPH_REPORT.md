@@ -1,16 +1,16 @@
 # Graph Report - water suppy report  (2026-07-14)
 
 ## Corpus Check
-- 29 files · ~87,286 words
+- 29 files · ~89,660 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 386 nodes · 988 edges · 28 communities (26 shown, 2 thin omitted)
+- 387 nodes · 989 edges · 23 communities (21 shown, 2 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 14 edges (avg confidence: 0.6)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `bd7b679e`
+- Built from commit: `bde07478`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -29,11 +29,6 @@
 - Claude Code CLI Prompt: Advanced Bill List Filters and Export
 - Advanced Bill Filters Feature Prompt
 - match_staff_assignment
-- download_card
-- _calc_daily_summary_col_widths
-- consumer_report
-- consumer_sector_remaining_report
-- export_consumer_report
 
 ## God Nodes (most connected - your core abstractions)
 1. `fmt()` - 31 edges
@@ -67,7 +62,7 @@
 - **Client-side-only file tools (no server route, use browser CDN libraries)** — tpl_fcm, tpl_merge, ext_sheetjs, ext_pdflib [INFERRED]
 - **Report pages with PDF/CSV/XLSX export endpoint families** — tpl_index, tpl_bill_list, tpl_consumer, tpl_consumer_remaining, tpl_daily, tpl_arrear, exp_index, exp_bill_list, exp_consumer, exp_consumer_remaining, exp_daily, exp_arrear [INFERRED]
 
-## Communities (28 total, 2 thin omitted)
+## Communities (23 total, 2 thin omitted)
 
 ### Community 0 - "BytesIO"
 Cohesion: 0.09
@@ -78,16 +73,16 @@ Cohesion: 0.08
 Nodes (47): apply_manual_zone_overrides(), bill_list_sector_seasonly_export_rows(), bill_list_staff_export_rows(), build_consumer_sector_remaining_report(), build_unpaid_amount_summary(), clean_cell(), clear_bill_list_data(), _closest_staff_key() (+39 more)
 
 ### Community 2 - "DataFrame"
-Cohesion: 0.10
-Nodes (39): build_commercial_daily_income_rows(), build_commercial_mask(), build_commercial_month_wise_summary(), build_commercial_rows(), build_daily_rows(), build_daily_staff_receive_report(), build_dashboard_results(), build_monthly_rows() (+31 more)
+Cohesion: 0.09
+Nodes (42): build_bill_key(), build_commercial_daily_income_rows(), build_commercial_mask(), build_commercial_month_wise_summary(), build_commercial_rows(), build_daily_rows(), build_daily_staff_receive_report(), build_dashboard_results() (+34 more)
 
 ### Community 3 - "consumer_report"
-Cohesion: 0.15
-Nodes (17): _build_consumer_sector_summary(), _canonical_consumer_sector_locality(), _classify_connection_status(), _clean_rate_type_name(), _is_extra_noor_mohalla_main_road_sector(), _is_faulty_empty_consumer_sector(), _normalize_consumer_col(), _parse_consumer_csv() (+9 more)
+Cohesion: 0.06
+Nodes (49): _add_rate_alias(), _annualize_connection_rate(), _build_connection_rate_report(), _build_connection_rate_report_from_summary(), _build_consumer_sector_summary(), _canonical_consumer_sector_locality(), _classify_connection_status(), _clean_rate_type_name() (+41 more)
 
 ### Community 4 - "get_db"
 Cohesion: 0.05
-Nodes (54): bill_list_zone_export_rows(), _build_arrear_export_rows(), build_bill_key(), _build_new_connection_detail_report(), _calc_daily_detail_col_widths(), _calc_daily_summary_col_widths(), _clear_new_connection_detail_cache(), _dedupe_value() (+46 more)
+Nodes (51): bill_list_zone_export_rows(), _build_arrear_export_rows(), _build_new_connection_detail_report(), _calc_daily_detail_col_widths(), _calc_daily_summary_col_widths(), _clear_new_connection_detail_cache(), download_file(), export_arrear_calculator() (+43 more)
 
 ### Community 5 - "Base Template"
 Cohesion: 0.09
@@ -98,8 +93,8 @@ Cohesion: 0.44
 Nodes (10): bindUploadForms(), createOverlay(), getUploadFileLabel(), handleUpload(), removeOverlay(), setFormLoading(), shouldUseNativeUpload(), showToast() (+2 more)
 
 ### Community 7 - "export_arrear_calculator"
-Cohesion: 0.17
-Nodes (18): ajax_error(), ajax_ok(), allowed_file(), arrear_calculator(), bill_list(), daily_staff_receive(), get_assignment_conflicts(), index() (+10 more)
+Cohesion: 0.14
+Nodes (22): ajax_error(), ajax_ok(), allowed_file(), arrear_calculator(), bill_list(), consumer_sector_remaining_report(), daily_staff_receive(), get_assignment_conflicts() (+14 more)
 
 ### Community 8 - "export_advanced_bills"
 Cohesion: 0.14
@@ -116,26 +111,6 @@ Nodes (10): Agent Instructions, Auto-Update on Changes, Commands, Development Gu
 ### Community 22 - "match_staff_assignment"
 Cohesion: 0.15
 Nodes (14): backfill_bill_arrears(), _bill_list_summary_from_rows(), _connection_rate_rows_from_payload(), is_large_pdf_text(), merge_sector_list_rows(), merge_sector_rows(), normalise_sector(), parse_number() (+6 more)
-
-### Community 23 - "download_card"
-Cohesion: 0.25
-Nodes (11): _annualize_connection_rate(), _build_connection_rate_report(), _build_connection_rate_report_from_summary(), _connection_rate_bucket(), _connection_rate_category(), _connection_rate_default(), _connection_rate_description(), _connection_rate_report_from_groups() (+3 more)
-
-### Community 24 - "_calc_daily_summary_col_widths"
-Cohesion: 0.33
-Nodes (7): _add_rate_alias(), _connection_rate_lookup(), _load_rates_csv(), _normalize_rate_title(), Canonical key for rate matching; tolerates case/spacing drift without changing d, Map known legacy consumer rate labels to the active rate title., Load rate data from the provided rates CSV or bundled rates.json.      RATE SO
-
-### Community 25 - "consumer_report"
-Cohesion: 0.33
-Nodes (7): _clear_consumer_summary_cache(), consumer_report(), _ensure_connection_rate_report(), _filter_active_rows(), Return a copy of `summary` with all rows having zero active     connections rem, Split a summary dict into (normal_summary, commercial_summary).      COMMERCIA, _split_summary_by_type()
-
-### Community 26 - "consumer_sector_remaining_report"
-Cohesion: 0.33
-Nodes (6): consumer_sector_remaining_report(), _is_extra_zain_city_13g_sector(), Display the combined Consumer Sector Remaining Report.      Supports two uploa, Persist the consumer summary to disk so it survives serverless cold starts., Skip the extra Zain City CHACK NO 13/G block; official Zain City has 50 rows., _save_consumer_summary_cache()
-
-### Community 27 - "export_consumer_report"
-Cohesion: 0.40
-Nodes (5): export_consumer_report(), _load_consumer_summary_cache(), Load a previously saved consumer summary from disk. Returns (summary, filename,, Shared sorting for the Consumer Sector Report (preview, PDF, CSV, Excel)., _sort_summary_rows()
 
 ## Knowledge Gaps
 - **18 isolated node(s):** `$schema`, `maxDuration`, `Ponytail - Lazy Senior Dev Mode`, `Project Overview`, `Graph Status` (+13 more)
@@ -158,4 +133,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `app.py` be split into smaller, more focused modules?**
   _Cohesion score 0.07678075855689177 - nodes in this community are weakly interconnected._
 - **Should `DataFrame` be split into smaller, more focused modules?**
-  _Cohesion score 0.10121457489878542 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09291521486643438 - nodes in this community are weakly interconnected._

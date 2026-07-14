@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+{% block title %}Water Supply Report - Receipt Matching{% endblock %}
+{% block breadcrumb %}Receipt Matching{% endblock %}
+{% block pill_label %}Receipt Matching{% endblock %}
+{% block pill_detail %}New Connection receipts{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+<style>
+  .match-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; margin-bottom:16px; }
+  .match-stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:14px 0; }
+  .match-stat { border:1px solid var(--border); border-radius:12px; background:var(--surface); padding:14px; }
+  .match-stat span { display:block; color:var(--text-muted); font-size:12px; margin-bottom:8px; }
+  .match-stat strong { color:var(--teal); font-size:20px; }
+  .match-status { margin-top:10px; min-height:20px; color:var(--text-muted); font-size:12px; font-weight:700; }
+  .match-status.error { color:var(--coral); }
+  .match-status.success { color:var(--teal); }
+  .match-status.loading { color:var(--amber); }
+  .match-result.Matched, .match-result.Automatic { color:var(--teal); font-weight:800; }
+  .match-result.Ambiguous { color:var(--amber); font-weight:800; }
+  .match-result.Unmatched, .match-result.Invalid { color:var(--coral); font-weight:800; }
+  .match-result.Manually { color:var(--violet); font-weight:800; }
+  .match-spinner { display:inline-block; width:13px; height:13px; border:2px solid var(--border-bright); border-top-color:var(--teal); border-radius:50%; animation:spin .8s linear infinite; vertical-align:middle; margin-right:6px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-wrap">
+  <div class="page-hero">
+    <div>
+      <div class="page-tag">Receipt Matching</div>
+      <h1 class="page-title">New Connection Receipt Matching</h1>
+      <p class="page-subtitle">Match New Connection reference rows with water bill receipt rows by date and amount.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="match-grid">
+      <label class="upload-area" style="margin:0;cursor:pointer;">
+        <div class="upload-icon-box">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+        </div>
+        <div class="upload-text">
+          <strong>File A - New Connection Reference</strong>
+          <span id="ref-name">CSV/XLSX with Received Date and Total Receivable.</span>
+        </div>
+        <input id="ref-file" type="file" accept=".csv,.xlsx" style="display:none;">
+      </label>
+      <label class="upload-area" style="margin:0;cursor:pointer;">
+        <div class="upload-icon-box">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+        </div>
+        <div class="upload-text">
+          <strong>File B - Water Bill Receipts</strong>
+          <span id="receipt-name">CSV/XLSX with Received Date and Amount Received.</span>
+        </div>
+        <input id="receipt-file" type="file" accept=".csv,.xlsx" style="display:none;">
+      </label>
+    </div>
+
+    <div class="export-bar" style="gap:10px;flex-wrap:wrap;">
+      <button class="chip" type="button" id="process-match">Process Matching</button>
+      <button class="chip" type="button" id="clear-match">Clear Files</button>
+      <button class="chip" type="button" id="select-filtered">Select all filtered rows</button>
+      <button class="chip" type="button" id="clear-selected">Clear selection</button>
+      <button class="chip" type="button" id="export-csv">Download CSV</button>
+      <button class="chip" type="button" id="export-xlsx">Download Excel</button>
+      <button class="chip" type="button" id="export-pdf">Download PDF</button>
+    </div>
+    <div id="match-message" class="match-status"></div>
+
+    <div class="match-stat-grid" id="match-stats" style="display:none;">
+      <div class="match-stat"><span>Reference records</span><strong data-stat="reference">0</strong></div>
+      <div class="match-stat"><span>Receipt records</span><strong data-stat="receipt">0</strong></div>
+      <div class="match-stat"><span>Matched records</span><strong data-stat="matched">0</strong></div>
+      <div class="match-stat"><span>Ambiguous records</span><strong data-stat="ambiguous">0</strong></div>
+      <div class="match-stat"><span>Unmatched records</span><strong data-stat="unmatched">0</strong></div>
+      <div class="match-stat"><span>Invalid records</span><strong data-stat="invalid">0</strong></div>
+      <div class="match-stat"><span>Total matched amount</span><strong data-stat="amount">0</strong></div>
+    </div>
+
+    <div class="export-bar" style="gap:10px;flex-wrap:wrap;">
+      <select id="status-filter" class="topbar-btn"><option value="">All statuses</option><option>Matched</option><option>Ambiguous</option><option>Unmatched</option><option>Invalid</option><option>Manually Resolved</option></select>
+      <select id="sector-filter" class="topbar-btn"><option value="">All sectors</option></select>
+      <select id="locality-filter" class="topbar-btn"><option value="">All localities</option></select>
+      <select id="type-filter" class="topbar-btn"><option value="">All connection types</option></select>
+      <select id="bill-filter" class="topbar-btn"><option value="">All bill types</option></select>
+      <input id="match-search" class="topbar-btn" style="min-width:220px;" placeholder="Search records">
+      <button class="chip" type="button" data-sort="date">Sort date</button>
+      <button class="chip" type="button" data-sort="amount">Sort amount</button>
+      <button class="chip" type="button" data-sort="consumer">Sort consumer</button>
+      <button class="chip" type="button" data-sort="connection">Sort connection</button>
+      <button class="chip" type="button" data-sort="status">Sort status</button>
+    </div>
+    <div class="export-bar" id="column-box" style="gap:12px;flex-wrap:wrap;margin-bottom:10px;"></div>
+    <div style="color:var(--text-muted);font-size:12px;margin-bottom:8px;">Selected records: <strong id="selected-count">0</strong></div>
+    <div class="table-wrapper">
+      <table class="data-table" id="match-table">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var state = { refFile:null, receiptFile:null, refs:[], receipts:[], results:[], columns:[], sortDir:{} };
+  var receiptCols = {};
+  var defaultCols = ['SR', 'Match Status', 'Reference Received Date', 'Reference Total Receivable', 'Receipt Received Date', 'Amount Received', 'Consumer Name', 'Connection Type', 'Connection No', 'Sector', 'Locality', 'Bill Type', 'Bill No', 'Payment Method'];
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function(ch) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; }); }
+  function clean(v) { return String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+  function pick(headers, aliases) {
+    var matches = headers.filter(function(h) { var n = clean(h); return aliases.some(function(a) { return n === clean(a); }); });
+    return matches.length === 1 ? matches[0] : '';
+  }
+  function dateIso(v) {
+    if (v instanceof Date && !isNaN(v)) return v.toISOString().slice(0, 10);
+    var s = String(v || '').trim();
+    if (!s) return '';
+    if (/^\d{5}(\.\d+)?$/.test(s)) return new Date(Math.round((Number(s) - 25569) * 86400 * 1000)).toISOString().slice(0, 10);
+    var m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+    if (m) return [m[1], m[2].padStart(2, '0'), m[3].padStart(2, '0')].join('-');
+    m = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if (m) return [m[3], m[2].padStart(2, '0'), m[1].padStart(2, '0')].join('-');
+    var d = new Date(s.replace(/,/g, ''));
+    return isNaN(d) ? '' : d.toISOString().slice(0, 10);
+  }
+  function showDate(iso) { if (!iso) return ''; var p = iso.split('-'); return p[2] + '-' + p[1] + '-' + p[0]; }
+  function amount(v) {
+    var s = String(v || '').replace(/rs\.?/ig, '').replace(/[^0-9.\-]/g, '');
+    return !s || s === '-' || isNaN(Number(s)) ? null : Math.round(Number(s) * 100) / 100;
+  }
+  function money(v) { return Number(v || 0).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
+  function norm(v) { return String(v || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+  function readFile(file) {
+    return new Promise(function(resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          var wb = XLSX.read(new Uint8Array(e.target.result), { type:'array', cellDates:true, dateNF:'d/m/yyyy' });
+          var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval:'', raw:false, dateNF:'d/m/yyyy' });
+          resolve(rows.map(function(row, i) { return { source:file.name, sourceRow:i + 2, row:row }; }));
+        } catch (err) { reject(err); }
+      };
+      reader.onerror = function() { reject(new Error('Failed to read ' + file.name)); };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+  function isData(item, dateCol, amountCol) {
+    var joined = Object.values(item.row).join('').trim();
+    return joined && clean(item.row[dateCol]) !== clean(dateCol) && clean(item.row[amountCol]) !== clean(amountCol);
+  }
+  function isEligibleReceipt(item) { return !receiptCols.bill || norm(item.row[receiptCols.bill]) === 'new connection'; }
+  function result(ref, status, receipt, candidates, issue) {
+    var rr = receipt ? receipt.row : {}, values = {
+      'Match Status': status,
+      'Reference Received Date': showDate(ref.dateIso),
+      'Reference Total Receivable': money(ref.amount),
+      'Receipt Received Date': receipt ? showDate(receipt.dateIso) : '',
+      'Amount Received': receipt ? money(receipt.amount) : '',
+      'Consumer Name': rr[receiptCols.consumer] || '',
+      'Connection Type': rr[receiptCols.type] || '',
+      'Connection No': rr[receiptCols.connection] || '',
+      'Sector': rr[receiptCols.sector] || '',
+      'Locality': rr[receiptCols.locality] || '',
+      'Bill Type': rr[receiptCols.bill] || '',
+      'Bill No': rr[receiptCols.billNo] || '',
+      'Payment Method': rr[receiptCols.payment] || ''
+    };
+    Object.keys(ref.row).forEach(function(k) { values['Reference ' + k] = ref.row[k]; });
+    Object.keys(rr).forEach(function(k) { values['Receipt ' + k] = rr[k]; });
+    return { id:'m' + Math.random().toString(36).slice(2), selected:status === 'Matched', status:status, issue:issue || '', ref:ref, receipt:receipt || null, candidates:candidates || [], values:values };
+  }
+  function process() {
+    var msg = document.getElementById('match-message');
+    if (!state.refFile || !state.receiptFile) { msg.textContent = 'Please choose both files first.'; msg.className = 'match-status error'; return; }
+    msg.innerHTML = '<span class="match-spinner"></span> Matching receipts...'; msg.className = 'match-status loading';
+    Promise.all([readFile(state.refFile), readFile(state.receiptFile)]).then(function(files) {
+      var refRaw = files[0], recRaw = files[1];
+      var refHeaders = Object.keys((refRaw[0] || {}).row || {}), recHeaders = Object.keys((recRaw[0] || {}).row || {});
+      var refDate = pick(refHeaders, ['Received Date', 'Receive Date']), refAmount = pick(refHeaders, ['Total Receivable', 'Total Recievable']);
+      var recDate = pick(recHeaders, ['Received Date', 'Receive Date']), recAmount = pick(recHeaders, ['Amount Received', 'Received Amount']);
+      if (!refDate || !refAmount || !recDate || !recAmount) throw new Error('Required columns missing. File A needs Received Date + Total Receivable. File B needs Received Date + Amount Received.');
+      receiptCols = {
+        consumer: pick(recHeaders, ['Consumer Name']),
+        type: pick(recHeaders, ['Connection Type']),
+        connection: pick(recHeaders, ['Connection No', 'Connection Number']),
+        sector: pick(recHeaders, ['Sector']),
+        locality: pick(recHeaders, ['Locality']),
+        bill: pick(recHeaders, ['BillType', 'Bill Type']),
+        billNo: pick(recHeaders, ['Bill No', 'Bill Number']),
+        payment: pick(recHeaders, ['Payment Method'])
+      };
+      var refs = [], invalid = [];
+      refRaw.filter(function(x) { return isData(x, refDate, refAmount); }).forEach(function(x) {
+        x.dateIso = dateIso(x.row[refDate]); x.amount = amount(x.row[refAmount]);
+        if (!x.dateIso || x.amount === null) invalid.push(result(x, 'Invalid', null, [], 'Invalid reference date or amount'));
+        else refs.push(x);
+      });
+      var receipts = recRaw.filter(function(x) { return isData(x, recDate, recAmount); }).map(function(x) {
+        x.dateIso = dateIso(x.row[recDate]); x.amount = amount(x.row[recAmount]); x.used = false;
+        x.eligible = x.dateIso && x.amount !== null && isEligibleReceipt(x);
+        return x;
+      });
+      var refByKey = {}, recByKey = {};
+      refs.forEach(function(x) { (refByKey[x.dateIso + '|' + x.amount] = refByKey[x.dateIso + '|' + x.amount] || []).push(x); });
+      receipts.forEach(function(x) { if (x.eligible) (recByKey[x.dateIso + '|' + x.amount] = recByKey[x.dateIso + '|' + x.amount] || []).push(x); });
+      var results = invalid.slice();
+      Object.keys(refByKey).forEach(function(key) {
+        var group = refByKey[key], candidates = (recByKey[key] || []).filter(function(x) { return !x.used; });
+        if (!receiptCols.bill && candidates.length > 1) {
+          group.forEach(function(ref) { results.push(result(ref, 'Ambiguous', null, candidates, 'BillType missing; choose manually')); });
+        } else if (candidates.length === group.length) {
+          group.forEach(function(ref, i) { candidates[i].used = true; results.push(result(ref, 'Matched', candidates[i], [], 'Automatic match')); });
+        } else if (!candidates.length) {
+          group.forEach(function(ref) { results.push(result(ref, 'Unmatched', null, [], 'No receipt with same date and amount')); });
+        } else {
+          group.forEach(function(ref) { results.push(result(ref, 'Ambiguous', null, candidates, 'Choose the correct receipt manually')); });
+        }
+      });
+      state.refs = refs; state.receipts = receipts; state.results = results;
+      state.columns = Array.from(new Set(defaultCols.concat.apply(defaultCols, results.map(function(r) { return Object.keys(r.values); }))));
+      renderColumns(); renderFilters(); renderTable(); renderStats();
+      msg.textContent = 'Processed ' + refs.length + ' reference row(s) and ' + receipts.length + ' receipt row(s).';
+      msg.className = 'match-status success';
+    }).catch(function(err) { msg.textContent = 'Matching failed: ' + (err.message || err); msg.className = 'match-status error'; });
+  }
+  function selectedCols() { return Array.from(document.querySelectorAll('.match-col:checked')).map(function(b) { return b.value; }); }
+  function renderColumns() {
+    document.getElementById('column-box').innerHTML = '<strong style="color:var(--text-muted);font-size:12px;">Columns:</strong>' + state.columns.map(function(c) {
+      return '<label><input type="checkbox" class="match-col" value="' + esc(c) + '" ' + (defaultCols.indexOf(c) !== -1 ? 'checked' : '') + '> ' + esc(c) + '</label>';
+    }).join('');
+    document.querySelectorAll('.match-col').forEach(function(b) { b.addEventListener('change', renderTable); });
+  }
+  function renderFilters() {
+    [['sector-filter','Sector'], ['locality-filter','Locality'], ['type-filter','Connection Type'], ['bill-filter','Bill Type']].forEach(function(pair) {
+      var sel = document.getElementById(pair[0]), vals = Array.from(new Set(state.results.map(function(r) { return r.values[pair[1]] || ''; }).filter(Boolean))).sort();
+      sel.innerHTML = '<option value="">All ' + pair[1].toLowerCase() + 's</option>' + vals.map(function(v) { return '<option>' + esc(v) + '</option>'; }).join('');
+    });
+  }
+  function visible(r) {
+    var q = norm(document.getElementById('match-search').value);
+    var checks = [['status-filter', r.status], ['sector-filter', r.values.Sector], ['locality-filter', r.values.Locality], ['type-filter', r.values['Connection Type']], ['bill-filter', r.values['Bill Type']]];
+    if (checks.some(function(x) { var v = document.getElementById(x[0]).value; return v && v !== x[1]; })) return false;
+    return !q || norm(Object.values(r.values).join(' ')).indexOf(q) !== -1;
+  }
+  function renderTable() {
+    var cols = selectedCols(), rows = state.results.filter(visible), table = document.getElementById('match-table');
+    table.querySelector('thead').innerHTML = '<tr><th><input type="checkbox" id="match-select-all"></th>' + cols.map(function(c) { return '<th>' + esc(c) + '</th>'; }).join('') + '<th>Manual Resolve</th></tr>';
+    table.querySelector('tbody').innerHTML = rows.map(function(r) {
+      var cells = cols.map(function(c) { return '<td' + (c === 'Match Status' ? ' class="match-result ' + r.status.split(' ')[0] + '"' : '') + '>' + esc(r.values[c] || '') + '</td>'; }).join('');
+      var options = '<option value="">Select receipt...</option>' + r.candidates.map(function(c, i) {
+        return '<option value="' + i + '">' + esc(showDate(c.dateIso) + ' | ' + money(c.amount) + ' | ' + (c.row[receiptCols.consumer] || '') + ' | ' + (c.row[receiptCols.connection] || '')) + '</option>';
+      }).join('');
+      return '<tr data-id="' + r.id + '"><td><input type="checkbox" class="match-check" ' + (r.selected ? 'checked' : '') + '></td>' + cells + '<td>' + (r.candidates.length ? '<select class="manual-resolve" data-id="' + r.id + '">' + options + '</select>' : '') + '</td></tr>';
+    }).join('');
+    var all = document.getElementById('match-select-all');
+    if (all) all.addEventListener('change', function() { document.querySelectorAll('.match-check').forEach(function(b) { b.checked = all.checked; }); saveSelection(); renderCount(); });
+    document.querySelectorAll('.match-check').forEach(function(b) { b.addEventListener('change', function() { saveSelection(); renderCount(); }); });
+    document.querySelectorAll('.manual-resolve').forEach(function(s) { s.addEventListener('change', manualResolve); });
+    renderCount();
+  }
+  function saveSelection() {
+    document.querySelectorAll('#match-table tbody tr').forEach(function(tr) {
+      var r = state.results.find(function(x) { return x.id === tr.dataset.id; });
+      if (r) r.selected = tr.querySelector('.match-check').checked;
+    });
+  }
+  function manualResolve(e) {
+    var r = state.results.find(function(x) { return x.id === e.target.dataset.id; });
+    var c = r && r.candidates[Number(e.target.value)];
+    if (!r || !c || c.used) return;
+    c.used = true;
+    var nr = result(r.ref, 'Manually Resolved', c, [], 'Manual match');
+    r.receipt = c; r.status = nr.status; r.selected = true; r.values = nr.values; r.candidates = [];
+    renderFilters(); renderTable(); renderStats();
+  }
+  function renderCount() { document.getElementById('selected-count').textContent = state.results.filter(function(r) { return r.selected && visible(r); }).length; }
+  function renderStats() {
+    var stats = { reference:state.refs.length, receipt:state.receipts.length, matched:0, ambiguous:0, unmatched:0, invalid:0, amount:0 };
+    state.results.forEach(function(r) {
+      if (r.status === 'Matched' || r.status === 'Manually Resolved') { stats.matched++; stats.amount += r.receipt ? r.receipt.amount : 0; }
+      else if (r.status === 'Ambiguous') stats.ambiguous++;
+      else if (r.status === 'Unmatched') stats.unmatched++;
+      else if (r.status === 'Invalid') stats.invalid++;
+    });
+    document.getElementById('match-stats').style.display = '';
+    Object.keys(stats).forEach(function(k) { document.querySelector('[data-stat="' + k + '"]').textContent = k === 'amount' ? money(stats[k]) : stats[k]; });
+  }
+  function selectedRows() { saveSelection(); return state.results.filter(function(r) { return r.selected && visible(r); }); }
+  function exportCsv() {
+    var cols = selectedCols(), lines = [cols.join(',')];
+    selectedRows().forEach(function(r) { lines.push(cols.map(function(c) { return '"' + String(r.values[c] || '').replace(/"/g, '""') + '"'; }).join(',')); });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8' })); a.download = 'new_connection_receipt_matching.csv'; a.click();
+  }
+  function exportXlsx() {
+    var cols = selectedCols(), rows = selectedRows(), wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.map(function(r) { var o = {}; cols.forEach(function(c) { o[c] = r.values[c] || ''; }); return o; })), 'Matched Report');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ Metric:'Reference records', Value:state.refs.length }, { Metric:'Receipt records', Value:state.receipts.length }, { Metric:'Selected records', Value:rows.length }, { Metric:'Selected amount', Value:rows.reduce(function(s,r){ return s + (r.receipt ? r.receipt.amount : 0); }, 0) }]), 'Summary');
+    ['Unmatched','Ambiguous','Invalid'].forEach(function(st) { XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.results.filter(function(r) { return r.status === st; }).map(function(r) { return r.values; })), st + ' records'); });
+    XLSX.writeFile(wb, 'new_connection_receipt_matching.xlsx');
+  }
+  function exportPdf() {
+    var jsPDF = window.jspdf && window.jspdf.jsPDF;
+    if (!jsPDF) { alert('PDF library is loading. Please try again.'); return; }
+    var cols = selectedCols(), rows = selectedRows(), doc = new jsPDF({ orientation:'landscape', unit:'pt', format:'a4' });
+    doc.setFontSize(14); doc.text('New Connection Receipt Matching Report', 40, 35);
+    doc.setFontSize(9); doc.text('Generated: ' + new Date().toLocaleString(), 40, 52);
+    doc.text('Source files: ' + (state.refFile ? state.refFile.name : '-') + ' | ' + (state.receiptFile ? state.receiptFile.name : '-'), 40, 67);
+    doc.text('Selected records: ' + rows.length + ' | Total selected amount: ' + money(rows.reduce(function(s,r){ return s + (r.receipt ? r.receipt.amount : 0); }, 0)), 40, 82);
+    doc.autoTable({ startY:95, head:[cols], body:rows.map(function(r) { return cols.map(function(c) { return r.values[c] || ''; }); }), styles:{ fontSize:7, halign:'center' }, headStyles:{ fillColor:[47,125,118] } });
+    doc.save('new_connection_receipt_matching.pdf');
+  }
+  ['status-filter','sector-filter','locality-filter','type-filter','bill-filter','match-search'].forEach(function(id) {
+    var el = document.getElementById(id); el.addEventListener('input', renderTable); el.addEventListener('change', renderTable);
+  });
+  document.querySelectorAll('[data-sort]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var key = btn.dataset.sort, dir = state.sortDir[key] = -(state.sortDir[key] || 1);
+      state.results.sort(function(a, b) {
+        var av = key === 'date' ? a.ref.dateIso : key === 'amount' ? a.ref.amount : key === 'consumer' ? a.values['Consumer Name'] : key === 'connection' ? a.values['Connection No'] : a.status;
+        var bv = key === 'date' ? b.ref.dateIso : key === 'amount' ? b.ref.amount : key === 'consumer' ? b.values['Consumer Name'] : key === 'connection' ? b.values['Connection No'] : b.status;
+        return dir * String(av).localeCompare(String(bv), undefined, { numeric:true });
+      });
+      renderTable();
+    });
+  });
+  document.getElementById('ref-file').addEventListener('change', function() { state.refFile = this.files[0] || null; document.getElementById('ref-name').textContent = state.refFile ? state.refFile.name : 'CSV/XLSX with Received Date and Total Receivable.'; });
+  document.getElementById('receipt-file').addEventListener('change', function() { state.receiptFile = this.files[0] || null; document.getElementById('receipt-name').textContent = state.receiptFile ? state.receiptFile.name : 'CSV/XLSX with Received Date and Amount Received.'; });
+  document.getElementById('process-match').addEventListener('click', process);
+  document.getElementById('clear-match').addEventListener('click', function() { location.reload(); });
+  document.getElementById('select-filtered').addEventListener('click', function() { state.results.forEach(function(r) { if (visible(r)) r.selected = true; }); renderTable(); });
+  document.getElementById('clear-selected').addEventListener('click', function() { state.results.forEach(function(r) { if (visible(r)) r.selected = false; }); renderTable(); });
+  document.getElementById('export-csv').addEventListener('click', exportCsv);
+  document.getElementById('export-xlsx').addEventListener('click', exportXlsx);
+  document.getElementById('export-pdf').addEventListener('click', exportPdf);
+})();
+</script>
+{% endblock %}
