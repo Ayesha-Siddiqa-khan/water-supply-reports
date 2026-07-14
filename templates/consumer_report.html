@@ -727,12 +727,12 @@
     }
 
     function classifyRowStatus(fields, colMap) {
-      // Suspended is stored in the Status column in consumer exports, while
-      // Consumer Status may still say In-Active.  Read explicit Suspended
-      // from Status first, then keep the existing Consumer Status preference.
+      // The export has two status columns. Explicit Closed/Suspended in
+      // Status wins; otherwise Consumer Status remains the fallback.
       var statusVal = '';
       if (colMap.connection_status !== undefined) statusVal = fields[colMap.connection_status] || '';
-      if (classifyStatus(statusVal) === 'Suspended') return 'Suspended';
+      var explicitStatus = classifyStatus(statusVal);
+      if (explicitStatus === 'Closed' || explicitStatus === 'Suspended') return explicitStatus;
       var consumerStatus = '';
       if (colMap.consumer_status !== undefined) consumerStatus = fields[colMap.consumer_status] || '';
       if (consumerStatus && consumerStatus.trim()) return classifyStatus(consumerStatus);
@@ -833,13 +833,18 @@
         var annualRate = 0;
         var cleanRateType = cleanRateTypeName(rateType);
         var rateKey = normalizeRateTitle(rateType);
-        if (status === 'Active' && rateKey && rateLookup[rateKey]) {
+        if (rateKey && rateLookup[rateKey]) {
           var rl = rateLookup[rateKey];
           annualRate = domesticAnnualRateOverride(rateType, sector, locality);
           if (annualRate === null) annualRate = calcAnnualBudget(rl.rate, rl.period);
-          rowBudget = annualRate;
-          totalMatchedBudget += rowBudget;
-        } else if (status === 'Active' && cleanRateType) {
+          // Rate grouping/display must work for Closed/Suspended rows too;
+          // only budget is active-only.
+          if (status === 'Active') {
+            rowBudget = annualRate;
+            totalMatchedBudget += rowBudget;
+          }
+        }
+        if (status === 'Active' && !rowBudget && cleanRateType) {
           // Fix: warn only for active rows that need a budget, and show just
           // the clean Rate Type value instead of a mixed/full row string.
           if (unmatchedRateTypes.indexOf(cleanRateType) === -1) unmatchedRateTypes.push(cleanRateType);
@@ -946,7 +951,7 @@
         if (colMap.rate_type !== undefined) rateType = (fields[colMap.rate_type] || '').trim();
         var rateKey = normalizeRateTitle(rateType);
         var annualRate = 0;
-        if (status === 'Active' && rateKey && rateLookup[rateKey]) {
+        if (rateKey && rateLookup[rateKey]) {
           var rl = rateLookup[rateKey];
           annualRate = domesticAnnualRateOverride(rateType, sector, locality);
           if (annualRate === null) annualRate = calcAnnualBudget(rl.rate, rl.period);

@@ -8740,12 +8740,12 @@ def _parse_consumer_csv(file_storage) -> tuple[list[dict], list[str]]:
                 _normalize_consumer_col(_get(row, "rate_type", "")) == "rate type":
             continue
 
-        # Suspended is stored in the Status column in consumer exports, while
-        # Consumer Status may still say In-Active.  Read explicit Suspended
-        # from Status first, then keep the existing Consumer Status preference.
+        # The export has two status columns. Explicit Closed/Suspended in
+        # Status wins; otherwise Consumer Status remains the fallback.
         connection_status_val = _get(row, "connection_status", "")
         consumer_status_val = _get(row, "consumer_status", "")
-        status_val = connection_status_val if _classify_connection_status(connection_status_val) == "Suspended" else consumer_status_val
+        explicit_connection_status = _classify_connection_status(connection_status_val)
+        status_val = connection_status_val if explicit_connection_status in ("Closed", "Suspended") else consumer_status_val
         if not status_val.strip():
             status_val = connection_status_val
         rows.append({
@@ -8925,13 +8925,16 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
         annual_rate = 0.0
         clean_rate_type = _clean_rate_type_name(rate_type)
         rate_key = _normalize_rate_title(rate_type)
-        if status == "Active" and rate_key and rate_key in rate_lookup:
+        if rate_key and rate_key in rate_lookup:
             rl = rate_lookup[rate_key]
             annual_rate = _domestic_annual_rate_override(rate_type, sector_raw, locality_raw)
             if annual_rate is None:
                 annual_rate = _calc_annual_budget(rl["rate"], rl["period"])
-            row_budget = annual_rate
-        elif status == "Active" and clean_rate_type:
+            # Rate grouping/display must work for Closed/Suspended rows too;
+            # only budget is active-only.
+            if status == "Active":
+                row_budget = annual_rate
+        if status == "Active" and not row_budget and clean_rate_type:
             if clean_rate_type not in unmatched_rate_types:
                 unmatched_rate_types.append(clean_rate_type)
             unmatched_budget_count += 1
