@@ -1,7 +1,7 @@
 {
   "app.py": {
-    "mtime": 1784012908.7723277,
-    "ast_hash": "17def598d29130ecd3b7a3fbb4dee566",
+    "mtime": 1784013547.5077865,
+    "ast_hash": "b19fa38d26ad414264df3dc5629f363e",
     "semantic_hash": ""
   },
   "check_bill_list.py": {
@@ -455,8 +455,8 @@
     "semantic_hash": ""
   },
   "templates/new_connection_detail.html": {
-    "mtime": 1784012928.5564837,
-    "ast_hash": "95ed860d73ae158aa8a748f8b9649203",
+    "mtime": 1784013619.88419,
+    "ast_hash": "d60944f333dbd28fea5f39fa8aa7c362",
     "semantic_hash": ""
   }
 }

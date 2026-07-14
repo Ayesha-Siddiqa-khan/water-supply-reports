@@ -8291,12 +8291,69 @@ def _ncd_table_pdf(title: str, headers: list[str], rows: list[list], footer_rows
     return buf.getvalue()
 
 
-def _ncd_general_pdf(report: dict) -> bytes:
+def _ncd_general_payload(report: dict, payload: dict | None = None) -> tuple[list[str], list[list], list[list]]:
+    cols = (payload or {}).get("cols") or ["sr", "financial_year", "classification", "connections", "amount"]
+    labels = {
+        "sr": "Sr No.",
+        "financial_year": "Financial Year",
+        "classification": "Connection Classification",
+        "connections": "Connections",
+        "amount": "Amount (Rs.)",
+    }
+    annual_rows = (payload or {}).get("annual_rows") or report.get("annual_summary", [])
+    category_rows = (payload or {}).get("category_rows") or report.get("category_summary", [])
+
+    def row_values(row: dict, sr: int, include_classification: bool) -> list:
+        values = {
+            "sr": sr,
+            "financial_year": row.get("financial_year", ""),
+            "classification": row.get("classification", "") if include_classification else "",
+            "connections": fmt(row.get("connections", 0)),
+            "amount": fmt(row.get("amount", 0)),
+        }
+        return [values[c] for c in cols if c in labels and (include_classification or c != "classification")]
+
+    annual_cols = [c for c in cols if c in labels and c != "classification"]
+    category_cols = [c for c in cols if c in labels]
+    annual_headers = [labels[c] for c in annual_cols]
+    category_headers = [labels[c] for c in category_cols]
+    annual_data = [[dict(zip([c for c in cols if c != "classification"], row_values(r, i, False))).get(c, "") for c in annual_cols] for i, r in enumerate(annual_rows, start=1)]
+    category_data = [[dict(zip(cols, row_values(r, i, True))).get(c, "") for c in category_cols] for i, r in enumerate(category_rows, start=1)]
+    return annual_headers, annual_data, [category_headers] + category_data
+
+
+def _ncd_general_category_table(report: dict, rows: list[dict], cols: list[str]) -> tuple[list[str], list[list]]:
+    labels = {
+        "sr": "Sr No.",
+        "financial_year": "Financial Year",
+        "classification": "Connection Classification",
+        "connections": "Connections",
+        "amount": "Amount (Rs.)",
+    }
+    active_cols = [c for c in cols if c in labels]
+    headers = [labels[c] for c in active_cols]
+    data = []
+    for sr, row in enumerate(rows, start=1):
+        values = {
+            "sr": sr,
+            "financial_year": row.get("financial_year", ""),
+            "classification": row.get("classification", ""),
+            "connections": fmt(row.get("connections", 0)),
+            "amount": fmt(row.get("amount", 0)),
+        }
+        data.append([values[c] for c in active_cols])
+    return headers, data
+
+
+def _ncd_general_pdf(report: dict, payload: dict | None = None) -> bytes:
+    payload = payload or {}
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=10 * mm, bottomMargin=10 * mm, leftMargin=10 * mm, rightMargin=10 * mm)
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), topMargin=7 * mm, bottomMargin=7 * mm, leftMargin=7 * mm, rightMargin=7 * mm)
     styles = getSampleStyleSheet()
+    selected_year = payload.get("year") or ""
+    title = f"New Connection Detail - {selected_year}" if selected_year else "New Connection Detail"
     elements = [
-        Paragraph("New Connection Detail", ParagraphStyle("NcdGeneralTitle", parent=styles["Heading1"], fontSize=18, textColor=ACCENT, alignment=1, spaceAfter=4 * mm, fontName="Helvetica-Bold")),
+        Paragraph(title, ParagraphStyle("NcdGeneralTitle", parent=styles["Heading1"], fontSize=18, textColor=ACCENT, alignment=1, spaceAfter=4 * mm, fontName="Helvetica-Bold")),
         Paragraph(f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}<br/>Source files: {', '.join(report.get('source_files', [])) or '-'}", ParagraphStyle("NcdMeta", parent=styles["Normal"], fontSize=9, leading=12, spaceAfter=4 * mm)),
     ]
 
@@ -8311,19 +8368,44 @@ def _ncd_general_pdf(report: dict) -> bytes:
         ["Commercial Connections", fmt(summary.get("commercial", 0))],
         ["Unclassified Records", fmt(summary.get("unclassified", 0))],
     ]
-    annual_rows = [["Financial Year", "Connections", "Amount (Rs.)"]] + [[r["financial_year"], fmt(r["connections"]), fmt(r["amount"])] for r in report.get("annual_summary", [])]
-    category_rows = [["Financial Year", "Classification", "Connections", "Amount (Rs.)"]] + [[r["financial_year"], r["classification"], fmt(r["connections"]), fmt(r["amount"])] for r in report.get("category_summary", [])]
-    for table_rows in (main_rows, annual_rows, category_rows):
-        tbl = Table(table_rows, repeatRows=1, hAlign="CENTER")
+    annual_headers, annual_data, _category_with_headers = _ncd_general_payload(report, payload)
+    annual_rows = [annual_headers] + annual_data
+    available_width = landscape(A4)[0] - doc.leftMargin - doc.rightMargin
+    for table_rows in (main_rows, annual_rows):
+        tbl = Table(table_rows, repeatRows=1, hAlign="CENTER", colWidths=[available_width / max(len(table_rows[0]), 1)] * len(table_rows[0]))
         tbl.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
             ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
             ("GRID", (0, 0), (-1, -1), 0.45, colors.HexColor("#8fb8b2")),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f1eb")]),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("FONTSIZE", (0, 0), (-1, -1), 10),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 7),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+        ]))
+        elements.extend([tbl, Spacer(1, 5 * mm)])
+    cols = payload.get("cols") or ["sr", "classification", "connections", "amount"]
+    category_rows = payload.get("category_rows") or report.get("category_summary", [])
+    grouped_years: dict[str, list[dict]] = {}
+    for row in category_rows:
+        grouped_years.setdefault(row.get("financial_year", ""), []).append(row)
+    for fy in sorted(grouped_years):
+        elements.append(Paragraph(str(fy), ParagraphStyle("NcdFyHeading", parent=styles["Heading2"], fontSize=13, textColor=ACCENT, alignment=1, spaceBefore=2 * mm, spaceAfter=2 * mm, fontName="Helvetica-Bold")))
+        headers, data_rows = _ncd_general_category_table(report, grouped_years[fy], cols)
+        tbl = Table([headers] + data_rows, repeatRows=1, hAlign="CENTER", colWidths=[available_width / max(len(headers), 1)] * len(headers))
+        tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
+            ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
+            ("GRID", (0, 0), (-1, -1), 0.45, colors.HexColor("#8fb8b2")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f1eb")]),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 10),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 7),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
         ]))
         elements.extend([tbl, Spacer(1, 5 * mm)])
     doc.build(elements)
@@ -9343,8 +9425,36 @@ def export_new_connection_detail(fmt_type: str):
             writer.writerow([r.get("source_file", ""), r.get("source_row", ""), r.get("issue", ""), json.dumps(r.get("original", {}), ensure_ascii=False)])
         return Response(out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=New_Connection_Detail_errors.csv"})
 
-    if fmt_type == "general-pdf":
-        return Response(_ncd_general_pdf(report), mimetype="application/pdf", headers={"Content-Disposition": "attachment; filename=New_Connection_Detail_General.pdf"})
+    if fmt_type.startswith("general-"):
+        payload = {}
+        raw_payload = request.form.get("general_json") or ""
+        if raw_payload:
+            try:
+                loaded = json.loads(raw_payload)
+                payload = loaded if isinstance(loaded, dict) else {}
+            except Exception:
+                payload = {}
+        year_suffix = f"_{payload.get('year')}" if payload.get("year") else ""
+        if fmt_type == "general-pdf":
+            return Response(_ncd_general_pdf(report, payload), mimetype="application/pdf", headers={"Content-Disposition": f"attachment; filename=New_Connection_Detail_General{year_suffix}.pdf"})
+        annual_headers, annual_rows, category_rows = _ncd_general_payload(report, payload)
+        if fmt_type == "general-csv":
+            out = io.StringIO()
+            writer = csv.writer(out)
+            writer.writerow(["Annual Summary"])
+            writer.writerow(annual_headers)
+            writer.writerows(annual_rows)
+            writer.writerow([])
+            writer.writerow(["Category-wise Summary"])
+            writer.writerows(category_rows)
+            return Response(out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment; filename=New_Connection_Detail_General{year_suffix}.csv"})
+        if fmt_type == "general-xlsx":
+            buf = io.BytesIO()
+            with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+                pd.DataFrame(annual_rows, columns=annual_headers).to_excel(writer, sheet_name="Annual Summary", index=False)
+                pd.DataFrame(category_rows[1:], columns=category_rows[0]).to_excel(writer, sheet_name="Category Summary", index=False)
+            buf.seek(0)
+            return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename=New_Connection_Detail_General{year_suffix}.xlsx"})
 
     rows_json = request.form.get("rows_json") or ""
     rows = []
@@ -9357,6 +9467,8 @@ def export_new_connection_detail(fmt_type: str):
             rows = []
     if not rows:
         rows = report.get("rows", [])
+    detail_year = request.form.get("detail_year", "").strip()
+    file_suffix = f"_{detail_year}" if detail_year else ""
 
     original_columns = report.get("original_columns", [])
     headers, data_rows = _ncd_export_rows(rows, original_columns)
@@ -9373,19 +9485,20 @@ def export_new_connection_detail(fmt_type: str):
     footer.append(["Overall Total", f"Connections: {fmt(sum(v['connections'] for v in subtotals.values()))}", f"Amount (Rs.): {fmt(sum(v['amount'] for v in subtotals.values()))}"] + [""] * max(len(headers) - 3, 0))
 
     if fmt_type == "detailed-pdf":
-        pdf = _ncd_table_pdf("New Connection Detail - Detailed Report", headers, data_rows, footer_rows=footer, landscape_page=True)
-        return Response(pdf, mimetype="application/pdf", headers={"Content-Disposition": "attachment; filename=New_Connection_Detail_Detailed.pdf"})
+        title = f"New Connection Detail - {detail_year} Detailed Report" if detail_year else "New Connection Detail - Detailed Report"
+        pdf = _ncd_table_pdf(title, headers, data_rows, footer_rows=footer, landscape_page=True)
+        return Response(pdf, mimetype="application/pdf", headers={"Content-Disposition": f"attachment; filename=New_Connection_Detail_Detailed{file_suffix}.pdf"})
     if fmt_type == "csv":
         out = io.StringIO()
         writer = csv.writer(out)
         writer.writerow(headers)
         writer.writerows(data_rows)
-        return Response(out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=New_Connection_Detail.csv"})
+        return Response(out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment; filename=New_Connection_Detail{file_suffix}.csv"})
     if fmt_type == "xlsx":
         buf = io.BytesIO()
         pd.DataFrame(data_rows, columns=headers).to_excel(buf, index=False)
         buf.seek(0)
-        return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=New_Connection_Detail.xlsx"})
+        return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename=New_Connection_Detail{file_suffix}.xlsx"})
 
     flash("Unknown export format.")
     return redirect(url_for("new_connection_detail"))
