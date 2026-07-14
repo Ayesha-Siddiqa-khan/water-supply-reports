@@ -227,6 +227,15 @@
       msg.className = 'match-status success';
     }).catch(function(err) { msg.textContent = 'Matching failed: ' + (err.message || err); msg.className = 'match-status error'; });
   }
+  function processWhenReady() {
+    var msg = document.getElementById('match-message');
+    if (state.refFile && state.receiptFile) {
+      process();
+    } else if (state.refFile || state.receiptFile) {
+      msg.textContent = state.refFile ? 'File A selected. Please upload File B - Water Bill Receipts.' : 'File B selected. Please upload File A - New Connection Reference.';
+      msg.className = 'match-status';
+    }
+  }
   function selectedCols() { return Array.from(document.querySelectorAll('.match-col:checked')).map(function(b) { return b.value; }); }
   function renderColumns() {
     document.getElementById('column-box').innerHTML = '<strong style="color:var(--text-muted);font-size:12px;">Columns:</strong>' + state.columns.map(function(c) {
@@ -327,8 +336,8 @@
       renderTable();
     });
   });
-  document.getElementById('ref-file').addEventListener('change', function() { state.refFile = this.files[0] || null; document.getElementById('ref-name').textContent = state.refFile ? state.refFile.name : 'CSV/XLSX with Received Date and Total Receivable.'; });
-  document.getElementById('receipt-file').addEventListener('change', function() { state.receiptFile = this.files[0] || null; document.getElementById('receipt-name').textContent = state.receiptFile ? state.receiptFile.name : 'CSV/XLSX with Received Date and Amount Received.'; });
+  document.getElementById('ref-file').addEventListener('change', function() { state.refFile = this.files[0] || null; document.getElementById('ref-name').textContent = state.refFile ? state.refFile.name : 'CSV/XLSX with Received Date and Total Receivable.'; processWhenReady(); });
+  document.getElementById('receipt-file').addEventListener('change', function() { state.receiptFile = this.files[0] || null; document.getElementById('receipt-name').textContent = state.receiptFile ? state.receiptFile.name : 'CSV/XLSX with Received Date and Amount Received.'; processWhenReady(); });
   document.getElementById('process-match').addEventListener('click', process);
   document.getElementById('clear-match').addEventListener('click', function() { location.reload(); });
   document.getElementById('select-filtered').addEventListener('click', function() { state.results.forEach(function(r) { if (visible(r)) r.selected = true; }); renderTable(); });
