@@ -123,7 +123,7 @@
   var state = { refFile:null, receiptFile:null, refs:[], receipts:[], results:[], columns:[], sortDir:{} };
   var receiptCols = {};
   var receiptHeaders = [];
-  var defaultCols = ['SR', 'Match Status', 'Received Date', 'Amount Received', 'Consumer Name', 'Connection Type', 'Connection No', 'Sector', 'Locality', 'BillType', 'Bill No', 'Payment Method'];
+  var defaultCols = ['SR', 'Received Date', 'Consumer Name', 'Sector', 'Locality', 'BillType', 'Connection Type', 'Connection No', 'Bill No', 'Amount Received'];
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function(ch) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; }); }
   function clean(v) { return String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
   function pick(headers, aliases) {
@@ -185,30 +185,14 @@
     return joined && clean(item.row[dateCol]) !== clean(dateCol) && clean(item.row[amountCol]) !== clean(amountCol);
   }
   function isNewConnectionReceipt(item) { return receiptCols.bill && norm(item.row[receiptCols.bill]) === 'new connection'; }
-  function combineReceipts(items) {
-    if (!items.length) return null;
-    if (items.length === 1) return items[0];
-    var row = {};
-    receiptHeaders.forEach(function(k) {
-      var vals = Array.from(new Set(items.map(function(item) { return item.row[k] || ''; }).filter(Boolean)));
-      row[k] = vals.join(' | ');
-    });
-    row[receiptCols.consumer] = items.length + ' New Connection receipts';
-    row[receiptCols.connection] = items.map(function(item) { return item.row[receiptCols.connection] || ''; }).filter(Boolean).join(' | ');
-    row[receiptCols.billNo] = items.map(function(item) { return item.row[receiptCols.billNo] || ''; }).filter(Boolean).join(' | ');
-    row[receiptCols.bill] = 'New Connection';
-    row[receiptCols.payment] = Array.from(new Set(items.map(function(item) { return item.row[receiptCols.payment] || ''; }).filter(Boolean))).join(' | ');
-    row['Amount Received'] = money(sum(items, 'amount'));
-    row['Total Bill'] = money(sum(items, 'matchAmount'));
-    return { row:row, dateIso:items[0].dateIso, amount:sum(items, 'amount'), matchAmount:sum(items, 'matchAmount'), used:false, isNewConnection:true, parts:items };
-  }
   function exactSum(items, target, maxParts) {
+    if (!maxParts || maxParts < 2) return null;
     var list = items.filter(function(item) { return !item.used && item.matchAmount !== null && item.matchAmount <= target; });
-    if (maxParts) list = list.slice(0, Math.max(maxParts * 3, maxParts));
-    var limit = maxParts || Math.min(list.length, 8), found = null;
+    list = list.slice(0, Math.max(maxParts * 3, maxParts));
+    var found = null;
     function walk(start, chosen, total) {
-      if (found || total > target || chosen.length > limit) return;
-      if (total === target && chosen.length > 1) { found = chosen.slice(); return; }
+      if (found || total > target || chosen.length > maxParts) return;
+      if (total === target && chosen.length === maxParts) { found = chosen.slice(); return; }
       for (var i = start; i < list.length; i++) walk(i + 1, chosen.concat([list[i]]), total + list[i].matchAmount);
     }
     walk(0, [], 0);
@@ -298,10 +282,9 @@
             results.push(result(ref, 'Matched', match, [], match.isNewConnection ? 'New Connection receipt match' : 'Date and amount fallback match'));
           } else {
             var combo = exactSum(newRecByDate[ref.dateIso] || [], ref.amount, ref.count);
-            if (!combo) combo = exactSum(recByDate[ref.dateIso] || [], ref.amount, ref.count);
             if (combo) {
               combo.forEach(function(item) { item.used = true; });
-              results.push(result(ref, 'Matched', combineReceipts(combo), [], 'Same date receipts total match'));
+              combo.forEach(function(item) { results.push(result(ref, 'Matched', item, [], 'Same date receipts total match')); });
             } else {
               results.push(result(ref, 'Unmatched', null, [], 'No receipt with same date and amount'));
             }
@@ -405,11 +388,20 @@
     var jsPDF = window.jspdf && window.jspdf.jsPDF;
     if (!jsPDF) { alert('PDF library is loading. Please try again.'); return; }
     var cols = selectedCols(), rows = selectedRows(), doc = new jsPDF({ orientation:'landscape', unit:'pt', format:'a4' });
-    doc.setFontSize(14); doc.text('New Connection Receipt Matching Report', 40, 35);
+    doc.setFontSize(14); doc.text('New Connection 2025-2026', 40, 35);
     doc.setFontSize(9); doc.text('Generated: ' + new Date().toLocaleString(), 40, 52);
-    doc.text('Source files: ' + (state.refFile ? state.refFile.name : '-') + ' | ' + (state.receiptFile ? state.receiptFile.name : '-'), 40, 67);
-    doc.text('Selected records: ' + rows.length + ' | Total selected amount: ' + money(rows.reduce(function(s,r){ return s + (r.receipt ? r.receipt.amount : 0); }, 0)), 40, 82);
-    doc.autoTable({ startY:95, head:[cols], body:rows.map(function(r) { return cols.map(function(c) { return r.values[c] || ''; }); }), styles:{ fontSize:7, halign:'center' }, headStyles:{ fillColor:[47,125,118] } });
+    doc.text('Selected records: ' + rows.length + ' | Total selected amount: ' + money(rows.reduce(function(s,r){ return s + (r.receipt ? r.receipt.amount : 0); }, 0)), 40, 67);
+    doc.autoTable({
+      startY:82,
+      head:[cols],
+      body:rows.map(function(r) { return cols.map(function(c) { return r.values[c] || ''; }); }),
+      theme:'grid',
+      styles:{ fontSize:7, cellPadding:4, lineColor:[80,150,145], lineWidth:0.35, halign:'center', valign:'middle' },
+      headStyles:{ fillColor:[47,125,118], textColor:[255,255,255], halign:'center', lineColor:[80,150,145], lineWidth:0.45 },
+      alternateRowStyles:{ fillColor:[245,245,245] },
+      columnStyles:{ 0:{ cellWidth:28 }, 3:{ halign:'left' }, 4:{ halign:'left' } },
+      margin:{ left:34, right:34 }
+    });
     doc.save('new_connection_receipt_matching.pdf');
   }
   ['status-filter','sector-filter','locality-filter','type-filter','bill-filter','match-search'].forEach(function(id) {
