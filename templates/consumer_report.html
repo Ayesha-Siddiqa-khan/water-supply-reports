@@ -1177,6 +1177,7 @@
       var pdfBtn = document.getElementById('pdf-download-btn');
       var commercialPdfBtn = document.getElementById('commercial-pdf-download-btn');
       var colToggles = document.querySelectorAll('.pdf-col-toggle');
+      var defaultPdfCols = ['sr', 'sector', 'locality', 'active', 'budget'];
 
       function getSelectedColumns() {
         var cols = [];
@@ -1197,6 +1198,12 @@
       }
 
       if (priorityEl && orderEl && pdfBtn) {
+        // Keep PDF defaults print-friendly on every load. Browsers can restore
+        // old checkbox state, so reset to SR/Sector/Locality/Active/Budget.
+        colToggles.forEach(function(cb) {
+          cb.checked = defaultPdfCols.indexOf(cb.getAttribute('data-col')) !== -1;
+        });
+        updatePdfLink();
         // Changing sort settings must reorder BOTH the preview table and the
         // export URLs so they stay in sync.
         priorityEl.addEventListener('change', function() {

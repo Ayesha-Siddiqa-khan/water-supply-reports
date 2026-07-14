@@ -245,8 +245,8 @@
     "semantic_hash": ""
   },
   "templates/consumer_report.html": {
-    "mtime": 1783942266.630219,
-    "ast_hash": "94ae931aa3a1a21ae28c422b4964ca7a",
+    "mtime": 1784041591.0058706,
+    "ast_hash": "0fe637fec4ea502349bdaf651526b7d7",
     "semantic_hash": ""
   },
   "templates/consumer_sector_remaining_report.html": {
