@@ -1535,12 +1535,13 @@ def summarize_dataframe(df: pd.DataFrame) -> dict:
 # PDF generation
 # ---------------------------------------------------------------------------
 
-ACCENT = colors.HexColor("#2f6f6d")
-ACCENT2 = colors.HexColor("#d28b62")
-HEADER_BG = colors.HexColor("#2f6f6d")
+# Global PDF palette: dark, simple colours for ordinary black-and-white printers.
+ACCENT = colors.black
+ACCENT2 = colors.black
+HEADER_BG = colors.HexColor("#222222")
 HEADER_FG = colors.white
-ALT_ROW = colors.HexColor("#f4f1ea")
-BORDER_CLR = colors.HexColor("#d9d2c6")
+ALT_ROW = colors.HexColor("#f2f2f2")
+BORDER_CLR = colors.black
 
 
 def _make_pdf_table(
@@ -1561,7 +1562,9 @@ def _make_pdf_table(
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
         ("FONTSIZE", (0, 1), (-1, -1), body_font_size),
-        ("GRID", (0, 0), (-1, -1), 0.5, BORDER_CLR),
+        ("TEXTCOLOR", (0, 1), (-1, -1), colors.black),
+        ("GRID", (0, 0), (-1, -1), 0.75, BORDER_CLR),
+        ("BOX", (0, 0), (-1, -1), 0.9, BORDER_CLR),
         ("TOPPADDING", (0, 0), (-1, -1), cell_padding),
         ("BOTTOMPADDING", (0, 0), (-1, -1), cell_padding),
         ("LEFTPADDING", (0, 0), (-1, -1), max(3, cell_padding - 2)),
@@ -1576,14 +1579,14 @@ def _make_pdf_table(
         last = len(data_rows) - 1
         style.add("FONTNAME", (0, last), (-1, last), "Helvetica-Bold")
         style.add("FONTSIZE", (0, last), (-1, last), body_font_size)
-        style.add("BACKGROUND", (0, last), (-1, last), colors.HexColor("#e6d8c8"))
+        style.add("BACKGROUND", (0, last), (-1, last), colors.HexColor("#e6e6e6"))
 
     for idx, row in enumerate(data_rows[1:], start=1):
         row_text = " ".join(str(cell) for cell in row)
         if " Total" in row_text or "Grand Total" in row_text:
             style.add("FONTNAME", (0, idx), (-1, idx), "Helvetica-Bold")
             style.add("FONTSIZE", (0, idx), (-1, idx), body_font_size)
-            style.add("BACKGROUND", (0, idx), (-1, idx), colors.HexColor("#e6d8c8"))
+            style.add("BACKGROUND", (0, idx), (-1, idx), colors.HexColor("#e6e6e6"))
             style.add("TEXTCOLOR", (0, idx), (-1, idx), colors.black)
             style.add("BOTTOMPADDING", (0, idx), (-1, idx), cell_padding + 6)
 
@@ -1890,7 +1893,7 @@ def generate_card_pdf(
                                   fontName="Helvetica-Bold")
     summary_style = ParagraphStyle("PDFSummary", parent=styles["Normal"], fontSize=summary_fs,
                                     alignment=0, spaceAfter=summary_sa,
-                                    textColor=colors.HexColor("#333333"),
+                                    textColor=colors.black,
                                     leading=summary_leading)
     section_style = ParagraphStyle("PDFSection", parent=styles["Heading3"], fontSize=section_fs,
                                     textColor=ACCENT, alignment=0, spaceBefore=section_sb,
@@ -2131,7 +2134,7 @@ def generate_commercial_pdf(
         fontSize=11,
         alignment=0,
         spaceAfter=2 * mm,
-        textColor=colors.HexColor("#333333"),
+        textColor=colors.black,
         leading=16,
     )
     section_style = ParagraphStyle(
@@ -2196,7 +2199,7 @@ def generate_commercial_monthly_pdf(summary_lines, monthly_sections, overall_tot
     )
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle("PDFTitle", parent=styles["Heading1"], fontSize=20, textColor=ACCENT, alignment=1, spaceAfter=6 * mm, fontName="Helvetica-Bold")
-    summary_style = ParagraphStyle("PDFSummary", parent=styles["Normal"], fontSize=11, alignment=0, spaceAfter=2 * mm, textColor=colors.HexColor("#333333"), leading=16)
+    summary_style = ParagraphStyle("PDFSummary", parent=styles["Normal"], fontSize=11, alignment=0, spaceAfter=2 * mm, textColor=colors.black, leading=16)
     section_style = ParagraphStyle("PDFSection", parent=styles["Heading3"], fontSize=14, textColor=ACCENT, alignment=1, spaceBefore=5 * mm, spaceAfter=3 * mm, fontName="Helvetica-Bold")
 
     if pdf_headers is None:
@@ -2249,7 +2252,7 @@ def generate_zone_grouped_pdf(title, summary_lines, grouped_sections, overall_to
     )
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle("PDFTitle", parent=styles["Heading1"], fontSize=20, textColor=ACCENT, alignment=1, spaceAfter=6 * mm, fontName="Helvetica-Bold")
-    summary_style = ParagraphStyle("PDFSummary", parent=styles["Normal"], fontSize=11, alignment=0, spaceAfter=2 * mm, textColor=colors.HexColor("#333333"), leading=16)
+    summary_style = ParagraphStyle("PDFSummary", parent=styles["Normal"], fontSize=11, alignment=0, spaceAfter=2 * mm, textColor=colors.black, leading=16)
     section_style = ParagraphStyle("PDFSection", parent=styles["Heading3"], fontSize=14, textColor=ACCENT, alignment=1, spaceBefore=5 * mm, spaceAfter=3 * mm, fontName="Helvetica-Bold")
     card_header_style = ParagraphStyle("CardHeader", parent=styles["Normal"], fontSize=10, textColor=HEADER_FG, fontName="Helvetica-Bold", alignment=1)
     card_label_style = ParagraphStyle("CardLabel", parent=styles["Normal"], fontSize=10, alignment=1, fontName="Helvetica")
@@ -3466,9 +3469,9 @@ def generate_grouped_advanced_pdf(
     )
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle("PDFTitle", parent=styles["Heading1"], fontSize=16, textColor=ACCENT, alignment=1, spaceAfter=3 * mm, fontName="Helvetica-Bold")
-    summary_style = ParagraphStyle("PDFSummary", parent=styles["Normal"], fontSize=9, alignment=0, spaceAfter=1 * mm, textColor=colors.HexColor("#333333"), leading=13)
+    summary_style = ParagraphStyle("PDFSummary", parent=styles["Normal"], fontSize=9, alignment=0, spaceAfter=1 * mm, textColor=colors.black, leading=13)
     group_heading_style = ParagraphStyle("GroupHeading", parent=styles["Heading2"], fontSize=12, textColor=ACCENT, spaceBefore=4 * mm, spaceAfter=1 * mm, fontName="Helvetica-Bold", alignment=0)
-    group_sub_style = ParagraphStyle("GroupSub", parent=styles["Normal"], fontSize=8, textColor=colors.HexColor("#555555"), spaceAfter=1.5 * mm, alignment=0, leading=11)
+    group_sub_style = ParagraphStyle("GroupSub", parent=styles["Normal"], fontSize=8, textColor=colors.black, spaceAfter=1.5 * mm, alignment=0, leading=11)
 
     elements = [Paragraph(f"Advanced Bill Filter Report — {group_label_plural}", title_style)]
     elements.append(Paragraph(f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}", summary_style))
@@ -3735,9 +3738,9 @@ def generate_single_group_pdf(
     )
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle("PDFTitle", parent=styles["Heading1"], fontSize=16, textColor=ACCENT, alignment=1, spaceAfter=3 * mm, fontName="Helvetica-Bold")
-    summary_style = ParagraphStyle("PDFSummary", parent=styles["Normal"], fontSize=9, alignment=0, spaceAfter=1 * mm, textColor=colors.HexColor("#333333"), leading=13)
+    summary_style = ParagraphStyle("PDFSummary", parent=styles["Normal"], fontSize=9, alignment=0, spaceAfter=1 * mm, textColor=colors.black, leading=13)
     group_heading_style = ParagraphStyle("GroupHeading", parent=styles["Heading2"], fontSize=12, textColor=ACCENT, spaceBefore=4 * mm, spaceAfter=1 * mm, fontName="Helvetica-Bold", alignment=0)
-    group_sub_style = ParagraphStyle("GroupSub", parent=styles["Normal"], fontSize=8, textColor=colors.HexColor("#555555"), spaceAfter=1.5 * mm, alignment=0, leading=11)
+    group_sub_style = ParagraphStyle("GroupSub", parent=styles["Normal"], fontSize=8, textColor=colors.black, spaceAfter=1.5 * mm, alignment=0, leading=11)
 
     elements = [Paragraph(f"Advanced Bill — {group_label}: {group_key}", title_style)]
     elements.append(Paragraph(f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}", summary_style))
@@ -4415,7 +4418,7 @@ def generate_unpaid_amount_pdf(sections: list[tuple[str, str, list[str], list[li
         "UnpaidAmountSection",
         parent=styles["Heading2"],
         fontSize=12,
-        textColor=colors.HexColor("#333333"),
+        textColor=colors.black,
         spaceBefore=4 * mm,
         spaceAfter=2 * mm,
         fontName="Helvetica-Bold",
@@ -4425,7 +4428,7 @@ def generate_unpaid_amount_pdf(sections: list[tuple[str, str, list[str], list[li
         parent=styles["Normal"],
         fontSize=10,
         leading=14,
-        textColor=colors.HexColor("#333333"),
+        textColor=colors.black,
         spaceAfter=1 * mm,
     )
     elements = [
@@ -4916,7 +4919,7 @@ def generate_staff_report_pdf(rows: list[list], show_summary: bool = True, cols_
         fontSize=14,
         alignment=0,
         spaceAfter=2 * mm,
-        textColor=colors.HexColor("#333333"),
+        textColor=colors.black,
         leading=18,
     )
     group_style = ParagraphStyle(
@@ -8306,7 +8309,7 @@ def _ncd_table_pdf(title: str, headers: list[str], rows: list[list], footer_rows
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
         ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
-        ("GRID", (0, 0), (-1, -1), 0.45, colors.HexColor("#8fb8b2")),
+        ("GRID", (0, 0), (-1, -1), 0.75, colors.black),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f1eb")]),
         ("LEFTPADDING", (0, 0), (-1, -1), 2),
@@ -8518,7 +8521,7 @@ def _ncd_annual_pdf(report: dict, payload: dict | None = None) -> bytes:
     tbl.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
         ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
-        ("GRID", (0, 0), (-1, -1), 0.45, colors.HexColor("#8fb8b2")),
+        ("GRID", (0, 0), (-1, -1), 0.75, colors.black),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f1eb")]),
@@ -8572,7 +8575,7 @@ def _ncd_general_pdf(report: dict, payload: dict | None = None) -> bytes:
         tbl.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
             ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
-            ("GRID", (0, 0), (-1, -1), 0.45, colors.HexColor("#8fb8b2")),
+            ("GRID", (0, 0), (-1, -1), 0.75, colors.black),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f1eb")]),
@@ -10060,15 +10063,15 @@ def export_consumer_report(fmt_type: str):
     # -----------------------------------------------------------------------
     if fmt_type == "pdf":
         # -- Colour palette (light, print-friendly) --
-        PDF_HEADER_BG = colors.HexColor("#e8f5f3")
-        PDF_HEADER_FG = colors.HexColor("#1a5c52")
-        PDF_ALT_ROW = colors.HexColor("#f7faf9")
+        PDF_HEADER_BG = colors.HexColor("#222222")
+        PDF_HEADER_FG = colors.white
+        PDF_ALT_ROW = colors.HexColor("#f2f2f2")
         PDF_WHITE_ROW = colors.white
-        PDF_GRAND_BG = colors.HexColor("#d4edda")
-        PDF_GRAND_FG = colors.HexColor("#155724")
+        PDF_GRAND_BG = colors.HexColor("#e6e6e6")
+        PDF_GRAND_FG = colors.black
         # Darker grid lines keep the printed PDF visibly table-shaped.
-        PDF_GRID = colors.HexColor("#6fa8a0")
-        PDF_BODY_FG = colors.HexColor("#2c3e50")
+        PDF_GRID = colors.black
+        PDF_BODY_FG = colors.black
 
         # -- Page setup: A4 portrait with tighter side margins --
         # Fix: Domestic/Consumer PDF uses the real printable width so the table
@@ -10107,7 +10110,7 @@ def export_consumer_report(fmt_type: str):
             parent=styles["Normal"],
             fontSize=10,
             fontName="Helvetica",
-            textColor=colors.HexColor("#5a7a74"),
+            textColor=colors.black,
             alignment=1,
             spaceAfter=3 * mm,
         )
@@ -10116,7 +10119,7 @@ def export_consumer_report(fmt_type: str):
             parent=styles["Normal"],
             fontSize=9,
             fontName="Helvetica",
-            textColor=colors.HexColor("#6c8a84"),
+            textColor=colors.black,
             alignment=1,
             spaceAfter=6 * mm,
         )
@@ -10322,15 +10325,15 @@ def export_consumer_report(fmt_type: str):
         commercial_localities = len(commercial_rows)
 
         # -- Colour palette (same as main PDF for consistency) --
-        PDF_HEADER_BG = colors.HexColor("#e8f5f3")
-        PDF_HEADER_FG = colors.HexColor("#1a5c52")
-        PDF_ALT_ROW = colors.HexColor("#f7faf9")
+        PDF_HEADER_BG = colors.HexColor("#222222")
+        PDF_HEADER_FG = colors.white
+        PDF_ALT_ROW = colors.HexColor("#f2f2f2")
         PDF_WHITE_ROW = colors.white
-        PDF_GRAND_BG = colors.HexColor("#d4edda")
-        PDF_GRAND_FG = colors.HexColor("#155724")
+        PDF_GRAND_BG = colors.HexColor("#e6e6e6")
+        PDF_GRAND_FG = colors.black
         # Darker grid lines keep the printed PDF visibly table-shaped.
-        PDF_GRID = colors.HexColor("#6fa8a0")
-        PDF_BODY_FG = colors.HexColor("#2c3e50")
+        PDF_GRID = colors.black
+        PDF_BODY_FG = colors.black
 
         # -- Page setup: A4 portrait (match Consumer PDF margins) --
         page_w, page_h = A4
@@ -10367,7 +10370,7 @@ def export_consumer_report(fmt_type: str):
             parent=styles["Normal"],
             fontSize=10,
             fontName="Helvetica",
-            textColor=colors.HexColor("#5a7a74"),
+            textColor=colors.black,
             alignment=1,
             spaceAfter=3 * mm,
         )
@@ -10376,7 +10379,7 @@ def export_consumer_report(fmt_type: str):
             parent=styles["Normal"],
             fontSize=9,
             fontName="Helvetica",
-            textColor=colors.HexColor("#6c8a84"),
+            textColor=colors.black,
             alignment=1,
             spaceAfter=6 * mm,
         )
@@ -10962,8 +10965,8 @@ def export_arrear_calculator(fmt_type: str):
                 col_widths = [w * scale for w in col_widths]
 
         tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
-        accent = rl_colors.HexColor("#2f6f6d")
-        dark_border = rl_colors.HexColor("#555555")
+        accent = rl_colors.HexColor("#222222")
+        dark_border = rl_colors.black
         tbl.setStyle(TableStyle([
             # Header
             ("BACKGROUND", (0, 0), (-1, 0), accent),
@@ -11382,7 +11385,7 @@ def export_consumer_sector_remaining(fmt_type: str):
         doc = SimpleDocTemplate(buf, pagesize=landscape(A4), topMargin=6*mm, bottomMargin=6*mm, leftMargin=6*mm, rightMargin=6*mm)
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle("CSReportTitle", parent=styles["Heading1"], fontSize=18, textColor=ACCENT, alignment=1, spaceAfter=4*mm, fontName="Helvetica-Bold")
-        subtitle_style = ParagraphStyle("CSReportSubtitle", parent=styles["Normal"], fontSize=10, textColor=colors.HexColor("#555555"), alignment=1, spaceAfter=6*mm)
+        subtitle_style = ParagraphStyle("CSReportSubtitle", parent=styles["Normal"], fontSize=10, textColor=colors.black, alignment=1, spaceAfter=6*mm)
         elements = [
             Paragraph("Consumer Sector Remaining Report", title_style),
             Paragraph(f"{season_label} &middot; {year}", subtitle_style),
