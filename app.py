@@ -7249,6 +7249,25 @@ def export_dnc_register(kind: str, fmt_type: str):
     if fmt_type == "pdf":
         page = landscape(A4) if len(headers) > 9 else A4
         page_w = page[0] - 30 * mm
+        # ponytail: dynamic col widths for sector reports —
+        # measure max content length per column, allocate proportional widths.
+        # Sector column gets full visibility; remaining columns share the rest.
+        if kind == "sector" and len(headers) > 1:
+            all_text = [headers] + rows
+            if grand:
+                all_text.append(grand)
+            max_lens = []
+            for ci in range(len(headers)):
+                col_max = max((len(str(r[ci])) if ci < len(r) else 0) for r in all_text)
+                max_lens.append(col_max)
+            char_w = 5.5
+            raw = [ml * char_w for ml in max_lens]
+            sector_min = page_w * 0.30
+            raw[0] = max(raw[0], sector_min)
+            total_raw = sum(raw)
+            col_widths = [(w / total_raw) * page_w for w in raw]
+        else:
+            col_widths = [page_w / len(headers)] * len(headers)
         pdf = generate_card_pdf(
             title,
             [f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}"],
@@ -7256,8 +7275,8 @@ def export_dnc_register(kind: str, fmt_type: str):
             rows,
             grand,
             pagesize=page,
-            col_widths=[page_w / len(headers)] * len(headers),
-            left_cols=[2, 3] if kind == "detail" else ([0, 1] if kind == "sector" else [0]),
+            col_widths=col_widths,
+            left_cols=[2, 3] if kind == "detail" else ([0] if kind == "sector" else [0]),
             header_font_size=8 if len(headers) > 9 else 10,
             body_font_size=7 if len(headers) > 9 else 9,
             cell_padding=4,

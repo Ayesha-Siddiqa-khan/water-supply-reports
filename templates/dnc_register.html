@@ -119,7 +119,7 @@
           <strong style="color:var(--text-muted);font-size:12px;">Columns:</strong>
           <label><input type="checkbox" class="dnc-col" data-kind="sector" value="sector" checked> Sector</label>
           {% for key, label in summary_cols %}
-          <label><input type="checkbox" class="dnc-col" data-kind="sector" value="{{ key }}" checked> {{ label }}</label>
+          <label><input type="checkbox" class="dnc-col" data-kind="sector" value="{{ key }}" {% if key == 'connections' %}checked{% endif %}> {{ label }}</label>
           {% endfor %}
         </div>
         <div class="table-wrapper">
