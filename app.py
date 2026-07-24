@@ -7155,7 +7155,8 @@ def _build_dnc_register_report(df: pd.DataFrame) -> dict:
     sector_summary = []
     by_sector: dict[tuple[str, str], list[dict]] = {}
     for row in rows:
-        by_sector.setdefault((row["classification"], row["sector"]), []).append(row)
+        group_key = row["locality"] if row["classification"] == "Commercial" else row["sector"]
+        by_sector.setdefault((row["classification"], group_key), []).append(row)
     for (classification, sector), part in sorted(by_sector.items(), key=lambda item: (item[0][0], item[0][1].lower())):
         item = _dnc_sum_rows(part, classification)
         item["sector"] = sector
