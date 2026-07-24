@@ -6986,7 +6986,9 @@ def get_bill_income_category_summary():
 def bill_income_category_export_rows(category_filter: str = "", mode: str = "combined"):
     data = get_bill_income_category_summary()
     if category_filter:
-        data = [row for row in data if row["category"].lower().replace(" ", "-") == category_filter]
+        # Category export buttons pass URL-safe slugs; normalize punctuation too
+        # so "Private Societies" matches "private-societies" instead of exporting a blank report.
+        data = [row for row in data if re.sub(r"[^a-z0-9]+", "-", row["category"].lower()).strip("-") == category_filter]
     headers = ["Category", "Connections", "Rate (Rs./Year)", "No. of Bills"]
     value_keys = []
     if mode in ("combined", "arrears"):
