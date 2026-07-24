@@ -7071,6 +7071,9 @@ def _dnc_classification(sector: str, locality: str) -> str:
         return "Commercial"
     if any(word in text for word in ("PRIVATE SOCIETY", "PRIVATE SOCITIES", "PRIVATE SOCIETIES", "PRIVATE SO")):
         return "Private Societies"
+    for name in PRIVATE_SOCIETY_NAMES:
+        if name.upper() in text:
+            return "Private Societies"
     return "Domestic"
 
 
