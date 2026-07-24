@@ -3,11 +3,9 @@
   "1": "app.py",
   "2": "DataFrame",
   "3": "consumer_report",
-  "4": "get_db",
   "5": "Base Template",
   "6": "upload-progress.js",
   "7": "export_arrear_calculator",
-  "8": "export_advanced_bills",
   "9": "vercel.json",
   "10": "check_bill_list.py",
   "11": "check_csv.py",
@@ -22,10 +20,6 @@
   "20": "Claude Code CLI Prompt: Advanced Bill List Filters and Export",
   "21": "Advanced Bill Filters Feature Prompt",
   "22": "match_staff_assignment",
-  "23": "consumer_report_script_1.js",
   "24": "_build_connection_rate_report",
-  "25": "export_consumer_report",
-  "26": "_normalize_rate_title",
-  "27": "export_arrear_calculator",
-  "28": "_normalize_consumer_col"
+  "27": "export_arrear_calculator"
 }

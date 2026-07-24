@@ -518,7 +518,7 @@
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
-              <tr><th>Locality</th><th>No. of Bills</th>{% if results.has_arrears %}<th>Arrears Received</th>{% endif %}<th>Amount Received</th></tr>
+              <tr><th>Sector</th><th>Locality</th><th>No. of Bills</th>{% if results.has_arrears %}<th>Arrears Received</th>{% endif %}<th>Amount Received</th></tr>
             </thead>
             <tbody>
               {% set cs = namespace(tc=0, ta=0, tar=0) %}
@@ -572,7 +572,7 @@
               {% set ps = namespace(tc=0, ta=0, tar=0) %}
               {% for row in results.private_society_total %}
               <tr>
-                <td>{{ row.label }}</td><td class="mono">{{ "{:,}".format(row.count) }}</td>
+                <td>{{ row.sector }}</td><td>{{ row.locality|default(row.label) }}</td><td class="mono">{{ "{:,}".format(row.count) }}</td>
                 {% if results.has_arrears %}<td class="mono accent-amber">{{ "{:,.0f}".format(row.arrears_total|default(0)) }}</td>{% set ps.tar = ps.tar + row.arrears_total|default(0) %}{% endif %}
                 <td class="mono accent-teal">{{ "{:,.0f}".format(row.amount_total|default(0)) }}</td>
                 {% set ps.tc = ps.tc + row.count %}{% set ps.ta = ps.ta + row.amount_total|default(0) %}
@@ -580,7 +580,7 @@
               {% endfor %}
             </tbody>
             <tfoot>
-              <tr><td>Grand Total</td><td class="mono">{{ "{:,}".format(ps.tc) }}</td>{% if results.has_arrears %}<td class="mono">{{ "{:,.0f}".format(ps.tar) }}</td>{% endif %}<td class="mono">{{ "{:,.0f}".format(ps.ta) }}</td></tr>
+              <tr><td>Grand Total</td><td></td><td class="mono">{{ "{:,}".format(ps.tc) }}</td>{% if results.has_arrears %}<td class="mono">{{ "{:,.0f}".format(ps.tar) }}</td>{% endif %}<td class="mono">{{ "{:,.0f}".format(ps.ta) }}</td></tr>
             </tfoot>
           </table>
         </div>
@@ -875,6 +875,7 @@
       { key: "amountReceived", label: "Amount Received", checked: true }
     ],
     privateSocietyTotalLocalityBreakdown: [
+      { key: "sector", label: "Sector", checked: true },
       { key: "locality", label: "Locality", checked: true },
       { key: "count", label: "No. of Bills", checked: true },
       { key: "arrearsReceived", label: "Arrears Received", checked: true },

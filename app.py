@@ -688,6 +688,48 @@ PRIVATE_SOCIETY_NAMES = (
     "zain city",
 )
 
+PRIVATE_SOCIETY_ALIASES = (
+    ("Al-Khair Colony", ("al khair colony",)),
+    ("Batool Garden", ("batool garden", "batool gadran")),
+    ("Alharam City", ("al haram", "alharam")),
+    ("Dream Land City", ("dream land", "dreem land")),
+    ("Gulshan-e-Batool", ("gulshan batool", "gulshan e batool")),
+    ("Itefaq City", ("itefaq city",)),
+    ("Muhammad City", ("muhammad city",)),
+    ("Rehan Avenue", ("rehan avene", "rehan avnue", "rehan avenue")),
+    ("Rehan Garden", ("rehan garden",)),
+    ("Sidra Town", ("sidra town",)),
+    ("Sukh Chain Colony", ("sukh chain colony",)),
+    ("Zain City", ("zain city",)),
+)
+
+
+def _private_society_norm(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", str(value).lower()).strip()
+
+
+def _private_society_sector_name(value: str) -> str:
+    normalized = _private_society_norm(value)
+    compact = normalized.replace(" ", "")
+    for display, aliases in PRIVATE_SOCIETY_ALIASES:
+        for alias in aliases:
+            alias_norm = _private_society_norm(alias)
+            if alias_norm in normalized or alias_norm.replace(" ", "") in compact:
+                return display
+    return ""
+
+
+def _private_society_locality_name(value: str) -> str:
+    text = re.sub(r"(?i)\bprivate\s+societ(?:y|ies|ies)?\b", "", str(value))
+    zone = re.search(r"(?i)\bzone\s+([a-z0-9]+)\b", text)
+    phase = re.search(r"(?i)\bphase\s+([0-9]+)\b", text)
+    parts = []
+    if zone:
+        parts.append(f"Zone {zone.group(1).upper()}")
+    if phase:
+        parts.append(f"(Phase {phase.group(1)})")
+    return " ".join(parts)
+
 
 def build_private_society_mask(df: pd.DataFrame) -> pd.Series:
     columns = list(df.columns)
@@ -718,6 +760,7 @@ def build_private_society_mask(df: pd.DataFrame) -> pd.Series:
 
 def build_private_society_rows(df: pd.DataFrame, dates: pd.Series, amount_col: str | None, arrears_col: str | None):
     """Build private-society locality totals without changing existing reports."""
+    sector_col = pick_column(list(df.columns), ["sector"])
     locality_col = pick_column(list(df.columns), ["locality"]) or pick_column(list(df.columns), ["sector"])
     if not locality_col:
         return []
@@ -732,7 +775,16 @@ def build_private_society_rows(df: pd.DataFrame, dates: pd.Series, amount_col: s
     if private_df.empty:
         return []
 
-    private_df["_locality"] = private_df[locality_col].fillna("Unknown").astype(str).str.strip().replace({"": "Unknown"})
+    sector_text = private_df[sector_col].fillna("").astype(str) if sector_col else ""
+    locality_text = private_df[locality_col].fillna("").astype(str)
+    combined_text = sector_text + " " + locality_text
+    private_df["_sector"] = combined_text.apply(_private_society_sector_name)
+    private_df["_sector"] = private_df["_sector"].where(private_df["_sector"].ne(""), sector_text.str.strip() if sector_col else "Private Society")
+    private_df["_sector"] = private_df["_sector"].replace({"": "Private Society"})
+    private_df["_locality"] = locality_text.apply(_private_society_locality_name)
+    for sector, mode_value in private_df.loc[private_df["_locality"].ne("")].groupby("_sector")["_locality"].agg(lambda s: s.mode().iat[0]).items():
+        private_df.loc[(private_df["_sector"] == sector) & (private_df["_locality"] == ""), "_locality"] = mode_value
+    private_df["_locality"] = private_df["_locality"].where(private_df["_locality"].ne(""), private_df["_sector"])
     if amount_col:
         private_df["_amount"] = private_df[amount_col].apply(clean_amount_value)
     if arrears_col:
@@ -743,11 +795,11 @@ def build_private_society_rows(df: pd.DataFrame, dates: pd.Series, amount_col: s
         agg_t["amount"] = ("_amount", "sum")
     if arrears_col:
         agg_t["arrears"] = ("_arrears", "sum")
-    grouped = private_df.groupby("_locality").agg(**agg_t).sort_index()
+    grouped = private_df.groupby(["_sector", "_locality"]).agg(**agg_t).sort_index()
 
     rows = []
-    for loc, row in grouped.iterrows():
-        item = {"label": loc, "count": int(row["count"])}
+    for (sector, loc), row in grouped.iterrows():
+        item = {"sector": sector, "locality": loc, "label": loc, "count": int(row["count"])}
         if "amount" in row:
             item["amount_total"] = float(row["amount"])
         if "arrears" in row:
@@ -1755,6 +1807,10 @@ def _get_card_col_map(card, r):
     if card in CARD_COL_MAPS:
         return CARD_COL_MAPS[card]
     if card in ("commercial", "commercial-total", "private-society-total"):
+        if card == "private-society-total":
+            if r.get("has_arrears"):
+                return {"sector": 0, "locality": 1, "count": 2, "arrearsReceived": 3, "amountReceived": 4}
+            return {"sector": 0, "locality": 1, "count": 2, "amountReceived": 3}
         if r.get("has_arrears"):
             return {"locality": 0, "count": 1, "arrearsReceived": 2, "amountReceived": 3}
         return {"locality": 0, "count": 1, "amountReceived": 2}
@@ -7459,7 +7515,7 @@ def download_card(card: str, fmt_type: str):
     elif card == "private-society-total":
         title = "Private Societies - Locality Report"
         summary = [f"<b>Private society locality breakdown</b>"]
-        headers = ["Locality", "No. of Bills"]
+        headers = ["Sector", "Locality", "No. of Bills"]
         if r.get("has_arrears"):
             headers.append("Arrears Received")
         headers.append("Amount Received")
@@ -7469,7 +7525,7 @@ def download_card(card: str, fmt_type: str):
             c = row.get("count", 0)
             am = row.get("amount_total", 0)
             ar = row.get("arrears_total", 0)
-            row_vals = [row["label"], fmt(c)]
+            row_vals = [row.get("sector", ""), row.get("locality") or row.get("label", ""), fmt(c)]
             if r.get("has_arrears"):
                 row_vals.append(fmt(ar))
                 gt_arrears += ar
@@ -7477,7 +7533,7 @@ def download_card(card: str, fmt_type: str):
             rows.append(row_vals)
             gt_count += c
             gt_amount += am
-        grand = ["Grand Total", fmt(gt_count)]
+        grand = ["Grand Total", "", fmt(gt_count)]
         if r.get("has_arrears"):
             grand.append(fmt(gt_arrears))
         grand.append(fmt(gt_amount))
