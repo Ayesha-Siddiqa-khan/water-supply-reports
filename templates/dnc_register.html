@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Water Supply Report - DNC Register{% endblock %}
+{% block active_page %}dnc_register{% endblock %}
+{% block breadcrumb %}DNC Register{% endblock %}
+{% block pill_label %}DNC Register{% endblock %}
+{% block pill_detail %}{% if report %}{{ report.rows|length }} rows{% else %}Ready{% endif %}{% endblock %}
+
+{% block topbar_actions %}
+  {% if report %}
+    <a class="topbar-btn" href="{{ url_for('export_dnc_register', kind='summary', fmt_type='pdf') }}">Summary PDF</a>
+    <a class="topbar-btn" href="{{ url_for('export_dnc_register', kind='sector', fmt_type='pdf') }}">Sector PDF</a>
+    <a class="topbar-btn" href="{{ url_for('export_dnc_register', kind='detail', fmt_type='pdf') }}">Detail PDF</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="content-wrap">
+  <div class="page-hero">
+    <div>
+      <div class="page-tag">DNC Register</div>
+      <h1 class="page-title">DNC Register</h1>
+      <p class="page-subtitle">Upload DNC register CSV/XLSX and export domestic, commercial, and private society summaries with arrears, recovery, and pending amounts.</p>
+    </div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" data-upload-progress="true" action="{{ url_for('dnc_register') }}" style="margin:0 0 14px;">
+    <input type="hidden" name="action" value="upload">
+    <div class="upload-area" onclick="this.querySelector('input[type=file]').click();">
+      <div class="upload-icon-box">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M11 2v12M7 6l4-4 4 4M3 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+        </svg>
+      </div>
+      <div class="upload-text">
+        <strong>Choose DNC register file</strong>
+        <span>CSV or XLSX with Sector / Locality, Connection Count, Arrear, half-year, collection, and pending columns.</span>
+      </div>
+      <input type="file" name="dnc_file" accept=".csv,.xlsx" style="display:none" onchange="this.form.submit();">
+    </div>
+  </form>
+
+  {% if report %}
+  <form method="post" action="{{ url_for('dnc_register') }}" style="margin:0 0 18px;">
+    <input type="hidden" name="action" value="clear">
+    <button class="btn btn-danger btn-sm" type="submit">Clear DNC Data</button>
+  </form>
+
+  <div class="stat-grid" style="margin-bottom:18px;">
+    {% for row in report.summary %}
+    <div class="stat-card {% if row.classification == 'Commercial' %}coral{% elif row.classification == 'Private Societies' %}amber{% else %}teal{% endif %}">
+      <div class="stat-card-icon">&#128202;</div>
+      <div class="stat-label">{{ row.classification }}</div>
+      <div class="stat-value">Rs. {{ "{:,.0f}".format(row.pending) }}</div>
+      <div class="stat-delta">{{ "{:,.0f}".format(row.connections) }} connections &bull; Collection Rs. {{ "{:,.0f}".format(row.total_collection) }} &bull; Rate {{ row.rate }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% set summary_cols = [('classification','Classification'),('rate','Rate'),('rows','Rows'),('connections','Connections'),('arrear','Arrear'),('total_demand','Total Demand'),('demand_arrear','Demand + Arrear'),('total_collection','Total Collection'),('recovered_arrear','Recovered Arrear'),('pending','Pending Amount')] %}
+  {% set detail_cols = [('sr','Sr'),('classification','Classification'),('rate','Rate'),('sector','Sector'),('locality','Locality'),('connections','Connections'),('arrear','Arrear'),('half1','Jul-Dec Demand / Collection'),('half1_pending','Jul-Dec Pending'),('half2','Jan-Jun Demand / Collection'),('half2_pending','Jan-Jun Pending'),('total_demand','Total Demand'),('demand_arrear','Demand + Arrear'),('total_collection','Total Collection'),('recovered_arrear','Recovered Arrear'),('pending','Pending Amount')] %}
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-header-icon">&#128200;</div>
+      <div class="section-title">DNC Reports</div>
+      <span class="section-badge">{{ report.rows|length }} rows</span>
+    </div>
+    <div class="section-body">
+      <div class="dnc-tabs" style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px;overflow:auto;">
+        <button class="dnc-tab active" type="button" data-tab="summary" style="padding:13px 20px;border:0;border-bottom:2px solid var(--teal);background:rgba(45,212,191,.04);color:var(--text-primary);font-weight:700;">Summary</button>
+        <button class="dnc-tab" type="button" data-tab="sector" style="padding:13px 20px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted);font-weight:700;">Sector Wise</button>
+        <button class="dnc-tab" type="button" data-tab="detail" style="padding:13px 20px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted);font-weight:700;">Detail</button>
+      </div>
+
+      <div class="dnc-pane" id="dnc-summary">
+        <div class="export-bar" data-kind="summary">
+          <a class="chip" data-export href="{{ url_for('export_dnc_register', kind='summary', fmt_type='pdf') }}">PDF</a>
+          <a class="chip" data-export href="{{ url_for('export_dnc_register', kind='summary', fmt_type='csv') }}">CSV</a>
+          <a class="chip" data-export href="{{ url_for('export_dnc_register', kind='summary', fmt_type='xlsx') }}">Excel</a>
+          {% for cat in ['domestic','commercial','private-societies'] %}
+            {% for fmt in ['pdf','csv','xlsx'] %}
+            <a class="chip" data-export href="{{ url_for('export_dnc_register', kind='summary', fmt_type=fmt) }}?category={{ cat }}">{{ cat|replace('-', ' ')|title }} {{ 'Excel' if fmt == 'xlsx' else fmt|upper }}</a>
+            {% endfor %}
+          {% endfor %}
+        </div>
+        <div class="export-bar" style="gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+          <strong style="color:var(--text-muted);font-size:12px;">Columns:</strong>
+          {% for key, label in summary_cols %}
+          <label><input type="checkbox" class="dnc-col" data-kind="summary" value="{{ key }}" checked> {{ label }}</label>
+          {% endfor %}
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead><tr>{% for _, label in summary_cols %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+            <tbody>
+              {% for row in report.summary %}
+              <tr>
+                <td>{{ row.classification }}</td><td>{{ row.rate }}</td><td class="mono">{{ "{:,}".format(row.rows) }}</td><td class="mono">{{ "{:,.0f}".format(row.connections) }}</td><td class="mono">{{ "{:,.0f}".format(row.arrear) }}</td><td class="mono">{{ "{:,.0f}".format(row.total_demand) }}</td><td class="mono">{{ "{:,.0f}".format(row.demand_arrear) }}</td><td class="mono accent-teal">{{ "{:,.0f}".format(row.total_collection) }}</td><td class="mono">{{ "{:,.0f}".format(row.recovered_arrear) }}</td><td class="mono accent-coral">{{ "{:,.0f}".format(row.pending) }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot><tr><td>Grand Total</td><td></td><td class="mono">{{ "{:,}".format(report.total.rows) }}</td><td class="mono">{{ "{:,.0f}".format(report.total.connections) }}</td><td class="mono">{{ "{:,.0f}".format(report.total.arrear) }}</td><td class="mono">{{ "{:,.0f}".format(report.total.total_demand) }}</td><td class="mono">{{ "{:,.0f}".format(report.total.demand_arrear) }}</td><td class="mono">{{ "{:,.0f}".format(report.total.total_collection) }}</td><td class="mono">{{ "{:,.0f}".format(report.total.recovered_arrear) }}</td><td class="mono">{{ "{:,.0f}".format(report.total.pending) }}</td></tr></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="dnc-pane" id="dnc-sector" style="display:none;">
+        <div class="export-bar" data-kind="sector">
+          <a class="chip" data-export href="{{ url_for('export_dnc_register', kind='sector', fmt_type='pdf') }}">PDF</a>
+          <a class="chip" data-export href="{{ url_for('export_dnc_register', kind='sector', fmt_type='csv') }}">CSV</a>
+          <a class="chip" data-export href="{{ url_for('export_dnc_register', kind='sector', fmt_type='xlsx') }}">Excel</a>
+          {% for cat in ['domestic','commercial','private-societies'] %}
+            {% for fmt in ['pdf','csv','xlsx'] %}
+            <a class="chip" data-export href="{{ url_for('export_dnc_register', kind='sector', fmt_type=fmt) }}?category={{ cat }}">{{ cat|replace('-', ' ')|title }} {{ 'Excel' if fmt == 'xlsx' else fmt|upper }}</a>
+            {% endfor %}
+          {% endfor %}
+        </div>
+        <div class="export-bar" style="gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+          <strong style="color:var(--text-muted);font-size:12px;">Columns:</strong>
+          <label><input type="checkbox" class="dnc-col" data-kind="sector" value="sector" checked> Sector</label>
+          {% for key, label in summary_cols %}
+          <label><input type="checkbox" class="dnc-col" data-kind="sector" value="{{ key }}" checked> {{ label }}</label>
+          {% endfor %}
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead><tr><th>Sector</th>{% for _, label in summary_cols %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+            <tbody>
+              {% for row in report.sector_summary %}
+              <tr><td>{{ row.sector }}</td><td>{{ row.classification }}</td><td>{{ row.rate }}</td><td class="mono">{{ row.rows }}</td><td class="mono">{{ "{:,.0f}".format(row.connections) }}</td><td class="mono">{{ "{:,.0f}".format(row.arrear) }}</td><td class="mono">{{ "{:,.0f}".format(row.total_demand) }}</td><td class="mono">{{ "{:,.0f}".format(row.demand_arrear) }}</td><td class="mono accent-teal">{{ "{:,.0f}".format(row.total_collection) }}</td><td class="mono">{{ "{:,.0f}".format(row.recovered_arrear) }}</td><td class="mono accent-coral">{{ "{:,.0f}".format(row.pending) }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dnc-pane" id="dnc-detail" style="display:none;">
+        <div class="export-bar" data-kind="detail">
+          <a class="chip" data-export href="{{ url_for('export_dnc_register', kind='detail', fmt_type='pdf') }}">PDF</a>
+          <a class="chip" data-export href="{{ url_for('export_dnc_register', kind='detail', fmt_type='csv') }}">CSV</a>
+          <a class="chip" data-export href="{{ url_for('export_dnc_register', kind='detail', fmt_type='xlsx') }}">Excel</a>
+          {% for cat in ['domestic','commercial','private-societies'] %}
+            {% for fmt in ['pdf','csv','xlsx'] %}
+            <a class="chip" data-export href="{{ url_for('export_dnc_register', kind='detail', fmt_type=fmt) }}?category={{ cat }}">{{ cat|replace('-', ' ')|title }} {{ 'Excel' if fmt == 'xlsx' else fmt|upper }}</a>
+            {% endfor %}
+          {% endfor %}
+        </div>
+        <div class="export-bar" style="gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+          <strong style="color:var(--text-muted);font-size:12px;">Columns:</strong>
+          {% for key, label in detail_cols %}
+          <label><input type="checkbox" class="dnc-col" data-kind="detail" value="{{ key }}" checked> {{ label }}</label>
+          {% endfor %}
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead><tr>{% for _, label in detail_cols %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+            <tbody>
+              {% for row in report.rows %}
+              <tr><td>{{ row.sr }}</td><td>{{ row.classification }}</td><td>{{ row.rate }}</td><td>{{ row.sector }}</td><td>{{ row.locality }}</td><td class="mono">{{ "{:,.0f}".format(row.connections) }}</td><td class="mono">{{ "{:,.0f}".format(row.arrear) }}</td><td>{{ row.half1 }}</td><td class="mono">{{ "{:,.0f}".format(row.half1_pending) }}</td><td>{{ row.half2 }}</td><td class="mono">{{ "{:,.0f}".format(row.half2_pending) }}</td><td class="mono">{{ "{:,.0f}".format(row.total_demand) }}</td><td class="mono">{{ "{:,.0f}".format(row.demand_arrear) }}</td><td class="mono accent-teal">{{ "{:,.0f}".format(row.total_collection) }}</td><td class="mono">{{ "{:,.0f}".format(row.recovered_arrear) }}</td><td class="mono accent-coral">{{ "{:,.0f}".format(row.pending) }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">&#128202;</div>
+    <h2>No DNC register uploaded yet</h2>
+    <p>Upload the DNC register CSV or Excel file to generate summary, sector-wise, and detailed reports.</p>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+document.querySelectorAll('.dnc-tab').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.dnc-tab').forEach(function(tab) {
+      tab.classList.remove('active');
+      tab.style.borderBottomColor = 'transparent';
+      tab.style.background = 'transparent';
+      tab.style.color = 'var(--text-muted)';
+    });
+    btn.classList.add('active');
+    btn.style.borderBottomColor = 'var(--teal)';
+    btn.style.background = 'rgba(45,212,191,.04)';
+    btn.style.color = 'var(--text-primary)';
+    document.querySelectorAll('.dnc-pane').forEach(function(pane) { pane.style.display = 'none'; });
+    document.getElementById('dnc-' + btn.dataset.tab).style.display = '';
+  });
+});
+
+function refreshDncLinks() {
+  document.querySelectorAll('[data-kind]').forEach(function(bar) {
+    var kind = bar.dataset.kind;
+    var cols = Array.from(document.querySelectorAll('.dnc-col[data-kind="' + kind + '"]:checked')).map(function(cb) { return cb.value; }).join(',');
+    bar.querySelectorAll('[data-export]').forEach(function(link) {
+      var url = new URL(link.getAttribute('href'), window.location.origin);
+      if (cols) url.searchParams.set('cols', cols);
+      link.setAttribute('href', url.pathname + url.search);
+    });
+  });
+}
+document.querySelectorAll('.dnc-col').forEach(function(cb) { cb.addEventListener('change', refreshDncLinks); });
+refreshDncLinks();
+</script>
+{% endblock %}

@@ -62,6 +62,7 @@ UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 RESULTS_CACHE = os.path.join(UPLOAD_FOLDER, "last_results.json")
 SAVED_DASHBOARD_CSV = os.path.join(UPLOAD_FOLDER, "saved_dashboard_data.csv")
 SAVED_DASHBOARD_META = os.path.join(UPLOAD_FOLDER, "saved_dashboard_meta.json")
+DNC_REGISTER_CACHE = os.path.join(UPLOAD_FOLDER, "dnc_register_cache.csv")
 # Persistent cache for the Consumer Sector Report summary so it survives across
 # serverless function invocations on Vercel (global state is not kept between requests)
 CONSUMER_REPORT_CACHE = os.path.join(UPLOAD_FOLDER, "consumer_report_cache.json")
@@ -7011,6 +7012,271 @@ def bill_income_category_export_rows(category_filter: str = "", mode: str = "com
     grand = ["Grand Total", fmt(sum(row["connections"] for row in data)), "", fmt(sum(row["bills"] for row in data))]
     grand += [fmt(sum(row[key] for row in data)) for key in value_keys]
     return headers, rows, grand
+
+
+DNC_DETAIL_COLS = [
+    ("sr", "Sr"),
+    ("classification", "Classification"),
+    ("rate", "Rate"),
+    ("sector", "Sector"),
+    ("locality", "Locality"),
+    ("connections", "Connections"),
+    ("arrear", "Arrear"),
+    ("half1", "Jul-Dec Demand / Collection"),
+    ("half1_pending", "Jul-Dec Pending"),
+    ("half2", "Jan-Jun Demand / Collection"),
+    ("half2_pending", "Jan-Jun Pending"),
+    ("total_demand", "Total Demand"),
+    ("demand_arrear", "Demand + Arrear"),
+    ("total_collection", "Total Collection"),
+    ("recovered_arrear", "Recovered Arrear"),
+    ("pending", "Pending Amount"),
+]
+DNC_DETAIL_COL_MAP = {key: idx for idx, (key, _) in enumerate(DNC_DETAIL_COLS)}
+DNC_SUMMARY_COLS = [
+    ("classification", "Classification"),
+    ("rate", "Rate"),
+    ("rows", "Rows"),
+    ("connections", "Connections"),
+    ("arrear", "Arrear"),
+    ("total_demand", "Total Demand"),
+    ("demand_arrear", "Demand + Arrear"),
+    ("total_collection", "Total Collection"),
+    ("recovered_arrear", "Recovered Arrear"),
+    ("pending", "Pending Amount"),
+]
+DNC_SUMMARY_COL_MAP = {key: idx for idx, (key, _) in enumerate(DNC_SUMMARY_COLS)}
+
+
+def _dnc_money(value) -> float:
+    return clean_amount_value(value)
+
+
+def _dnc_pair(value) -> tuple[float, float]:
+    left, _, right = str(value or "").partition("/")
+    return _dnc_money(left), _dnc_money(right)
+
+
+def _dnc_split_sector_locality(value: str) -> tuple[str, str]:
+    text = str(value or "").strip()
+    if " - " in text:
+        sector, locality = text.split(" - ", 1)
+        return sector.strip(), locality.strip()
+    return text, ""
+
+
+def _dnc_classification(sector: str, locality: str) -> str:
+    text = f"{sector} {locality}".upper()
+    private_words = ("PRIVATE SOCIETY", "PRIVATE SOCITIES", "PRIVATE SOCIETIES", "AL-KHAIR", "ALHARAM", "BATOOL", "DREEM LAND", "ITEFAQ", "MUHAMMAD CITY", "REHAN", "SIDRA", "ZAIN CITY")
+    if "COMMERCIAL" in text:
+        return "Commercial"
+    if any(word in text for word in private_words):
+        return "Private Societies"
+    return "Domestic"
+
+
+def _dnc_rate_and_classification(sector: str, locality: str, connections: float, h1_demand: float, h2_demand: float) -> tuple[str, str]:
+    """Classify DNC rows by the approved half-year rate: 2,400 domestic, 4,800 private, every other rate commercial."""
+    rates = [value / connections for value in (h1_demand, h2_demand) if connections and value > 0]
+    rate = max(rates) if rates else 0
+    if abs(rate - 2400) <= 350:
+        return "Domestic", "2,400"
+    if abs(rate - 4800) <= 600:
+        return "Private Societies", "4,800"
+    fallback = _dnc_classification(sector, locality)
+    if fallback == "Private Societies" and rate == 0:
+        return fallback, "4,800"
+    if fallback == "Domestic" and rate == 0:
+        return fallback, "2,400"
+    return "Commercial", fmt(rate) if rate else "Mixed"
+
+
+def _dnc_sum_rows(part: list[dict], label: str) -> dict:
+    rate_label = {"Domestic": "2,400", "Private Societies": "4,800", "Commercial": "Mixed"}.get(label, "")
+    return {
+        "classification": label,
+        "rate": rate_label,
+        "rows": len(part),
+        "connections": sum(r.get("connections", 0) for r in part),
+        "arrear": sum(r.get("arrear", 0) for r in part),
+        "half1_demand": sum(r.get("half1_demand", 0) for r in part),
+        "half1_collection": sum(r.get("half1_collection", 0) for r in part),
+        "half1_pending": sum(r.get("half1_pending", 0) for r in part),
+        "half2_demand": sum(r.get("half2_demand", 0) for r in part),
+        "half2_collection": sum(r.get("half2_collection", 0) for r in part),
+        "half2_pending": sum(r.get("half2_pending", 0) for r in part),
+        "total_demand": sum(r.get("total_demand", 0) for r in part),
+        "demand_arrear": sum(r.get("demand_arrear", 0) for r in part),
+        "total_collection": sum(r.get("total_collection", 0) for r in part),
+        "recovered_arrear": sum(r.get("recovered_arrear", 0) for r in part),
+        "pending": sum(r.get("pending", 0) for r in part),
+    }
+
+
+def _load_dnc_dataframe() -> pd.DataFrame:
+    if not os.path.exists(DNC_REGISTER_CACHE):
+        return pd.DataFrame()
+    return pd.read_csv(DNC_REGISTER_CACHE, dtype=str, keep_default_na=False)
+
+
+def _build_dnc_register_report(df: pd.DataFrame) -> dict:
+    if df.empty:
+        return {}
+    df = df.fillna("").copy()
+    rows = []
+    for _, raw in df.iterrows():
+        if str(raw.get("SR", "")).strip().lower() == "total":
+            continue
+        sector, locality = _dnc_split_sector_locality(raw.get("Sector / Locality", ""))
+        h1_demand, h1_collection = _dnc_pair(raw.get("Half Year 1. (Jul - Dec)", ""))
+        h2_demand, h2_collection = _dnc_pair(raw.get("Half Year 2. (Jan - Jun)", ""))
+        connections = _dnc_money(raw.get("Connection Count", 0))
+        classification, rate = _dnc_rate_and_classification(sector, locality, connections, h1_demand, h2_demand)
+        row = {
+            "sr": str(raw.get("SR", "")).strip(),
+            "classification": classification,
+            "rate": rate,
+            "sector": sector,
+            "locality": locality,
+            "connections": connections,
+            "arrear": _dnc_money(raw.get("Arrear", 0)),
+            "half1": str(raw.get("Half Year 1. (Jul - Dec)", "")).strip(),
+            "half1_demand": h1_demand,
+            "half1_collection": h1_collection,
+            "half1_pending": _dnc_money(raw.get("Half Year 1. (Jul - Dec).1", 0)),
+            "half2": str(raw.get("Half Year 2. (Jan - Jun)", "")).strip(),
+            "half2_demand": h2_demand,
+            "half2_collection": h2_collection,
+            "half2_pending": _dnc_money(raw.get("Half Year 2. (Jan - Jun).1", 0)),
+            "total_demand": _dnc_money(raw.get("Total Demand", 0)),
+            "demand_arrear": _dnc_money(raw.get("Demand + Arrear", 0)),
+            "total_collection": _dnc_money(raw.get("Total Collection", 0)),
+            "recovered_arrear": _dnc_money(raw.get("Recovered Arrear", 0)),
+            "pending": _dnc_money(raw.get("Pending Amount", 0)),
+        }
+        rows.append(row)
+
+    categories = ["Domestic", "Commercial", "Private Societies"]
+
+    summary = [_dnc_sum_rows([r for r in rows if r["classification"] == category], category) for category in categories]
+    total = _dnc_sum_rows(rows, "Grand Total")
+    sector_summary = []
+    by_sector: dict[tuple[str, str], list[dict]] = {}
+    for row in rows:
+        by_sector.setdefault((row["classification"], row["sector"]), []).append(row)
+    for (classification, sector), part in sorted(by_sector.items(), key=lambda item: (item[0][0], item[0][1].lower())):
+        item = _dnc_sum_rows(part, classification)
+        item["sector"] = sector
+        item["rate"] = "Mixed" if len({r.get("rate", "") for r in part}) > 1 else (part[0].get("rate", "") if part else "")
+        sector_summary.append(item)
+
+    return {"rows": rows, "summary": summary, "sector_summary": sector_summary, "total": total}
+
+
+def _dnc_report_rows(kind: str, category: str = "") -> tuple[list[str], list[list], list, str]:
+    report = _build_dnc_register_report(_load_dnc_dataframe())
+    if not report:
+        return [], [], [], "DNC Register"
+    category_name = category.replace("-", " ").title() if category else ""
+    if kind == "detail":
+        source = report["rows"]
+        if category:
+            source = [row for row in source if re.sub(r"[^a-z0-9]+", "-", row["classification"].lower()).strip("-") == category]
+        headers = [label for _, label in DNC_DETAIL_COLS]
+        rows = [[fmt(row[key]) if isinstance(row.get(key), (int, float)) else row.get(key, "") for key, _ in DNC_DETAIL_COLS] for row in source]
+        total = _dnc_sum_rows(source, "Grand Total") if source else {}
+        grand = ["", "Grand Total", "", "", "", fmt(total.get("connections", 0)), fmt(total.get("arrear", 0)), "", fmt(total.get("half1_pending", 0)), "", fmt(total.get("half2_pending", 0)), fmt(total.get("total_demand", 0)), fmt(total.get("demand_arrear", 0)), fmt(total.get("total_collection", 0)), fmt(total.get("recovered_arrear", 0)), fmt(total.get("pending", 0))]
+        return headers, rows, grand, f"DNC Register Detail{(' - ' + category_name) if category_name else ''}"
+
+    source = report["sector_summary"] if kind == "sector" else report["summary"]
+    if category:
+        source = [row for row in source if re.sub(r"[^a-z0-9]+", "-", row["classification"].lower()).strip("-") == category]
+    cols = [("sector", "Sector")] + DNC_SUMMARY_COLS if kind == "sector" else DNC_SUMMARY_COLS
+    headers = [label for _, label in cols]
+    rows = [[fmt(row[key]) if isinstance(row.get(key), (int, float)) else row.get(key, "") for key, _ in cols] for row in source]
+    total = report["total"] if not category else _dnc_sum_rows([r for r in report["rows"] if re.sub(r"[^a-z0-9]+", "-", r["classification"].lower()).strip("-") == category], "Grand Total")
+    grand = ["" for _ in headers]
+    label_idx = 1 if kind == "sector" else 0
+    grand[label_idx] = "Grand Total"
+    for key in ("rows", "connections", "arrear", "total_demand", "demand_arrear", "total_collection", "recovered_arrear", "pending"):
+        if key in [c[0] for c in cols]:
+            grand[[c[0] for c in cols].index(key)] = fmt(total.get(key, 0))
+    title = "DNC Register Sector Wise Report" if kind == "sector" else "DNC Register Summary Report"
+    if category_name:
+        title += f" - {category_name}"
+    return headers, rows, grand, title
+
+
+@app.route("/dnc-register", methods=["GET", "POST"])
+def dnc_register():
+    if request.method == "POST":
+        action = request.form.get("action", "upload")
+        if action == "clear":
+            if os.path.exists(DNC_REGISTER_CACHE):
+                os.remove(DNC_REGISTER_CACHE)
+            flash("DNC register data cleared.", "success")
+            return redirect(url_for("dnc_register"))
+        file = request.files.get("dnc_file")
+        if not file or not file.filename:
+            flash("Please choose a DNC register CSV or Excel file.")
+            return redirect(url_for("dnc_register"))
+        if not allowed_file(file.filename):
+            flash("Only CSV and XLSX files are supported.")
+            return redirect(url_for("dnc_register"))
+        df = pd.read_csv(file, dtype=str, keep_default_na=False) if file.filename.lower().endswith(".csv") else pd.read_excel(file, dtype=str).fillna("")
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        df.to_csv(DNC_REGISTER_CACHE, index=False)
+        flash("DNC register uploaded.", "success")
+        return redirect(url_for("dnc_register"))
+
+    report = _build_dnc_register_report(_load_dnc_dataframe())
+    return render_template("dnc_register.html", report=report)
+
+
+@app.route("/dnc-register/export/<kind>/<fmt_type>")
+def export_dnc_register(kind: str, fmt_type: str):
+    if kind not in ("summary", "sector", "detail"):
+        kind = "summary"
+    category = request.args.get("category", "").strip().lower()
+    headers, rows, grand, title = _dnc_report_rows(kind, category)
+    if not headers:
+        flash("Upload a DNC register file first.")
+        return redirect(url_for("dnc_register"))
+    col_map = DNC_DETAIL_COL_MAP if kind == "detail" else ({**({"sector": 0} if kind == "sector" else {}), **{key: idx + (1 if kind == "sector" else 0) for idx, (key, _) in enumerate(DNC_SUMMARY_COLS)}})
+    headers, rows, grand = _filter_card_export(request.args.get("cols"), col_map, headers, rows, grand)
+    filename = re.sub(r"[^a-z0-9]+", "_", title.lower()).strip("_")
+    if fmt_type == "csv":
+        out = io.StringIO()
+        writer = csv.writer(out)
+        writer.writerow(headers)
+        writer.writerows(rows)
+        writer.writerow(grand)
+        return Response(out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment; filename={filename}.csv"})
+    if fmt_type == "xlsx":
+        buf = io.BytesIO()
+        pd.DataFrame(rows + [grand], columns=headers).to_excel(buf, index=False)
+        buf.seek(0)
+        return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename={filename}.xlsx"})
+    if fmt_type == "pdf":
+        page = landscape(A4) if len(headers) > 9 else A4
+        page_w = page[0] - 30 * mm
+        pdf = generate_card_pdf(
+            title,
+            [f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}"],
+            headers,
+            rows,
+            grand,
+            pagesize=page,
+            col_widths=[page_w / len(headers)] * len(headers),
+            left_cols=[2, 3] if kind == "detail" else ([0, 1] if kind == "sector" else [0]),
+            header_font_size=8 if len(headers) > 9 else 10,
+            body_font_size=7 if len(headers) > 9 else 9,
+            cell_padding=4,
+            compact=True,
+        )
+        return Response(pdf, mimetype="application/pdf", headers={"Content-Disposition": f"attachment; filename={filename}.pdf"})
+    flash("Unknown export format.")
+    return redirect(url_for("dnc_register"))
 
 
 def export_summary_response(fmt_type: str, title: str, data: list[dict], filename_prefix: str, show_summary: bool = True, cols_param: str = None):

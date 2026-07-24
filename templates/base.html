@@ -65,6 +65,12 @@
         </svg>
         <span>Receipt Matching</span>
       </a>
+      <a class="nav-item {% if active_page == 'dnc_register' %}active{% endif %}" href="{{ url_for('dnc_register') }}">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="2" width="14" height="16" rx="2"/><path d="M6 6h8M6 10h8M6 14h5"/>
+        </svg>
+        <span>DNC Register</span>
+      </a>
       <div class="nav-section-label" style="margin-top:16px;">Tools</div>
       <a class="nav-item {% if active_page == 'file_merger' %}active{% endif %}" href="{{ url_for('file_merger') }}">
         <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
