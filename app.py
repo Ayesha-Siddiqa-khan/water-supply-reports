@@ -9149,16 +9149,29 @@ def _filter_active_rows(summary: dict) -> dict:
     return out
 
 
-def _split_summary_by_type(summary: dict) -> tuple[dict, dict]:
-    """Split a summary dict into (normal_summary, commercial_summary).
+def _is_private_society_summary_row(row: dict) -> bool:
+    """Return True for domestic private-society rows shown in their own tab."""
+    text = f"{row.get('sector', '')} {row.get('locality', '')}".upper()
+    try:
+        annual_rate = int(float(str(row.get("rate") or 0).replace(",", "")))
+    except (TypeError, ValueError):
+        annual_rate = 0
+    return annual_rate == 9600 or (
+        "PRIVATE" in text and ("SOCIETY" in text or "SOCIETIES" in text)
+    )
+
+
+def _split_summary_by_type(summary: dict) -> tuple[dict, dict, dict]:
+    """Split a summary dict into (normal, commercial, private_society).
 
     COMMERCIAL sectors are those whose sector name starts with 'COMMERCIAL'
-    (case-insensitive).  All other sectors go into the normal summary.
+    (case-insensitive). Private-society domestic rows are separated from the
+    main Domestic tab so they can be exported independently.
     Each sub-summary gets its own serial numbers (re-numbered from 1),
     grand totals, and metadata counts.
     """
     if not summary:
-        return ({}, {})
+        return ({}, {}, {})
 
     # Exclude rows with zero active connections from the displayed/split view.
     summary = _filter_active_rows(summary)
@@ -9168,10 +9181,13 @@ def _split_summary_by_type(summary: dict) -> tuple[dict, dict]:
     # --- Partition rows by type ---
     normal_rows: list[dict] = []
     commercial_rows: list[dict] = []
+    private_rows: list[dict] = []
     for row in all_rows:
         sector_name = (row.get("sector") or "").strip()
         if sector_name.upper().startswith("COMMERCIAL"):
             commercial_rows.append(row)
+        elif _is_private_society_summary_row(row):
+            private_rows.append(row)
         else:
             normal_rows.append(row)
 
@@ -9224,6 +9240,7 @@ def _split_summary_by_type(summary: dict) -> tuple[dict, dict]:
         }
 
     normal = _build_sub(normal_rows, "normal") if normal_rows else {}
+    private = _build_sub(private_rows, "private") if private_rows else {}
 
     # --- Commercial: prefer locality-level rows if available ---
     # The client sends commercial_detailed_rows (one row per locality) which
@@ -9242,7 +9259,7 @@ def _split_summary_by_type(summary: dict) -> tuple[dict, dict]:
             commercial["total_budget"] = client_gt.get("budget", 0)
     else:
         commercial = _build_sub(commercial_rows, "commercial") if commercial_rows else {}
-    return (normal, commercial)
+    return (normal, commercial, private)
 
 
 def _load_rates_csv() -> list[dict]:
@@ -9801,9 +9818,10 @@ def consumer_report():
             if is_ajax():
                 return ajax_ok(message=msg, redirect_url=url_for("consumer_report"))
             flash(msg)
-            normal_summary, commercial_summary = _split_summary_by_type(summary)
+            normal_summary, commercial_summary, private_summary = _split_summary_by_type(summary)
             return render_template("consumer_report.html", summary=summary,
                                    normal_summary=normal_summary, commercial_summary=commercial_summary,
+                                   private_summary=private_summary,
                                    filename=_consumer_report_filename, total_rows=data.get("total_rows", 0),
                                    rates_json=json.dumps(_load_rates_csv()))
 
@@ -9850,9 +9868,10 @@ def consumer_report():
             if is_ajax():
                 return ajax_ok(message=msg, redirect_url=url_for("consumer_report"))
             flash(msg)
-            normal_summary, commercial_summary = _split_summary_by_type(summary)
+            normal_summary, commercial_summary, private_summary = _split_summary_by_type(summary)
             return render_template("consumer_report.html", summary=summary,
                                    normal_summary=normal_summary, commercial_summary=commercial_summary,
+                                   private_summary=private_summary,
                                    filename=_consumer_report_filename, total_rows=len(rows),
                                    rates_json=json.dumps(_load_rates_csv()))
 
@@ -9862,27 +9881,30 @@ def consumer_report():
     cached_summary, cached_filename, cached_rows = _load_consumer_summary_cache()
     if cached_summary:
         cached_summary = _ensure_connection_rate_report(cached_summary)
-        normal_summary, commercial_summary = _split_summary_by_type(cached_summary)
+        normal_summary, commercial_summary, private_summary = _split_summary_by_type(cached_summary)
         return render_template("consumer_report.html", summary=cached_summary,
                                normal_summary=normal_summary, commercial_summary=commercial_summary,
+                               private_summary=private_summary,
                                filename=cached_filename, total_rows=cached_rows,
                                rates_json=rates_json_str)
     if _last_consumer_summary:
         _last_consumer_summary = _ensure_connection_rate_report(_last_consumer_summary)
-        normal_summary, commercial_summary = _split_summary_by_type(_last_consumer_summary)
+        normal_summary, commercial_summary, private_summary = _split_summary_by_type(_last_consumer_summary)
         return render_template("consumer_report.html", summary=_last_consumer_summary,
                                normal_summary=normal_summary, commercial_summary=commercial_summary,
+                               private_summary=private_summary,
                                filename=_consumer_report_filename, total_rows=_last_consumer_summary.get("total_rows", 0),
                                rates_json=rates_json_str)
     if _consumer_report_data:
         summary = _build_consumer_sector_summary(_consumer_report_data)
         summary["connection_rate_report"] = _build_connection_rate_report(_consumer_report_data)
-        normal_summary, commercial_summary = _split_summary_by_type(summary)
+        normal_summary, commercial_summary, private_summary = _split_summary_by_type(summary)
         return render_template("consumer_report.html", summary=summary,
                                normal_summary=normal_summary, commercial_summary=commercial_summary,
+                               private_summary=private_summary,
                                filename=_consumer_report_filename, total_rows=len(_consumer_report_data),
                                rates_json=rates_json_str)
-    return render_template("consumer_report.html", summary=None, normal_summary={}, commercial_summary={},
+    return render_template("consumer_report.html", summary=None, normal_summary={}, commercial_summary={}, private_summary={},
                            filename=None, total_rows=0, rates_json=rates_json_str)
 
 
@@ -9961,7 +9983,7 @@ def export_consumer_report(fmt_type: str):
         sort_order = "desc"
 
     tab_param = request.args.get("tab", "normal")
-    if tab_param not in ("normal", "commercial"):
+    if tab_param not in ("normal", "commercial", "private"):
         tab_param = "normal"
 
     # `summary` is already resolved above (from POST data, cache, or raw data).
@@ -9972,7 +9994,8 @@ def export_consumer_report(fmt_type: str):
     # -----------------------------------------------------------------------
     # STEP 1 — Report scope: choose the base row set.
     #   - commercial-pdf OR tab=commercial  -> COMMERCIAL rows (locality-level)
-    #   - everything else                   -> DOMESTIC (non-COMMERCIAL) rows
+    #   - private-pdf OR tab=private        -> private-society domestic rows
+    #   - everything else                   -> normal Domestic rows only
     # -----------------------------------------------------------------------
     if fmt_type == "commercial-pdf" or tab_param == "commercial":
         detailed = summary.get("commercial_detailed_rows", [])
@@ -9981,8 +10004,11 @@ def export_consumer_report(fmt_type: str):
         else:
             base_rows = [r for r in summary["summary_rows"] if r["sector"].upper().startswith("COMMERCIAL")]
         scope_label = "commercial"
+    elif fmt_type == "private-pdf" or tab_param == "private":
+        base_rows = [r for r in summary["summary_rows"] if not r["sector"].upper().startswith("COMMERCIAL") and _is_private_society_summary_row(r)]
+        scope_label = "private"
     else:
-        base_rows = [r for r in summary["summary_rows"] if not r["sector"].upper().startswith("COMMERCIAL")]
+        base_rows = [r for r in summary["summary_rows"] if not r["sector"].upper().startswith("COMMERCIAL") and not _is_private_society_summary_row(r)]
         scope_label = "domestic"
 
     # -----------------------------------------------------------------------
@@ -10054,7 +10080,11 @@ def export_consumer_report(fmt_type: str):
         else:
             grand.append(gt_vals.get(c, 0))
 
-    filename = "commercial_sector_report" if scope_label == "commercial" else "consumer_sector_report"
+    filename = (
+        "commercial_sector_report" if scope_label == "commercial"
+        else "private_societies_report" if scope_label == "private"
+        else "consumer_sector_report"
+    )
 
     # -----------------------------------------------------------------------
     # PDF export — Professional A4 portrait print layout with light colours
@@ -10300,14 +10330,14 @@ def export_consumer_report(fmt_type: str):
     # COMMERCIAL PDF export — Separate PDF for COMMERCIAL sector records only.
     # Uses the same A4 portrait design with light colours and proper wrapping.
     # -----------------------------------------------------------------------
-    if fmt_type == "commercial-pdf":
+    if fmt_type in ("commercial-pdf", "private-pdf"):
         # ---------------------------------------------------------------
         # COMMERCIAL PDF EXPORT
         # Uses locality-level detail when available (commercial_detailed_rows).
         # Falls back to sector-aggregated summary rows for backward compat.
         # Each commercial locality appears as a separate row in the PDF.
         # ---------------------------------------------------------------
-        # Shared filtered dataset is already commercial + Active>0 + sorted
+        # Shared filtered dataset is already scoped + Active>0 + sorted.
         commercial_rows = final_sorted
         # Selection rule: if every commercial row is unchecked, the POSTed
         # selected dataset is empty.  Still generate the report shell and zero
@@ -10415,11 +10445,10 @@ def export_consumer_report(fmt_type: str):
         elements = []
 
         # -- Report heading block --
-        elements.append(Paragraph("Commercial Sector Report", commercial_title_style))
-        elements.append(Paragraph(
-            "COMMERCIAL Connections — Active &amp; Closed Status",
-            commercial_subtitle_style,
-        ))
+        report_title = "Private Societies Report" if fmt_type == "private-pdf" else "Commercial Sector Report"
+        report_subtitle = "PRIVATE SOCIETY Connections &mdash; Active &amp; Closed Status" if fmt_type == "private-pdf" else "COMMERCIAL Connections &mdash; Active &amp; Closed Status"
+        elements.append(Paragraph(report_title, commercial_title_style))
+        elements.append(Paragraph(report_subtitle, commercial_subtitle_style))
 
         # -- Metadata: Sectors, Localities, Total Connections + Generated by AI --
         meta_parts = []
@@ -10533,7 +10562,7 @@ def export_consumer_report(fmt_type: str):
 
         doc.build(elements)
         return Response(buf.getvalue(), mimetype="application/pdf",
-                        headers={"Content-Disposition": "attachment; filename=commercial_sector_report.pdf"})
+                        headers={"Content-Disposition": f"attachment; filename={filename}.pdf"})
 
     if fmt_type == "csv":
         out = io.StringIO()

@@ -23,6 +23,10 @@
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 6l3 3 3-3"/></svg>
       <span>Commercial PDF</span>
     </a>
+    <a class="topbar-btn export-link" id="private-pdf-topbar-btn" style="background:var(--teal);color:white;border-color:var(--teal);" href="{{ url_for('export_consumer_report', fmt_type='private-pdf') }}">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2M7 1v8M4 6l3 3 3-3"/></svg>
+      <span>Private PDF</span>
+    </a>
   </div>
   {% endif %}
 {% endblock %}
@@ -132,6 +136,11 @@
                   style="padding:8px 20px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--bg);color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
             Commercial {% if commercial_summary %}<span style="font-size:11px;font-weight:400;opacity:.7;">({{ commercial_summary.sector_count }})</span>{% endif %}
           </button>
+          <button type="button" class="sub-tab-btn" data-tab="private"
+                  onclick="switchTab('private')"
+                  style="padding:8px 20px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--bg);color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
+            Private Societies {% if private_summary %}<span style="font-size:11px;font-weight:400;opacity:.7;">({{ private_summary.sector_count }})</span>{% endif %}
+          </button>
         </div>
 
         <!-- ================================================================
@@ -159,6 +168,8 @@
           <a id="pdf-download-btn" class="chip" href="{{ url_for('export_consumer_report', fmt_type='pdf', priority='active_first', order='desc') }}">&#11015; Download PDF</a>
           <!-- Download Commercial PDF: always generates the COMMERCIAL-only PDF -->
           <a id="commercial-pdf-download-btn" class="chip" style="background:var(--teal);color:white;border-color:var(--teal);" href="{{ url_for('export_consumer_report', fmt_type='commercial-pdf', priority='active_first', order='desc') }}">&#11015; Download Commercial PDF</a>
+          <!-- Download Private Societies PDF: same selected rows/columns/sort rules as the other tabs. -->
+          <a id="private-pdf-download-btn" class="chip" style="background:var(--teal);color:white;border-color:var(--teal);" href="{{ url_for('export_consumer_report', fmt_type='private-pdf', priority='active_first', order='desc') }}">&#11015; Download Private PDF</a>
         </div>
 
         <!-- PDF Column Visibility — choose which columns appear in the PDF -->
@@ -301,6 +312,62 @@
           {% else %}
           <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">
             No active connections found for this report.
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- ================================================================
+             TAB PANEL: PRIVATE SOCIETIES
+             Private-society domestic rows are separated for independent
+             PDF/CSV/Excel exports without changing Domestic or Commercial.
+             ================================================================ -->
+        <div id="tab-panel-private" class="tab-panel" style="display:none;">
+          {% if private_summary and private_summary.summary_rows %}
+          <div class="table-wrapper">
+            <table class="data-table" id="private-summary-table">
+              <thead>
+                <tr>
+                  <th style="width:40px;text-align:center"><input type="checkbox" id="select-all-private" class="select-all-cb" data-tab="private" checked title="Select/Deselect All"></th>
+                  <th style="width:50px;text-align:center">SR</th>
+                  <th style="text-align:left">Sector</th>
+                  <th style="text-align:left">Locality</th>
+                  <th style="width:90px;text-align:center">Rate (Rs./Year)</th>
+                  <th style="width:80px;text-align:center">Closed</th>
+                  <th style="width:90px;text-align:center">Suspended</th>
+                  <th style="width:80px;text-align:center">Active</th>
+                  <th style="width:100px;text-align:center">Total Connections</th>
+                  <th style="width:110px;text-align:right">Budget (Rs.)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in private_summary.summary_rows %}
+                <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-suspended="{{ row.suspended|default(0) }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}" data-rate="{{ row.rate|default(0) }}" data-sector="{{ row.sector }}" data-locality="{{ row.locality }}">
+                  <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="private" data-serial="{{ row.serial }}" checked></td>
+                  <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
+                  <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
+                  <td style="text-align:left;">{{ row.locality }}</td>
+                  <td style="text-align:center;font-weight:500;color:var(--text-primary);">{{ "{:,.0f}".format(row.rate|default(0)) }}</td>
+                  <td style="text-align:center;color:var(--coral);">{{ row.closed }}</td>
+                  <td style="text-align:center;color:var(--amber);">{{ row.suspended|default(0) }}</td>
+                  <td style="text-align:center;color:var(--teal);">{{ row.active }}</td>
+                  <td style="text-align:center;font-weight:600;">{{ row.total }}</td>
+                  <td style="text-align:right;font-weight:500;color:var(--teal);">{{ "{:,.0f}".format(row.budget|default(0)) }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="grand-total-row" data-gt-for="private" style="border-top:2px solid var(--border-bright);background:rgba(245,166,35,0.06);">
+                  <td colspan="5" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL <span class="selected-count" data-gt-for="private" style="font-size:11px;font-weight:400;color:var(--text-muted);"></span></td>
+                  <td class="gt-closed" data-gt-for="private" style="text-align:center;font-weight:700;color:var(--coral);font-size:15px;">{{ private_summary.grand_total.closed }}</td>
+                  <td class="gt-suspended" data-gt-for="private" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ private_summary.grand_total.suspended|default(0) }}</td>
+                  <td class="gt-active" data-gt-for="private" style="text-align:center;font-weight:700;color:var(--teal);font-size:15px;">{{ private_summary.grand_total.active }}</td>
+                  <td class="gt-total" data-gt-for="private" style="text-align:center;font-weight:700;color:var(--amber);font-size:15px;">{{ private_summary.grand_total.total }}</td>
+                  <td class="gt-budget" data-gt-for="private" style="text-align:right;font-weight:700;color:var(--teal);font-size:14px;">{{ "{:,.0f}".format(private_summary.grand_total.budget|default(0)) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">
+            No active private-society connections found for this report.
           </div>
           {% endif %}
         </div>
@@ -487,6 +554,7 @@
 
     var SERVER_NORMAL_SUMMARY = {{ (normal_summary or {})|tojson }};
     var SERVER_COMMERCIAL_SUMMARY = {{ (commercial_summary or {})|tojson }};
+    var SERVER_PRIVATE_SUMMARY = {{ (private_summary or {})|tojson }};
     var SERVER_FILENAME = {{ (filename or '')|tojson }};
     var SERVER_TOTAL_ROWS = {{ (total_rows or 0)|tojson }};
 
@@ -892,17 +960,29 @@
       // ================================================================
       var normalSummaryRows = [];
       var commercialSummaryRows = [];
+      var privateSummaryRows = [];
       var normalSectorTotals = {};
       var commercialSectorTotals = {};
+      var privateSectorTotals = {};
       var normalGrandClosed = 0, normalGrandSuspended = 0, normalGrandActive = 0;
       var commercialGrandClosed = 0, commercialGrandSuspended = 0, commercialGrandActive = 0;
-      var normalSerial = 0, commercialSerial = 0;
+      var privateGrandClosed = 0, privateGrandSuspended = 0, privateGrandActive = 0;
+      var normalSerial = 0, commercialSerial = 0, privateSerial = 0;
+
+      function isPrivateSocietySummaryRow(row) {
+        // Private societies get their own tab/export; use the real annual
+        // private tariff first, with text as a fallback for older uploads.
+        var text = String((row.original || row.sector || '') + ' ' + (row.localities || row.locality || '')).toUpperCase();
+        return Math.round(Number(row.annual_rate || row.rate || 0)) === 9600 ||
+          (text.indexOf('PRIVATE') !== -1 && (text.indexOf('SOCIETY') !== -1 || text.indexOf('SOCIETIES') !== -1));
+      }
 
       // ---------------------------------------------------------------
       // NORMAL rows: use the sectorMap (one row per normalized sector)
       // Includes budget per sector (sum of all consumer annual budgets).
       // ---------------------------------------------------------------
       var normalGrandBudget = 0;
+      var privateGrandBudget = 0;
       Object.keys(sectorMap).forEach(function(normKey) {
         var s = sectorMap[normKey];
         var isCommercial = s.original.toUpperCase().indexOf('COMMERCIAL') === 0;
@@ -910,6 +990,20 @@
 
         var total = s.closed + s.suspended + s.active;
         var localityVal = s.localities || s.original;
+        if (isPrivateSocietySummaryRow(s)) {
+          privateSerial++;
+          privateSummaryRows.push({
+            serial: privateSerial, sector: s.original, locality: localityVal,
+            closed: s.closed, suspended: s.suspended, active: s.active, total: total, budget: s.budget,
+            rate: s.annual_rate || 0
+          });
+          privateSectorTotals[s.original] = { closed: s.closed, suspended: s.suspended, active: s.active, total: total, budget: s.budget };
+          privateGrandClosed += s.closed;
+          privateGrandSuspended += s.suspended;
+          privateGrandActive += s.active;
+          privateGrandBudget += s.budget;
+          return;
+        }
 
         normalSerial++;
         normalSummaryRows.push({
@@ -1026,6 +1120,17 @@
         total_connections: commercialGrandClosed + commercialGrandSuspended + commercialGrandActive,
         total_budget: commercialGrandBudget
       };
+      var privatePayload = {
+        filename: currentFileName,
+        total_rows: totalRows,
+        summary_rows: privateSummaryRows,
+        sector_totals: privateSectorTotals,
+        grand_total: { closed: privateGrandClosed, suspended: privateGrandSuspended, active: privateGrandActive, total: privateGrandClosed + privateGrandSuspended + privateGrandActive, budget: privateGrandBudget },
+        sector_count: privateSerial,
+        locality_count: privateSerial,
+        total_connections: privateGrandClosed + privateGrandSuspended + privateGrandActive,
+        total_budget: privateGrandBudget
+      };
       var connectionRateReport = buildConnectionRateReport(connectionRateCounts);
 
       // Persist both payloads in localStorage so exports work across
@@ -1033,6 +1138,7 @@
       try {
         localStorage.setItem('consumer_report_summary', JSON.stringify(normalPayload));
         localStorage.setItem('consumer_report_commercial', JSON.stringify(commercialPayload));
+        localStorage.setItem('consumer_report_private', JSON.stringify(privatePayload));
         localStorage.setItem('consumer_connection_rate_report', JSON.stringify(connectionRateReport));
       } catch(e) {}
 
@@ -1042,19 +1148,19 @@
       var fullPayload = {
         filename: currentFileName,
         total_rows: totalRows,
-        summary_rows: normalSummaryRows.concat(commercialSummaryRows),
-        sector_totals: Object.assign({}, normalSectorTotals, commercialSectorTotals),
+        summary_rows: normalSummaryRows.concat(privateSummaryRows, commercialSummaryRows),
+        sector_totals: Object.assign({}, normalSectorTotals, privateSectorTotals, commercialSectorTotals),
         grand_total: {
-          closed: normalGrandClosed + commercialGrandClosed,
-          suspended: normalGrandSuspended + commercialGrandSuspended,
-          active: normalGrandActive + commercialGrandActive,
-          total: normalGrandClosed + commercialGrandClosed + normalGrandSuspended + commercialGrandSuspended + normalGrandActive + commercialGrandActive,
-          budget: normalGrandBudget + commercialGrandBudget
+          closed: normalGrandClosed + privateGrandClosed + commercialGrandClosed,
+          suspended: normalGrandSuspended + privateGrandSuspended + commercialGrandSuspended,
+          active: normalGrandActive + privateGrandActive + commercialGrandActive,
+          total: normalGrandClosed + privateGrandClosed + commercialGrandClosed + normalGrandSuspended + privateGrandSuspended + commercialGrandSuspended + normalGrandActive + privateGrandActive + commercialGrandActive,
+          budget: normalGrandBudget + privateGrandBudget + commercialGrandBudget
         },
-        sector_count: normalSerial + commercialSerial,
-        locality_count: normalSerial + commercialSerial,
-        total_connections: normalGrandClosed + commercialGrandClosed + normalGrandSuspended + commercialGrandSuspended + normalGrandActive + commercialGrandActive,
-        total_budget: normalGrandBudget + commercialGrandBudget,
+        sector_count: normalSerial + privateSerial + commercialSerial,
+        locality_count: normalSerial + privateSerial + commercialSerial,
+        total_connections: normalGrandClosed + privateGrandClosed + commercialGrandClosed + normalGrandSuspended + privateGrandSuspended + commercialGrandSuspended + normalGrandActive + privateGrandActive + commercialGrandActive,
+        total_budget: normalGrandBudget + privateGrandBudget + commercialGrandBudget,
         // Detailed commercial rows: one row per locality (not sector-aggregated)
         commercial_detailed_rows: commercialSummaryRows,
         commercial_grand_total: { closed: commercialGrandClosed, suspended: commercialGrandSuspended, active: commercialGrandActive, total: commercialGrandClosed + commercialGrandSuspended + commercialGrandActive, budget: commercialGrandBudget },
@@ -1181,6 +1287,7 @@
       var orderEl = document.getElementById('sort-order');
       var pdfBtn = document.getElementById('pdf-download-btn');
       var commercialPdfBtn = document.getElementById('commercial-pdf-download-btn');
+      var privatePdfBtn = document.getElementById('private-pdf-download-btn');
       var colToggles = document.querySelectorAll('.pdf-col-toggle');
       var defaultPdfCols = ['sr', 'sector', 'locality', 'active', 'budget'];
 
@@ -1199,6 +1306,10 @@
         if (commercialPdfBtn) {
           var commBase = '{{ url_for("export_consumer_report", fmt_type="commercial-pdf") }}';
           commercialPdfBtn.href = commBase + '?priority=' + priorityEl.value + '&order=' + orderEl.value + '&cols=' + encodeURIComponent(cols);
+        }
+        if (privatePdfBtn) {
+          var privateBase = '{{ url_for("export_consumer_report", fmt_type="private-pdf") }}';
+          privatePdfBtn.href = privateBase + '?priority=' + priorityEl.value + '&order=' + orderEl.value + '&cols=' + encodeURIComponent(cols);
         }
       }
 
@@ -1222,11 +1333,11 @@
         priorityEl.addEventListener('change', function() {
           // Fix: sort both tab previews whenever settings change so hidden
           // Commercial/Domestic tables match exports before the user switches.
-          updatePdfLink(); applyPreviewSort('normal'); applyPreviewSort('commercial');
+          updatePdfLink(); applyPreviewSort('normal'); applyPreviewSort('commercial'); applyPreviewSort('private');
         });
         orderEl.addEventListener('change', function() {
           // Fix: keep preview, PDF, CSV, and Excel order aligned for both tabs.
-          updatePdfLink(); applyPreviewSort('normal'); applyPreviewSort('commercial');
+          updatePdfLink(); applyPreviewSort('normal'); applyPreviewSort('commercial'); applyPreviewSort('private');
         });
         colToggles.forEach(function(cb) {
           cb.addEventListener('change', updatePdfLink);
@@ -1236,10 +1347,10 @@
       // ================================================================
       // EXPORT LINKS: POST localStorage data to server for PDF generation.
       // The server uses the posted summary to build the PDF.
-      // Normal PDF uses consumer_report_summary; Commercial PDF uses
-      // consumer_report_commercial from localStorage.
+      // Normal, Commercial, and Private PDF/CSV/Excel use their tab-specific
+      // selected row payloads from localStorage / the visible table.
       // ================================================================
-      document.querySelectorAll('a.export-link, a#pdf-download-btn, a#commercial-pdf-download-btn').forEach(function(link) {
+      document.querySelectorAll('a.export-link, a#pdf-download-btn, a#commercial-pdf-download-btn, a#private-pdf-download-btn').forEach(function(link) {
         link.addEventListener('click', function(e) {
           e.preventDefault();
           // Determine which dataset + scope to export based on the link type
@@ -1247,8 +1358,14 @@
           // filtered/sorted dataset so row counts and totals always match.
           var fmt = link.getAttribute('data-fmt') || 'normal';
           var isCommercial = (link.id === 'commercial-pdf-download-btn') || (link.id === 'commercial-pdf-topbar-btn') || (fmt === 'commercial');
-          if (isCommercial) {
+          var isPrivate = (link.id === 'private-pdf-download-btn') || (link.id === 'private-pdf-topbar-btn') || (fmt === 'private');
+          if (isPrivate) {
+            fmt = 'private';
+          } else if (isCommercial) {
             fmt = 'commercial';
+          } else if (activeTab === 'private') {
+            // CSV/Excel clicked while on the Private Societies tab -> private scope
+            fmt = 'private';
           } else if (activeTab === 'commercial') {
             // CSV/Excel clicked while on the Commercial tab -> commercial scope
             fmt = 'commercial';
@@ -1269,6 +1386,7 @@
           exportUrl.searchParams.set('priority', (priorityEl && priorityEl.value) || 'active_first');
           exportUrl.searchParams.set('order', (orderEl && orderEl.value) || 'desc');
           if (fmt === 'commercial') exportUrl.searchParams.set('tab', 'commercial');
+          if (fmt === 'private') exportUrl.searchParams.set('tab', 'private');
           var cols = getSelectedColumns();
           if (cols) exportUrl.searchParams.set('cols', cols);
           var url = exportUrl.toString();
@@ -1294,10 +1412,13 @@
       // ================================================================
       var summaryDataNormal = null;
       var summaryDataCommercial = null;
+      var summaryDataPrivate = null;
       syncServerSummaryToStorage('consumer_report_summary', SERVER_NORMAL_SUMMARY);
       syncServerSummaryToStorage('consumer_report_commercial', SERVER_COMMERCIAL_SUMMARY);
+      syncServerSummaryToStorage('consumer_report_private', SERVER_PRIVATE_SUMMARY);
       try { summaryDataNormal = JSON.parse(localStorage.getItem('consumer_report_summary')); } catch(e) {}
       try { summaryDataCommercial = JSON.parse(localStorage.getItem('consumer_report_commercial')); } catch(e) {}
+      try { summaryDataPrivate = JSON.parse(localStorage.getItem('consumer_report_private')); } catch(e) {}
 
       // Recompute grand total for a specific tab
       function recomputeGrandTotalForTab(tab) {
@@ -1331,7 +1452,7 @@
       }
 
       function buildSelectedExportPayload(tab) {
-        var tableId = (tab === 'commercial') ? 'commercial-summary-table' : 'normal-summary-table';
+        var tableId = (tab === 'commercial') ? 'commercial-summary-table' : (tab === 'private' ? 'private-summary-table' : 'normal-summary-table');
         var table = document.getElementById(tableId);
         if (!table) return null;
 
@@ -1433,7 +1554,7 @@
       // reordered by their own counts.
       // ================================================================
       function applyPreviewSort(tab) {
-        var tableId = (tab === 'commercial') ? 'commercial-summary-table' : 'normal-summary-table';
+        var tableId = (tab === 'commercial') ? 'commercial-summary-table' : (tab === 'private' ? 'private-summary-table' : 'normal-summary-table');
         var table = document.getElementById(tableId);
         if (!table) return;
         var tbody = table.querySelector('tbody');
@@ -1480,7 +1601,7 @@
         // used by exports; do not mutate the original full report in memory.
         var summaryData = buildSelectedExportPayload(tab);
         if (!summaryData) return;
-        var storageKey = (tab === 'commercial') ? 'consumer_report_commercial' : 'consumer_report_summary';
+        var storageKey = (tab === 'commercial') ? 'consumer_report_commercial' : (tab === 'private' ? 'consumer_report_private' : 'consumer_report_summary');
         try { localStorage.setItem(storageKey, JSON.stringify(summaryData)); } catch(e) {}
       }
 
@@ -1559,6 +1680,7 @@
       // ----------------------------------------------------------------
       applyPreviewSort('normal');
       applyPreviewSort('commercial');
+      applyPreviewSort('private');
     });
   })();
 </script>
