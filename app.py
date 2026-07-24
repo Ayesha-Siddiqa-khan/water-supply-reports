@@ -1913,6 +1913,9 @@ UNPAID_SECTION_COL_MAP = {"sr": 0, "name": 1, "bills": 2, "totalBillAmount": 3, 
 
 # Staff report detail: Sr, Staff, Zone, Sector, Locality, Total Bills, Received Bills, Remaining Bills, Amount Received, Pending Amount
 STAFF_COL_MAP = {"sr": 0, "staff": 1, "zone": 2, "sector": 3, "locality": 4, "totalBills": 5, "receivedBills": 6, "remainingBills": 7, "totalReceivedAmount": 8, "pendingAmount": 9}
+
+# Bills Reports income category summary: Category, Connections, Rate, Bills, Arrears, Amount.
+BILL_INCOME_CATEGORY_COL_MAP = {"category": 0, "connections": 1, "rate": 2, "bills": 3, "arrearsReceived": 4, "amountReceived": 5}
 STAFF_SUMMARY_COL_MAP = {"sr": 0, "staffName": 1, "totalBills": 2, "receivedBills": 3, "remainingBills": 4, "totalAmount": 5, "amountReceived": 6, "pendingAmount": 7}
 PITCH_COL_MAP = {"sr": 0, "staffName": 1, "totalBills": 2, "receivedBills": 3, "remainingBills": 4, "totalAmount": 5, "amountReceived": 6, "currentBillAmount": 7}
 
@@ -4485,6 +4488,7 @@ def get_bill_list_context():
         "sectors": sector_rows,
         "zone_options": ["A", "B", "C", "Commercial", "Unassigned"],
         "unpaid_amount_summary": unpaid_amount_summary,
+        "bill_income_category_summary": get_bill_income_category_summary(),
         "summary_report_zones": get_zones_summary(),
         "summary_report_sectors": get_sectors_summary(),
         "summary_report_staff": get_staff_summary(),
@@ -6365,9 +6369,10 @@ def export_six_month_pitch(fmt_type: str):
     season_label = "January to June" if season == "jan-jun" else "July to December"
     report_title = f"Six Month {season_label} Report"
     file_slug = f"Six_Month_{season_label.replace(' ', '_')}_Report"
+    year = int(request.args.get("year") or datetime.now().year)
 
     # Get bill IDs for the selected season
-    season_bill_ids = _get_season_bill_ids(season)
+    season_bill_ids = _get_season_bill_ids(year, season)
 
     headers, detail_rows = bill_list_staff_export_rows(bill_ids=season_bill_ids)
     init_bill_list_db()
@@ -6919,6 +6924,70 @@ def generate_connection_rate_pdf(rows: list[list], total_row: list[str]) -> byte
     return buf.getvalue()
 
 
+def get_bill_income_category_summary():
+    """Build Bills Reports income categories from the saved bills table."""
+    init_bill_list_db()
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT sector, locality, connection_no, amount_received, arrears, raw_data
+            FROM bills
+            """
+        ).fetchall()
+    if not rows:
+        return []
+
+    records = []
+    for row in rows:
+        try:
+            raw = json.loads(row["raw_data"] or "{}")
+        except json.JSONDecodeError:
+            raw = {}
+        records.append({
+            "sector": row["sector"],
+            "locality": row["locality"],
+            "connection no": row["connection_no"],
+            "connection type": raw.get("connection type", ""),
+            "bill type": raw.get("bill type", ""),
+            "amount received": float(row["amount_received"] or 0),
+            "arrears": float(row["arrears"] or 0),
+        })
+
+    df = pd.DataFrame(records)
+    private_mask = build_private_society_mask(df)
+    commercial_mask = build_commercial_mask(df) & ~private_mask
+    groups = [
+        ("Domestic", ~private_mask & ~commercial_mask, "4,800"),
+        ("Commercial", commercial_mask, "Mixed"),
+        ("Private Societies", private_mask, "9,600"),
+    ]
+    summary = []
+    for category, mask, rate in groups:
+        part = df[mask]
+        connections = 0
+        if not part.empty:
+            connections = int(part["connection no"].fillna("").astype(str).str.strip().replace("", pd.NA).dropna().nunique())
+        summary.append({
+            "category": category,
+            "connections": connections,
+            "rate": rate,
+            "bills": int(len(part)),
+            "arrears_total": float(part["arrears"].sum()) if not part.empty else 0,
+            "amount_total": float(part["amount received"].sum()) if not part.empty else 0,
+        })
+    return summary
+
+
+def bill_income_category_export_rows(category_filter: str = ""):
+    data = get_bill_income_category_summary()
+    if category_filter:
+        data = [row for row in data if row["category"].lower().replace(" ", "-") == category_filter]
+    headers = ["Category", "Connections", "Rate (Rs./Year)", "No. of Bills", "Arrears Received", "Amount Received"]
+    rows = [[row["category"], fmt(row["connections"]), row["rate"], fmt(row["bills"]), fmt(row["arrears_total"]), fmt(row["amount_total"])] for row in data]
+    grand = ["Grand Total", fmt(sum(row["connections"] for row in data)), "", fmt(sum(row["bills"] for row in data)), fmt(sum(row["arrears_total"] for row in data)), fmt(sum(row["amount_total"] for row in data))]
+    return headers, rows, grand
+
+
 def export_summary_response(fmt_type: str, title: str, data: list[dict], filename_prefix: str, show_summary: bool = True, cols_param: str = None):
     # Summary card exports are filtered by the row checkboxes before totals are generated.
     data = _filter_rows_by_selection(data, lambda item: str(item["name"]))
@@ -6981,6 +7050,43 @@ def export_staff_summary(fmt_type: str):
     cols_param = request.args.get("cols")
     data = get_staff_summary()
     return export_summary_response(fmt_type, "All Staff Summary Report", data, "all_staff_summary", show_summary=show_summary, cols_param=cols_param)
+
+
+@app.route("/bill-list/income-category/<fmt_type>")
+def export_bill_income_category_summary(fmt_type: str):
+    category = request.args.get("category", "").strip().lower()
+    headers, rows, grand = bill_income_category_export_rows(category)
+    headers, rows, grand = _filter_card_export(request.args.get("cols"), BILL_INCOME_CATEGORY_COL_MAP, headers, rows, grand)
+    title = "Bills Income Category Summary"
+    filename = "bill_income_category_summary"
+    if category:
+        title = f"{category.replace('-', ' ').title()} Income Summary"
+        filename = f"bill_income_{category}_summary"
+
+    if fmt_type == "pdf":
+        page_w = A4[0] - 30 * mm
+        pdf_bytes = generate_card_pdf(
+            title,
+            [f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}"],
+            headers,
+            rows,
+            grand,
+            col_widths=[page_w / len(headers)] * len(headers),
+            left_cols=[0],
+            header_font_size=10,
+            body_font_size=10,
+        )
+        return Response(pdf_bytes, mimetype="application/pdf", headers={"Content-Disposition": f"attachment; filename={filename}.pdf"})
+    if fmt_type == "csv":
+        csv_data = pd.DataFrame(rows + [grand], columns=headers).to_csv(index=False)
+        return Response(csv_data, mimetype="text/csv", headers={"Content-Disposition": f"attachment; filename={filename}.csv"})
+    if fmt_type == "xlsx":
+        buf = io.BytesIO()
+        pd.DataFrame(rows + [grand], columns=headers).to_excel(buf, index=False)
+        buf.seek(0)
+        return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename={filename}.xlsx"})
+    flash("Unknown export format.")
+    return redirect(url_for("bill_list"))
 
 
 # ---------------------------------------------------------------------------

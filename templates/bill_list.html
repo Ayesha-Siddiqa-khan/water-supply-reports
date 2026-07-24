@@ -54,6 +54,75 @@
       <button type="submit" class="btn btn-danger btn-sm" style="font-size:11px;">&#128465; Remove Bill Data Only</button>
     </form>
 
+    <!-- INCOME CATEGORY SUMMARY -->
+    {% if bill_income_category_summary %}
+    <div class="section collapsed" id="sec-bill-income-category">
+      <div class="section-header" onclick="toggleSection('sec-bill-income-category')">
+        <div class="section-header-icon">&#128176;</div>
+        <div class="section-title">Income Category Summary</div>
+        <span class="section-badge">{{ bill_income_category_summary|length }} categories</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="section-body">
+        <div class="stat-grid" style="margin-bottom:16px;">
+          {% for row in bill_income_category_summary %}
+          <div class="stat-card {% if row.category == 'Commercial' %}coral{% elif row.category == 'Private Societies' %}amber{% else %}teal{% endif %}">
+            <div class="stat-card-icon">&#128176;</div>
+            <div class="stat-label">{{ row.category }}</div>
+            <div class="stat-value" data-count="{{ row.amount_total|default(0) }}" data-prefix="Rs. ">Rs. 0</div>
+            <div class="stat-delta">{{ "{:,}".format(row.connections|default(0)) }} connections &bull; {{ "{:,}".format(row.bills|default(0)) }} bills</div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="export-bar" data-col-config="billIncomeCategory">
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}">&#11015; All PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='csv') }}">&#11015; All CSV</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='xlsx') }}">&#11015; All Excel</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=domestic">Domestic PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='csv') }}?category=domestic">Domestic CSV</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='xlsx') }}?category=domestic">Domestic Excel</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=commercial">Commercial PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='csv') }}?category=commercial">Commercial CSV</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='xlsx') }}?category=commercial">Commercial Excel</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=private-societies">Private Societies PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='csv') }}?category=private-societies">Private Societies CSV</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='xlsx') }}?category=private-societies">Private Societies Excel</a>
+        </div>
+        <div class="col-select-area">
+          <div class="col-select-label">Select Columns for Export</div>
+          <div class="col-chips" id="col-chips-billIncomeCategory"></div>
+        </div>
+        <div class="table-wrapper" style="max-height:260px;margin-top:12px;">
+          <table class="data-table">
+            <thead>
+              <tr><th>Category</th><th>Connections</th><th>Rate (Rs./Year)</th><th>No. of Bills</th><th>Arrears Received</th><th>Amount Received</th></tr>
+            </thead>
+            <tbody>
+              {% set inc = namespace(tc=0, tb=0, tar=0, ta=0) %}
+              {% for row in bill_income_category_summary %}
+              <tr>
+                <td>{{ row.category }}</td>
+                <td class="mono">{{ "{:,}".format(row.connections|default(0)) }}</td>
+                <td class="mono">{{ row.rate }}</td>
+                <td class="mono">{{ "{:,}".format(row.bills|default(0)) }}</td>
+                <td class="mono accent-amber">{{ "{:,.0f}".format(row.arrears_total|default(0)) }}</td>
+                <td class="mono accent-teal">{{ "{:,.0f}".format(row.amount_total|default(0)) }}</td>
+                {% set inc.tc = inc.tc + row.connections|default(0) %}
+                {% set inc.tb = inc.tb + row.bills|default(0) %}
+                {% set inc.tar = inc.tar + row.arrears_total|default(0) %}
+                {% set inc.ta = inc.ta + row.amount_total|default(0) %}
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr><td>Grand Total</td><td class="mono">{{ "{:,}".format(inc.tc) }}</td><td></td><td class="mono">{{ "{:,}".format(inc.tb) }}</td><td class="mono">{{ "{:,.0f}".format(inc.tar) }}</td><td class="mono">{{ "{:,.0f}".format(inc.ta) }}</td></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- ADVANCED FILTER -->
     <div class="section collapsed" id="sec-advanced">
       <div class="section-header" onclick="toggleSection('sec-advanced')">
@@ -1254,6 +1323,14 @@
     ],
     summaryReportStaff: [
       { key: "name", label: "Name", checked: true }, { key: "count", label: "Count", checked: true }, { key: "totalAmount", label: "Total Amount", checked: true }
+    ],
+    billIncomeCategory: [
+      { key: "category", label: "Category", checked: true },
+      { key: "connections", label: "Connections", checked: true },
+      { key: "rate", label: "Rate", checked: true },
+      { key: "bills", label: "No. of Bills", checked: true },
+      { key: "arrearsReceived", label: "Arrears Received", checked: true },
+      { key: "amountReceived", label: "Amount Received", checked: true }
     ],
     advanceBillChecking: [
       { key: "sr", label: "Sr", checked: true },
