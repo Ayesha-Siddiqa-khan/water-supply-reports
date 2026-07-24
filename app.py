@@ -6690,15 +6690,17 @@ def get_zones_summary():
             """
             SELECT
                 zone,
+                sector,
                 COUNT(*) AS bill_count,
                 SUM(total_bill) AS total_amount
             FROM bills
-            GROUP BY zone
-            ORDER BY CASE zone WHEN 'A' THEN 1 WHEN 'B' THEN 2 WHEN 'C' THEN 3 WHEN 'Commercial' THEN 4 ELSE 5 END
+            GROUP BY zone, sector
+            ORDER BY CASE zone WHEN 'A' THEN 1 WHEN 'B' THEN 2 WHEN 'C' THEN 3 WHEN 'Commercial' THEN 4 ELSE 5 END, sector
             """
         ).fetchall()
     return [
-        {"name": row["zone"], "count": int(row["bill_count"] or 0), "total_amount": float(row["total_amount"] or 0)}
+        # All Zones Summary must list the same zone/sector rows shown by the page badge, not only A/B/C buckets.
+        {"name": f"{row['zone']} - {row['sector']}", "count": int(row["bill_count"] or 0), "total_amount": float(row["total_amount"] or 0)}
         for row in rows
     ]
 
