@@ -689,12 +689,20 @@
         <p class="muted" style="margin-bottom:16px;">
           Merges Staff Assignment data with Unpaid &amp; Expired current bill amounts for the selected six-month season.
         </p>
-        <div style="margin-bottom:16px;">
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
           <label class="field" style="min-width:220px;">
             <span>Select Season</span>
             <select class="filter-select" id="season-select">
               <option value="jan-jun">January to June</option>
               <option value="jul-dec">July to December</option>
+            </select>
+          </label>
+          <label class="field" style="min-width:150px;">
+            <span>Select Year</span>
+            <select class="filter-select" id="season-year-select">
+              <option value="2024">2024</option>
+              <option value="2025">2025</option>
+              <option value="2026" selected>2026</option>
             </select>
           </label>
         </div>
@@ -1435,11 +1443,13 @@
   });
 
   const seasonSelect = document.getElementById('season-select');
+  const seasonYearSelect = document.getElementById('season-year-select');
 
   function updateDownloadParams() {
     const show = showSummaryCheckbox ? showSummaryCheckbox.checked : false;
     const sumCols = getSelectedCols('staffSummary');
     const season = seasonSelect ? seasonSelect.value : '';
+    const seasonYear = seasonYearSelect ? seasonYearSelect.value : '';
     document.querySelectorAll('a.chip[href]:not([href="#"]):not([href=""])').forEach(function(link) {
       let href = link.getAttribute('href');
       if (!href || href === '#') return;
@@ -1465,9 +1475,11 @@
       } else {
         url.searchParams.delete('show_summary');
       }
-      // Add season param for six-month-pitch links
+      // Six-month staff exports must carry both season and year; otherwise a
+      // default year can make a valid upload produce an empty PDF.
       if (season && link.closest('#sec-six-month-pitch')) {
         url.searchParams.set('season', season);
+        if (seasonYear) url.searchParams.set('year', seasonYear);
       }
       // Add season and year params for season-sector links
       if (link.classList.contains('season-sector-export-link')) {
@@ -1501,6 +1513,8 @@
   if (filterStaff) filterStaff.addEventListener('change', onAdvancedFilterChange);
   onAdvancedFilterChange();
   if (showSummaryCheckbox) showSummaryCheckbox.addEventListener('change', refreshAllExportLinks);
+  if (seasonSelect) seasonSelect.addEventListener('change', refreshAllExportLinks);
+  if (seasonYearSelect) seasonYearSelect.addEventListener('change', refreshAllExportLinks);
 
   // Season selector: defaults to "January to June" (first option in HTML select)
   if (seasonSelect) {

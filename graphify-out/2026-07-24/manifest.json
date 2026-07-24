@@ -1,7 +1,7 @@
 {
   "app.py": {
-    "mtime": 1784899450.813889,
-    "ast_hash": "54fca1128997596834ca7ccf337fb6b4",
+    "mtime": 1784899962.1182423,
+    "ast_hash": "2205bbbeb1b3ee286d99310df43cb0a7",
     "semantic_hash": ""
   },
   "check_bill_list.py": {
@@ -240,8 +240,8 @@
     "semantic_hash": ""
   },
   "templates/bill_list.html": {
-    "mtime": 1784899504.0927868,
-    "ast_hash": "d5364544997fe435087fa0ae529a4d27",
+    "mtime": 1784900017.5790558,
+    "ast_hash": "d162a88d204d55c08d56243cca865480",
     "semantic_hash": ""
   },
   "templates/consumer_report.html": {

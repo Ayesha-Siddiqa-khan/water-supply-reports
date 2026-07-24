@@ -6366,10 +6366,15 @@ def export_six_month_pitch(fmt_type: str):
         current_month = datetime.now().month
         season = "jan-jun" if current_month <= 6 else "jul-dec"
 
+    year_param = request.args.get("year", "").strip()
+    try:
+        year = int(year_param)
+    except (TypeError, ValueError):
+        year = datetime.now().year
+
     season_label = "January to June" if season == "jan-jun" else "July to December"
-    report_title = f"Six Month {season_label} Report"
-    file_slug = f"Six_Month_{season_label.replace(' ', '_')}_Report"
-    year = int(request.args.get("year") or datetime.now().year)
+    report_title = f"Six Month {season_label} {year} Report"
+    file_slug = f"Six_Month_{season_label.replace(' ', '_')}_{year}_Report"
 
     # Get bill IDs for the selected season
     season_bill_ids = _get_season_bill_ids(year, season)
