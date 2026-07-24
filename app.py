@@ -673,11 +673,15 @@ def build_commercial_mask(df: pd.DataFrame) -> pd.Series:
 PRIVATE_SOCIETY_NAMES = (
     "al khair colony",
     "al haram",
+    "alharam",
     "batool garden",
     "dream land city",
+    "dream land",
+    "dreem land",
     "gulshan batool",
     "itefaq city",
     "rehan avene",
+    "rehan avnue",
     "rehan avenue",
     "rehan garden",
     "sidra town",
@@ -700,9 +704,15 @@ def build_private_society_mask(df: pd.DataFrame) -> pd.Series:
     combined = pd.Series("", index=df.index, dtype="object")
     for col in private_cols:
         combined = combined + " " + df[col].fillna("").astype(str).str.lower()
+    # Keep this report broad: private-society names appear with hyphens, commas,
+    # misspellings, and sometimes without the explicit "(PRIVATE SOCIETY)" tag.
+    normalized = combined.str.replace(r"[^a-z0-9]+", " ", regex=True).str.replace(r"\s+", " ", regex=True)
+    compact = normalized.str.replace(" ", "", regex=False)
     mask = combined.str.contains(r"private\s+societ(?:y|ies)", regex=True, na=False)
     for name in PRIVATE_SOCIETY_NAMES:
-        mask = mask | combined.str.contains(re.escape(name), regex=True, na=False)
+        normalized_name = re.sub(r"[^a-z0-9]+", " ", name.lower()).strip()
+        mask = mask | normalized.str.contains(re.escape(normalized_name), regex=True, na=False)
+        mask = mask | compact.str.contains(re.escape(normalized_name.replace(" ", "")), regex=True, na=False)
     return mask
 
 
@@ -719,10 +729,6 @@ def build_private_society_rows(df: pd.DataFrame, dates: pd.Series, amount_col: s
     private_dates = dates.reindex(private_df.index).dropna()
     private_df = private_df.loc[private_dates.index]
     private_dates = private_dates.loc[private_df.index]
-    private_df["_period"] = private_dates.dt.to_period("M")
-
-    fiscal_start, current_period = get_fiscal_window()
-    private_df = private_df[(private_df["_period"] >= fiscal_start) & (private_df["_period"] <= current_period)]
     if private_df.empty:
         return []
 
