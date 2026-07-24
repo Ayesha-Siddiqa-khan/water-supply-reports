@@ -86,7 +86,7 @@
         <div class="export-bar" style="gap:12px;flex-wrap:wrap;margin-bottom:10px;">
           <strong style="color:var(--text-muted);font-size:12px;">Columns:</strong>
           {% for key, label in summary_cols %}
-          <label><input type="checkbox" class="dnc-col" data-kind="summary" value="{{ key }}" checked> {{ label }}</label>
+          <label><input type="checkbox" class="dnc-col" data-kind="summary" value="{{ key }}" {% if key in ['classification','connections'] %}checked{% endif %}> {{ label }}</label>
           {% endfor %}
         </div>
         <div class="table-wrapper">
@@ -148,7 +148,7 @@
         <div class="export-bar" style="gap:12px;flex-wrap:wrap;margin-bottom:10px;">
           <strong style="color:var(--text-muted);font-size:12px;">Columns:</strong>
           {% for key, label in detail_cols %}
-          <label><input type="checkbox" class="dnc-col" data-kind="detail" value="{{ key }}" checked> {{ label }}</label>
+          <label><input type="checkbox" class="dnc-col" data-kind="detail" value="{{ key }}" {% if key in ['sector','connections'] %}checked{% endif %}> {{ label }}</label>
           {% endfor %}
         </div>
         <div class="table-wrapper">
