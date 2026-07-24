@@ -1,7 +1,7 @@
 {
   "app.py": {
-    "mtime": 1784878102.1455865,
-    "ast_hash": "7acdae8b94f7e8613334134a703a037b",
+    "mtime": 1784889263.5547984,
+    "ast_hash": "5358cd0b95be6b398fd8ce73c7f46f8c",
     "semantic_hash": ""
   },
   "check_bill_list.py": {
@@ -270,8 +270,8 @@
     "semantic_hash": ""
   },
   "templates/index.html": {
-    "mtime": 1783579089.9534402,
-    "ast_hash": "933192472899be0b884dceb7d718f97c",
+    "mtime": 1784889138.2855475,
+    "ast_hash": "8b7d9a33e8be9e61e1d5a7b3379a4a97",
     "semantic_hash": ""
   },
   "WaterSupplyReport-Portable/README.txt": {
@@ -462,21 +462,6 @@
   "templates/new_connection_receipt_matching.html": {
     "mtime": 1784041173.4211745,
     "ast_hash": "32ab14f847420015ba0be037f4c59920",
-    "semantic_hash": ""
-  },
-  "tmp/consumer_report_script_1.js": {
-    "mtime": 1784878193.9209993,
-    "ast_hash": "fe04d21bad36e1e916f14fc800897033",
-    "semantic_hash": ""
-  },
-  "tmp/consumer_report_script_2.js": {
-    "mtime": 1784878193.9209993,
-    "ast_hash": "1d4186736e436d09452df2725f01f375",
-    "semantic_hash": ""
-  },
-  "tmp/consumer_report_script_4.js": {
-    "mtime": 1784878193.9219956,
-    "ast_hash": "615d59093bd76c6eddc34ed397ec0d9a",
     "semantic_hash": ""
   }
 }

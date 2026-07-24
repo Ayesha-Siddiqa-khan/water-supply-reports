@@ -670,6 +670,86 @@ def build_commercial_mask(df: pd.DataFrame) -> pd.Series:
     return mask
 
 
+PRIVATE_SOCIETY_NAMES = (
+    "al khair colony",
+    "al haram",
+    "batool garden",
+    "dream land city",
+    "gulshan batool",
+    "itefaq city",
+    "rehan avene",
+    "rehan avenue",
+    "rehan garden",
+    "sidra town",
+    "zain city",
+)
+
+
+def build_private_society_mask(df: pd.DataFrame) -> pd.Series:
+    columns = list(df.columns)
+    private_cols = [
+        col
+        for col in [
+            pick_column(columns, ["sector"]),
+            pick_column(columns, ["locality"]),
+        ]
+        if col
+    ]
+    if not private_cols:
+        return pd.Series(False, index=df.index)
+    combined = pd.Series("", index=df.index, dtype="object")
+    for col in private_cols:
+        combined = combined + " " + df[col].fillna("").astype(str).str.lower()
+    mask = combined.str.contains(r"private\s+societ(?:y|ies)", regex=True, na=False)
+    for name in PRIVATE_SOCIETY_NAMES:
+        mask = mask | combined.str.contains(re.escape(name), regex=True, na=False)
+    return mask
+
+
+def build_private_society_rows(df: pd.DataFrame, dates: pd.Series, amount_col: str | None, arrears_col: str | None):
+    """Build private-society locality totals without changing existing reports."""
+    locality_col = pick_column(list(df.columns), ["locality"]) or pick_column(list(df.columns), ["sector"])
+    if not locality_col:
+        return []
+
+    private_df = df[build_private_society_mask(df)].copy()
+    if private_df.empty:
+        return []
+
+    private_dates = dates.reindex(private_df.index).dropna()
+    private_df = private_df.loc[private_dates.index]
+    private_dates = private_dates.loc[private_df.index]
+    private_df["_period"] = private_dates.dt.to_period("M")
+
+    fiscal_start, current_period = get_fiscal_window()
+    private_df = private_df[(private_df["_period"] >= fiscal_start) & (private_df["_period"] <= current_period)]
+    if private_df.empty:
+        return []
+
+    private_df["_locality"] = private_df[locality_col].fillna("Unknown").astype(str).str.strip().replace({"": "Unknown"})
+    if amount_col:
+        private_df["_amount"] = private_df[amount_col].apply(clean_amount_value)
+    if arrears_col:
+        private_df["_arrears"] = private_df[arrears_col].apply(clean_amount_value)
+
+    agg_t = {"count": ("_locality", "size")}
+    if amount_col:
+        agg_t["amount"] = ("_amount", "sum")
+    if arrears_col:
+        agg_t["arrears"] = ("_arrears", "sum")
+    grouped = private_df.groupby("_locality").agg(**agg_t).sort_index()
+
+    rows = []
+    for loc, row in grouped.iterrows():
+        item = {"label": loc, "count": int(row["count"])}
+        if "amount" in row:
+            item["amount_total"] = float(row["amount"])
+        if "arrears" in row:
+            item["arrears_total"] = float(row["arrears"])
+        rows.append(item)
+    return rows
+
+
 def build_commercial_rows(df: pd.DataFrame, dates: pd.Series, amount_col: str | None, arrears_col: str | None):
     """Build commercial sector breakdown by locality — total and month-wise."""
     locality_col = pick_column(list(df.columns), ["locality"])
@@ -1400,6 +1480,7 @@ def summarize_dataframe(df: pd.DataFrame) -> dict:
     commercial_total, commercial_monthly = None, None
     commercial_daily_income, commercial_daily_metric_label = None, "Arrears Received" if arrears_col else "Areas Received"
     commercial_month_wise_summary = []
+    private_society_total = None
     daily_staff_receive = {"summary_rows": [], "detail_rows": [], "metric_label": "Area Received", "date_range": ""}
     dates = None
 
@@ -1441,6 +1522,7 @@ def summarize_dataframe(df: pd.DataFrame) -> dict:
                 areas_col,
             )
             commercial_month_wise_summary = build_commercial_month_wise_summary(df, dates, amount_col, arrears_col)
+            private_society_total = build_private_society_rows(df, dates, amount_col, arrears_col)
             daily_staff_receive = build_daily_staff_receive_report(
                 df,
                 dates,
@@ -1517,6 +1599,7 @@ def summarize_dataframe(df: pd.DataFrame) -> dict:
         "commercial_daily_income": commercial_daily_income,
         "commercial_daily_metric_label": commercial_daily_metric_label,
         "commercial_month_wise_summary": commercial_month_wise_summary,
+        "private_society_total": private_society_total,
         "daily_staff_receive": daily_staff_receive,
         "has_receipt_format": has_receipt_format,
         "receipt_monthly_rows": (receipt_info or {}).get("rows", []),
@@ -1665,7 +1748,7 @@ CARD_COL_MAPS = {
 def _get_card_col_map(card, r):
     if card in CARD_COL_MAPS:
         return CARD_COL_MAPS[card]
-    if card in ("commercial", "commercial-total"):
+    if card in ("commercial", "commercial-total", "private-society-total"):
         if r.get("has_arrears"):
             return {"locality": 0, "count": 1, "arrearsReceived": 2, "amountReceived": 3}
         return {"locality": 0, "count": 1, "amountReceived": 2}
@@ -7363,6 +7446,32 @@ def download_card(card: str, fmt_type: str):
             grand.append(fmt(gt_arrears))
         grand.append(fmt(gt_amount))
 
+    elif card == "private-society-total":
+        title = "Private Societies - Locality Report"
+        summary = [f"<b>Private society locality breakdown</b>"]
+        headers = ["Locality", "No. of Bills"]
+        if r.get("has_arrears"):
+            headers.append("Arrears Received")
+        headers.append("Amount Received")
+        rows = []
+        gt_count, gt_amount, gt_arrears = 0, 0, 0
+        for row in r.get("private_society_total", []):
+            c = row.get("count", 0)
+            am = row.get("amount_total", 0)
+            ar = row.get("arrears_total", 0)
+            row_vals = [row["label"], fmt(c)]
+            if r.get("has_arrears"):
+                row_vals.append(fmt(ar))
+                gt_arrears += ar
+            row_vals.append(fmt(am))
+            rows.append(row_vals)
+            gt_count += c
+            gt_amount += am
+        grand = ["Grand Total", fmt(gt_count)]
+        if r.get("has_arrears"):
+            grand.append(fmt(gt_arrears))
+        grand.append(fmt(gt_amount))
+
     elif card == "commercial-monthly":
         title = "Commercial Sector - Month-wise Locality Report"
         summary = [f"<b>Month-wise locality breakdown</b>"]
@@ -7501,6 +7610,11 @@ def download_card(card: str, fmt_type: str):
                 conn_cols_param, CONN_SUMMARY_COL_MAP, conn_headers, conn_rows, conn_grand)
         conn_summary = {"headers": conn_headers, "rows": conn_rows, "grand": conn_grand}
 
+    dl_filename = {
+        "commercial-month-wise": "Commercial_Month_Wise_Report",
+        "private-society-total": "Private_Societies_Locality_Report",
+    }.get(card, card)
+
     if fmt_type == "pdf":
         if card == "commercial":
             month_rows = {}
@@ -7540,7 +7654,7 @@ def download_card(card: str, fmt_type: str):
                     "col_widths": col_widths,
                     "first_col_left": True,
                 }
-            elif card == "commercial-total":
+            elif card in ("commercial-total", "private-society-total"):
                 page_w = A4[0] - 30 * mm
                 if r.get("has_arrears"):
                     col_widths = [page_w * 0.38, page_w * 0.20, page_w * 0.21, page_w * 0.21]
@@ -7678,7 +7792,6 @@ def download_card(card: str, fmt_type: str):
                     pdf_kwargs["extra_section"] = conn_summary
                     pdf_kwargs["compact"] = True
                 pdf_bytes = generate_card_pdf(title, summary, pdf_headers, pdf_rows, pdf_grand, **pdf_kwargs)
-        dl_filename = {"commercial-month-wise": "Commercial_Month_Wise_Report"}.get(card, card)
         return Response(pdf_bytes, mimetype="application/pdf",
                         headers={"Content-Disposition": f"attachment; filename={dl_filename}.pdf"})
     elif fmt_type == "csv":
@@ -7764,6 +7877,12 @@ def download_card(card: str, fmt_type: str):
             buf.seek(0)
             return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             headers={"Content-Disposition": f"attachment; filename={dl_filename}.xlsx"})
+        all_rows = rows + [grand] if grand else rows
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            _card_rows_to_df(headers, all_rows).to_excel(writer, sheet_name="Report", index=False)
+            if card in ("receipt-monthly", "monthly") and conn_summary is not None:
+                pd.DataFrame(conn_summary["rows"] + [conn_summary["grand"]], columns=conn_summary["headers"]).to_excel(writer, sheet_name="Summary", index=False)
         buf.seek(0)
         return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         headers={"Content-Disposition": f"attachment; filename={dl_filename}.xlsx"})

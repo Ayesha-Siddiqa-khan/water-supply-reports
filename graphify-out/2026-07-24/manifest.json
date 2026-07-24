@@ -1,7 +1,7 @@
 {
   "app.py": {
-    "mtime": 1784195964.3308456,
-    "ast_hash": "3f436a1b2132d6ff2955b558deee5af8",
+    "mtime": 1784878102.1455865,
+    "ast_hash": "7acdae8b94f7e8613334134a703a037b",
     "semantic_hash": ""
   },
   "check_bill_list.py": {
@@ -245,8 +245,8 @@
     "semantic_hash": ""
   },
   "templates/consumer_report.html": {
-    "mtime": 1784042371.4328067,
-    "ast_hash": "2b92d3d40a177a2cdeb1d39d49b5873d",
+    "mtime": 1784878092.421826,
+    "ast_hash": "ac193902953e85d9097afd17b6debede",
     "semantic_hash": ""
   },
   "templates/consumer_sector_remaining_report.html": {
@@ -462,6 +462,21 @@
   "templates/new_connection_receipt_matching.html": {
     "mtime": 1784041173.4211745,
     "ast_hash": "32ab14f847420015ba0be037f4c59920",
+    "semantic_hash": ""
+  },
+  "tmp/consumer_report_script_1.js": {
+    "mtime": 1784878193.9209993,
+    "ast_hash": "fe04d21bad36e1e916f14fc800897033",
+    "semantic_hash": ""
+  },
+  "tmp/consumer_report_script_2.js": {
+    "mtime": 1784878193.9209993,
+    "ast_hash": "1d4186736e436d09452df2725f01f375",
+    "semantic_hash": ""
+  },
+  "tmp/consumer_report_script_4.js": {
+    "mtime": 1784878193.9219956,
+    "ast_hash": "615d59093bd76c6eddc34ed397ec0d9a",
     "semantic_hash": ""
   }
 }

@@ -21,5 +21,13 @@
   "19": "Agent Instructions",
   "20": "Claude Code CLI Prompt: Advanced Bill List Filters and Export",
   "21": "Advanced Bill Filters Feature Prompt",
-  "22": "match_staff_assignment"
+  "22": "match_staff_assignment",
+  "23": "consumer_report_script_1.js",
+  "24": "_build_connection_rate_report",
+  "25": "export_consumer_report",
+  "26": "_normalize_rate_title",
+  "27": "export_arrear_calculator",
+  "28": "_normalize_consumer_col",
+  "29": "consumer_report_script_2.js",
+  "30": "consumer_report_script_4.js"
 }

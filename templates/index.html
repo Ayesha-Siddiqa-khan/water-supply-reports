@@ -542,6 +542,54 @@
       </div>
     </div>
 
+    <div class="section collapsed" id="sec-private-society-total">
+      <div class="section-header" onclick="toggleSection('sec-private-society-total')">
+        <div class="section-header-icon">&#127970;</div>
+        <div class="section-title">Private Societies &mdash; Total Locality Breakdown</div>
+        {% if results.private_society_total %}<span class="section-badge">{{ results.private_society_total|length }} localities</span>{% endif %}
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="section-body">
+        <div data-col-config="privateSocietyTotalLocalityBreakdown">
+          <div class="export-bar">
+            <a class="dl-btn pdf" href="{{ url_for('download_card', card='private-society-total', fmt_type='pdf') }}">&#11015; PDF</a>
+            <a class="dl-btn csv" href="{{ url_for('download_card', card='private-society-total', fmt_type='csv') }}">&#11015; CSV</a>
+            <a class="dl-btn xlsx" href="{{ url_for('download_card', card='private-society-total', fmt_type='xlsx') }}">&#11015; Excel</a>
+          </div>
+        </div>
+        <div class="col-select-area">
+          <div class="col-select-label">Select Columns for Export</div>
+          <div class="col-chips" id="col-chips-privateSocietyTotalLocalityBreakdown"></div>
+        </div>
+        <div class="column-selector-wrapper" data-col-config="privateSocietyTotalLocalityBreakdown" style="display:none;"></div>
+        {% if results.private_society_total %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr><th>Locality</th><th>No. of Bills</th>{% if results.has_arrears %}<th>Arrears Received</th>{% endif %}<th>Amount Received</th></tr>
+            </thead>
+            <tbody>
+              {% set ps = namespace(tc=0, ta=0, tar=0) %}
+              {% for row in results.private_society_total %}
+              <tr>
+                <td>{{ row.label }}</td><td class="mono">{{ "{:,}".format(row.count) }}</td>
+                {% if results.has_arrears %}<td class="mono accent-amber">{{ "{:,.0f}".format(row.arrears_total|default(0)) }}</td>{% set ps.tar = ps.tar + row.arrears_total|default(0) %}{% endif %}
+                <td class="mono accent-teal">{{ "{:,.0f}".format(row.amount_total|default(0)) }}</td>
+                {% set ps.tc = ps.tc + row.count %}{% set ps.ta = ps.ta + row.amount_total|default(0) %}
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr><td>Grand Total</td><td class="mono">{{ "{:,}".format(ps.tc) }}</td>{% if results.has_arrears %}<td class="mono">{{ "{:,.0f}".format(ps.tar) }}</td>{% endif %}<td class="mono">{{ "{:,.0f}".format(ps.ta) }}</td></tr>
+            </tfoot>
+          </table>
+        </div>
+        {% else %}
+        <p class="muted">No private society data found.</p>
+        {% endif %}
+      </div>
+    </div>
+
     <div class="section collapsed" id="sec-commercial-monthly">
       <div class="section-header" onclick="toggleSection('sec-commercial-monthly')">
         <div class="section-header-icon">&#127970;</div>
@@ -821,6 +869,12 @@
       { key: "amountReceived", label: "Amount Received", checked: true }
     ],
     commercialSectorTotalLocalityBreakdown: [
+      { key: "locality", label: "Locality", checked: true },
+      { key: "count", label: "No. of Bills", checked: true },
+      { key: "arrearsReceived", label: "Arrears Received", checked: true },
+      { key: "amountReceived", label: "Amount Received", checked: true }
+    ],
+    privateSocietyTotalLocalityBreakdown: [
       { key: "locality", label: "Locality", checked: true },
       { key: "count", label: "No. of Bills", checked: true },
       { key: "arrearsReceived", label: "Arrears Received", checked: true },
