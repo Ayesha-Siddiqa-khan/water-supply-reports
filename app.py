@@ -5405,6 +5405,17 @@ def _load_results_cache() -> dict:
         return {}
 
 
+def _load_dashboard_results(prefer_saved_csv: bool = False) -> dict:
+    if prefer_saved_csv and os.path.exists(SAVED_DASHBOARD_CSV):
+        try:
+            results = build_dashboard_results(pd.read_csv(SAVED_DASHBOARD_CSV))
+            _save_results_cache(results)
+            return results
+        except Exception:
+            pass
+    return _load_results_cache()
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -5568,7 +5579,7 @@ def index():
     # GET — restore metadata from persistent storage and pass to template
     # A saved heavy upload can already have generated results cached; keep those
     # visible on refresh instead of showing a blank "no data" dashboard.
-    _last_results = _last_results or _load_results_cache()
+    _last_results = _last_results or _load_dashboard_results(prefer_saved_csv=True)
     _last_merged_df = None
     _last_uploaded_names = None
     saved_meta = None
@@ -7421,7 +7432,7 @@ def download_card(card: str, fmt_type: str):
     global _last_results
     # Vercel can serve the page and the download from different warm instances,
     # so exports must restore the saved dashboard cache instead of relying only on memory.
-    r = _last_results or _load_results_cache()
+    r = _last_results or _load_dashboard_results(prefer_saved_csv=True)
     _last_results = r
     if not r:
         flash("No data available. Please upload files first.")
@@ -7722,7 +7733,11 @@ def download_card(card: str, fmt_type: str):
                 }
             elif card in ("commercial-total", "private-society-total"):
                 page_w = A4[0] - 30 * mm
-                if r.get("has_arrears"):
+                if card == "private-society-total" and r.get("has_arrears"):
+                    col_widths = [page_w * 0.24, page_w * 0.22, page_w * 0.14, page_w * 0.20, page_w * 0.20]
+                elif card == "private-society-total":
+                    col_widths = [page_w * 0.34, page_w * 0.30, page_w * 0.16, page_w * 0.20]
+                elif r.get("has_arrears"):
                     col_widths = [page_w * 0.38, page_w * 0.20, page_w * 0.21, page_w * 0.21]
                 else:
                     col_widths = [page_w * 0.48, page_w * 0.26, page_w * 0.26]

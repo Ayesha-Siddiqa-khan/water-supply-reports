@@ -7,6 +7,7 @@
   "5": "Base Template",
   "6": "upload-progress.js",
   "7": "export_arrear_calculator",
+  "8": "app.py",
   "9": "vercel.json",
   "10": "check_bill_list.py",
   "11": "check_csv.py",
@@ -21,6 +22,9 @@
   "20": "Claude Code CLI Prompt: Advanced Bill List Filters and Export",
   "21": "Advanced Bill Filters Feature Prompt",
   "22": "match_staff_assignment",
+  "23": "match_staff_assignment",
   "24": "_build_connection_rate_report",
+  "25": "_normalize_staff_name",
+  "26": "new_connection_detail",
   "27": "export_arrear_calculator"
 }
