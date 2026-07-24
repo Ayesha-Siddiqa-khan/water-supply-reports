@@ -70,7 +70,7 @@
             <div class="stat-card-icon">&#128176;</div>
             <div class="stat-label">{{ row.category }}</div>
             <div class="stat-value">Rs. {{ "{:,.0f}".format(row.arrears_total|default(0)) }}</div>
-            <div class="stat-delta">Income: Rs. {{ "{:,.0f}".format(row.amount_total|default(0)) }} &bull; {{ "{:,}".format(row.connections|default(0)) }} connections &bull; {{ "{:,}".format(row.bills|default(0)) }} bills</div>
+            <div class="stat-delta">Unpaid: Rs. {{ "{:,.0f}".format(row.unpaid_total|default(0)) }} &bull; Income: Rs. {{ "{:,.0f}".format(row.amount_total|default(0)) }} &bull; {{ "{:,}".format(row.connections|default(0)) }} connections &bull; {{ "{:,}".format(row.bills|default(0)) }} bills</div>
           </div>
           {% endfor %}
         </div>
@@ -84,15 +84,21 @@
           <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?mode=arrears">&#11015; Arrears PDF</a>
           <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='csv') }}?mode=arrears">&#11015; Arrears CSV</a>
           <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='xlsx') }}?mode=arrears">&#11015; Arrears Excel</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?mode=unpaid">&#11015; Unpaid PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='csv') }}?mode=unpaid">&#11015; Unpaid CSV</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='xlsx') }}?mode=unpaid">&#11015; Unpaid Excel</a>
           <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=domestic&mode=combined">Domestic Combined PDF</a>
           <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=domestic&mode=income">Domestic Income PDF</a>
           <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=domestic&mode=arrears">Domestic Arrears PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=domestic&mode=unpaid">Domestic Unpaid PDF</a>
           <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=commercial&mode=combined">Commercial Combined PDF</a>
           <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=commercial&mode=income">Commercial Income PDF</a>
           <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=commercial&mode=arrears">Commercial Arrears PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=commercial&mode=unpaid">Commercial Unpaid PDF</a>
           <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=private-societies&mode=combined">Private Societies Combined PDF</a>
           <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=private-societies&mode=income">Private Societies Income PDF</a>
           <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=private-societies&mode=arrears">Private Societies Arrears PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=private-societies&mode=unpaid">Private Societies Unpaid PDF</a>
         </div>
         <div class="col-select-area">
           <div class="col-select-label">Select Columns for Export</div>
@@ -101,10 +107,10 @@
         <div class="table-wrapper" style="max-height:260px;margin-top:12px;">
           <table class="data-table">
             <thead>
-              <tr><th>Category</th><th>Connections</th><th>Rate (Rs./Year)</th><th>No. of Bills</th><th>Arrears Received</th><th>Amount Received</th></tr>
+              <tr><th>Category</th><th>Connections</th><th>Rate (Rs./Year)</th><th>No. of Bills</th><th>Arrears Received</th><th>Amount Received</th><th>Unpaid Amount</th></tr>
             </thead>
             <tbody>
-              {% set inc = namespace(tc=0, tb=0, tar=0, ta=0) %}
+              {% set inc = namespace(tc=0, tb=0, tar=0, ta=0, tu=0) %}
               {% for row in bill_income_category_summary %}
               <tr>
                 <td>{{ row.category }}</td>
@@ -113,15 +119,17 @@
                 <td class="mono">{{ "{:,}".format(row.bills|default(0)) }}</td>
                 <td class="mono accent-amber">{{ "{:,.0f}".format(row.arrears_total|default(0)) }}</td>
                 <td class="mono accent-teal">{{ "{:,.0f}".format(row.amount_total|default(0)) }}</td>
+                <td class="mono accent-coral">{{ "{:,.0f}".format(row.unpaid_total|default(0)) }}</td>
                 {% set inc.tc = inc.tc + row.connections|default(0) %}
                 {% set inc.tb = inc.tb + row.bills|default(0) %}
                 {% set inc.tar = inc.tar + row.arrears_total|default(0) %}
                 {% set inc.ta = inc.ta + row.amount_total|default(0) %}
+                {% set inc.tu = inc.tu + row.unpaid_total|default(0) %}
               </tr>
               {% endfor %}
             </tbody>
             <tfoot>
-              <tr><td>Grand Total</td><td class="mono">{{ "{:,}".format(inc.tc) }}</td><td></td><td class="mono">{{ "{:,}".format(inc.tb) }}</td><td class="mono">{{ "{:,.0f}".format(inc.tar) }}</td><td class="mono">{{ "{:,.0f}".format(inc.ta) }}</td></tr>
+              <tr><td>Grand Total</td><td class="mono">{{ "{:,}".format(inc.tc) }}</td><td></td><td class="mono">{{ "{:,}".format(inc.tb) }}</td><td class="mono">{{ "{:,.0f}".format(inc.tar) }}</td><td class="mono">{{ "{:,.0f}".format(inc.ta) }}</td><td class="mono">{{ "{:,.0f}".format(inc.tu) }}</td></tr>
             </tfoot>
           </table>
         </div>
@@ -1344,7 +1352,8 @@
       { key: "rate", label: "Rate", checked: true },
       { key: "bills", label: "No. of Bills", checked: true },
       { key: "arrearsReceived", label: "Arrears Received", checked: true },
-      { key: "amountReceived", label: "Amount Received", checked: true }
+      { key: "amountReceived", label: "Amount Received", checked: true },
+      { key: "unpaidAmount", label: "Unpaid Amount", checked: true }
     ],
     advanceBillChecking: [
       { key: "sr", label: "Sr", checked: true },

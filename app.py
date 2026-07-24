@@ -1914,8 +1914,8 @@ UNPAID_SECTION_COL_MAP = {"sr": 0, "name": 1, "bills": 2, "totalBillAmount": 3, 
 # Staff report detail: Sr, Staff, Zone, Sector, Locality, Total Bills, Received Bills, Remaining Bills, Amount Received, Pending Amount
 STAFF_COL_MAP = {"sr": 0, "staff": 1, "zone": 2, "sector": 3, "locality": 4, "totalBills": 5, "receivedBills": 6, "remainingBills": 7, "totalReceivedAmount": 8, "pendingAmount": 9}
 
-# Bills Reports income category summary: Category, Connections, Rate, Bills, Arrears, Amount.
-BILL_INCOME_CATEGORY_COL_MAP = {"category": 0, "connections": 1, "rate": 2, "bills": 3, "arrearsReceived": 4, "amountReceived": 5}
+# Bills Reports income category summary: Category, Connections, Rate, Bills, Arrears, Amount, Unpaid.
+BILL_INCOME_CATEGORY_COL_MAP = {"category": 0, "connections": 1, "rate": 2, "bills": 3, "arrearsReceived": 4, "amountReceived": 5, "unpaidAmount": 6}
 STAFF_SUMMARY_COL_MAP = {"sr": 0, "staffName": 1, "totalBills": 2, "receivedBills": 3, "remainingBills": 4, "totalAmount": 5, "amountReceived": 6, "pendingAmount": 7}
 PITCH_COL_MAP = {"sr": 0, "staffName": 1, "totalBills": 2, "receivedBills": 3, "remainingBills": 4, "totalAmount": 5, "amountReceived": 6, "currentBillAmount": 7}
 
@@ -6935,7 +6935,7 @@ def get_bill_income_category_summary():
     with get_db() as conn:
         rows = conn.execute(
             """
-            SELECT sector, locality, connection_no, amount_received, arrears, raw_data
+            SELECT sector, locality, connection_no, amount_received, arrears, total_bill, raw_data
             FROM bills
             """
         ).fetchall()
@@ -6956,6 +6956,7 @@ def get_bill_income_category_summary():
             "bill type": raw.get("bill type", ""),
             "amount received": float(row["amount_received"] or 0),
             "arrears": float(row["arrears"] or 0),
+            "total bill": float(row["total_bill"] or 0),
         })
 
     df = pd.DataFrame(records)
@@ -6979,6 +6980,8 @@ def get_bill_income_category_summary():
             "bills": int(len(part)),
             "arrears_total": float(part["arrears"].sum()) if not part.empty else 0,
             "amount_total": float(part["amount received"].sum()) if not part.empty else 0,
+            # Unpaid means the pending balance still left on bills, not arrears received.
+            "unpaid_total": float((part["total bill"] - part["amount received"]).clip(lower=0).sum()) if not part.empty else 0,
         })
     return summary
 
@@ -6997,6 +7000,9 @@ def bill_income_category_export_rows(category_filter: str = "", mode: str = "com
     if mode in ("combined", "income"):
         headers.append("Amount Received")
         value_keys.append("amount_total")
+    if mode in ("combined", "unpaid"):
+        headers.append("Unpaid Amount")
+        value_keys.append("unpaid_total")
     rows = [
         [row["category"], fmt(row["connections"]), row["rate"], fmt(row["bills"])]
         + [fmt(row[key]) for key in value_keys]
@@ -7075,12 +7081,12 @@ def export_staff_summary(fmt_type: str):
 def export_bill_income_category_summary(fmt_type: str):
     category = request.args.get("category", "").strip().lower()
     mode = request.args.get("mode", "combined").strip().lower()
-    if mode not in ("combined", "income", "arrears"):
+    if mode not in ("combined", "income", "arrears", "unpaid"):
         mode = "combined"
     headers, rows, grand = bill_income_category_export_rows(category, mode)
-    col_map = {key: i for i, key in enumerate(["category", "connections", "rate", "bills"] + (["arrearsReceived"] if mode in ("combined", "arrears") else []) + (["amountReceived"] if mode in ("combined", "income") else []))}
+    col_map = {key: i for i, key in enumerate(["category", "connections", "rate", "bills"] + (["arrearsReceived"] if mode in ("combined", "arrears") else []) + (["amountReceived"] if mode in ("combined", "income") else []) + (["unpaidAmount"] if mode in ("combined", "unpaid") else []))}
     headers, rows, grand = _filter_card_export(request.args.get("cols"), col_map, headers, rows, grand)
-    mode_label = {"combined": "Income And Arrears", "income": "Income", "arrears": "Arrears"}[mode]
+    mode_label = {"combined": "Income, Arrears And Unpaid", "income": "Income", "arrears": "Arrears", "unpaid": "Unpaid"}[mode]
     title = f"Bills {mode_label} Category Summary"
     filename = f"bill_{mode}_category_summary"
     if category:
