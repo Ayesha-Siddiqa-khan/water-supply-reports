@@ -7067,28 +7067,17 @@ def _dnc_split_sector_locality(value: str) -> tuple[str, str]:
 
 def _dnc_classification(sector: str, locality: str) -> str:
     text = f"{sector} {locality}".upper()
-    private_words = ("PRIVATE SOCIETY", "PRIVATE SOCITIES", "PRIVATE SOCIETIES", "AL-KHAIR", "ALHARAM", "BATOOL", "DREEM LAND", "ITEFAQ", "MUHAMMAD CITY", "REHAN", "SIDRA", "ZAIN CITY")
     if "COMMERCIAL" in text:
         return "Commercial"
-    if any(word in text for word in private_words):
+    if any(word in text for word in ("PRIVATE SOCIETY", "PRIVATE SOCITIES", "PRIVATE SOCIETIES", "PRIVATE SO")):
         return "Private Societies"
     return "Domestic"
 
 
 def _dnc_rate_and_classification(sector: str, locality: str, connections: float, h1_demand: float, h2_demand: float) -> tuple[str, str]:
-    """Classify DNC rows by the approved half-year rate: 2,400 domestic, 4,800 private, every other rate commercial."""
-    rates = [value / connections for value in (h1_demand, h2_demand) if connections and value > 0]
-    rate = max(rates) if rates else 0
-    if abs(rate - 2400) <= 350:
-        return "Domestic", "2,400"
-    if abs(rate - 4800) <= 600:
-        return "Private Societies", "4,800"
-    fallback = _dnc_classification(sector, locality)
-    if fallback == "Private Societies" and rate == 0:
-        return fallback, "4,800"
-    if fallback == "Domestic" and rate == 0:
-        return fallback, "2,400"
-    return "Commercial", fmt(rate) if rate else "Mixed"
+    """DNC category comes from row text: Commercial, Private Society, otherwise Domestic."""
+    classification = _dnc_classification(sector, locality)
+    return classification, {"Domestic": "2,400", "Private Societies": "4,800"}.get(classification, "Mixed")
 
 
 def _dnc_sum_rows(part: list[dict], label: str) -> dict:

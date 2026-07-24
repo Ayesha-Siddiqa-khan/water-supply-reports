@@ -1,16 +1,16 @@
 # Graph Report - water suppy report  (2026-07-24)
 
 ## Corpus Check
-- 29 files · ~96,216 words
+- 29 files · ~96,134 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 413 nodes · 1076 edges · 32 communities (26 shown, 6 thin omitted)
+- 413 nodes · 1075 edges · 32 communities (26 shown, 6 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 18 edges (avg confidence: 0.58)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `fee79862`
+- Built from commit: `a8ba2524`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -40,7 +40,7 @@
 - file_merger
 
 ## God Nodes (most connected - your core abstractions)
-1. `fmt()` - 34 edges
+1. `fmt()` - 33 edges
 2. `get_db()` - 27 edges
 3. `init_bill_list_db()` - 23 edges
 4. `download_card()` - 22 edges
@@ -75,11 +75,11 @@
 
 ### Community 0 - "BytesIO"
 Cohesion: 0.07
-Nodes (62): bill_income_category_export_rows(), bill_list_export_rows(), _bracket_rich_text(), build_connection_summary(), _calc_col_widths(), _card_rows_to_df(), commercial_daily_income_export_rows(), daily_staff_receive_export_response() (+54 more)
+Nodes (63): bill_income_category_export_rows(), bill_list_export_rows(), _bracket_rich_text(), build_connection_summary(), _calc_col_widths(), _card_rows_to_df(), commercial_daily_income_export_rows(), daily_staff_receive_export_response() (+55 more)
 
 ### Community 1 - "app.py"
 Cohesion: 0.09
-Nodes (35): ajax_error(), ajax_ok(), allowed_file(), arrear_calculator(), bill_list(), build_dashboard_results(), _build_dnc_register_report(), consumer_sector_remaining_report() (+27 more)
+Nodes (34): ajax_error(), ajax_ok(), allowed_file(), arrear_calculator(), bill_list(), build_dashboard_results(), _build_dnc_register_report(), consumer_sector_remaining_report() (+26 more)
 
 ### Community 2 - "DataFrame"
 Cohesion: 0.09
@@ -158,8 +158,8 @@ _Questions this graph is uniquely positioned to answer:_
 - **What connects `Aggressively normalize a sector/locality name for robust matching.`, `Extract significant keywords from a sector/locality name.`, `Return display name: paired staff on separate lines, else as-is.` to the rest of the system?**
   _86 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `BytesIO` be split into smaller, more focused modules?**
-  _Cohesion score 0.06925418569254185 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.0684931506849315 - nodes in this community are weakly interconnected._
 - **Should `app.py` be split into smaller, more focused modules?**
-  _Cohesion score 0.08739495798319327 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09090909090909091 - nodes in this community are weakly interconnected._
 - **Should `DataFrame` be split into smaller, more focused modules?**
   _Cohesion score 0.09494949494949495 - nodes in this community are weakly interconnected._

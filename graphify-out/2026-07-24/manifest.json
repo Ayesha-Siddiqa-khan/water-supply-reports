@@ -1,7 +1,7 @@
 {
   "app.py": {
-    "mtime": 1784901374.8767242,
-    "ast_hash": "6bb68a39be4211ff703accd734e62d25",
+    "mtime": 1784911688.714332,
+    "ast_hash": "347873d752a6acea9ee440e7d1cd5115",
     "semantic_hash": ""
   },
   "check_bill_list.py": {
@@ -235,8 +235,8 @@
     "semantic_hash": ""
   },
   "templates/base.html": {
-    "mtime": 1784036470.825242,
-    "ast_hash": "916f3d0a6a3f91da5b001e9debc2b705",
+    "mtime": 1784911611.298087,
+    "ast_hash": "1c4f986f2baee1432e6c735a1714c1f8",
     "semantic_hash": ""
   },
   "templates/bill_list.html": {
@@ -462,6 +462,11 @@
   "templates/new_connection_receipt_matching.html": {
     "mtime": 1784041173.4211745,
     "ast_hash": "32ab14f847420015ba0be037f4c59920",
+    "semantic_hash": ""
+  },
+  "templates/dnc_register.html": {
+    "mtime": 1784911733.7592556,
+    "ast_hash": "e94f86d4fa335bb7aaf9791fa5ca347d",
     "semantic_hash": ""
   }
 }
