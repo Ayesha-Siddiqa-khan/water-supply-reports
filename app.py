@@ -6978,13 +6978,25 @@ def get_bill_income_category_summary():
     return summary
 
 
-def bill_income_category_export_rows(category_filter: str = ""):
+def bill_income_category_export_rows(category_filter: str = "", mode: str = "combined"):
     data = get_bill_income_category_summary()
     if category_filter:
         data = [row for row in data if row["category"].lower().replace(" ", "-") == category_filter]
-    headers = ["Category", "Connections", "Rate (Rs./Year)", "No. of Bills", "Arrears Received", "Amount Received"]
-    rows = [[row["category"], fmt(row["connections"]), row["rate"], fmt(row["bills"]), fmt(row["arrears_total"]), fmt(row["amount_total"])] for row in data]
-    grand = ["Grand Total", fmt(sum(row["connections"] for row in data)), "", fmt(sum(row["bills"] for row in data)), fmt(sum(row["arrears_total"] for row in data)), fmt(sum(row["amount_total"] for row in data))]
+    headers = ["Category", "Connections", "Rate (Rs./Year)", "No. of Bills"]
+    value_keys = []
+    if mode in ("combined", "arrears"):
+        headers.append("Arrears Received")
+        value_keys.append("arrears_total")
+    if mode in ("combined", "income"):
+        headers.append("Amount Received")
+        value_keys.append("amount_total")
+    rows = [
+        [row["category"], fmt(row["connections"]), row["rate"], fmt(row["bills"])]
+        + [fmt(row[key]) for key in value_keys]
+        for row in data
+    ]
+    grand = ["Grand Total", fmt(sum(row["connections"] for row in data)), "", fmt(sum(row["bills"] for row in data))]
+    grand += [fmt(sum(row[key] for row in data)) for key in value_keys]
     return headers, rows, grand
 
 
@@ -7055,13 +7067,18 @@ def export_staff_summary(fmt_type: str):
 @app.route("/bill-list/income-category/<fmt_type>")
 def export_bill_income_category_summary(fmt_type: str):
     category = request.args.get("category", "").strip().lower()
-    headers, rows, grand = bill_income_category_export_rows(category)
-    headers, rows, grand = _filter_card_export(request.args.get("cols"), BILL_INCOME_CATEGORY_COL_MAP, headers, rows, grand)
-    title = "Bills Income Category Summary"
-    filename = "bill_income_category_summary"
+    mode = request.args.get("mode", "combined").strip().lower()
+    if mode not in ("combined", "income", "arrears"):
+        mode = "combined"
+    headers, rows, grand = bill_income_category_export_rows(category, mode)
+    col_map = {key: i for i, key in enumerate(["category", "connections", "rate", "bills"] + (["arrearsReceived"] if mode in ("combined", "arrears") else []) + (["amountReceived"] if mode in ("combined", "income") else []))}
+    headers, rows, grand = _filter_card_export(request.args.get("cols"), col_map, headers, rows, grand)
+    mode_label = {"combined": "Income And Arrears", "income": "Income", "arrears": "Arrears"}[mode]
+    title = f"Bills {mode_label} Category Summary"
+    filename = f"bill_{mode}_category_summary"
     if category:
-        title = f"{category.replace('-', ' ').title()} Income Summary"
-        filename = f"bill_income_{category}_summary"
+        title = f"{category.replace('-', ' ').title()} {mode_label} Summary"
+        filename = f"bill_{mode}_{category}_summary"
 
     if fmt_type == "pdf":
         page_w = A4[0] - 30 * mm

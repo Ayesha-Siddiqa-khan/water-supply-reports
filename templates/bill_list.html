@@ -69,24 +69,30 @@
           <div class="stat-card {% if row.category == 'Commercial' %}coral{% elif row.category == 'Private Societies' %}amber{% else %}teal{% endif %}">
             <div class="stat-card-icon">&#128176;</div>
             <div class="stat-label">{{ row.category }}</div>
-            <div class="stat-value" data-count="{{ row.amount_total|default(0) }}" data-prefix="Rs. ">Rs. 0</div>
-            <div class="stat-delta">{{ "{:,}".format(row.connections|default(0)) }} connections &bull; {{ "{:,}".format(row.bills|default(0)) }} bills</div>
+            <div class="stat-value">Rs. {{ "{:,.0f}".format(row.arrears_total|default(0)) }}</div>
+            <div class="stat-delta">Income: Rs. {{ "{:,.0f}".format(row.amount_total|default(0)) }} &bull; {{ "{:,}".format(row.connections|default(0)) }} connections &bull; {{ "{:,}".format(row.bills|default(0)) }} bills</div>
           </div>
           {% endfor %}
         </div>
         <div class="export-bar" data-col-config="billIncomeCategory">
-          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}">&#11015; All PDF</a>
-          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='csv') }}">&#11015; All CSV</a>
-          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='xlsx') }}">&#11015; All Excel</a>
-          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=domestic">Domestic PDF</a>
-          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='csv') }}?category=domestic">Domestic CSV</a>
-          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='xlsx') }}?category=domestic">Domestic Excel</a>
-          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=commercial">Commercial PDF</a>
-          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='csv') }}?category=commercial">Commercial CSV</a>
-          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='xlsx') }}?category=commercial">Commercial Excel</a>
-          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=private-societies">Private Societies PDF</a>
-          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='csv') }}?category=private-societies">Private Societies CSV</a>
-          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='xlsx') }}?category=private-societies">Private Societies Excel</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?mode=combined">&#11015; Combined PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='csv') }}?mode=combined">&#11015; Combined CSV</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='xlsx') }}?mode=combined">&#11015; Combined Excel</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?mode=income">&#11015; Income PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='csv') }}?mode=income">&#11015; Income CSV</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='xlsx') }}?mode=income">&#11015; Income Excel</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?mode=arrears">&#11015; Arrears PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='csv') }}?mode=arrears">&#11015; Arrears CSV</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='xlsx') }}?mode=arrears">&#11015; Arrears Excel</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=domestic&mode=combined">Domestic Combined PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=domestic&mode=income">Domestic Income PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=domestic&mode=arrears">Domestic Arrears PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=commercial&mode=combined">Commercial Combined PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=commercial&mode=income">Commercial Income PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=commercial&mode=arrears">Commercial Arrears PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=private-societies&mode=combined">Private Societies Combined PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=private-societies&mode=income">Private Societies Income PDF</a>
+          <a class="chip" href="{{ url_for('export_bill_income_category_summary', fmt_type='pdf') }}?category=private-societies&mode=arrears">Private Societies Arrears PDF</a>
         </div>
         <div class="col-select-area">
           <div class="col-select-label">Select Columns for Export</div>
