@@ -1,16 +1,16 @@
 # Graph Report - water suppy report  (2026-07-24)
 
 ## Corpus Check
-- 29 files · ~91,642 words
+- 29 files · ~91,684 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 392 nodes · 1006 edges · 29 communities (26 shown, 3 thin omitted)
+- 392 nodes · 1005 edges · 29 communities (26 shown, 3 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 15 edges (avg confidence: 0.59)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `2d3a1ddc`
+- Built from commit: `b7d192b9`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -159,4 +159,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `app.py` be split into smaller, more focused modules?**
   _Cohesion score 0.07088989441930618 - nodes in this community are weakly interconnected._
 - **Should `DataFrame` be split into smaller, more focused modules?**
-  _Cohesion score 0.10121951219512196 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.1 - nodes in this community are weakly interconnected._

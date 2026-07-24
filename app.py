@@ -7362,7 +7362,11 @@ def daily_staff_receive_export_response(fmt_type: str, results: dict, cols: str 
 
 @app.route("/download-card/<card>/<fmt_type>")
 def download_card(card: str, fmt_type: str):
-    r = _last_results
+    global _last_results
+    # Vercel can serve the page and the download from different warm instances,
+    # so exports must restore the saved dashboard cache instead of relying only on memory.
+    r = _last_results or _load_results_cache()
+    _last_results = r
     if not r:
         flash("No data available. Please upload files first.")
         return redirect(url_for("index"))
