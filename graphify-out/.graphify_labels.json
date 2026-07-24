@@ -26,5 +26,8 @@
   "24": "_build_connection_rate_report",
   "25": "_normalize_staff_name",
   "26": "new_connection_detail",
-  "27": "export_arrear_calculator"
+  "27": "export_arrear_calculator",
+  "28": "export_new_connection_detail",
+  "29": "bill_list_sector_seasonly_export_rows",
+  "30": "normalize_sector_key"
 }

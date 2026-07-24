@@ -117,6 +117,75 @@
       {% if results.merged_xlsx_name %}<a class="chip" href="{{ url_for('download_file', filename=results.merged_xlsx_name) }}">&#11015; Merged Excel</a>{% endif %}
     </div>
 
+    <!-- INCOME CATEGORY SUMMARY -->
+    {% if results.income_category_summary %}
+    <div class="section collapsed" id="sec-income-category">
+      <div class="section-header" onclick="toggleSection('sec-income-category')">
+        <div class="section-header-icon">&#128176;</div>
+        <div class="section-title">Income Category Summary</div>
+        <span class="section-badge">{{ results.income_category_summary|length }} categories</span>
+        <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="section-body">
+        <div class="stat-grid" style="margin-bottom:16px;">
+          {% for row in results.income_category_summary %}
+          <div class="stat-card {% if row.category == 'Commercial' %}coral{% elif row.category == 'Private Societies' %}amber{% else %}teal{% endif %}">
+            <div class="stat-card-icon">&#128176;</div>
+            <div class="stat-label">{{ row.category }}</div>
+            <div class="stat-value" data-count="{{ row.amount_total|default(0) }}" data-prefix="Rs. ">Rs. 0</div>
+            <div class="stat-delta">{{ "{:,}".format(row.connections|default(0)) }} connections &bull; {{ "{:,}".format(row.bills|default(0)) }} bills</div>
+          </div>
+          {% endfor %}
+        </div>
+        <div data-col-config="incomeCategorySummary">
+          <div class="export-bar">
+            <a class="dl-btn pdf" href="{{ url_for('download_card', card='income-summary', fmt_type='pdf') }}">&#11015; All PDF</a>
+            <a class="dl-btn csv" href="{{ url_for('download_card', card='income-summary', fmt_type='csv') }}">&#11015; All CSV</a>
+            <a class="dl-btn xlsx" href="{{ url_for('download_card', card='income-summary', fmt_type='xlsx') }}">&#11015; All Excel</a>
+            <a class="dl-btn pdf" href="{{ url_for('download_card', card='income-domestic', fmt_type='pdf') }}">Domestic PDF</a>
+            <a class="dl-btn csv" href="{{ url_for('download_card', card='income-domestic', fmt_type='csv') }}">Domestic CSV</a>
+            <a class="dl-btn xlsx" href="{{ url_for('download_card', card='income-domestic', fmt_type='xlsx') }}">Domestic Excel</a>
+            <a class="dl-btn pdf" href="{{ url_for('download_card', card='income-commercial', fmt_type='pdf') }}">Commercial PDF</a>
+            <a class="dl-btn csv" href="{{ url_for('download_card', card='income-commercial', fmt_type='csv') }}">Commercial CSV</a>
+            <a class="dl-btn xlsx" href="{{ url_for('download_card', card='income-commercial', fmt_type='xlsx') }}">Commercial Excel</a>
+            <a class="dl-btn pdf" href="{{ url_for('download_card', card='income-private', fmt_type='pdf') }}">Private Societies PDF</a>
+            <a class="dl-btn csv" href="{{ url_for('download_card', card='income-private', fmt_type='csv') }}">Private Societies CSV</a>
+            <a class="dl-btn xlsx" href="{{ url_for('download_card', card='income-private', fmt_type='xlsx') }}">Private Societies Excel</a>
+          </div>
+        </div>
+        <div class="col-select-area">
+          <div class="col-select-label">Select Columns for Export</div>
+          <div class="col-chips" id="col-chips-incomeCategorySummary"></div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr><th>Category</th><th>Connections</th><th>Rate (Rs./Year)</th><th>No. of Bills</th><th>Amount Received</th></tr>
+            </thead>
+            <tbody>
+              {% set inc = namespace(tc=0, tb=0, ta=0) %}
+              {% for row in results.income_category_summary %}
+              <tr>
+                <td>{{ row.category }}</td>
+                <td class="mono">{{ "{:,}".format(row.connections|default(0)) }}</td>
+                <td class="mono">{{ row.rate }}</td>
+                <td class="mono">{{ "{:,}".format(row.bills|default(0)) }}</td>
+                <td class="mono accent-teal">{{ "{:,.0f}".format(row.amount_total|default(0)) }}</td>
+                {% set inc.tc = inc.tc + row.connections|default(0) %}
+                {% set inc.tb = inc.tb + row.bills|default(0) %}
+                {% set inc.ta = inc.ta + row.amount_total|default(0) %}
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr><td>Grand Total</td><td class="mono">{{ "{:,}".format(inc.tc) }}</td><td></td><td class="mono">{{ "{:,}".format(inc.tb) }}</td><td class="mono">{{ "{:,.0f}".format(inc.ta) }}</td></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- MONTHLY BREAKDOWN -->
     <div class="section collapsed" id="sec-monthly">
       <div class="section-header" onclick="toggleSection('sec-monthly')">
@@ -518,7 +587,7 @@
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
-              <tr><th>Sector</th><th>Locality</th><th>No. of Bills</th>{% if results.has_arrears %}<th>Arrears Received</th>{% endif %}<th>Amount Received</th></tr>
+              <tr><th>Locality</th><th>No. of Bills</th>{% if results.has_arrears %}<th>Arrears Received</th>{% endif %}<th>Amount Received</th></tr>
             </thead>
             <tbody>
               {% set cs = namespace(tc=0, ta=0, tar=0) %}
@@ -866,6 +935,13 @@
       { key: "sector", label: "Sector", checked: true },
       { key: "locality", label: "Locality", checked: true },
       { key: "arrearsReceived", label: "Arrears Received", checked: true },
+      { key: "amountReceived", label: "Amount Received", checked: true }
+    ],
+    incomeCategorySummary: [
+      { key: "category", label: "Category", checked: true },
+      { key: "connections", label: "Connections", checked: true },
+      { key: "rate", label: "Rate", checked: true },
+      { key: "bills", label: "No. of Bills", checked: true },
       { key: "amountReceived", label: "Amount Received", checked: true }
     ],
     commercialSectorTotalLocalityBreakdown: [

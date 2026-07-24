@@ -1510,6 +1510,52 @@ def build_receipt_monthly_rows(df: pd.DataFrame, date_col_name: str, arrears_col
     }
 
 
+def build_income_category_summary(df: pd.DataFrame, amount_col: str | None) -> list[dict]:
+    columns = list(df.columns)
+    connection_col = pick_column(columns, ["connection no", "connection number", "consumer no"])
+    type_col = pick_column(columns, ["connection type", "bill type", "type"])
+    if not amount_col:
+        return []
+
+    work = df.copy()
+    work["_amount"] = work[amount_col].apply(clean_amount_value)
+    valid = work["_amount"].ne(0)
+    if connection_col:
+        valid = valid | work[connection_col].fillna("").astype(str).str.strip().ne("")
+    work = work[valid].copy()
+    if work.empty:
+        return []
+
+    private_mask = build_private_society_mask(work)
+    commercial_mask = build_commercial_mask(work) & ~private_mask
+    categories = [
+        ("Domestic", ~private_mask & ~commercial_mask, "4,800"),
+        ("Commercial", commercial_mask, "Mixed"),
+        ("Private Societies", private_mask, "9,600"),
+    ]
+    rows = []
+    for label, mask, rate in categories:
+        sub = work[mask].copy()
+        if sub.empty:
+            connections = bills = 0
+            amount = 0.0
+        else:
+            bills = int(len(sub))
+            if connection_col:
+                connections = int(sub[connection_col].fillna("").astype(str).str.strip().replace("", pd.NA).dropna().nunique())
+            else:
+                connections = bills
+            amount = float(sub["_amount"].sum())
+        rows.append({
+            "category": label,
+            "connections": connections,
+            "rate": rate,
+            "bills": bills,
+            "amount_total": amount,
+        })
+    return rows
+
+
 def summarize_dataframe(df: pd.DataFrame) -> dict:
     df = normalize_dataframe(df)
     columns = [str(col) for col in df.columns]
@@ -1539,6 +1585,7 @@ def summarize_dataframe(df: pd.DataFrame) -> dict:
     commercial_daily_income, commercial_daily_metric_label = None, "Arrears Received" if arrears_col else "Areas Received"
     commercial_month_wise_summary = []
     private_society_total = None
+    income_category_summary = []
     daily_staff_receive = {"summary_rows": [], "detail_rows": [], "metric_label": "Area Received", "date_range": ""}
     dates = None
 
@@ -1581,6 +1628,7 @@ def summarize_dataframe(df: pd.DataFrame) -> dict:
             )
             commercial_month_wise_summary = build_commercial_month_wise_summary(df, dates, amount_col, arrears_col)
             private_society_total = build_private_society_rows(df, dates, amount_col, arrears_col)
+            income_category_summary = build_income_category_summary(df, amount_col)
             daily_staff_receive = build_daily_staff_receive_report(
                 df,
                 dates,
@@ -1658,6 +1706,7 @@ def summarize_dataframe(df: pd.DataFrame) -> dict:
         "commercial_daily_metric_label": commercial_daily_metric_label,
         "commercial_month_wise_summary": commercial_month_wise_summary,
         "private_society_total": private_society_total,
+        "income_category_summary": income_category_summary,
         "daily_staff_receive": daily_staff_receive,
         "has_receipt_format": has_receipt_format,
         "receipt_monthly_rows": (receipt_info or {}).get("rows", []),
@@ -1801,6 +1850,10 @@ CARD_COL_MAPS = {
     "commercial-daily-income": {"sr": 0, "date": 1, "consumerName": 2, "connectionNo": 3, "sector": 4, "locality": 5, "arrearsReceived": 6, "amountReceived": 7},
     "connection-type-summary": {"name": 0, "noOfBills": 1, "arrearsReceived": 2, "currentAmountReceived": 3, "amountReceived": 4},
     "daily-staff-receive": {"sr": 0, "staffName": 1, "bills": 2, "arrears": 3, "amount": 4},
+    "income-summary": {"category": 0, "connections": 1, "rate": 2, "bills": 3, "amountReceived": 4},
+    "income-domestic": {"category": 0, "connections": 1, "rate": 2, "bills": 3, "amountReceived": 4},
+    "income-commercial": {"category": 0, "connections": 1, "rate": 2, "bills": 3, "amountReceived": 4},
+    "income-private": {"category": 0, "connections": 1, "rate": 2, "bills": 3, "amountReceived": 4},
 }
 
 def _get_card_col_map(card, r):
@@ -7483,6 +7536,31 @@ def download_card(card: str, fmt_type: str):
             gt_amount += am
         grand = ["Grand Total", fmt(gt_count), fmt(gt_arrears), fmt(gt_amount)]
 
+    elif card.startswith("income-"):
+        title = "Income Category Summary"
+        summary = ["<b>Domestic, Commercial, and Private Societies total income</b>"]
+        headers = ["Category", "Connections", "Rate (Rs./Year)", "No. of Bills", "Amount Received"]
+        category_filter = {
+            "income-domestic": "Domestic",
+            "income-commercial": "Commercial",
+            "income-private": "Private Societies",
+        }.get(card)
+        source_rows = r.get("income_category_summary", [])
+        if category_filter:
+            source_rows = [row for row in source_rows if row.get("category") == category_filter]
+            title = f"{category_filter} Income Summary"
+        rows = []
+        gt_connections, gt_bills, gt_amount = 0, 0, 0
+        for row in source_rows:
+            connections = row.get("connections", 0)
+            bills = row.get("bills", 0)
+            amount = row.get("amount_total", 0)
+            rows.append([row.get("category", ""), fmt(connections), row.get("rate", ""), fmt(bills), fmt(amount)])
+            gt_connections += connections
+            gt_bills += bills
+            gt_amount += amount
+        grand = ["Grand Total", fmt(gt_connections), "", fmt(gt_bills), fmt(gt_amount)]
+
     elif card == "sector":
         title = "Sector-wise Report"
         summary = [f"<b>Total Amount:</b> Rs. {r.get('total_amount_formatted', '0')}"]
@@ -7690,6 +7768,10 @@ def download_card(card: str, fmt_type: str):
     dl_filename = {
         "commercial-month-wise": "Commercial_Month_Wise_Report",
         "private-society-total": "Private_Societies_Locality_Report",
+        "income-summary": "Income_Category_Summary",
+        "income-domestic": "Domestic_Income_Summary",
+        "income-commercial": "Commercial_Income_Summary",
+        "income-private": "Private_Societies_Income_Summary",
     }.get(card, card)
 
     if fmt_type == "pdf":
@@ -7741,6 +7823,14 @@ def download_card(card: str, fmt_type: str):
                     col_widths = [page_w * 0.38, page_w * 0.20, page_w * 0.21, page_w * 0.21]
                 else:
                     col_widths = [page_w * 0.48, page_w * 0.26, page_w * 0.26]
+                pdf_kwargs = {
+                    "pagesize": A4,
+                    "col_widths": col_widths,
+                    "first_col_left": True,
+                }
+            elif card.startswith("income-"):
+                page_w = A4[0] - 30 * mm
+                col_widths = [page_w * 0.30, page_w * 0.16, page_w * 0.18, page_w * 0.16, page_w * 0.20]
                 pdf_kwargs = {
                     "pagesize": A4,
                     "col_widths": col_widths,
