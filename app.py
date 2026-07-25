@@ -7315,13 +7315,13 @@ AUDIT_SECTOR_COLS = [
 ]
 AUDIT_EXCEPTION_COLS = [
     ("check", "Code"), ("severity", "Severity"), ("sector", "Sector"), ("locality", "Locality"),
-    ("sr", "Sr"), ("name", "Name"), ("conn_no", "Connection No"), ("arrear", "Arrear"),
+    ("sr", "Reg Sr"), ("name", "Name"), ("conn_no", "Connection No"), ("arrear", "Arrear"),
     ("total_demand", "Total Demand"), ("demand_arrear", "Demand + Arrear"),
     ("total_collection", "Total Collection"), ("pending", "Pending Amount"),
     ("amount", "Amount at Risk"), ("issue", "Finding"), ("action", "Recommended Action"),
 ]
 AUDIT_CORRECTION_COLS = [
-    ("check", "Code"), ("sector", "Sector"), ("locality", "Locality"), ("sr", "Sr"),
+    ("check", "Code"), ("sector", "Sector"), ("locality", "Locality"), ("sr", "Reg Sr"),
     ("name", "Name"), ("conn_no", "Connection No"), ("field", "Column"),
     ("current_value", "Current"), ("proposed_value", "Proposed"), ("amount", "Amount"),
     ("reason", "Why"),
@@ -7330,16 +7330,23 @@ AUDIT_STRUCTURAL_COLS = [
     ("kind", "Issue"), ("source", "File"), ("sector", "Sector"), ("locality", "Locality"),
     ("column", "Column"), ("detail", "Detail"),
 ]
+AUDIT_NEGATIVE_COLS = [
+    ("priority", "Pri"), ("verdict", "Verdict"), ("sector", "Sector"), ("locality", "Locality"),
+    ("sr", "Reg Sr"), ("name", "Name"), ("conn_no", "Connection No"),
+    ("total_demand", "Total Demand"), ("total_collection", "Total Collection"),
+    ("pending", "Negative Pending"), ("half1", "Jul-Dec Dmd / Coll"), ("half2", "Jan-Jun Dmd / Coll"),
+    ("reason", "Reason"), ("action", "Required Action"), ("flags", "Wrong-Column Flag"),
+]
 AUDIT_COLS = {
     "findings": AUDIT_FINDING_COLS, "sectors": AUDIT_SECTOR_COLS,
     "exceptions": AUDIT_EXCEPTION_COLS, "corrections": AUDIT_CORRECTION_COLS,
-    "structural": AUDIT_STRUCTURAL_COLS,
+    "negatives": AUDIT_NEGATIVE_COLS, "structural": AUDIT_STRUCTURAL_COLS,
 }
 AUDIT_COL_MAPS = {kind: {key: idx for idx, (key, _) in enumerate(cols)} for kind, cols in AUDIT_COLS.items()}
 AUDIT_TITLES = {
     "findings": "Data Audit - Findings", "sectors": "Data Audit - Sector Wise",
     "exceptions": "Data Audit - Exceptions", "corrections": "Data Audit - Proposed Corrections",
-    "structural": "Data Audit - Structural Checks",
+    "negatives": "Data Audit - Negative Pending Amount", "structural": "Data Audit - Structural Checks",
 }
 # money and count columns both get thousands separators; everything else prints as-is
 AUDIT_MONEY_KEYS = {"arrear", "total_demand", "demand_arrear", "total_collection",
@@ -7396,10 +7403,12 @@ def _audit_report_rows(kind: str, sector: str = "", report: dict = None) -> tupl
     # several checks - so a column sum double-counts. Label it so it cannot be read
     # as an institute figure (which the Summary cards already give, de-duplicated).
     grand[0] = "Column Total" if kind == "findings" else "Grand Total"
+    if kind == "negatives":
+        grand = []  # verdict rows are not additive; the tab shows its own summary strip
     for key in ("rows", "connections", "localities", "arrear", "total_demand", "demand_arrear",
                 "total_collection", "pending", "amount", "money_at_risk", "unbilled",
                 "critical", "high"):
-        if key in keys:
+        if key in keys and grand:
             grand[keys.index(key)] = fmt(sum(_num(item.get(key, 0)) for item in source))
     if kind == "sectors" and source:
         receivable = sum(_num(i.get("demand_arrear", 0)) for i in source)
@@ -7537,12 +7546,53 @@ def _audit_col_widths(headers: list, rows: list, grand: list, page_w: float) -> 
 # label rather than column index because ?cols= reorders and drops columns.
 AUDIT_LEFT_LABELS = {"Finding", "Recommended Action", "Why", "Detail", "Sector", "Locality",
                      "Name", "Column", "Current", "Proposed", "File", "Issue", "Category"}
+# Columns worth lifting out of the table when every printed row repeats the same value -
+# the value goes in a heading line instead. Identity and numeric columns are never
+# collapsed: they are what the reader came for, and the totals row needs them.
+AUDIT_COLLAPSIBLE_LABELS = {"Code", "Severity", "Type", "Category", "Sector", "Locality",
+                            "Finding", "Recommended Action", "Why", "Column", "File", "Issue"}
+
+
+def _audit_collapse_constant(headers: list, rows: list, all_rows: list) -> tuple[list[int], list[str]]:
+    """Return (columns to keep, heading lines) after folding away constant columns."""
+    keep, notes = [], []
+    for ci, label in enumerate(headers):
+        seen = {str(r[ci]) for r in rows if ci < len(r)}
+        if (len(rows) > 1 and len(seen) == 1 and str(label) in AUDIT_COLLAPSIBLE_LABELS
+                and next(iter(seen)).strip()):
+            value = next(iter(seen))
+            whole = {str(r[ci]) for r in all_rows if ci < len(r)}
+            # the printed rows are capped, so say plainly whether the whole export
+            # shares this value or only the page in front of the reader
+            scope = "" if len(whole) == 1 else " <i>(in the rows shown)</i>"
+            notes.append(f"<b>{label}:</b> {value}{scope}")
+        else:
+            keep.append(ci)
+    return keep, notes
 
 
 def _audit_pdf(kind: str, headers: list, rows: list, grand: list, title: str) -> bytes:
-    page = landscape(A4) if len(headers) > 9 else A4
-    page_w = page[0] - 30 * mm
     shown = rows[:AUDIT_PDF_ROW_CAP]
+    summary = [f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}"]
+
+    # fold away any column that repeats the same value on every printed row, then
+    # number the rows - a 400-row report should not restate its sector 400 times
+    keep, notes = _audit_collapse_constant(headers, shown, rows)
+    # a sector-filtered export already names the sector in its title; don't say it twice
+    summary.extend(n for n in notes if n.split("</b> ", 1)[-1].split(" <i>")[0] not in title)
+    headers = ["Sr"] + [headers[ci] for ci in keep]
+    shown = [[str(i)] + [r[ci] for ci in keep] for i, r in enumerate(shown, start=1)]
+    if grand:
+        kept_grand = [grand[ci] for ci in keep]
+        # the "Grand Total" label may have lived in a column that was folded away
+        if kept_grand and not str(kept_grand[0]).strip():
+            kept_grand[0] = "Grand Total"
+        grand = [""] + kept_grand
+    if not any(str(c).strip() for c in (grand or [])):
+        grand = None
+
+    page = landscape(A4) if len(headers) > 8 else A4
+    page_w = page[0] - 30 * mm
     col_widths = _audit_col_widths(headers, shown, grand, page_w)
     left_cols = [i for i, label in enumerate(headers) if str(label) in AUDIT_LEFT_LABELS]
     body_fs = 6 if len(headers) > 9 else 9
@@ -7551,7 +7601,6 @@ def _audit_pdf(kind: str, headers: list, rows: list, grand: list, title: str) ->
     # wrapping them. Every other PDF builder here wraps its own body rows.
     body = wrap_pdf_body_cells(shown, font_size=body_fs, left_columns=set(left_cols))
     grand_row = wrap_pdf_body_cells([grand], font_size=body_fs, left_columns=set(left_cols))[0] if grand else None
-    summary = [f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}"]
     if len(rows) > AUDIT_PDF_ROW_CAP:
         summary.append(f"<b>Showing top {AUDIT_PDF_ROW_CAP:,} of {len(rows):,} rows</b> "
                        f"({len(rows) - AUDIT_PDF_ROW_CAP:,} omitted - export CSV or Excel for the full list)")
@@ -7625,7 +7674,7 @@ def export_data_audit_workbook():
         overview.to_excel(writer, sheet_name="Overview", index=False)
         for kind, sheet in (("findings", "Findings"), ("sectors", "Sector Wise"),
                             ("exceptions", "Exceptions"), ("corrections", "Corrections"),
-                            ("structural", "Structural")):
+                            ("negatives", "Negative Pending"), ("structural", "Structural")):
             headers, rows, grand, _ = _audit_report_rows(kind, report=report)
             pd.DataFrame(rows, columns=headers).to_excel(writer, sheet_name=sheet, index=False)
     buf.seek(0)

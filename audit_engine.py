@@ -291,6 +291,76 @@ def run_checks(row: dict) -> list[tuple[Check, float]]:
 
 
 # ---------------------------------------------------------------------------
+# Negative Pending Amount - verdict per record
+# ---------------------------------------------------------------------------
+
+SURCHARGE_RATE = 0.10
+
+NEGATIVE_ACTIONS = {
+    "Collection posted against zero demand":
+        "Raise the missing demand for this connection, or reverse the receipt if it belongs "
+        "to another connection.",
+    "Arrear recovery + surcharge merged into current collection":
+        "Split the receipt: post the old year into Recovered Arrear and the surcharge into the "
+        "fine head. Pending then returns to zero.",
+    "Late-payment surcharge booked as water collection":
+        "Move the surcharge out of Total Collection into the surcharge/fine head. It is not "
+        "water demand.",
+    "Odd amount - keying error in collection":
+        "Check the receipt and correct the collection figure (e.g. 2,403 keyed instead of 2,400).",
+    "Advance payment - exact multiple of the tariff":
+        "No correction needed. Carry the excess forward as an advance against next year's demand.",
+}
+NEGATIVE_PRIORITY_ORDER = {"P1": 0, "P2": 1, "P3": 2, "P4": 3, "-": 4}
+
+
+def classify_negative(r: dict) -> tuple[str, str, str, str]:
+    """(verdict, reason, priority, action) for a row whose Pending Amount is below zero.
+
+    Verified against the half-year figures: a negative pending always means the full
+    demand was paid, so the question is only what the *excess* is made of. An excess
+    that is a clean multiple of the half-year tariff is a real advance; anything else
+    is money from another head (arrear, surcharge) pushed into Total Collection.
+    """
+    excess = round(-r["pending"], 2)
+    demand = r["total_demand"]
+    half = demand / 2 if demand else 0
+    if demand == 0:
+        verdict, reason, pri = "Incorrect", "Collection posted against zero demand", "P1"
+    elif abs(excess - round(demand * SURCHARGE_RATE)) < 0.5:
+        verdict, reason, pri = "Incorrect", "Late-payment surcharge booked as water collection", "P3"
+    elif excess % 10 != 0:
+        verdict, reason, pri = "Incorrect", "Odd amount - keying error in collection", "P4"
+    elif half and abs(excess % half) < 0.5:
+        verdict, reason, pri = "Valid", "Advance payment - exact multiple of the tariff", "-"
+    else:
+        verdict, reason, pri = "Incorrect", "Arrear recovery + surcharge merged into current collection", "P2"
+    action = NEGATIVE_ACTIONS[reason]
+    if verdict == "Valid" and demand and abs(excess - demand) < 0.5:
+        action += " Confirm against the receipt that this is an advance, not a duplicate posting."
+    return verdict, reason, pri, action
+
+
+def _negative_row(r: dict) -> dict:
+    verdict, reason, pri, action = classify_negative(r)
+    flags = []
+    if r["arrear"] < 0:
+        flags.append("Credit parked in Arrear column")
+    if not r["recovered_arrear_raw"].strip():
+        flags.append("Recovered Arrear left blank")
+    return {
+        "sector": r["sector"], "locality": r["locality"], "sr": r["sr"], "name": r["name"],
+        "conn_no": r["conn_no"], "arrear": r["arrear"],
+        "total_demand": r["total_demand"], "total_collection": r["total_collection"],
+        "pending": r["pending"], "excess": round(-r["pending"], 2),
+        "half1": f"{r['h1_demand']:,.0f} / {r['h1_collection']:,.0f}",
+        "half2": f"{r['h2_demand']:,.0f} / {r['h2_collection']:,.0f}",
+        "verdict": verdict, "reason": reason, "priority": pri, "action": action,
+        "flags": "; ".join(flags), "source": r["source"],
+    }
+
+
+# ---------------------------------------------------------------------------
 # Proposed corrections (derived, never applied)
 # ---------------------------------------------------------------------------
 
@@ -457,6 +527,18 @@ def build_audit_report(sources: list[tuple[str, str]], classify=None) -> dict:
     exceptions.sort(key=lambda e: (SEVERITY_ORDER[e["severity"]], -e["amount"]))
     corrections.sort(key=lambda c: -c["amount"])
 
+    negatives = [_negative_row(r) for r in rows if r["pending"] < 0]
+    negatives.sort(key=lambda n: (NEGATIVE_PRIORITY_ORDER[n["priority"]], -n["excess"]))
+    negatives_summary = []
+    for pri in ("P1", "P2", "P3", "P4", "-"):
+        part = [n for n in negatives if n["priority"] == pri]
+        if part:
+            negatives_summary.append({
+                "priority": pri, "verdict": part[0]["verdict"], "reason": part[0]["reason"],
+                "rows": len(part), "amount": round(sum(n["excess"] for n in part), 2),
+                "sectors": len({n["sector"] for n in part}), "action": part[0]["action"],
+            })
+
     return {
         "meta": {
             "files": len(sources), "rows": len(rows), "total_rows": len(totals),
@@ -470,6 +552,8 @@ def build_audit_report(sources: list[tuple[str, str]], classify=None) -> dict:
         "sector_findings": sector_findings,
         "exceptions": exceptions,
         "corrections": corrections,
+        "negatives": negatives,
+        "negatives_summary": negatives_summary,
         "structural": _structural(rows, totals, problems, empty_files),
     }
 
@@ -582,6 +666,9 @@ def _selfcheck(folder: str) -> int:
         ("footing issues", len(struct["footing_issues"]), 0),
         ("identity issues", len(struct["identity_issues"]), 0),
         ("parse problems", len(struct["problems"]), 0),
+        ("negative rows", len(report["negatives"]), 931),
+        ("negative incorrect", sum(1 for n in report["negatives"] if n["verdict"] == "Incorrect"), 704),
+        ("negative valid", sum(1 for n in report["negatives"] if n["verdict"] == "Valid"), 227),
         ("receivable", round(inst["demand_arrear"]), 25_062_554),
         ("collected", round(inst["total_collection"]), 12_184_160),
         ("pending", round(inst["pending"]), 12_878_394),

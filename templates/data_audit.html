@@ -85,6 +85,7 @@
         <button class="audit-tab active" type="button" data-tab="findings" style="padding:13px 20px;border:0;border-bottom:2px solid var(--teal);background:rgba(45,212,191,.04);color:var(--text-primary);font-weight:700;white-space:nowrap;">Findings</button>
         <button class="audit-tab" type="button" data-tab="sectors" style="padding:13px 20px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted);font-weight:700;white-space:nowrap;">Sector Audit</button>
         <button class="audit-tab" type="button" data-tab="exceptions" style="padding:13px 20px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted);font-weight:700;white-space:nowrap;">Exceptions</button>
+        <button class="audit-tab" type="button" data-tab="negatives" style="padding:13px 20px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted);font-weight:700;white-space:nowrap;">Negative Pending</button>
         <button class="audit-tab" type="button" data-tab="corrections" style="padding:13px 20px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted);font-weight:700;white-space:nowrap;">Corrections</button>
         <button class="audit-tab" type="button" data-tab="structural" style="padding:13px 20px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted);font-weight:700;white-space:nowrap;">Structural</button>
       </div>
@@ -204,6 +205,77 @@
                 <td class="mono accent-coral">{{ "{:,.0f}".format(row.pending) }}</td>
                 <td class="mono accent-coral">{% if row.amount %}{{ "{:,.0f}".format(row.amount) }}{% else %}&mdash;{% endif %}</td>
                 <td>{{ row.issue }}</td><td>{{ row.action }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {# ---------------- Negative Pending ---------------- #}
+      <div class="audit-pane" id="audit-negatives" style="display:none;">
+        {% set neg_bad = report.negatives | selectattr('verdict','equalto','Incorrect') | list %}
+        {% set neg_ok = report.negatives | selectattr('verdict','equalto','Valid') | list %}
+        <div class="export-bar" data-kind="negatives">
+          <a class="chip pdf" data-export href="{{ url_for('export_data_audit', kind='negatives', fmt_type='pdf') }}">PDF (top {{ "{:,}".format(pdf_row_cap) }})</a>
+          <a class="chip csv" data-export href="{{ url_for('export_data_audit', kind='negatives', fmt_type='csv') }}">CSV (all {{ "{:,}".format(report.negatives|length) }})</a>
+          <a class="chip xlsx" data-export href="{{ url_for('export_data_audit', kind='negatives', fmt_type='xlsx') }}">Excel (all)</a>
+        </div>
+        <div class="export-bar" style="gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+          <strong style="color:var(--text-muted);font-size:12px;">Columns:</strong>
+          {% for key, label in cols['negatives'] %}
+          <label><input type="checkbox" class="audit-col" data-kind="negatives" value="{{ key }}" {% if key in ['priority','verdict','sector','name','conn_no','total_demand','total_collection','pending'] %}checked{% endif %}> {{ label }}</label>
+          {% endfor %}
+        </div>
+        <p style="color:var(--text-muted);font-size:12px;margin:0 0 10px;">
+          Every record whose Pending Amount is below zero, checked against its Jul&ndash;Dec and Jan&ndash;Jun figures.
+          A negative pending always means the full demand was paid, so the test is what the <em>excess</em> is made of:
+          a clean multiple of the half-year tariff is a real advance, anything else is money from another head
+          (arrear or surcharge) pushed into Total Collection. <strong>Nothing is modified.</strong>
+        </p>
+        <div class="table-wrapper" style="margin-bottom:14px;">
+          <table class="data-table">
+            <thead><tr><th>Pri</th><th>Verdict</th><th>Reason</th><th>Records</th><th>Amount</th><th>Sectors</th><th>Required Action</th></tr></thead>
+            <tbody>
+              {% for row in report.negatives_summary %}
+              <tr>
+                <td class="mono">{{ row.priority }}</td>
+                <td><span class="mono {% if row.verdict == 'Incorrect' %}accent-coral{% else %}accent-teal{% endif %}">{{ row.verdict }}</span></td>
+                <td>{{ row.reason }}</td>
+                <td class="mono">{{ "{:,}".format(row.rows) }}</td>
+                <td class="mono accent-coral">{{ "{:,.0f}".format(row.amount) }}</td>
+                <td class="mono">{{ row.sectors }}</td>
+                <td>{{ row.action }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot><tr>
+              <td>Total</td><td></td>
+              <td>{{ "{:,}".format(neg_bad|length) }} incorrect &bull; {{ "{:,}".format(neg_ok|length) }} valid</td>
+              <td class="mono">{{ "{:,}".format(report.negatives|length) }}</td>
+              <td class="mono">{{ "{:,.0f}".format(report.negatives | sum(attribute='excess')) }}</td>
+              <td class="mono">{{ report.negatives | map(attribute='sector') | unique | list | length }}</td><td></td>
+            </tr></tfoot>
+          </table>
+        </div>
+        {% if report.negatives|length > HTML_ROW_CAP %}
+        <p style="color:var(--text-muted);font-size:12px;margin:0 0 10px;">Showing the first {{ "{:,}".format(HTML_ROW_CAP) }} of {{ "{:,}".format(report.negatives|length) }} records, worst priority first. Download the CSV or Excel for the complete list.</p>
+        {% endif %}
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead><tr>{% for _, label in cols['negatives'] %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+            <tbody>
+              {% for row in report.negatives[:HTML_ROW_CAP] %}
+              <tr>
+                <td class="mono">{{ row.priority }}</td>
+                <td><span class="mono {% if row.verdict == 'Incorrect' %}accent-coral{% else %}accent-teal{% endif %}">{{ row.verdict }}</span></td>
+                <td>{{ row.sector }}</td><td>{{ row.locality }}</td><td class="mono">{{ row.sr }}</td>
+                <td>{{ row.name }}</td><td class="mono">{{ row.conn_no }}</td>
+                <td class="mono">{{ "{:,.0f}".format(row.total_demand) }}</td>
+                <td class="mono accent-teal">{{ "{:,.0f}".format(row.total_collection) }}</td>
+                <td class="mono accent-coral">{{ "{:,.0f}".format(row.pending) }}</td>
+                <td class="mono">{{ row.half1 }}</td><td class="mono">{{ row.half2 }}</td>
+                <td>{{ row.reason }}</td><td>{{ row.action }}</td><td>{{ row.flags }}</td>
               </tr>
               {% endfor %}
             </tbody>
