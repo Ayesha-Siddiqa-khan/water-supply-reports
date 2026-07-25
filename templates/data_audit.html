@@ -232,7 +232,7 @@
         <div class="export-bar" style="gap:12px;flex-wrap:wrap;margin-bottom:10px;">
           <strong style="color:var(--text-muted);font-size:12px;">Columns:</strong>
           {% for key, label in cols['negatives'] %}
-          <label><input type="checkbox" class="audit-col" data-kind="negatives" value="{{ key }}" {% if key in ['priority','verdict','sector','name','conn_no','total_demand','total_collection','pending'] %}checked{% endif %}> {{ label }}</label>
+          <label><input type="checkbox" class="audit-col" data-kind="negatives" value="{{ key }}" {% if key in ['sr','name','conn_no','h1_demand','h1_collection','h2_demand','h2_collection','total_demand','total_collection','pending','analysis','action'] %}checked{% endif %}> {{ label }}</label>
           {% endfor %}
         </div>
         <p style="color:var(--text-muted);font-size:12px;margin:0 0 10px;">
@@ -275,15 +275,22 @@
             <tbody>
               {% for row in report.negatives[:HTML_ROW_CAP] %}
               <tr>
-                <td class="mono">{{ row.priority }}</td>
-                <td><span class="mono {% if row.verdict == 'Incorrect' %}accent-coral{% else %}accent-teal{% endif %}">{{ row.verdict }}</span></td>
-                <td>{{ row.sector }}</td><td>{{ row.locality }}</td><td class="mono">{{ row.sr }}</td>
+                <td class="mono">{{ row.sr }}</td>
                 <td>{{ row.name }}</td><td class="mono">{{ row.conn_no }}</td>
+                <td class="mono">{{ "{:,.0f}".format(row.h1_demand) }}</td>
+                <td class="mono accent-teal">{{ "{:,.0f}".format(row.h1_collection) }}</td>
+                <td class="mono">{{ "{:,.0f}".format(row.h2_demand) }}</td>
+                <td class="mono accent-teal">{{ "{:,.0f}".format(row.h2_collection) }}</td>
                 <td class="mono">{{ "{:,.0f}".format(row.total_demand) }}</td>
                 <td class="mono accent-teal">{{ "{:,.0f}".format(row.total_collection) }}</td>
                 <td class="mono accent-coral">{{ "{:,.0f}".format(row.pending) }}</td>
-                <td class="mono">{{ row.half1 }}</td><td class="mono">{{ row.half2 }}</td>
-                <td>{{ row.reason }}</td><td>{{ row.action }}</td><td>{{ row.flags }}</td>
+                <td>{{ row.analysis }}</td><td>{{ row.action }}</td>
+                <td class="mono">{{ row.priority }}</td>
+                <td>{{ row.sector }}</td><td>{{ row.locality }}</td>
+                <td class="mono">{{ "{:,.0f}".format(row.arrear) }}</td>
+                <td class="mono">{{ "{:,.0f}".format(row.correct_pending) }}</td>
+                <td class="mono">{{ "{:,.0f}".format(row.unallocated) }}</td>
+                <td>{{ row.reason }}</td><td>{{ row.flags }}</td>
               </tr>
               {% endfor %}
             </tbody>

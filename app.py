@@ -7331,13 +7331,18 @@ AUDIT_STRUCTURAL_COLS = [
     ("column", "Column"), ("detail", "Detail"),
 ]
 AUDIT_NEGATIVE_COLS = [
-    ("priority", "Pri"), ("verdict", "Verdict"), ("sector", "Sector"), ("locality", "Locality"),
-    ("sr", "Reg Sr"), ("name", "Name"), ("conn_no", "Connection No"),
-    ("total_demand", "Demand"), ("total_collection", "Collection"),
-    ("pending", "Current Negative Pending"), ("correct_pending", "Correct Pending"),
-    ("unallocated", "Unallocated Receipt"), ("arrear", "Arrear"),
-    ("half1", "Jul-Dec Dmd / Coll"), ("half2", "Jan-Jun Dmd / Coll"),
-    ("reason", "Reason"), ("action", "Required Action"), ("flags", "Wrong-Column Flag"),
+    # short labels on purpose: at 12 columns a long header word cannot fit its column
+    # and reportlab breaks it mid-word ("Connectio / n No.")
+    ("sr", "CSV SR"), ("name", "Name"), ("conn_no", "Conn No."),
+    ("h1_demand", "HY1 Dmd"), ("h1_collection", "HY1 Coll"),
+    ("h2_demand", "HY2 Dmd"), ("h2_collection", "HY2 Coll"),
+    ("total_demand", "Total Dmd"), ("total_collection", "Total Coll"),
+    ("pending", "Negative Pending"), ("analysis", "Analysis"),
+    ("action", "Required Action"),
+    # available but off by default - Verdict is gone, it read "Incorrect" on every row
+    ("priority", "Pri"), ("sector", "Sector"), ("locality", "Locality"), ("arrear", "Arrear"),
+    ("correct_pending", "Correct Pending"), ("unallocated", "Unallocated Receipt"),
+    ("reason", "Reason"), ("flags", "Wrong-Column Flag"),
 ]
 AUDIT_COLS = {
     "findings": AUDIT_FINDING_COLS, "sectors": AUDIT_SECTOR_COLS,
@@ -7583,14 +7588,18 @@ def _audit_pdf(kind: str, headers: list, rows: list, grand: list, title: str) ->
     keep, notes = _audit_collapse_constant(headers, shown, rows)
     # a sector-filtered export already names the sector in its title; don't say it twice
     summary.extend(n for n in notes if n.split("</b> ", 1)[-1].split(" <i>")[0] not in title)
-    headers = ["Sr"] + [headers[ci] for ci in keep]
-    shown = [[str(i)] + [r[ci] for ci in keep] for i, r in enumerate(shown, start=1)]
+    # don't invent a line number when the table already leads with the register's own
+    # serial - renumbering after a sort would break the link back to the source CSV
+    add_sr = not (keep and str(headers[keep[0]]).strip().lower() in ("sr", "csv sr", "reg sr"))
+    headers = (["Sr"] if add_sr else []) + [headers[ci] for ci in keep]
+    shown = [([str(i)] if add_sr else []) + [r[ci] for ci in keep]
+             for i, r in enumerate(shown, start=1)]
     if grand:
         kept_grand = [grand[ci] for ci in keep]
         # the "Grand Total" label may have lived in a column that was folded away
         if kept_grand and not str(kept_grand[0]).strip():
             kept_grand[0] = "Grand Total"
-        grand = [""] + kept_grand
+        grand = ([""] if add_sr else []) + kept_grand
     if not any(str(c).strip() for c in (grand or [])):
         grand = None
 
@@ -7639,12 +7648,13 @@ def export_data_audit(kind: str, fmt_type: str):
         writer = csv.writer(out)
         writer.writerow(headers)
         writer.writerows(rows)
-        writer.writerow(grand)
+        if grand:
+            writer.writerow(grand)
         return Response(out.getvalue(), mimetype="text/csv",
                         headers={"Content-Disposition": f"attachment; filename={filename}.csv"})
     if fmt_type == "xlsx":
         buf = io.BytesIO()
-        pd.DataFrame(rows + [grand], columns=headers).to_excel(buf, index=False)
+        pd.DataFrame(rows + ([grand] if grand else []), columns=headers).to_excel(buf, index=False)
         buf.seek(0)
         return Response(buf.getvalue(),
                         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

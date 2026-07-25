@@ -11,6 +11,7 @@ from __future__ import annotations
 import csv
 import io
 import os
+import re
 import sys
 from collections import namedtuple
 
@@ -356,6 +357,38 @@ def correct_pending(r: dict) -> tuple[float, float]:
     return round(receivable - applied, 2), round(r["total_collection"] - applied, 2)
 
 
+def _negative_analysis(r: dict) -> str:
+    """Plain-language arithmetic for one negative record, from its own figures."""
+    excess = round(-r["pending"], 2)
+    d, c = r["total_demand"], r["total_collection"]
+    half = "Jul-Dec" if r["h1_demand"] else "Jan-Jun"
+    hd = r["h1_demand"] if r["h1_demand"] else r["h2_demand"]
+    hc = r["h1_collection"] if r["h1_demand"] else r["h2_collection"]
+    if r["arrear"] < 0:
+        return (f"{half} demand {hd:,.0f} was met by the {hc:,.0f} collected. The minus does not come "
+                f"from the payment - a credit of {-r['arrear']:,.0f} is being held in the Arrear column, "
+                f"which cancelled the demand and pushed Demand + Arrear down to {d + r['arrear']:,.0f}. "
+                f"That false credit is hiding a genuine due.")
+    if d == 0:
+        return (f"No demand was raised on this connection for either half-year, yet {c:,.0f} was "
+                f"collected. The receipt has no bill to sit against, so the whole amount shows as minus.")
+    if abs(excess - round(d * SURCHARGE_RATE)) < 0.5:
+        return (f"{half} demand {hd:,.0f} was fully covered by the {hc:,.0f} collected. The extra "
+                f"{excess:,.0f} is exactly {int(SURCHARGE_RATE*100)}% of the demand - a late-payment "
+                f"surcharge recorded as water collection instead of surcharge income.")
+    if excess % 10 != 0:
+        return (f"{half} demand {hd:,.0f} against {hc:,.0f} collected. The odd difference of "
+                f"{excess:,.0f} is not a tariff amount and points to a keying error in the "
+                f"collection figure.")
+    years = excess / d if d else 0
+    tail = (f" The excess is close to {years:.0f} year's demand plus a fee, which is the shape of an "
+            f"arrear payment." if years >= 1 else "")
+    return (f"{half} demand {hd:,.0f} was fully covered by the {hc:,.0f} collected. The remaining "
+            f"{excess:,.0f} created the negative pending and matches no bill on this account.{tail} "
+            f"Verify whether it clears an earlier unpaid bill, was posted to the wrong billing "
+            f"period, or was credited in error.")
+
+
 def _negative_row(r: dict) -> dict:
     verdict, reason, pri, action = classify_negative(r)
     fixed, unallocated = correct_pending(r)
@@ -370,11 +403,22 @@ def _negative_row(r: dict) -> dict:
         "total_demand": r["total_demand"], "total_collection": r["total_collection"],
         "pending": r["pending"], "excess": round(-r["pending"], 2),
         "correct_pending": fixed, "unallocated": unallocated,
+        # split out, not the combined "a / b" cell - the number before the slash is
+        # Demand and the number after it is Collection
+        "h1_demand": r["h1_demand"], "h1_collection": r["h1_collection"],
+        "h2_demand": r["h2_demand"], "h2_collection": r["h2_collection"],
         "half1": f"{r['h1_demand']:,.0f} / {r['h1_collection']:,.0f}",
         "half2": f"{r['h2_demand']:,.0f} / {r['h2_collection']:,.0f}",
         "verdict": verdict, "reason": reason, "priority": pri, "action": action,
+        "analysis": _negative_analysis(r),
         "flags": "; ".join(flags), "source": r["source"],
     }
+
+
+def conn_sort_key(conn: str) -> tuple:
+    """Numeric order on the connection number, tolerating suffixes like 5401001-A."""
+    m = re.match(r"\D*(\d+)", str(conn or ""))
+    return (int(m.group(1)) if m else 10 ** 18, str(conn or ""))
 
 
 # ---------------------------------------------------------------------------
@@ -545,7 +589,8 @@ def build_audit_report(sources: list[tuple[str, str]], classify=None) -> dict:
     corrections.sort(key=lambda c: -c["amount"])
 
     negatives = [_negative_row(r) for r in rows if r["pending"] < 0]
-    negatives.sort(key=lambda n: (NEGATIVE_PRIORITY_ORDER[n["priority"]], -n["excess"]))
+    # connection-number order, so a clerk can work the register straight down the page
+    negatives.sort(key=lambda n: (n["sector"], conn_sort_key(n["conn_no"])))
     negatives_summary = []
     for pri in ("P1", "P2", "P3", "P4", "-"):
         part = [n for n in negatives if n["priority"] == pri]
