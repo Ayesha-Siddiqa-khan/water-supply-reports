@@ -71,6 +71,12 @@
         </svg>
         <span>DNC Register</span>
       </a>
+      <a class="nav-item {% if active_page == 'data_audit' %}active{% endif %}" href="{{ url_for('data_audit') }}">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="9" cy="9" r="6"/><path d="M13.5 13.5L17 17"/><path d="M6.5 9l2 2 4-4"/>
+        </svg>
+        <span>Data Audit</span>
+      </a>
       <div class="nav-section-label" style="margin-top:16px;">Tools</div>
       <a class="nav-item {% if active_page == 'file_merger' %}active{% endif %}" href="{{ url_for('file_merger') }}">
         <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">

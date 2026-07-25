@@ -43,6 +43,8 @@ from reportlab.platypus import (
 )
 from werkzeug.utils import secure_filename
 
+import audit_engine
+
 def resource_path(*parts: str) -> str:
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         return os.path.join(sys._MEIPASS, *parts)
@@ -63,6 +65,10 @@ RESULTS_CACHE = os.path.join(UPLOAD_FOLDER, "last_results.json")
 SAVED_DASHBOARD_CSV = os.path.join(UPLOAD_FOLDER, "saved_dashboard_data.csv")
 SAVED_DASHBOARD_META = os.path.join(UPLOAD_FOLDER, "saved_dashboard_meta.json")
 DNC_REGISTER_CACHE = os.path.join(UPLOAD_FOLDER, "dnc_register_cache.csv")
+# raw {filename: text} - the register's total rows carry 13 fields against a
+# 17-column header, so a normalised CSV cache would need padding on every write
+# and un-padding on every read. Storing the source text is lossless and free.
+DATA_AUDIT_CACHE = os.path.join(UPLOAD_FOLDER, "data_audit_cache.json")
 # Persistent cache for the Consumer Sector Report summary so it survives across
 # serverless function invocations on Vercel (global state is not kept between requests)
 CONSUMER_REPORT_CACHE = os.path.join(UPLOAD_FOLDER, "consumer_report_cache.json")
@@ -7289,6 +7295,350 @@ def export_dnc_register(kind: str, fmt_type: str):
         return Response(pdf, mimetype="application/pdf", headers={"Content-Disposition": f"attachment; filename={filename}.pdf"})
     flash("Unknown export format.")
     return redirect(url_for("dnc_register"))
+
+
+# ---------------------------------------------------------------------------
+# Data Audit - sector-wise auditor over the DNS Register connection CSVs
+# ---------------------------------------------------------------------------
+
+AUDIT_FINDING_COLS = [
+    ("id", "Code"), ("issue", "Finding"), ("severity", "Severity"), ("category", "Type"),
+    ("rows", "Connections"), ("amount", "Amount"), ("sectors", "Sectors"), ("action", "Recommended Action"),
+]
+AUDIT_SECTOR_COLS = [
+    ("sector", "Sector"), ("classification", "Category"), ("connections", "Connections"),
+    ("localities", "Localities"), ("arrear", "Arrear"), ("total_demand", "Total Demand"),
+    ("demand_arrear", "Demand + Arrear"), ("total_collection", "Total Collection"),
+    ("pending", "Pending Amount"), ("recovery_pct", "Recovery %"),
+    ("money_at_risk", "Recoverable Now"), ("unbilled", "Unbilled"),
+    ("critical", "Critical"), ("high", "High"), ("health_score", "Health Score"),
+]
+AUDIT_EXCEPTION_COLS = [
+    ("check", "Code"), ("severity", "Severity"), ("sector", "Sector"), ("locality", "Locality"),
+    ("sr", "Sr"), ("name", "Name"), ("conn_no", "Connection No"), ("arrear", "Arrear"),
+    ("total_demand", "Total Demand"), ("demand_arrear", "Demand + Arrear"),
+    ("total_collection", "Total Collection"), ("pending", "Pending Amount"),
+    ("amount", "Amount at Risk"), ("issue", "Finding"), ("action", "Recommended Action"),
+]
+AUDIT_CORRECTION_COLS = [
+    ("check", "Code"), ("sector", "Sector"), ("locality", "Locality"), ("sr", "Sr"),
+    ("name", "Name"), ("conn_no", "Connection No"), ("field", "Column"),
+    ("current_value", "Current"), ("proposed_value", "Proposed"), ("amount", "Amount"),
+    ("reason", "Why"),
+]
+AUDIT_STRUCTURAL_COLS = [
+    ("kind", "Issue"), ("source", "File"), ("sector", "Sector"), ("locality", "Locality"),
+    ("column", "Column"), ("detail", "Detail"),
+]
+AUDIT_COLS = {
+    "findings": AUDIT_FINDING_COLS, "sectors": AUDIT_SECTOR_COLS,
+    "exceptions": AUDIT_EXCEPTION_COLS, "corrections": AUDIT_CORRECTION_COLS,
+    "structural": AUDIT_STRUCTURAL_COLS,
+}
+AUDIT_COL_MAPS = {kind: {key: idx for idx, (key, _) in enumerate(cols)} for kind, cols in AUDIT_COLS.items()}
+AUDIT_TITLES = {
+    "findings": "Data Audit - Findings", "sectors": "Data Audit - Sector Wise",
+    "exceptions": "Data Audit - Exceptions", "corrections": "Data Audit - Proposed Corrections",
+    "structural": "Data Audit - Structural Checks",
+}
+# money columns get thousands separators; everything else prints as-is
+AUDIT_MONEY_KEYS = {"arrear", "total_demand", "demand_arrear", "total_collection",
+                    "pending", "amount", "money_at_risk", "unbilled"}
+# ponytail: the exceptions PDF would be 17k rows. Cap it and say so on the page -
+# CSV/XLSX stay uncapped. Raise if reportlab ever gets fast enough to matter.
+AUDIT_PDF_ROW_CAP = 400
+
+
+def _load_audit_sources() -> list[tuple[str, str]]:
+    if not os.path.exists(DATA_AUDIT_CACHE):
+        return []
+    with open(DATA_AUDIT_CACHE, encoding="utf-8") as fh:
+        return list(json.load(fh).items())
+
+
+def _load_audit_report() -> dict:
+    sources = _load_audit_sources()
+    if not sources:
+        return {}
+    return audit_engine.build_audit_report(sources, classify=_dnc_classification)
+
+
+def _audit_cell(key: str, value) -> str:
+    if key in AUDIT_MONEY_KEYS and isinstance(value, (int, float)):
+        return fmt(value)
+    if isinstance(value, float):
+        return f"{value:,.2f}".rstrip("0").rstrip(".")
+    return str(value if value is not None else "")
+
+
+def _audit_report_rows(kind: str, sector: str = "", report: dict = None) -> tuple[list[str], list[list], list, str]:
+    report = _load_audit_report() if report is None else report
+    if not report:
+        return [], [], [], AUDIT_TITLES.get(kind, "Data Audit")
+    cols = AUDIT_COLS[kind]
+    headers = [label for _, label in cols]
+    title = AUDIT_TITLES[kind]
+
+    if kind == "structural":
+        source = _audit_structural_rows(report)
+    else:
+        source = report[kind]
+    if sector:
+        source = [r for r in source if r.get("sector", "") == sector]
+        title += f" - {sector}"
+
+    rows = [[_audit_cell(key, item.get(key, "")) for key, _ in cols] for item in source]
+
+    grand = ["" for _ in headers]
+    keys = [key for key, _ in cols]
+    grand[0] = "Grand Total"
+    for key in ("rows", "connections", "localities", "arrear", "total_demand", "demand_arrear",
+                "total_collection", "pending", "amount", "money_at_risk", "unbilled",
+                "critical", "high"):
+        if key in keys:
+            grand[keys.index(key)] = fmt(sum(_num(item.get(key, 0)) for item in source))
+    if kind == "sectors" and source:
+        receivable = sum(_num(i.get("demand_arrear", 0)) for i in source)
+        collected = sum(_num(i.get("total_collection", 0)) for i in source)
+        grand[keys.index("recovery_pct")] = f"{collected / receivable * 100:.2f}" if receivable else "0"
+    return headers, rows, grand, title
+
+
+def _num(value) -> float:
+    return float(value) if isinstance(value, (int, float)) else 0.0
+
+
+def _audit_structural_rows(report: dict) -> list[dict]:
+    """Flatten the structural section into one table."""
+    struct = report["structural"]
+    # ponytail: _make_pdf_table (app.py:1783) bolds any body row containing " Total"
+    # or "Grand Total", so these labels deliberately avoid the word.
+    out = [{
+        "kind": "Register row shape", "source": f"{struct['total_row_shape']['count']} summary rows",
+        "sector": "", "locality": "", "column": struct["total_row_shape"]["issue"],
+        "detail": struct["total_row_shape"]["detail"],
+    }]
+    out.append({
+        "kind": "Footing check", "source": "", "sector": "", "locality": "",
+        "column": f"{struct['footing_agree']} of {struct['footing_total']} locality summaries agree",
+        "detail": "Every summary row was re-added from its own connection rows."
+                  if not struct["footing_issues"] else "Mismatches are listed below.",
+    })
+    for item in struct["empty_files"]:
+        out.append({"kind": "Empty sector file", "source": item["source"], "sector": "",
+                    "locality": "", "column": item["issue"], "detail": item["detail"]})
+    for item in struct["footing_issues"]:
+        out.append({"kind": "Footing mismatch", "source": item["source"], "sector": item["sector"],
+                    "locality": item["locality"], "column": item["column"],
+                    "detail": f"total row {item['total_row']:,} vs column sum {item['column_sum']:,} "
+                              f"(difference {item['difference']:,})"})
+    for item in struct["identity_issues"]:
+        out.append({"kind": "Formula mismatch", "source": "", "sector": item["sector"],
+                    "locality": item["locality"], "column": item["column"],
+                    "detail": f"connection {item['conn_no']}: stated {item['stated']:,} vs "
+                              f"expected {item['expected']:,}"})
+    for item in struct["problems"]:
+        out.append({"kind": "Unreadable row", "source": item["source"], "sector": "",
+                    "locality": "", "column": f"line {item['line']} - {item['issue']}",
+                    "detail": item["detail"]})
+    return out
+
+
+@app.route("/data-audit", methods=["GET", "POST"])
+def data_audit():
+    if request.method == "POST":
+        if request.form.get("action") == "clear":
+            if os.path.exists(DATA_AUDIT_CACHE):
+                os.remove(DATA_AUDIT_CACHE)
+            msg = "Audit data cleared."
+            if is_ajax():
+                return ajax_ok(msg, url_for("data_audit"))
+            flash(msg, "success")
+            return redirect(url_for("data_audit"))
+
+        files = [f for f in request.files.getlist("audit_files") if f and f.filename]
+        if not files:
+            msg = "Please choose one or more sector CSV files."
+            return ajax_error(msg) if is_ajax() else (flash(msg), redirect(url_for("data_audit")))[1]
+        rejected = [f.filename for f in files if not allowed_file(f.filename)]
+        if rejected:
+            msg = f"Only CSV and XLSX files are supported. Rejected: {', '.join(rejected[:5])}"
+            return ajax_error(msg) if is_ajax() else (flash(msg), redirect(url_for("data_audit")))[1]
+
+        sources = {}
+        for file in files:
+            if file.filename.lower().endswith(".xlsx"):
+                sources[file.filename] = pd.read_excel(file, dtype=str).fillna("").to_csv(index=False)
+            else:
+                sources[file.filename] = file.read().decode("utf-8-sig", errors="replace")
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        with open(DATA_AUDIT_CACHE, "w", encoding="utf-8") as fh:
+            json.dump(sources, fh)
+        msg = f"Audited {len(sources)} sector file{'s' if len(sources) != 1 else ''}."
+        if is_ajax():
+            return ajax_ok(msg, url_for("data_audit"))
+        flash(msg, "success")
+        return redirect(url_for("data_audit"))
+
+    report = _load_audit_report()
+    return render_template(
+        "data_audit.html",
+        report=report,
+        structural_rows=_audit_structural_rows(report) if report else [],
+        cols=AUDIT_COLS,
+        pdf_row_cap=AUDIT_PDF_ROW_CAP,
+        active_page="data_audit",
+    )
+
+
+def _audit_col_widths(headers: list, rows: list, grand: list, page_w: float) -> list[float]:
+    """Proportional widths that never squeeze a column below one word.
+
+    reportlab gives a Paragraph that cannot fit its longest word an effectively
+    infinite height and then raises LayoutError, so a plain normalise-to-page
+    (as the DNC sector export does with 9 columns) blows up at 15.
+    """
+    all_text = [headers] + rows + ([grand] if grand else [])
+    raw = [max((len(str(r[ci])) if ci < len(r) else 0) for r in all_text) * 5.5
+           for ci in range(len(headers))]
+    min_w = min(34.0, page_w / len(headers))
+    widths = [max(min_w, min(w, page_w * 0.22)) for w in raw]
+    excess = sum(widths) - page_w
+    if excess > 0:
+        # shrink only the columns that have room above min_w
+        slack = [w - min_w for w in widths]
+        slack_total = sum(slack)
+        if slack_total > 0:
+            take = min(excess, slack_total)
+            widths = [w - (s / slack_total) * take for w, s in zip(widths, slack)]
+    return widths
+
+
+def _audit_pdf(kind: str, headers: list, rows: list, grand: list, title: str) -> bytes:
+    page = landscape(A4) if len(headers) > 9 else A4
+    page_w = page[0] - 30 * mm
+    col_widths = _audit_col_widths(headers, rows[:AUDIT_PDF_ROW_CAP], grand, page_w)
+    summary = [f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}"]
+    if len(rows) > AUDIT_PDF_ROW_CAP:
+        summary.append(f"<b>Showing top {AUDIT_PDF_ROW_CAP:,} of {len(rows):,} rows</b> "
+                       f"({len(rows) - AUDIT_PDF_ROW_CAP:,} omitted - export CSV or Excel for the full list)")
+    return generate_card_pdf(
+        title, summary, headers, rows[:AUDIT_PDF_ROW_CAP], grand,
+        pagesize=page, col_widths=col_widths,
+        left_cols=[i for i, (key, _) in enumerate(AUDIT_COLS[kind])
+                   if key in ("issue", "action", "reason", "detail", "sector", "locality", "name", "column")],
+        header_font_size=8 if len(headers) > 9 else 10,
+        body_font_size=6 if len(headers) > 9 else 9,
+        cell_padding=3, compact=True,
+    )
+
+
+@app.route("/data-audit/export/<kind>/<fmt_type>")
+def export_data_audit(kind: str, fmt_type: str):
+    if kind not in AUDIT_COLS:
+        kind = "findings"
+    sector = request.args.get("sector", "").strip()
+    headers, rows, grand, title = _audit_report_rows(kind, sector)
+    if not headers or not rows:
+        flash("Upload the sector CSV files first.")
+        return redirect(url_for("data_audit"))
+    headers, rows, grand = _filter_card_export(request.args.get("cols"), AUDIT_COL_MAPS[kind], headers, rows, grand)
+    filename = re.sub(r"[^a-z0-9]+", "_", title.lower()).strip("_")
+
+    if fmt_type == "csv":
+        out = io.StringIO()
+        writer = csv.writer(out)
+        writer.writerow(headers)
+        writer.writerows(rows)
+        writer.writerow(grand)
+        return Response(out.getvalue(), mimetype="text/csv",
+                        headers={"Content-Disposition": f"attachment; filename={filename}.csv"})
+    if fmt_type == "xlsx":
+        buf = io.BytesIO()
+        pd.DataFrame(rows + [grand], columns=headers).to_excel(buf, index=False)
+        buf.seek(0)
+        return Response(buf.getvalue(),
+                        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        headers={"Content-Disposition": f"attachment; filename={filename}.xlsx"})
+    if fmt_type == "pdf":
+        return Response(_audit_pdf(kind, headers, rows, grand, title), mimetype="application/pdf",
+                        headers={"Content-Disposition": f"attachment; filename={filename}.pdf"})
+    flash("Unknown export format.")
+    return redirect(url_for("data_audit"))
+
+
+@app.route("/data-audit/export/workbook")
+def export_data_audit_workbook():
+    report = _load_audit_report()
+    if not report:
+        flash("Upload the sector CSV files first.")
+        return redirect(url_for("data_audit"))
+    inst, meta = report["institute"], report["meta"]
+    overview = pd.DataFrame([
+        ("Sector files audited", meta["files"]), ("Connections", meta["rows"]),
+        ("Sectors", meta["sectors"]), ("Localities", meta["localities"]),
+        ("Arrear", inst["arrear"]), ("Total Demand", inst["total_demand"]),
+        ("Demand + Arrear (receivable)", inst["demand_arrear"]),
+        ("Total Collection", inst["total_collection"]), ("Pending Amount", inst["pending"]),
+        ("Recovery %", inst["recovery_pct"]),
+        ("Recoverable now (mis-recorded)", inst["money_at_risk"]),
+        ("Unbilled demand", inst["unbilled"]),
+        ("Critical findings", inst["critical"]), ("High findings", inst["high"]),
+    ], columns=["Measure", "Value"])
+
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        overview.to_excel(writer, sheet_name="Overview", index=False)
+        for kind, sheet in (("findings", "Findings"), ("sectors", "Sector Wise"),
+                            ("exceptions", "Exceptions"), ("corrections", "Corrections"),
+                            ("structural", "Structural")):
+            headers, rows, grand, _ = _audit_report_rows(kind, report=report)
+            pd.DataFrame(rows, columns=headers).to_excel(writer, sheet_name=sheet, index=False)
+    buf.seek(0)
+    return Response(buf.getvalue(),
+                    mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": "attachment; filename=data_audit_workbook.xlsx"})
+
+
+@app.route("/data-audit/export/sector-zip/<fmt_type>")
+def export_data_audit_sector_zip(fmt_type: str):
+    report = _load_audit_report()
+    if not report:
+        flash("Upload the sector CSV files first.")
+        return redirect(url_for("data_audit"))
+    kind = request.args.get("kind", "exceptions")
+    if kind not in AUDIT_COLS:
+        kind = "exceptions"
+    ext = "csv" if fmt_type == "csv" else "pdf"
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        used = set()
+        for item in report["sectors"]:
+            sector = item["sector"]
+            headers, rows, grand, title = _audit_report_rows(kind, sector, report=report)
+            if not rows:
+                continue
+            # sector names collide once sanitised, so de-duplicate like the bill-list ZIP does
+            base = sanitize_filename(sector) or "sector"
+            name = f"{base}.{ext}"
+            counter = 2
+            while name in used:
+                name = f"{base}_{counter}.{ext}"
+                counter += 1
+            used.add(name)
+            if ext == "csv":
+                out = io.StringIO()
+                writer = csv.writer(out)
+                writer.writerow(headers)
+                writer.writerows(rows)
+                writer.writerow(grand)
+                zf.writestr(name, out.getvalue())
+            else:
+                zf.writestr(name, _audit_pdf(kind, headers, rows, grand, title))
+    buf.seek(0)
+    return Response(buf.getvalue(), mimetype="application/zip",
+                    headers={"Content-Disposition": f"attachment; filename=data_audit_by_sector_{kind}.zip"})
 
 
 def export_summary_response(fmt_type: str, title: str, data: list[dict], filename_prefix: str, show_summary: bool = True, cols_param: str = None):
