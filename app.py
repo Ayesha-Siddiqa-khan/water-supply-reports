@@ -1749,6 +1749,7 @@ def _make_pdf_table(
     header_font_size=12,
     body_font_size=11,
     cell_padding=8,
+    span_rows=None,
 ):
     style = TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
@@ -1786,6 +1787,14 @@ def _make_pdf_table(
             style.add("BACKGROUND", (0, idx), (-1, idx), colors.HexColor("#e6e6e6"))
             style.add("TEXTCOLOR", (0, idx), (-1, idx), colors.black)
             style.add("BOTTOMPADDING", (0, idx), (-1, idx), cell_padding + 6)
+
+    # full-width banner rows (e.g. a sector heading before that sector's block)
+    for idx in span_rows or []:
+        style.add("SPAN", (0, idx), (-1, idx))
+        style.add("ALIGN", (0, idx), (-1, idx), "LEFT")
+        style.add("BACKGROUND", (0, idx), (-1, idx), colors.HexColor("#d9d9d9"))
+        style.add("TOPPADDING", (0, idx), (-1, idx), cell_padding + 2)
+        style.add("BOTTOMPADDING", (0, idx), (-1, idx), cell_padding + 2)
 
     if first_col_left:
         style.add("ALIGN", (0, 0), (0, -1), "LEFT")
@@ -2050,6 +2059,8 @@ def generate_card_pdf(
     cell_padding=8,
     extra_section=None,
     compact=False,
+    span_rows=None,
+    margins=None,
 ):
     buf = io.BytesIO()
     if compact:
@@ -2086,6 +2097,11 @@ def generate_card_pdf(
         bdy_fs = body_font_size
         cp = cell_padding
         extra_spacer = 2*mm
+
+    if margins:
+        left_margin, right_margin, top_margin, bottom_margin = margins
+        title_sa = min(title_sa, 3*mm)
+        summary_spacer = min(summary_spacer, 3*mm)
 
     doc = SimpleDocTemplate(
         buf,
@@ -2144,6 +2160,7 @@ def generate_card_pdf(
         header_font_size=hdr_fs,
         body_font_size=bdy_fs,
         cell_padding=cp,
+        span_rows=span_rows,
     )
     elements.append(t)
 
@@ -7333,17 +7350,22 @@ AUDIT_STRUCTURAL_COLS = [
 AUDIT_NEGATIVE_COLS = [
     # short labels on purpose: at 12 columns a long header word cannot fit its column
     # and reportlab breaks it mid-word ("Connectio / n No.")
-    ("sr", "CSV SR"), ("name", "Name"), ("conn_no", "Conn No."),
+    ("sr", "SR"), ("name", "Name"), ("conn_no", "Conn No"),
     ("h1_demand", "HY1 Dmd"), ("h1_collection", "HY1 Coll"),
     ("h2_demand", "HY2 Dmd"), ("h2_collection", "HY2 Coll"),
     ("total_demand", "Total Dmd"), ("total_collection", "Total Coll"),
-    ("pending", "Negative Pending"), ("analysis", "Analysis"),
-    ("action", "Required Action"),
+    ("pending", "N-P"), ("action_short", "Action"),
     # available but off by default - Verdict is gone, it read "Incorrect" on every row
+    ("analysis", "Analysis"), ("action", "Full Action"),
     ("priority", "Pri"), ("sector", "Sector"), ("locality", "Locality"), ("arrear", "Arrear"),
     ("correct_pending", "Correct Pending"), ("unallocated", "Unallocated Receipt"),
     ("reason", "Reason"), ("flags", "Wrong-Column Flag"),
 ]
+# columns that are summed for a sector subtotal / grand total row
+AUDIT_SUM_KEYS = ("rows", "connections", "localities", "arrear", "total_demand", "demand_arrear",
+                  "total_collection", "pending", "amount", "money_at_risk", "unbilled",
+                  "critical", "high", "h1_demand", "h1_collection", "h2_demand", "h2_collection",
+                  "correct_pending", "unallocated")
 AUDIT_COLS = {
     "findings": AUDIT_FINDING_COLS, "sectors": AUDIT_SECTOR_COLS,
     "exceptions": AUDIT_EXCEPTION_COLS, "corrections": AUDIT_CORRECTION_COLS,
@@ -7360,9 +7382,27 @@ AUDIT_MONEY_KEYS = {"arrear", "total_demand", "demand_arrear", "total_collection
                     "pending", "amount", "money_at_risk", "unbilled",
                     "correct_pending", "unallocated", "excess",
                     "rows", "connections", "localities", "sectors", "critical", "high"}
-# ponytail: the exceptions PDF would be 17k rows. Cap it and say so on the page -
-# CSV/XLSX stay uncapped. Raise if reportlab ever gets fast enough to matter.
-AUDIT_PDF_ROW_CAP = 400
+# ponytail: reportlab costs ~9ms/row on these tables, and Vercel kills the function at
+# 60s - so the cap is per report, sized to what each one actually holds. Negatives (931)
+# print in full at ~8.5s; exceptions (17k) would need ~155s and must stay capped.
+# CSV/XLSX are never capped. ?limit= overrides per request.
+AUDIT_PDF_ROW_CAPS = {"negatives": 2000, "corrections": 1000, "exceptions": 500}
+AUDIT_PDF_ROW_CAP = 2000
+
+
+# reportlab costs roughly a millisecond per wrapped cell, so the real limit is cells,
+# not rows: 931 negatives x 12 columns takes ~12s, the same rows x 20 columns takes ~33s.
+AUDIT_PDF_CELL_BUDGET = 12_000
+
+
+def _audit_pdf_cap(kind: str, n_cols: int = 0) -> int:
+    requested = request.args.get("limit", "").strip() if has_request_context() else ""
+    if requested.isdigit() and int(requested) > 0:
+        return int(requested)
+    cap = AUDIT_PDF_ROW_CAPS.get(kind, AUDIT_PDF_ROW_CAP)
+    if n_cols:
+        cap = min(cap, max(200, AUDIT_PDF_CELL_BUDGET // n_cols))
+    return cap
 
 
 def _load_audit_sources() -> list[tuple[str, str]]:
@@ -7387,10 +7427,10 @@ def _audit_cell(key: str, value) -> str:
     return str(value if value is not None else "")
 
 
-def _audit_report_rows(kind: str, sector: str = "", report: dict = None) -> tuple[list[str], list[list], list, str]:
+def _audit_report_rows(kind: str, sector: str = "", report: dict = None) -> tuple[list[str], list[list], list, str, list[str]]:
     report = _load_audit_report() if report is None else report
     if not report:
-        return [], [], [], AUDIT_TITLES.get(kind, "Data Audit")
+        return [], [], [], AUDIT_TITLES.get(kind, "Data Audit"), [], []
     cols = AUDIT_COLS[kind]
     headers = [label for _, label in cols]
     title = AUDIT_TITLES[kind]
@@ -7410,19 +7450,20 @@ def _audit_report_rows(kind: str, sector: str = "", report: dict = None) -> tupl
     # On Findings each row is a check, not a connection, and one connection can fail
     # several checks - so a column sum double-counts. Label it so it cannot be read
     # as an institute figure (which the Summary cards already give, de-duplicated).
-    grand[0] = "Column Total" if kind == "findings" else "Grand Total"
-    if kind == "negatives":
-        grand = []  # verdict rows are not additive; the tab shows its own summary strip
-    for key in ("rows", "connections", "localities", "arrear", "total_demand", "demand_arrear",
-                "total_collection", "pending", "amount", "money_at_risk", "unbilled",
-                "critical", "high"):
+    # put the label in the first column wide enough to hold it - a narrow serial or
+    # code column wraps "Grand Total" into unreadable fragments
+    wide = ("name", "sector", "issue", "kind", "locality", "field", "reason")
+    label_idx = next((i for i, k in enumerate(keys) if k in wide), 0)
+    grand[label_idx] = "Column Total" if kind == "findings" else "Grand Total"
+    for key in AUDIT_SUM_KEYS:
         if key in keys and grand:
             grand[keys.index(key)] = fmt(sum(_num(item.get(key, 0)) for item in source))
     if kind == "sectors" and source:
         receivable = sum(_num(i.get("demand_arrear", 0)) for i in source)
         collected = sum(_num(i.get("total_collection", 0)) for i in source)
         grand[keys.index("recovery_pct")] = f"{collected / receivable * 100:.2f}" if receivable else "0"
-    return headers, rows, grand, title
+    # sector per row, so the PDF can band each sector even when Sector is not a shown column
+    return headers, rows, grand, title, [str(item.get("sector", "")) for item in source], source
 
 
 def _num(value) -> float:
@@ -7579,9 +7620,58 @@ def _audit_collapse_constant(headers: list, rows: list, all_rows: list) -> tuple
     return keep, notes
 
 
-def _audit_pdf(kind: str, headers: list, rows: list, grand: list, title: str) -> bytes:
-    shown = rows[:AUDIT_PDF_ROW_CAP]
+def _audit_sector_heading(label: str, width: int, font_size: int) -> list:
+    """A bold, shaded band naming the sector, inserted before that sector's block.
+
+    wrap_pdf_body_cells passes an existing Paragraph straight through, so the heading
+    can be styled here without touching the shared table builder.
+    """
+    style = ParagraphStyle(
+        "AuditSectorHeading", parent=getSampleStyleSheet()["Normal"],
+        fontName="Helvetica-Bold", fontSize=font_size + 1, leading=font_size + 4,
+        alignment=0, textColor=colors.black, wordWrap="CJK",
+    )
+    return [Paragraph(f"SECTOR: {label}", style)] + ["" for _ in range(width - 1)]
+
+
+def _audit_subtotal_row(keys: list, records: list, label_idx: int, label: str) -> list:
+    """One row of per-column sums for a sector block."""
+    row = ["" for _ in keys]
+    for i, k in enumerate(keys):
+        if k in AUDIT_SUM_KEYS:
+            row[i] = fmt(sum(_num(r.get(k, 0)) for r in records))
+    row[label_idx] = label
+    return row
+
+
+def _audit_overall_summary(source: list, keys: list) -> str:
+    """One line of institute-wide figures for the header block."""
+    if not source:
+        return ""
+    bits = [f"<b>Total Sectors:</b> {len({r.get('sector','') for r in source}):,}",
+            f"<b>Records:</b> {len(source):,}"]
+    for key, label in (("total_demand", "Total Demand"), ("total_collection", "Total Collection"),
+                       ("pending", "Grand Total N-P")):
+        if key in keys:
+            bits.append(f"<b>{label}:</b> {fmt(sum(_num(r.get(key, 0)) for r in source))}")
+    return " &nbsp;|&nbsp; ".join(bits)
+
+
+def _audit_pdf(kind: str, headers: list, rows: list, grand: list, title: str,
+               groups: list = None, source: list = None) -> bytes:
+    cap = _audit_pdf_cap(kind, len(headers))
+    shown = rows[:cap]
+    groups = (groups or [])[:cap]
+    source = (source or [])[:cap]
+    # banding only helps when a sector actually covers several rows - on the Sector
+    # report every row is its own sector, which would band every single line
+    if len(set(groups)) >= len(shown):
+        groups = []
     summary = [f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}"]
+    label_to_key = {label: key for key, label in AUDIT_COLS.get(kind, [])}
+    overall = _audit_overall_summary(source, [label_to_key.get(h, "") for h in headers])
+    if overall:
+        summary.append(overall)
 
     # fold away any column that repeats the same value on every printed row, then
     # number the rows - a 400-row report should not restate its sector 400 times
@@ -7596,35 +7686,65 @@ def _audit_pdf(kind: str, headers: list, rows: list, grand: list, title: str) ->
              for i, r in enumerate(shown, start=1)]
     if grand:
         kept_grand = [grand[ci] for ci in keep]
-        # the "Grand Total" label may have lived in a column that was folded away
-        if kept_grand and not str(kept_grand[0]).strip():
+        # the label may have lived in a column that was folded away - only re-add it
+        # if it is genuinely gone, or it prints twice
+        if kept_grand and not any("Total" in str(c) for c in kept_grand):
             kept_grand[0] = "Grand Total"
         grand = ([""] if add_sr else []) + kept_grand
     if not any(str(c).strip() for c in (grand or [])):
         grand = None
 
     page = landscape(A4) if len(headers) > 8 else A4
-    page_w = page[0] - 30 * mm
+    side = 8 * mm  # tight side margins so more columns fit per page
+    page_w = page[0] - 2 * side
     col_widths = _audit_col_widths(headers, shown, grand, page_w)
     left_cols = [i for i, label in enumerate(headers) if str(label) in AUDIT_LEFT_LABELS]
-    body_fs = 6 if len(headers) > 9 else 9
+    body_fs = 6 if len(headers) > 9 else 7
     # generate_card_pdf wraps the headers but leaves body cells as plain strings,
     # and reportlab overflows plain strings across neighbouring columns instead of
     # wrapping them. Every other PDF builder here wraps its own body rows.
     body = wrap_pdf_body_cells(shown, font_size=body_fs, left_columns=set(left_cols))
     grand_row = wrap_pdf_body_cells([grand], font_size=body_fs, left_columns=set(left_cols))[0] if grand else None
-    if len(rows) > AUDIT_PDF_ROW_CAP:
-        summary.append(f"<b>Showing top {AUDIT_PDF_ROW_CAP:,} of {len(rows):,} rows</b> "
-                       f"({len(rows) - AUDIT_PDF_ROW_CAP:,} omitted - export CSV or Excel for the full list)")
+    # band each sector so a multi-sector report can be read block by block.
+    # +1 on the index because row 0 of the table is the header.
+    span_rows = []
+    if groups and len(set(groups)) > 1 and len(groups) == len(body):
+        keys = [label_to_key.get(h, "") for h in headers]
+        wide = ("name", "sector", "issue", "kind", "locality", "field", "reason")
+        label_idx = next((i for i, k in enumerate(keys) if k in wide), 0)
+        banded, last, block = [], None, []
+
+        def close_block():
+            if block:
+                sub = _audit_subtotal_row(keys, block, label_idx,
+                                          f"Sector Total ({len(block)} connections)")
+                banded.append(wrap_pdf_body_cells([sub], font_size=body_fs,
+                                                  left_columns=set(left_cols))[0])
+
+        for label, row, rec in zip(groups, body, source or [{}] * len(body)):
+            if label != last:
+                close_block()
+                block = []
+                span_rows.append(len(banded) + 1)
+                banded.append(_audit_sector_heading(label, len(headers), body_fs))
+                last = label
+            banded.append(row)
+            block.append(rec)
+        close_block()
+        body = banded
+    if len(rows) > cap:
+        summary.append(f"<b>Showing top {cap:,} of {len(rows):,} rows</b> "
+                       f"({len(rows) - cap:,} omitted - export CSV or Excel for the full list)")
     if kind == "findings":
         summary.append("<b>Note:</b> one connection can fail several checks, so the column totals "
                        "count some connections more than once.")
     return generate_card_pdf(
         title, summary, headers, body, grand_row,
         pagesize=page, col_widths=col_widths, left_cols=left_cols,
-        header_font_size=8 if len(headers) > 9 else 10,
+        header_font_size=7 if len(headers) > 9 else 8,
         body_font_size=body_fs,
-        cell_padding=3, compact=True,
+        cell_padding=1, compact=True, span_rows=span_rows,
+        margins=(side, side, 10 * mm, 10 * mm),
     )
 
 
@@ -7633,7 +7753,7 @@ def export_data_audit(kind: str, fmt_type: str):
     if kind not in AUDIT_COLS:
         kind = "findings"
     sector = request.args.get("sector", "").strip()
-    headers, rows, grand, title = _audit_report_rows(kind, sector)
+    headers, rows, grand, title, groups, source = _audit_report_rows(kind, sector)
     if not headers:
         flash("Upload the sector CSV files first.")
         return redirect(url_for("data_audit"))
@@ -7660,7 +7780,7 @@ def export_data_audit(kind: str, fmt_type: str):
                         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         headers={"Content-Disposition": f"attachment; filename={filename}.xlsx"})
     if fmt_type == "pdf":
-        return Response(_audit_pdf(kind, headers, rows, grand, title), mimetype="application/pdf",
+        return Response(_audit_pdf(kind, headers, rows, grand, title, groups, source), mimetype="application/pdf",
                         headers={"Content-Disposition": f"attachment; filename={filename}.pdf"})
     flash("Unknown export format.")
     return redirect(url_for("data_audit"))
@@ -7691,7 +7811,7 @@ def export_data_audit_workbook():
         for kind, sheet in (("findings", "Findings"), ("sectors", "Sector Wise"),
                             ("exceptions", "Exceptions"), ("corrections", "Corrections"),
                             ("negatives", "Negative Pending"), ("structural", "Structural")):
-            headers, rows, grand, _ = _audit_report_rows(kind, report=report)
+            headers, rows, grand, _, _, _ = _audit_report_rows(kind, report=report)
             pd.DataFrame(rows, columns=headers).to_excel(writer, sheet_name=sheet, index=False)
     buf.seek(0)
     return Response(buf.getvalue(),
@@ -7715,7 +7835,7 @@ def export_data_audit_sector_zip(fmt_type: str):
         used = set()
         for item in report["sectors"]:
             sector = item["sector"]
-            headers, rows, grand, title = _audit_report_rows(kind, sector, report=report)
+            headers, rows, grand, title, _, zsrc = _audit_report_rows(kind, sector, report=report)
             if not rows:
                 continue
             # sector names collide once sanitised, so de-duplicate like the bill-list ZIP does
@@ -7734,7 +7854,7 @@ def export_data_audit_sector_zip(fmt_type: str):
                 writer.writerow(grand)
                 zf.writestr(name, out.getvalue())
             else:
-                zf.writestr(name, _audit_pdf(kind, headers, rows, grand, title))
+                zf.writestr(name, _audit_pdf(kind, headers, rows, grand, title, None, zsrc))
     buf.seek(0)
     return Response(buf.getvalue(), mimetype="application/zip",
                     headers={"Content-Disposition": f"attachment; filename=data_audit_by_sector_{kind}.zip"})

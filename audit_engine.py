@@ -316,6 +316,19 @@ NEGATIVE_ACTIONS = {
     "Keying error in the collection figure":
         "Check the receipt and correct the collection amount (e.g. 2,403 keyed for 2,400). " + TRACE,
 }
+# one short line per reason for the compact PDF, where the full sentence will not fit
+NEGATIVE_ACTIONS_SHORT = {
+    "No bill exists - receipt posted against zero demand":
+        "Raise missing bill or reverse wrongly posted receipt.",
+    "Credit balance parked in the Arrear column":
+        "Clear false credit in Arrear; recover real due.",
+    "Collection exceeds billed demand - earlier-period due never posted":
+        "Verify payment period and correct false credit.",
+    "Surcharge merged into water collection":
+        "Move surcharge to fine head; clear the credit.",
+    "Keying error in the collection figure":
+        "Check receipt; correct the wrong collection figure.",
+}
 NEGATIVE_PRIORITY_ORDER = {"P1": 0, "P2": 1, "P3": 2, "P4": 3, "-": 4}
 
 
@@ -410,6 +423,7 @@ def _negative_row(r: dict) -> dict:
         "half1": f"{r['h1_demand']:,.0f} / {r['h1_collection']:,.0f}",
         "half2": f"{r['h2_demand']:,.0f} / {r['h2_collection']:,.0f}",
         "verdict": verdict, "reason": reason, "priority": pri, "action": action,
+        "action_short": NEGATIVE_ACTIONS_SHORT[reason],
         "analysis": _negative_analysis(r),
         "flags": "; ".join(flags), "source": r["source"],
     }
