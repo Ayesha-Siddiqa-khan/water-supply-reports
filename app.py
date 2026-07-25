@@ -7333,8 +7333,10 @@ AUDIT_STRUCTURAL_COLS = [
 AUDIT_NEGATIVE_COLS = [
     ("priority", "Pri"), ("verdict", "Verdict"), ("sector", "Sector"), ("locality", "Locality"),
     ("sr", "Reg Sr"), ("name", "Name"), ("conn_no", "Connection No"),
-    ("total_demand", "Total Demand"), ("total_collection", "Total Collection"),
-    ("pending", "Negative Pending"), ("half1", "Jul-Dec Dmd / Coll"), ("half2", "Jan-Jun Dmd / Coll"),
+    ("total_demand", "Demand"), ("total_collection", "Collection"),
+    ("pending", "Current Negative Pending"), ("correct_pending", "Correct Pending"),
+    ("unallocated", "Unallocated Receipt"), ("arrear", "Arrear"),
+    ("half1", "Jul-Dec Dmd / Coll"), ("half2", "Jan-Jun Dmd / Coll"),
     ("reason", "Reason"), ("action", "Required Action"), ("flags", "Wrong-Column Flag"),
 ]
 AUDIT_COLS = {
@@ -7351,6 +7353,7 @@ AUDIT_TITLES = {
 # money and count columns both get thousands separators; everything else prints as-is
 AUDIT_MONEY_KEYS = {"arrear", "total_demand", "demand_arrear", "total_collection",
                     "pending", "amount", "money_at_risk", "unbilled",
+                    "correct_pending", "unallocated", "excess",
                     "rows", "connections", "localities", "sectors", "critical", "high"}
 # ponytail: the exceptions PDF would be 17k rows. Cap it and say so on the page -
 # CSV/XLSX stay uncapped. Raise if reportlab ever gets fast enough to matter.

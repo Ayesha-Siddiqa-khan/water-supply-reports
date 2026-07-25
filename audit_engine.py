@@ -296,20 +296,24 @@ def run_checks(row: dict) -> list[tuple[Check, float]]:
 
 SURCHARGE_RATE = 0.10
 
+TRACE = ("Set Pending to 0 - a minus balance must never be carried forward as credit. "
+         "Pull the receipt and trace the excess: if it cleared an earlier year, post that year "
+         "into Arrear and the payment into Recovered Arrear; if it belongs to another consumer "
+         "or period, reverse it and re-post there.")
 NEGATIVE_ACTIONS = {
-    "Collection posted against zero demand":
-        "Raise the missing demand for this connection, or reverse the receipt if it belongs "
-        "to another connection.",
-    "Arrear recovery + surcharge merged into current collection":
-        "Split the receipt: post the old year into Recovered Arrear and the surcharge into the "
-        "fine head. Pending then returns to zero.",
-    "Late-payment surcharge booked as water collection":
-        "Move the surcharge out of Total Collection into the surcharge/fine head. It is not "
-        "water demand.",
-    "Odd amount - keying error in collection":
-        "Check the receipt and correct the collection figure (e.g. 2,403 keyed instead of 2,400).",
-    "Advance payment - exact multiple of the tariff":
-        "No correction needed. Carry the excess forward as an advance against next year's demand.",
+    "No bill exists - receipt posted against zero demand":
+        "Raise the missing demand for this connection, then re-apply the receipt. If no bill is "
+        "due, the receipt belongs elsewhere - reverse and re-post it. " + TRACE,
+    "Credit balance parked in the Arrear column":
+        "Clear the negative Arrear to zero and recompute Demand + Arrear. The false credit is "
+        "hiding a genuine due - the corrected pending below is what is actually recoverable.",
+    "Collection exceeds billed demand - earlier-period due never posted":
+        "Treat as unposted arrear, not advance. " + TRACE,
+    "Surcharge merged into water collection":
+        "Move the surcharge out of Total Collection into the surcharge/fine head - it is not "
+        "water demand and must not reduce a future bill. " + TRACE,
+    "Keying error in the collection figure":
+        "Check the receipt and correct the collection amount (e.g. 2,403 keyed for 2,400). " + TRACE,
 }
 NEGATIVE_PRIORITY_ORDER = {"P1": 0, "P2": 1, "P3": 2, "P4": 3, "-": 4}
 
@@ -317,32 +321,44 @@ NEGATIVE_PRIORITY_ORDER = {"P1": 0, "P2": 1, "P3": 2, "P4": 3, "-": 4}
 def classify_negative(r: dict) -> tuple[str, str, str, str]:
     """(verdict, reason, priority, action) for a row whose Pending Amount is below zero.
 
-    Verified against the half-year figures: a negative pending always means the full
-    demand was paid, so the question is only what the *excess* is made of. An excess
-    that is a clean multiple of the half-year tariff is a real advance; anything else
-    is money from another head (arrear, surcharge) pushed into Total Collection.
+    Policy: a negative pending is ALWAYS an error unless there is positive evidence of a
+    genuine advance. This register carries no receipt date, no payment history and no
+    advance/credit head, and Recovered Arrear is blank on every row - so no advance can
+    be evidenced from this source and nothing here is ever marked Valid. A minus balance
+    is a double loss: the original amount stays uncollected somewhere, and the false
+    credit silently reduces a future recoverable bill.
     """
     excess = round(-r["pending"], 2)
     demand = r["total_demand"]
-    half = demand / 2 if demand else 0
-    if demand == 0:
-        verdict, reason, pri = "Incorrect", "Collection posted against zero demand", "P1"
+    if r["arrear"] < 0:
+        reason, pri = "Credit balance parked in the Arrear column", "P1"
+    elif demand == 0:
+        reason, pri = "No bill exists - receipt posted against zero demand", "P1"
     elif abs(excess - round(demand * SURCHARGE_RATE)) < 0.5:
-        verdict, reason, pri = "Incorrect", "Late-payment surcharge booked as water collection", "P3"
+        reason, pri = "Surcharge merged into water collection", "P3"
     elif excess % 10 != 0:
-        verdict, reason, pri = "Incorrect", "Odd amount - keying error in collection", "P4"
-    elif half and abs(excess % half) < 0.5:
-        verdict, reason, pri = "Valid", "Advance payment - exact multiple of the tariff", "-"
+        reason, pri = "Keying error in the collection figure", "P4"
     else:
-        verdict, reason, pri = "Incorrect", "Arrear recovery + surcharge merged into current collection", "P2"
-    action = NEGATIVE_ACTIONS[reason]
-    if verdict == "Valid" and demand and abs(excess - demand) < 0.5:
-        action += " Confirm against the receipt that this is an advance, not a duplicate posting."
-    return verdict, reason, pri, action
+        reason, pri = "Collection exceeds billed demand - earlier-period due never posted", "P2"
+    return "Incorrect", reason, pri, NEGATIVE_ACTIONS[reason]
+
+
+def correct_pending(r: dict) -> tuple[float, float]:
+    """(correct pending, unallocated receipt) for a row with a negative pending.
+
+    A negative Arrear is not a real reduction of what is owed, so it is floored at zero
+    before the receivable is rebuilt - that is what turns a false credit back into a
+    genuine due. Collection is then capped at the receivable: the surplus is an
+    unallocated receipt to be traced, never a credit against next year.
+    """
+    receivable = r["total_demand"] + max(0.0, r["arrear"])
+    applied = min(r["total_collection"], receivable)
+    return round(receivable - applied, 2), round(r["total_collection"] - applied, 2)
 
 
 def _negative_row(r: dict) -> dict:
     verdict, reason, pri, action = classify_negative(r)
+    fixed, unallocated = correct_pending(r)
     flags = []
     if r["arrear"] < 0:
         flags.append("Credit parked in Arrear column")
@@ -353,6 +369,7 @@ def _negative_row(r: dict) -> dict:
         "conn_no": r["conn_no"], "arrear": r["arrear"],
         "total_demand": r["total_demand"], "total_collection": r["total_collection"],
         "pending": r["pending"], "excess": round(-r["pending"], 2),
+        "correct_pending": fixed, "unallocated": unallocated,
         "half1": f"{r['h1_demand']:,.0f} / {r['h1_collection']:,.0f}",
         "half2": f"{r['h2_demand']:,.0f} / {r['h2_collection']:,.0f}",
         "verdict": verdict, "reason": reason, "priority": pri, "action": action,
@@ -667,8 +684,10 @@ def _selfcheck(folder: str) -> int:
         ("identity issues", len(struct["identity_issues"]), 0),
         ("parse problems", len(struct["problems"]), 0),
         ("negative rows", len(report["negatives"]), 931),
-        ("negative incorrect", sum(1 for n in report["negatives"] if n["verdict"] == "Incorrect"), 704),
-        ("negative valid", sum(1 for n in report["negatives"] if n["verdict"] == "Valid"), 227),
+        # strict policy: nothing is Valid without advance evidence, and this source has none
+        ("negative incorrect", sum(1 for n in report["negatives"] if n["verdict"] == "Incorrect"), 931),
+        ("negative valid", sum(1 for n in report["negatives"] if n["verdict"] == "Valid"), 0),
+        ("negatives left minus", sum(1 for n in report["negatives"] if n["correct_pending"] < 0), 0),
         ("receivable", round(inst["demand_arrear"]), 25_062_554),
         ("collected", round(inst["total_collection"]), 12_184_160),
         ("pending", round(inst["pending"]), 12_878_394),
