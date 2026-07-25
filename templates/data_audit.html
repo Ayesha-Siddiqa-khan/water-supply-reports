@@ -216,6 +216,14 @@
       <div class="audit-pane" id="audit-negatives" style="display:none;">
         {% set neg_bad = report.negatives | selectattr('verdict','equalto','Incorrect') | list %}
         {% set neg_ok = report.negatives | selectattr('verdict','equalto','Valid') | list %}
+        {% if not report.negatives %}
+        <div class="empty-state" style="padding:40px 20px;">
+          <div class="empty-icon">&#9989;</div>
+          <h2>No negative pending amounts</h2>
+          <p>Every one of the {{ "{:,}".format(report.meta.rows) }} connections in this upload has a Pending Amount of zero or above,
+             so no consumer has been credited more than they owe. Nothing to correct on this tab.</p>
+        </div>
+        {% else %}
         <div class="export-bar" data-kind="negatives">
           <a class="chip pdf" data-export href="{{ url_for('export_data_audit', kind='negatives', fmt_type='pdf') }}">PDF (top {{ "{:,}".format(pdf_row_cap) }})</a>
           <a class="chip csv" data-export href="{{ url_for('export_data_audit', kind='negatives', fmt_type='csv') }}">CSV (all {{ "{:,}".format(report.negatives|length) }})</a>
@@ -281,10 +289,19 @@
             </tbody>
           </table>
         </div>
+        {% endif %}
       </div>
 
       {# ---------------- Corrections ---------------- #}
       <div class="audit-pane" id="audit-corrections" style="display:none;">
+        {% if not report.corrections %}
+        <div class="empty-state" style="padding:40px 20px;">
+          <div class="empty-icon">&#9989;</div>
+          <h2>No corrections proposed</h2>
+          <p>This upload has no mis-credited payments, hidden arrears or negative arrears, so there is nothing to
+             re-post. Any remaining findings are billing or record-keeping issues &mdash; see the Findings tab.</p>
+        </div>
+        {% else %}
         <div class="export-bar" data-kind="corrections">
           <a class="chip pdf" data-export href="{{ url_for('export_data_audit', kind='corrections', fmt_type='pdf') }}">PDF (top {{ "{:,}".format(pdf_row_cap) }})</a>
           <a class="chip csv" data-export href="{{ url_for('export_data_audit', kind='corrections', fmt_type='csv') }}">CSV (all {{ "{:,}".format(report.corrections|length) }})</a>
@@ -318,6 +335,7 @@
             </tbody>
           </table>
         </div>
+        {% endif %}
       </div>
 
       {# ---------------- Structural ---------------- #}

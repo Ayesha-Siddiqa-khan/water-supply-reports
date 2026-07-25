@@ -7622,8 +7622,11 @@ def export_data_audit(kind: str, fmt_type: str):
         kind = "findings"
     sector = request.args.get("sector", "").strip()
     headers, rows, grand, title = _audit_report_rows(kind, sector)
-    if not headers or not rows:
+    if not headers:
         flash("Upload the sector CSV files first.")
+        return redirect(url_for("data_audit"))
+    if not rows:
+        flash(f"Nothing to export - {title.split(' - ', 1)[-1]} found no records in this upload.")
         return redirect(url_for("data_audit"))
     headers, rows, grand = _filter_card_export(request.args.get("cols"), AUDIT_COL_MAPS[kind], headers, rows, grand)
     filename = re.sub(r"[^a-z0-9]+", "_", title.lower()).strip("_")
