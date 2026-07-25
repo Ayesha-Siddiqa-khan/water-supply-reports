@@ -7341,9 +7341,10 @@ AUDIT_TITLES = {
     "exceptions": "Data Audit - Exceptions", "corrections": "Data Audit - Proposed Corrections",
     "structural": "Data Audit - Structural Checks",
 }
-# money columns get thousands separators; everything else prints as-is
+# money and count columns both get thousands separators; everything else prints as-is
 AUDIT_MONEY_KEYS = {"arrear", "total_demand", "demand_arrear", "total_collection",
-                    "pending", "amount", "money_at_risk", "unbilled"}
+                    "pending", "amount", "money_at_risk", "unbilled",
+                    "rows", "connections", "localities", "sectors", "critical", "high"}
 # ponytail: the exceptions PDF would be 17k rows. Cap it and say so on the page -
 # CSV/XLSX stay uncapped. Raise if reportlab ever gets fast enough to matter.
 AUDIT_PDF_ROW_CAP = 400
@@ -7391,7 +7392,10 @@ def _audit_report_rows(kind: str, sector: str = "", report: dict = None) -> tupl
 
     grand = ["" for _ in headers]
     keys = [key for key, _ in cols]
-    grand[0] = "Grand Total"
+    # On Findings each row is a check, not a connection, and one connection can fail
+    # several checks - so a column sum double-counts. Label it so it cannot be read
+    # as an institute figure (which the Summary cards already give, de-duplicated).
+    grand[0] = "Column Total" if kind == "findings" else "Grand Total"
     for key in ("rows", "connections", "localities", "arrear", "total_demand", "demand_arrear",
                 "total_collection", "pending", "amount", "money_at_risk", "unbilled",
                 "critical", "high"):
@@ -7498,37 +7502,67 @@ def _audit_col_widths(headers: list, rows: list, grand: list, page_w: float) -> 
     infinite height and then raises LayoutError, so a plain normalise-to-page
     (as the DNC sector export does with 9 columns) blows up at 15.
     """
+    n = len(headers)
     all_text = [headers] + rows + ([grand] if grand else [])
     raw = [max((len(str(r[ci])) if ci < len(r) else 0) for r in all_text) * 5.5
-           for ci in range(len(headers))]
-    min_w = min(34.0, page_w / len(headers))
-    widths = [max(min_w, min(w, page_w * 0.22)) for w in raw]
-    excess = sum(widths) - page_w
-    if excess > 0:
-        # shrink only the columns that have room above min_w
-        slack = [w - min_w for w in widths]
+           for ci in range(n)]
+    # wrap_pdf_body_cells uses wordWrap="CJK", which breaks anywhere - including
+    # inside "31,296,748". Floor each column at its longest unbreakable token so
+    # amounts never split across two lines.
+    token_w = [max((len(t) for r in all_text for t in str(r[ci]).split()), default=0) * 5.5 + 8
+               if ci < n else 0 for ci in range(n)]
+    cap = max(page_w * 0.22, page_w / n * 1.8)
+    floor = min(34.0, page_w / n)
+    min_w = [min(max(floor, token_w[ci]), cap) for ci in range(n)]
+    widths = [max(min_w[ci], min(raw[ci], cap)) for ci in range(n)]
+    total = sum(widths)
+    if total > page_w:
+        # shrink only the columns that have room above their own minimum
+        slack = [w - m for w, m in zip(widths, min_w)]
         slack_total = sum(slack)
         if slack_total > 0:
-            take = min(excess, slack_total)
+            take = min(total - page_w, slack_total)
             widths = [w - (s / slack_total) * take for w, s in zip(widths, slack)]
+        # with many columns the minimums alone can exceed the page; scale everything
+        # down so the table always fits, accepting mid-word breaks at that width
+        total = sum(widths)
+        if total > page_w:
+            widths = [w / total * page_w for w in widths]
+    elif total < page_w and total > 0:
+        widths = [w / total * page_w for w in widths]
     return widths
+
+
+# header labels whose content is prose and should sit left, not centred. Matched by
+# label rather than column index because ?cols= reorders and drops columns.
+AUDIT_LEFT_LABELS = {"Finding", "Recommended Action", "Why", "Detail", "Sector", "Locality",
+                     "Name", "Column", "Current", "Proposed", "File", "Issue", "Category"}
 
 
 def _audit_pdf(kind: str, headers: list, rows: list, grand: list, title: str) -> bytes:
     page = landscape(A4) if len(headers) > 9 else A4
     page_w = page[0] - 30 * mm
-    col_widths = _audit_col_widths(headers, rows[:AUDIT_PDF_ROW_CAP], grand, page_w)
+    shown = rows[:AUDIT_PDF_ROW_CAP]
+    col_widths = _audit_col_widths(headers, shown, grand, page_w)
+    left_cols = [i for i, label in enumerate(headers) if str(label) in AUDIT_LEFT_LABELS]
+    body_fs = 6 if len(headers) > 9 else 9
+    # generate_card_pdf wraps the headers but leaves body cells as plain strings,
+    # and reportlab overflows plain strings across neighbouring columns instead of
+    # wrapping them. Every other PDF builder here wraps its own body rows.
+    body = wrap_pdf_body_cells(shown, font_size=body_fs, left_columns=set(left_cols))
+    grand_row = wrap_pdf_body_cells([grand], font_size=body_fs, left_columns=set(left_cols))[0] if grand else None
     summary = [f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}"]
     if len(rows) > AUDIT_PDF_ROW_CAP:
         summary.append(f"<b>Showing top {AUDIT_PDF_ROW_CAP:,} of {len(rows):,} rows</b> "
                        f"({len(rows) - AUDIT_PDF_ROW_CAP:,} omitted - export CSV or Excel for the full list)")
+    if kind == "findings":
+        summary.append("<b>Note:</b> one connection can fail several checks, so the column totals "
+                       "count some connections more than once.")
     return generate_card_pdf(
-        title, summary, headers, rows[:AUDIT_PDF_ROW_CAP], grand,
-        pagesize=page, col_widths=col_widths,
-        left_cols=[i for i, (key, _) in enumerate(AUDIT_COLS[kind])
-                   if key in ("issue", "action", "reason", "detail", "sector", "locality", "name", "column")],
+        title, summary, headers, body, grand_row,
+        pagesize=page, col_widths=col_widths, left_cols=left_cols,
         header_font_size=8 if len(headers) > 9 else 10,
-        body_font_size=6 if len(headers) > 9 else 9,
+        body_font_size=body_fs,
         cell_padding=3, compact=True,
     )
 
