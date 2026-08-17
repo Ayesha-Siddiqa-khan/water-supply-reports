@@ -19,6 +19,7 @@ Design notes
 """
 
 import csv
+import gzip
 import hashlib
 import io
 import json
@@ -740,19 +741,23 @@ def handover():
         if action == "upload":
             handover_file = request.files.get("handover_file")
             arrears_file = request.files.get("arrears_file")
-            for label, upload in (("Handover", handover_file), ("Arrears", arrears_file)):
+            for label, upload in (("Consumer List", handover_file), ("Arrears List", arrears_file)):
                 if not upload or not upload.filename:
                     msg = f"Please choose the {label} file."
                     return ajax_error(msg) if is_ajax() else (flash(msg) or redirect(url_for("handover.handover")))
-                if not allowed_file(upload.filename):
+                # ".csv.gz" is the compressed form of an allowed type.
+                base = upload.filename[:-3] if upload.filename.lower().endswith(".gz") else upload.filename
+                if not allowed_file(base):
                     msg = f"Unsupported file type: {upload.filename}"
                     return ajax_error(msg) if is_ajax() else (flash(msg) or redirect(url_for("handover.handover")))
 
             try:
-                h_bytes = handover_file.read()
-                a_bytes = arrears_file.read()
-                handover_df = _read_bytes(handover_file.filename, h_bytes)
-                arrears_df = _read_bytes(arrears_file.filename, a_bytes)
+                # Decompress up front so the recorded name and checksum describe
+                # the real file, not whatever transport encoding carried it.
+                h_name, h_bytes = _gunzip(handover_file.filename, handover_file.read())
+                a_name, a_bytes = _gunzip(arrears_file.filename, arrears_file.read())
+                handover_df = _read_bytes(h_name, h_bytes)
+                arrears_df = _read_bytes(a_name, a_bytes)
                 merged, stats = build_handover_dataset(handover_df, arrears_df)
             except Exception as exc:  # noqa: BLE001 — surfaced to the user
                 msg = f"Could not build the register: {exc}"
@@ -762,12 +767,12 @@ def handover():
             meta = {
                 "created_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
                 "handover_file": {
-                    "name": secure_filename(handover_file.filename),
+                    "name": secure_filename(h_name),
                     "rows": int(len(handover_df)),
                     "sha256": hashlib.sha256(h_bytes).hexdigest()[:16],
                 },
                 "arrears_file": {
-                    "name": secure_filename(arrears_file.filename),
+                    "name": secure_filename(a_name),
                     "rows": int(len(arrears_df)),
                     "sha256": hashlib.sha256(a_bytes).hexdigest()[:16],
                 },
@@ -792,8 +797,24 @@ def handover():
     return _render_page()
 
 
+def _gunzip(filename: str, blob: bytes) -> tuple[str, bytes]:
+    """Transparently decompress a gzipped upload.
+
+    The browser compresses both files before posting because the two exports
+    together are ~12 MB and a Vercel serverless function rejects any request
+    body over 4.5 MB. Detection is by magic bytes, so a hand-made ``.csv.gz``
+    works too, and an uncompressed post (the local app) is left alone.
+    """
+    if blob[:2] == b"\x1f\x8b":
+        blob = gzip.decompress(blob)
+        if filename.lower().endswith(".gz"):
+            filename = filename[:-3]
+    return filename, blob
+
+
 def _read_bytes(filename: str, blob: bytes) -> pd.DataFrame:
     """Read an uploaded CSV/XLSX as text so connection numbers keep leading zeros."""
+    filename, blob = _gunzip(filename, blob)
     _, ext = os.path.splitext(filename)
     buf = io.BytesIO(blob)
     if ext.lower() == ".csv":

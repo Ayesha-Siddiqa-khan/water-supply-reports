@@ -69,7 +69,7 @@
   <form method="post" enctype="multipart/form-data" action="{{ url_for('handover.handover') }}" id="ho-upload-form" style="margin-bottom:16px;">
     <input type="hidden" name="action" value="upload">
     <div class="ho-panel">
-      <div class="ho-panel-title">Data Import</div>
+      <div class="ho-panel-title">Consumer List Import</div>
       <div class="ho-grid">
         <label class="ho-field">
           <span>1. Handover CSV &mdash; complete connection records</span>
@@ -77,7 +77,7 @@
           <span class="ho-note">All original columns are preserved unchanged.</span>
         </label>
         <label class="ho-field">
-          <span>2. Arrears CSV &mdash; Connection Number + Total Arrears</span>
+          <span>2. Arrears List &mdash; Connection Number + Total Arrears</span>
           <input class="ho-input" type="file" name="arrears_file" accept=".csv,.xlsx" required>
           <span class="ho-note">Matched on Connection Number; duplicates and misses are flagged, never guessed.</span>
         </label>
@@ -637,22 +637,78 @@ function hoToggle(id) { document.getElementById(id).classList.toggle('collapsed'
     });
   }
 
-  // ── Progress overlay while the two files are joined server-side ──
+  // ── Upload: compress in the browser, then post ──
+  // The two exports total ~12 MB, and a Vercel serverless function rejects any
+  // request body over 4.5 MB with 413 PAYLOAD_TOO_LARGE. Gzip takes them to
+  // ~1.5 MB. Browsers without CompressionStream fall back to a plain post,
+  // which is fine for the local/portable app where there is no such limit.
   var uploadForm = document.getElementById('ho-upload-form');
+
+  function overlay(title, status) {
+    var el = document.createElement('div');
+    el.className = 'upload-progress-overlay visible';
+    el.innerHTML =
+      '<div class="upload-progress-card">' +
+        '<div class="upload-progress-icon processing">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>' +
+        '</div>' +
+        '<div class="upload-progress-title" data-role="title">' + title + '</div>' +
+        '<div class="upload-progress-status" data-role="status">' + status + '</div>' +
+        '<div class="upload-progress-bar-track"><div class="upload-progress-bar-fill indeterminate"></div></div>' +
+      '</div>';
+    document.body.appendChild(el);
+    return {
+      set: function (t, s) {
+        el.querySelector('[data-role=title]').textContent = t;
+        el.querySelector('[data-role=status]').textContent = s;
+      },
+      remove: function () { el.remove(); }
+    };
+  }
+
+  function gzipFile(file) {
+    var stream = file.stream().pipeThrough(new CompressionStream('gzip'));
+    return new Response(stream).blob().then(function (blob) {
+      return new File([blob], file.name + '.gz', { type: 'application/gzip' });
+    });
+  }
+
   if (uploadForm) {
-    uploadForm.addEventListener('submit', function () {
-      var overlay = document.createElement('div');
-      overlay.className = 'upload-progress-overlay visible';
-      overlay.innerHTML =
-        '<div class="upload-progress-card">' +
-          '<div class="upload-progress-icon processing">' +
-            '<svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>' +
-          '</div>' +
-          '<div class="upload-progress-title">Building handover register...</div>' +
-          '<div class="upload-progress-status">Matching connection numbers and applying arrears</div>' +
-          '<div class="upload-progress-bar-track"><div class="upload-progress-bar-fill indeterminate"></div></div>' +
-        '</div>';
-      document.body.appendChild(overlay);
+    uploadForm.addEventListener('submit', function (e) {
+      var handover = uploadForm.querySelector('input[name=handover_file]').files[0];
+      var arrears = uploadForm.querySelector('input[name=arrears_file]').files[0];
+      if (!handover || !arrears) return;                 // let validation handle it
+
+      if (typeof CompressionStream === 'undefined') {
+        overlay('Building register...', 'Matching connection numbers and applying arrears');
+        return;                                          // plain post
+      }
+
+      e.preventDefault();
+      var ui = overlay('Compressing files...', 'Shrinking the upload so the server will accept it');
+
+      Promise.all([gzipFile(handover), gzipFile(arrears)]).then(function (packed) {
+        var mb = (packed[0].size + packed[1].size) / 1048576;
+        ui.set('Uploading...', mb.toFixed(2) + ' MB compressed from ' +
+               ((handover.size + arrears.size) / 1048576).toFixed(2) + ' MB');
+        var fd = new FormData();
+        fd.append('action', 'upload');
+        fd.append('handover_file', packed[0]);
+        fd.append('arrears_file', packed[1]);
+        return fetch(uploadForm.action, {
+          method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+      }).then(function (res) {
+        if (res.status === 413) throw new Error('The server rejected the upload as too large even after compression.');
+        return res.json().catch(function () { throw new Error('Server error (' + res.status + ')'); });
+      }).then(function (data) {
+        if (!data.ok) throw new Error(data.error || 'Upload failed.');
+        ui.set('Building register...', data.message || '');
+        window.location.href = data.redirect || window.location.pathname;
+      }).catch(function (err) {
+        ui.remove();
+        alert(err.message || 'Upload failed.');
+      });
     });
   }
 })();
