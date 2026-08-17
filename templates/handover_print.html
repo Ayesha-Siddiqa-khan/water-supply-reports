@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Consumer List</title>
+  <style>
+    /* Standalone print sheet — deliberately independent of the app theme so
+       the register prints black-on-white on any printer. Mirrors the PDF
+       layout exactly: title, date, then one block per sector. */
+    @page { size: A4 landscape; margin: 8mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 8mm; background: #fff; color: #111;
+      font-family: "Segoe UI", Arial, Helvetica, sans-serif; font-size: 10px;
+    }
+    .doc-head { text-align: center; margin-bottom: 8px; }
+    .doc-head h1 { margin: 0 0 2px; font-size: 22px; letter-spacing: .02em; font-weight: 700; }
+    .doc-head .date { font-size: 11px; }
+    .sector-heading {
+      text-align: center; font-size: 15px; font-weight: 700;
+      margin: 12px 0 5px; letter-spacing: .01em;
+    }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+    th, td { border: 1px solid #444; padding: 2px 4px; text-align: center; vertical-align: middle; }
+    th { background: #222; color: #fff; font-size: 9px; font-weight: 700; }
+    td { font-size: 8.5px; }
+    td.wrap { text-align: left; word-break: break-word; }
+    tbody tr:nth-child(even) { background: #f2f2f2; }
+    .summary-table td { font-size: 10px; font-weight: 600; padding: 4px; }
+    .empty { text-align: center; padding: 20px; }
+
+    /* ── Signature / approval strip ───────────────────────────────────────
+       "Last page only" is a normal block at the end of the flow.
+       "Every page" is position:fixed, which browsers repeat on every printed
+       sheet; body padding reserves the height so rows never run under it. */
+    .sig-strip { width: 100%; page-break-inside: avoid; }
+    .sig-strip table { border-collapse: collapse; margin: 0; }
+    .sig-strip td { border: none; padding: 0 6px; vertical-align: bottom; }
+    .sig-space { height: 20mm; }
+    .sig-line { border-top: 1px solid #111; padding-top: 3px; font-size: 9px; font-weight: 700; text-align: center; }
+    .sig-last { margin-top: 10mm; }
+    .sig-every { position: fixed; left: 8mm; right: 8mm; bottom: 4mm; }
+    body.has-fixed-sig { padding-bottom: 32mm; }
+
+    /* Round stamp watermark — fixed so it repeats on every printed sheet,
+       behind the tables, and never intercepts clicks. */
+    .watermark {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 110mm; height: 110mm; opacity: .09; z-index: -1; pointer-events: none;
+    }
+    @media print { .watermark { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+
+    .toolbar { text-align: right; margin-bottom: 8px; }
+    .toolbar button { font: inherit; font-size: 11px; padding: 6px 14px; margin-left: 6px; cursor: pointer;
+                      border: 1px solid #111; background: #111; color: #fff; border-radius: 3px; }
+    .toolbar button.ghost { background: #fff; color: #111; }
+    @media print {
+      body { padding: 0; }
+      .toolbar { display: none; }
+      thead { display: table-header-group; }
+      tr { page-break-inside: avoid; }
+      .sector-heading { page-break-after: avoid; }
+    }
+  </style>
+</head>
+<body class="{% if signature.position == 'every' and signature.fields %}has-fixed-sig{% endif %}">
+
+  {% if watermark.enabled and watermark.text %}
+  <svg class="watermark" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <!-- Legend baseline: the upper arc of the band between the rings. -->
+      <path id="wm-arc" d="M 26,100 A 74,74 0 0 1 174,100" fill="none" />
+      <polygon id="wm-star" points="0,-1 -0.247,-0.34 -0.951,-0.309 -0.4,0.13 -0.588,0.809
+                                    0,0.42 0.588,0.809 0.4,0.13 0.951,-0.309 0.247,-0.34" />
+    </defs>
+    <g fill="none" stroke="#16324f">
+      <circle cx="100" cy="100" r="96" stroke-width="4" />
+      <circle cx="100" cy="100" r="90" stroke-width="1.2" />
+      <circle cx="100" cy="100" r="64" stroke-width="1.4" />
+    </g>
+    <text font-family="Helvetica, Arial, sans-serif" font-weight="bold" font-size="15"
+          fill="#16324f" letter-spacing="0.5">
+      <textPath href="#wm-arc" startOffset="50%" text-anchor="middle">{{ watermark.text|upper }}</textPath>
+    </text>
+    <g fill="#16324f">
+      <use href="#wm-star" transform="translate(100,100) scale(20)" />
+      <use href="#wm-star" transform="translate(20.5,100) scale(5.5)" />
+      <use href="#wm-star" transform="translate(179.5,100) scale(5.5)" />
+    </g>
+  </svg>
+  {% endif %}
+
+  <div class="toolbar">
+    <button class="ghost" type="button" onclick="window.close()">Close</button>
+    <button type="button" onclick="window.print()">Print</button>
+  </div>
+
+  <div class="doc-head">
+    <h1>Consumer List</h1>
+    <div class="date">{{ report_date }}</div>
+  </div>
+
+  {% if not sections %}
+  <div class="empty">No connections match the selected filters.</div>
+  {% endif %}
+
+  {% for section in sections %}
+    <div class="sector-heading">{{ section.sector }}</div>
+
+    {% if section.summary %}
+    <table class="summary-table">
+      <thead><tr>{% for _, label, _ in summary_columns %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+      <tbody><tr>
+        {% for key, _, _ in summary_columns %}
+        <td>{{ "{:,.0f}".format(section.summary[key]) if key == 'arrears' else "{:,}".format(section.summary[key]) }}</td>
+        {% endfor %}
+      </tr></tbody>
+    </table>
+    {% endif %}
+
+    {% if section.rows %}
+    <table>
+      <thead><tr>{% for col in section.columns %}<th>{{ col }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for row in section.rows %}
+        <tr>{% for cell in row %}<td class="{% if section.columns[loop.index0] in ['Consumer Name','F/H Name','Address','Locality','Data Flag','Arrears Match'] %}wrap{% endif %}">{{ cell }}</td>{% endfor %}</tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  {% endfor %}
+
+  {% if signature.fields and signature.position in ('last', 'every') %}
+  <div class="sig-strip {% if signature.position == 'every' %}sig-every{% else %}sig-last{% endif %}">
+    <table>
+      <tr>{% for field in signature.fields %}<td class="sig-space"></td>{% endfor %}</tr>
+      <tr>{% for field in signature.fields %}<td><div class="sig-line">{{ field }}</div></td>{% endfor %}</tr>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if auto_print %}
+  <script>window.addEventListener('load', function () { window.print(); });</script>
+  {% endif %}
+</body>
+</html>

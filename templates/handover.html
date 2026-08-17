@@ -1,0 +1,660 @@
+{% extends "base.html" %}
+{% block title %}Water Supply Report — Handover Register{% endblock %}
+{% block meta_description %}Build a printable employee handover register by joining connection records with outstanding arrears.{% endblock %}
+{% block active_page %}handover{% endblock %}
+{% block breadcrumb %}Handover Register{% endblock %}
+{% block pill_label %}Handover{% endblock %}
+{% block pill_detail %}{% if dataset %}{{ "{:,}".format(row_count) }} selected{% else %}Awaiting files{% endif %}{% endblock %}
+
+{% block head_extra %}
+<style>
+  /* Scoped to the Handover page only */
+  .ho-content { max-width: none !important; padding: 28px 32px !important; }
+  .ho-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .ho-field { display: flex; flex-direction: column; gap: 6px; font-size: 11px; color: var(--text-muted); }
+  .ho-field > span { font-weight: 600; color: var(--text-secondary); letter-spacing: .02em; }
+  .ho-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px 18px; margin-bottom: 14px; }
+  .ho-panel-title { font-size: 12px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; }
+  .ho-table td, .ho-table th { white-space: nowrap; }
+  .ho-table td.wrap { white-space: normal; min-width: 140px; }
+  .ho-input { background: var(--surface); border: 1px solid var(--border-bright); border-radius: var(--radius-sm);
+              color: var(--text-primary); font-family: var(--font-ui); font-size: 11px; padding: 7px 10px; outline: none; width: 100%; }
+  .ho-note { font-size: 10px; color: var(--text-muted); }
+  .ho-lock { border-left: 3px solid var(--amber); background: var(--amber-dim); padding: 12px 16px;
+             border-radius: var(--radius-sm); margin-bottom: 14px; font-size: 11px; color: var(--text-secondary); }
+  .ho-flag { color: var(--coral); }
+  .ho-sig-row { display: flex; align-items: center; gap: 8px; }
+  .ho-sig-row .ho-sig-label { flex: 1; min-width: 0; }
+  .ho-sig-row .ho-sig-del { padding: 5px 10px; line-height: 1; color: var(--coral); }
+  .ho-sig-row.off .ho-sig-label { opacity: .45; text-decoration: line-through; }
+  .ho-snap-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
+  .ho-snap-row:last-child { border-bottom: none; }
+  .ho-snap-row .grow { flex: 1; min-width: 0; }
+</style>
+{% endblock %}
+
+{% block topbar_actions %}
+  {% if dataset %}
+  <div style="display:flex;gap:8px;align-items:center;">
+    <a class="topbar-btn" id="ho-preview" href="#" target="_blank" rel="noopener">Preview</a>
+    <a class="topbar-btn" id="ho-pdf" href="#" target="_blank" rel="noopener">Generate PDF</a>
+    <a class="topbar-btn" id="ho-print" href="#" target="_blank" rel="noopener">Print</a>
+    <button type="button" class="topbar-btn" id="ho-share">Share PDF</button>
+  </div>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page">
+<div class="content ho-content">
+
+  <div class="page-header">
+    <div class="page-tag">Handover</div>
+    <h1 class="page-title">Employee Handover Register</h1>
+    <p class="page-subtitle">Join a Handover connections export with an Arrears export on Connection Number, review the sector summary, then finalise a locked handover record.</p>
+  </div>
+
+  {% if snapshot %}
+  <div class="ho-lock">
+    <strong>Locked handover record</strong> &mdash; finalised {{ snapshot.finalised_at }} &middot;
+    Outgoing: <strong>{{ snapshot.from_officer }}</strong> &rarr; Incoming: <strong>{{ snapshot.to_officer }}</strong>.
+    {% if snapshot.note %}<br>{{ snapshot.note }}{% endif %}
+    <br>This snapshot is read-only: later changes to connection status or arrears cannot alter it.
+    <br><a class="chip" style="margin-top:8px;" href="{{ url_for('handover.handover') }}">&larr; Back to working register</a>
+  </div>
+  {% endif %}
+
+  {% if not snapshot %}
+  <!-- ============================ DATA IMPORT ============================ -->
+  <form method="post" enctype="multipart/form-data" action="{{ url_for('handover.handover') }}" id="ho-upload-form" style="margin-bottom:16px;">
+    <input type="hidden" name="action" value="upload">
+    <div class="ho-panel">
+      <div class="ho-panel-title">Data Import</div>
+      <div class="ho-grid">
+        <label class="ho-field">
+          <span>1. Handover CSV &mdash; complete connection records</span>
+          <input class="ho-input" type="file" name="handover_file" accept=".csv,.xlsx" required>
+          <span class="ho-note">All original columns are preserved unchanged.</span>
+        </label>
+        <label class="ho-field">
+          <span>2. Arrears CSV &mdash; Connection Number + Total Arrears</span>
+          <input class="ho-input" type="file" name="arrears_file" accept=".csv,.xlsx" required>
+          <span class="ho-note">Matched on Connection Number; duplicates and misses are flagged, never guessed.</span>
+        </label>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button type="submit" class="btn btn-primary">Build Handover Register</button>
+        {% if dataset %}
+        <span class="ho-note">Current source: {{ dataset.handover_file.name }} + {{ dataset.arrears_file.name }} &middot; built {{ dataset.created_at }}</span>
+        {% endif %}
+      </div>
+    </div>
+  </form>
+  {% endif %}
+
+  {% if not dataset %}
+  <div class="empty-state">
+    <div class="empty-state-icon">&#128203;</div>
+    <div class="empty-state-title">No handover register built yet</div>
+    <div class="empty-state-desc">Upload both files above. Every connection in the Handover file keeps its original columns and gains a <strong>Total Arrears</strong> column taken from the Arrears file.</div>
+  </div>
+  {% endif %}
+
+  {% if dataset %}
+  {% set stats = dataset.stats %}
+  <!-- ============================== STATS ================================ -->
+  <div class="stat-grid">
+    <div class="stat-card teal">
+      <div class="stat-card-icon">&#128203;</div>
+      <div class="stat-label">Connections In View</div>
+      <div class="stat-value">{{ "{:,}".format(row_count) }}</div>
+      <div class="stat-delta">of {{ "{:,}".format(total_count) }} in the handover file</div>
+    </div>
+    <div class="stat-card violet">
+      <div class="stat-card-icon">&#128279;</div>
+      <div class="stat-label">Arrears Matched</div>
+      <div class="stat-value">{{ "{:,}".format(stats.matched) }}</div>
+      <div class="stat-delta">{{ "{:,}".format(stats.matched_exact) }} on connection no. alone</div>
+    </div>
+    <div class="stat-card coral">
+      <div class="stat-card-icon">&#9888;</div>
+      <div class="stat-label">Flagged Connections</div>
+      <div class="stat-value">{{ "{:,}".format(stats.ambiguous + stats.not_found + stats.no_connection) }}</div>
+      <div class="stat-delta">{{ "{:,}".format(stats.ambiguous) }} duplicate &middot; {{ "{:,}".format(stats.not_found) }} not found &middot; {{ "{:,}".format(stats.no_connection) }} no number</div>
+    </div>
+    <div class="stat-card amber">
+      <div class="stat-card-icon">&#128176;</div>
+      <div class="stat-label">Outstanding Arrears (In View)</div>
+      <div class="stat-value">{{ "{:,.0f}".format(grand.arrears) }}</div>
+      <div class="stat-delta">File total Rs. {{ "{:,.0f}".format(stats.arrears_total_file) }}</div>
+    </div>
+  </div>
+
+  {% if not snapshot %}
+  <!-- ============================= FILTERS =============================== -->
+  <div class="section" id="sec-ho-filters">
+    <div class="section-header" onclick="hoToggle('sec-ho-filters')">
+      <div class="section-header-icon">&#9881;</div>
+      <div class="section-title">Filters &amp; Column Selection</div>
+      <span class="section-badge">{{ filter_text }}</span>
+      <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+    </div>
+    <div class="section-body">
+      <form method="get" action="{{ url_for('handover.handover') }}" id="ho-filter-form">
+        <div class="ho-grid">
+          {% for param, label, all_label in [('sector','Sector','All sectors'), ('locality','Locality','All localities'), ('zone','Zone','All zones'), ('status','Connection Status','All statuses'), ('type','Connection Type','Regular + Commercial')] %}
+          <label class="ho-field">
+            <span>{{ label }}</span>
+            <div class="msd-wrap" data-msd="{{ param }}">
+              <select name="{{ param }}" multiple hidden>
+                {% for value in options[param] %}
+                <option value="{{ value }}" {% if value in filters[param] %}selected{% endif %}>{{ value }}</option>
+                {% endfor %}
+              </select>
+              <div class="msd-field" tabindex="0" role="button">
+                <div class="msd-chips"></div>
+                <span class="msd-placeholder">{{ all_label }}</span>
+                <span class="msd-arrow">&#9662;</span>
+              </div>
+              <div class="msd-panel" style="display:none">
+                <div class="msd-search-wrap"><input type="text" class="msd-search" placeholder="Search {{ label|lower }}..."></div>
+                <label class="msd-sall"><input type="checkbox" class="msd-sall-cb"> Select All</label>
+                <div class="msd-list"></div>
+              </div>
+            </div>
+          </label>
+          {% endfor %}
+        </div>
+
+        <div class="col-select-area" style="margin-top:14px;">
+          <div class="col-select-label">Register Columns</div>
+          <div class="col-chips" id="ho-col-chips">
+            {% for col in all_columns %}
+            <span class="col-chip {% if col.key in selected_keys %}active{% endif %}" data-col="{{ col.key }}">{{ col.label }}</span>
+            {% endfor %}
+          </div>
+          <input type="hidden" name="cols" id="ho-cols" value="{{ selected_keys|join(',') }}">
+        </div>
+
+        <!-- Round stamp watermark for the printed Consumer List -->
+        <div class="col-select-area" style="margin-top:14px;">
+          <div class="col-select-label">PDF Watermark</div>
+          <input type="hidden" name="wmset" value="1">
+          <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+            <label style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);cursor:pointer;">
+              <input type="checkbox" name="wm" value="1" {% if watermark.enabled %}checked{% endif %}> Show watermark
+            </label>
+            <input class="ho-input" type="text" name="wmtext" value="{{ watermark.text }}"
+                   placeholder="Watermark text" style="max-width:340px;">
+            <span class="ho-note">Printed as a faint round official stamp in the centre of every page.</span>
+          </div>
+        </div>
+
+        <!-- Signature / approval section for the printed Consumer List -->
+        <div class="col-select-area" style="margin-top:14px;">
+          <div class="col-select-label">Signature / Approval Section</div>
+          <input type="hidden" name="sigset" value="1">
+          <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+            <label style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);">
+              Placement
+              <select name="sigpos" class="filter-select">
+                {% for value, label in signature_positions %}
+                <option value="{{ value }}" {% if signature.position == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <button type="button" class="btn btn-sm" id="ho-sig-add">+ Add Field</button>
+            <span class="ho-note">Untick to hide a field, &times; to delete it, or edit any label. Up to {{ max_signature_fields }} fields.</span>
+          </div>
+          <div id="ho-sig-fields" class="ho-grid">
+            {% for field in signature.fields %}
+            <div class="ho-sig-row">
+              <input type="checkbox" class="ho-sig-on" checked title="Show this field">
+              <input class="ho-input ho-sig-label" type="text" name="sig" value="{{ field }}" placeholder="Signature label">
+              <button type="button" class="btn btn-sm ho-sig-del" title="Delete this field">&times;</button>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" name="flagged" value="1" {% if filters.flagged_only %}checked{% endif %}> Flagged rows only
+          </label>
+          <button type="submit" class="btn btn-primary">Apply Filters</button>
+          <a class="btn" href="{{ url_for('handover.handover') }}?status=Active&amp;type=Regular">Primary List (Active + Regular)</a>
+          <a class="btn" href="{{ url_for('handover.handover') }}?status=Suspended">Suspended Report</a>
+          <a class="btn" href="{{ url_for('handover.handover') }}?type=Commercial">Commercial Report</a>
+          <a class="btn" href="{{ url_for('handover.handover') }}?cols=">Clear Filters</a>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ========================== SECTOR SUMMARY =========================== -->
+  <div class="section" id="sec-ho-summary">
+    <div class="section-header" onclick="hoToggle('sec-ho-summary')">
+      <div class="section-header-icon">&#128202;</div>
+      <div class="section-title">Sector Summary</div>
+      <span class="section-badge">{{ summary_rows|length }} sectors</span>
+      <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+    </div>
+    <div class="section-body">
+      <div class="export-bar">
+        <a class="chip pdf ho-export" data-fmt="pdf" data-part="summary" href="#">&#11015; Summary PDF</a>
+        <a class="chip csv ho-export" data-fmt="csv" data-part="summary" href="#">&#11015; Summary CSV</a>
+        <a class="chip xlsx ho-export" data-fmt="xlsx" data-part="summary" href="#">&#11015; Summary Excel</a>
+      </div>
+      <div class="table-wrapper" style="max-height:420px;">
+        <table class="data-table ho-table">
+          <thead><tr>
+            <th>SR</th><th>Sector</th><th>Total</th><th>Active</th><th>Suspended</th>
+            <th>Closed</th><th>New Demand</th><th>Regular</th><th>Commercial</th><th>Total Arrears (Rs.)</th>
+          </tr></thead>
+          <tbody>
+            {% for row in summary_rows %}
+            <tr>
+              <td>{{ row.serial }}</td>
+              <td class="wrap">{{ row.sector }}</td>
+              <td class="mono">{{ "{:,}".format(row.total) }}</td>
+              <td class="mono accent-teal">{{ "{:,}".format(row.active) }}</td>
+              <td class="mono accent-amber">{{ "{:,}".format(row.suspended) }}</td>
+              <td class="mono accent-coral">{{ "{:,}".format(row.closed) }}</td>
+              <td class="mono">{{ "{:,}".format(row.new_demand) }}</td>
+              <td class="mono">{{ "{:,}".format(row.regular) }}</td>
+              <td class="mono">{{ "{:,}".format(row.commercial) }}</td>
+              <td class="mono">{{ "{:,.0f}".format(row.arrears) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot><tr>
+            <td></td><td>GRAND TOTAL</td>
+            <td class="mono">{{ "{:,}".format(grand.total) }}</td>
+            <td class="mono">{{ "{:,}".format(grand.active) }}</td>
+            <td class="mono">{{ "{:,}".format(grand.suspended) }}</td>
+            <td class="mono">{{ "{:,}".format(grand.closed) }}</td>
+            <td class="mono">{{ "{:,}".format(grand.new_demand) }}</td>
+            <td class="mono">{{ "{:,}".format(grand.regular) }}</td>
+            <td class="mono">{{ "{:,}".format(grand.commercial) }}</td>
+            <td class="mono">{{ "{:,.0f}".format(grand.arrears) }}</td>
+          </tr></tfoot>
+        </table>
+      </div>
+      {% if grand.other %}
+      <div class="ho-note" style="margin-top:8px;">{{ grand.other }} connection(s) carry a status outside Active / Suspended / Closed / New Demand and are counted in Total only.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ======================= CONNECTION-WISE REGISTER ==================== -->
+  <div class="section" id="sec-ho-detail">
+    <div class="section-header" onclick="hoToggle('sec-ho-detail')">
+      <div class="section-header-icon">&#128220;</div>
+      <div class="section-title">Connection-wise Register</div>
+      <span class="section-badge">{{ "{:,}".format(row_count) }} records</span>
+      <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+    </div>
+    <div class="section-body">
+      <div class="export-bar">
+        <a class="chip pdf ho-export" data-fmt="pdf" data-part="register" href="#">&#11015; Full Register PDF</a>
+        <a class="chip pdf ho-export" data-fmt="pdf" data-part="detail" href="#">&#11015; Detail Only PDF</a>
+        <a class="chip csv ho-export" data-fmt="csv" data-part="detail" href="#">&#11015; Detail CSV</a>
+        <a class="chip xlsx ho-export" data-fmt="xlsx" data-part="detail" href="#">&#11015; Detail Excel</a>
+      </div>
+      <div class="filter-summary">{{ filter_text }}</div>
+      {% if row_count > preview_limit %}
+      <div class="ho-note" style="margin-bottom:8px;">Showing the first {{ preview_limit }} of {{ "{:,}".format(row_count) }} records. Preview, PDF, Print and the downloads below include all {{ "{:,}".format(row_count) }}.</div>
+      {% endif %}
+      <div class="table-wrapper" style="max-height:520px;">
+        <table class="data-table ho-table">
+          <thead><tr>{% for col in columns %}<th>{{ col }}</th>{% endfor %}</tr></thead>
+          <tbody>
+            {% for row in preview_rows %}
+            <tr>{% for cell in row %}<td class="{% if columns[loop.index0] in ['Consumer Name','F/H Name','Address','Sector','Locality'] %}wrap{% else %}mono{% endif %}">{{ cell }}</td>{% endfor %}</tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if not preview_rows %}
+      <div class="ho-note" style="margin-top:10px;">No connections match the selected filters.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ============================ EXCEPTIONS ============================= -->
+  {% if flagged_count %}
+  <div class="section collapsed" id="sec-ho-flags">
+    <div class="section-header" onclick="hoToggle('sec-ho-flags')">
+      <div class="section-header-icon">&#9888;</div>
+      <div class="section-title">Flagged Connections</div>
+      <span class="section-badge ho-flag">{{ "{:,}".format(flagged_count) }} need review</span>
+      <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+    </div>
+    <div class="section-body">
+      <div class="ho-note" style="margin-bottom:10px;">
+        These connections could not be matched to exactly one arrears record, so no arrears amount was applied to them.
+        They are listed here rather than guessed.
+      </div>
+      <div class="export-bar">
+        <a class="chip pdf ho-export" data-fmt="pdf" data-part="exceptions" href="#">&#11015; Exceptions PDF</a>
+        <a class="chip csv ho-export" data-fmt="csv" data-part="exceptions" href="#">&#11015; Exceptions CSV</a>
+      </div>
+      <div class="table-wrapper" style="max-height:360px;">
+        <table class="data-table ho-table">
+          <thead><tr>{% for col in flagged_columns %}<th>{{ col }}</th>{% endfor %}</tr></thead>
+          <tbody>
+            {% for row in flagged_rows %}
+            <tr>{% for cell in row %}<td class="wrap">{{ cell }}</td>{% endfor %}</tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if flagged_count > 200 %}
+      <div class="ho-note" style="margin-top:8px;">Showing the first 200 of {{ "{:,}".format(flagged_count) }}. The exception exports include all of them.</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not snapshot %}
+  <!-- ============================= FINALISE ============================== -->
+  <div class="section collapsed" id="sec-ho-final">
+    <div class="section-header" onclick="hoToggle('sec-ho-final')">
+      <div class="section-header-icon">&#128274;</div>
+      <div class="section-title">Finalise Handover</div>
+      <span class="section-badge">Locks the current view as a permanent record</span>
+      <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+    </div>
+    <div class="section-body">
+      <form method="post" action="{{ url_for('handover.handover') }}" id="ho-final-form">
+        <input type="hidden" name="action" value="finalize">
+        {# The filters live in the separate GET form above, so restate the
+           rendered selection here — the snapshot must lock exactly what the
+           page is showing, not an empty filter set. #}
+        {% for param in ['sector', 'locality', 'zone', 'status', 'type'] %}
+          {% for value in filters[param] %}
+        <input type="hidden" name="{{ param }}" value="{{ value }}">
+          {% endfor %}
+        {% endfor %}
+        {% if filters.flagged_only %}<input type="hidden" name="flagged" value="1">{% endif %}
+        <input type="hidden" name="cols" value="{{ selected_keys|join(',') }}">
+        {# Lock the signature layout and watermark into the snapshot too. #}
+        <input type="hidden" name="sigset" value="1">
+        <input type="hidden" name="sigpos" value="{{ signature.position }}">
+        {% for field in signature.fields %}
+        <input type="hidden" name="sig" value="{{ field }}">
+        {% endfor %}
+        <input type="hidden" name="wmset" value="1">
+        {% if watermark.enabled %}<input type="hidden" name="wm" value="1">{% endif %}
+        <input type="hidden" name="wmtext" value="{{ watermark.text }}">
+        <div class="ho-grid">
+          <label class="ho-field"><span>Outgoing Employee</span>
+            <input class="ho-input" type="text" name="from_officer" placeholder="Name of employee handing over" required></label>
+          <label class="ho-field"><span>Incoming Employee</span>
+            <input class="ho-input" type="text" name="to_officer" placeholder="Name of employee taking over" required></label>
+          <label class="ho-field"><span>Note (optional)</span>
+            <input class="ho-input" type="text" name="note" placeholder="Reference, order no. or remarks"></label>
+        </div>
+        <div class="ho-note" style="margin-top:10px;">
+          Finalising copies the {{ "{:,}".format(row_count) }} connections currently in view, together with the filters,
+          selected columns, source file names and checksums, into a locked snapshot stamped with the date and time.
+        </div>
+        <div style="margin-top:12px;">
+          <button type="submit" class="btn btn-primary">Finalise &amp; Lock Register</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <form method="post" action="{{ url_for('handover.handover') }}" style="margin-top:16px;">
+    <input type="hidden" name="action" value="clear">
+    <button type="submit" class="btn btn-danger btn-sm">Clear Working Data</button>
+  </form>
+  {% endif %}
+  {% endif %}
+
+  <!-- =========================== SNAPSHOT LIST =========================== -->
+  {% if snapshots %}
+  <div class="section collapsed" id="sec-ho-snaps" style="margin-top:18px;">
+    <div class="section-header" onclick="hoToggle('sec-ho-snaps')">
+      <div class="section-header-icon">&#128193;</div>
+      <div class="section-title">Finalised Handover Records</div>
+      <span class="section-badge">{{ snapshots|length }} locked</span>
+      <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+    </div>
+    <div class="section-body">
+      {% for snap in snapshots %}
+      <div class="ho-snap-row">
+        <div class="grow">
+          <strong>{{ snap.from_officer }} &rarr; {{ snap.to_officer }}</strong>
+          <div class="ho-note">{{ snap.finalised_at }} &middot; {{ "{:,}".format(snap.row_count|default(0, true)) }} connections &middot; {{ snap.sector_count|default(0, true) }} sectors &middot; Rs. {{ "{:,.0f}".format((snap.grand or {}).get('arrears', 0)) }} arrears</div>
+          <div class="ho-note">{{ snap.filter_text }}</div>
+        </div>
+        <a class="chip" href="{{ url_for('handover.handover_snapshot', snapshot_id=snap.id) }}">Open</a>
+        <a class="chip pdf" target="_blank" rel="noopener" href="{{ url_for('handover.export_handover', fmt_type='pdf') }}?snap={{ snap.id }}&amp;part=register">PDF</a>
+        <a class="chip" target="_blank" rel="noopener" href="{{ url_for('handover.handover_print') }}?snap={{ snap.id }}">Print</a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+</div>
+
+<script>
+function hoToggle(id) { document.getElementById(id).classList.toggle('collapsed'); }
+
+(function () {
+  // ── Multi-select dropdowns (same markup/CSS as the rest of the app) ──
+  document.querySelectorAll('.msd-wrap[data-msd]').forEach(function (wrap) {
+    var select = wrap.querySelector('select[multiple]');
+    var opts = Array.prototype.slice.call(select.options);
+    var field = wrap.querySelector('.msd-field');
+    var panel = wrap.querySelector('.msd-panel');
+    var chips = wrap.querySelector('.msd-chips');
+    var placeholder = wrap.querySelector('.msd-placeholder');
+    var search = wrap.querySelector('.msd-search');
+    var selectAll = wrap.querySelector('.msd-sall-cb');
+    var list = wrap.querySelector('.msd-list');
+
+    function render() {
+      var text = (search.value || '').toLowerCase();
+      list.innerHTML = '';
+      var visible = 0, allChecked = true;
+      opts.forEach(function (opt, i) {
+        if (text && opt.text.toLowerCase().indexOf(text) === -1) return;
+        visible++;
+        var label = document.createElement('label');
+        label.className = 'msd-opt';
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = opt.selected;
+        cb.dataset.idx = i;
+        cb.addEventListener('change', function () {
+          opts[parseInt(cb.dataset.idx, 10)].selected = cb.checked;
+          sync();
+        });
+        var span = document.createElement('span');
+        span.textContent = opt.text;
+        label.appendChild(cb);
+        label.appendChild(span);
+        list.appendChild(label);
+        if (!cb.checked) allChecked = false;
+      });
+      selectAll.checked = visible > 0 && allChecked;
+    }
+
+    function sync() {
+      var selected = opts.filter(function (o) { return o.selected; });
+      chips.innerHTML = '';
+      selected.slice(0, 3).forEach(function (o) {
+        var chip = document.createElement('span');
+        chip.className = 'msd-chip';
+        chip.textContent = o.text;
+        chips.appendChild(chip);
+      });
+      if (selected.length > 3) {
+        var more = document.createElement('span');
+        more.className = 'msd-chip msd-more';
+        more.textContent = '+' + (selected.length - 3) + ' more';
+        chips.appendChild(more);
+      }
+      placeholder.style.display = selected.length ? 'none' : '';
+    }
+
+    field.addEventListener('click', function (e) {
+      e.stopPropagation();
+      // Explicit 'block'/'none': .msd-panel is display:none in styles.css, so
+      // clearing the inline style would leave the panel hidden.
+      var isOpen = panel.style.display === 'block';
+      document.querySelectorAll('.msd-panel').forEach(function (p) { p.style.display = 'none'; });
+      panel.style.display = isOpen ? 'none' : 'block';
+      if (!isOpen) { render(); setTimeout(function () { search.focus(); }, 50); }
+    });
+    search.addEventListener('input', render);
+    selectAll.addEventListener('change', function () {
+      var text = (search.value || '').toLowerCase();
+      opts.forEach(function (o) {
+        if (text && o.text.toLowerCase().indexOf(text) === -1) return;
+        o.selected = selectAll.checked;
+      });
+      render();
+      sync();
+    });
+    sync();
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('.msd-wrap')) {
+      document.querySelectorAll('.msd-panel').forEach(function (p) { p.style.display = 'none'; });
+    }
+  });
+
+  // ── Column chips feed the hidden `cols` field ──
+  var colsInput = document.getElementById('ho-cols');
+  document.querySelectorAll('#ho-col-chips .col-chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      chip.classList.toggle('active');
+      var keys = [];
+      document.querySelectorAll('#ho-col-chips .col-chip.active').forEach(function (c) {
+        keys.push(c.dataset.col);
+      });
+      colsInput.value = keys.join(',');
+    });
+  });
+
+  // ── Signature fields: show/hide, delete, add, relabel ──
+  // A hidden (unticked) field is disabled rather than removed, so the label
+  // survives for re-enabling; disabled inputs are not submitted, so it simply
+  // does not reach the PDF.
+  var sigFields = document.getElementById('ho-sig-fields');
+  var MAX_SIG = {{ max_signature_fields|default(6, true) }};
+
+  function bindSigRow(row) {
+    var toggle = row.querySelector('.ho-sig-on');
+    var label = row.querySelector('.ho-sig-label');
+    toggle.addEventListener('change', function () {
+      label.disabled = !toggle.checked;
+      row.classList.toggle('off', !toggle.checked);
+    });
+    row.querySelector('.ho-sig-del').addEventListener('click', function () {
+      row.remove();
+    });
+  }
+
+  if (sigFields) {
+    Array.prototype.forEach.call(sigFields.querySelectorAll('.ho-sig-row'), bindSigRow);
+    document.getElementById('ho-sig-add').addEventListener('click', function () {
+      if (sigFields.querySelectorAll('.ho-sig-row').length >= MAX_SIG) {
+        alert('A maximum of ' + MAX_SIG + ' signature fields can be printed.');
+        return;
+      }
+      var row = document.createElement('div');
+      row.className = 'ho-sig-row';
+      row.innerHTML =
+        '<input type="checkbox" class="ho-sig-on" checked title="Show this field">' +
+        '<input class="ho-input ho-sig-label" type="text" name="sig" value="" placeholder="Signature label">' +
+        '<button type="button" class="btn btn-sm ho-sig-del" title="Delete this field">&times;</button>';
+      sigFields.appendChild(row);
+      bindSigRow(row);
+      row.querySelector('.ho-sig-label').focus();
+    });
+  }
+
+  // ── Export / preview / print links carry the current filter query ──
+  var SNAP = {{ (snapshot_id or '')|tojson }};
+  function query(extra) {
+    var params = SNAP
+      ? new URLSearchParams({ snap: SNAP })
+      : new URLSearchParams(window.location.search);
+    Object.keys(extra || {}).forEach(function (k) { params.set(k, extra[k]); });
+    return '?' + params.toString();
+  }
+
+  var exportBase = {{ url_for('handover.export_handover', fmt_type='FMT')|tojson }};
+  document.querySelectorAll('.ho-export').forEach(function (link) {
+    link.href = exportBase.replace('FMT', link.dataset.fmt) + query({ part: link.dataset.part });
+  });
+
+  var printBase = {{ url_for('handover.handover_print')|tojson }};
+  var preview = document.getElementById('ho-preview');
+  var pdf = document.getElementById('ho-pdf');
+  var print = document.getElementById('ho-print');
+  if (preview) preview.href = printBase + query({});
+  if (print) print.href = printBase + query({ auto: '1' });
+  if (pdf) pdf.href = exportBase.replace('FMT', 'pdf') + query({ part: 'register' });
+
+  // ── Share PDF: native share sheet when available, download otherwise ──
+  var share = document.getElementById('ho-share');
+  if (share) {
+    share.addEventListener('click', function () {
+      var url = exportBase.replace('FMT', 'pdf') + query({ part: 'register' });
+      var original = share.textContent;
+      share.textContent = 'Preparing...';
+      share.disabled = true;
+      fetch(url).then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.blob();
+      }).then(function (blob) {
+        var file = new File([blob], 'Consumer-List.pdf', { type: 'application/pdf' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          return navigator.share({ files: [file], title: 'Consumer List' });
+        }
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'Consumer-List.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }).catch(function (err) {
+        if (err && err.name !== 'AbortError') alert('Could not share the PDF: ' + err.message);
+      }).finally(function () {
+        share.textContent = original;
+        share.disabled = false;
+      });
+    });
+  }
+
+  // ── Progress overlay while the two files are joined server-side ──
+  var uploadForm = document.getElementById('ho-upload-form');
+  if (uploadForm) {
+    uploadForm.addEventListener('submit', function () {
+      var overlay = document.createElement('div');
+      overlay.className = 'upload-progress-overlay visible';
+      overlay.innerHTML =
+        '<div class="upload-progress-card">' +
+          '<div class="upload-progress-icon processing">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>' +
+          '</div>' +
+          '<div class="upload-progress-title">Building handover register...</div>' +
+          '<div class="upload-progress-status">Matching connection numbers and applying arrears</div>' +
+          '<div class="upload-progress-bar-track"><div class="upload-progress-bar-fill indeterminate"></div></div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+    });
+  }
+})();
+</script>
+{% endblock %}

@@ -12734,6 +12734,13 @@ def export_consumer_sector_remaining(fmt_type: str):
     return redirect(url_for("consumer_sector_remaining_report"))
 
 
+# Handover Register — independent feature, registered last so handover.py can
+# import the shared PDF/upload helpers defined above without a circular import.
+from handover import handover_bp  # noqa: E402
+
+app.register_blueprint(handover_bp)
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("WATER_SUPPLY_PORT", "5000"))
     host = os.environ.get("WATER_SUPPLY_HOST", "127.0.0.1")
