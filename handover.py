@@ -615,7 +615,7 @@ SIGNATURE_POSITIONS = ("last", "every", "none")
 MAX_SIGNATURE_FIELDS = 6
 
 
-DEFAULT_WATERMARK_TEXT = "WATER SUPPLY MCQ"
+DEFAULT_WATERMARK_TEXT = "WATER SUPPLY MC CHISHTIAN"
 
 
 def read_watermark_config(args=None) -> dict:
@@ -627,8 +627,10 @@ def read_watermark_config(args=None) -> dict:
     """
     args = args if args is not None else request.args
     if args.get("wmset"):
-        text = " ".join(str(args.get("wmtext") or "").split())
-        enabled = bool(args.get("wm")) and bool(text)
+        # Ticking the box with the text cleared means "stamp it" — fall back to
+        # the standard legend rather than silently printing nothing.
+        text = " ".join(str(args.get("wmtext") or "").split()) or DEFAULT_WATERMARK_TEXT
+        enabled = bool(args.get("wm"))
     else:
         # Off unless asked for: a stamp over an official register is a
         # deliberate choice, not something to apply behind the user's back.
@@ -1067,7 +1069,11 @@ def export_handover(fmt_type: str):
             for key, _, _ in SUMMARY_COLUMNS
         ])
     else:
-        headers, body = columns, detail_rows(frame, columns)
+        # Same rows, order and per-sector serial as the printed register, so a
+        # downloaded sheet can be ticked off line by line against the PDF.
+        sections = build_sections(frame, columns, ctx["frame_all"])
+        headers = [SERIAL_COLUMN] + list(columns)
+        body = [row for section in sections for row in section["rows"]]
 
     if fmt_type == "csv":
         out = io.StringIO()
