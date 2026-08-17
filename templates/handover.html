@@ -103,31 +103,23 @@
   {% if dataset %}
   {% set stats = dataset.stats %}
   <!-- ============================== STATS ================================ -->
-  <div class="stat-grid">
-    <div class="stat-card teal">
-      <div class="stat-card-icon">&#128203;</div>
-      <div class="stat-label">Connections In View</div>
-      <div class="stat-value">{{ "{:,}".format(row_count) }}</div>
-      <div class="stat-delta">of {{ "{:,}".format(total_count) }} in the handover file</div>
+  <!-- Report Summary — the exact figures printed on page 1 of the PDF -->
+  <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
+    {% for label, key in summary_cards %}
+    <div class="stat-card {{ ['teal','violet','teal','amber','coral','amber'][loop.index0] }}">
+      <div class="stat-label">{{ label }}</div>
+      <div class="stat-value">{{ "{:,.0f}".format(overall_sectors if key == 'sectors' else overall[key]) }}</div>
     </div>
-    <div class="stat-card violet">
-      <div class="stat-card-icon">&#128279;</div>
-      <div class="stat-label">Arrears Matched</div>
-      <div class="stat-value">{{ "{:,}".format(stats.matched) }}</div>
-      <div class="stat-delta">{{ "{:,}".format(stats.matched_exact) }} on connection no. alone</div>
-    </div>
-    <div class="stat-card coral">
-      <div class="stat-card-icon">&#9888;</div>
-      <div class="stat-label">Flagged Connections</div>
-      <div class="stat-value">{{ "{:,}".format(stats.ambiguous + stats.not_found + stats.no_connection) }}</div>
-      <div class="stat-delta">{{ "{:,}".format(stats.ambiguous) }} duplicate &middot; {{ "{:,}".format(stats.not_found) }} not found &middot; {{ "{:,}".format(stats.no_connection) }} no number</div>
-    </div>
-    <div class="stat-card amber">
-      <div class="stat-card-icon">&#128176;</div>
-      <div class="stat-label">Outstanding Arrears (In View)</div>
-      <div class="stat-value">{{ "{:,.0f}".format(grand.arrears) }}</div>
-      <div class="stat-delta">File total Rs. {{ "{:,.0f}".format(stats.arrears_total_file) }}</div>
-    </div>
+    {% endfor %}
+  </div>
+  <div class="filter-summary" style="margin-bottom:14px;">
+    Report Summary covers the complete imported dataset &mdash; identical to page 1 of the PDF.
+    Arrears reconcile exactly to the Arrears List total of
+    Rs. {{ "{:,.2f}".format(stats.arrears_total_file) }}
+    ({{ "{:,}".format(stats.matched) }} of {{ "{:,}".format(stats.total_rows) }} connections matched on Connection Number,
+    {{ "{:,}".format(stats.arrears_unapplied|default(0)|round|int) }} rupees unapplied).
+    &nbsp;&bull;&nbsp; Current filter selects <strong>{{ "{:,}".format(row_count) }}</strong> connections
+    with Rs. {{ "{:,.0f}".format(grand.arrears) }} arrears.
   </div>
 
   {% if not snapshot %}

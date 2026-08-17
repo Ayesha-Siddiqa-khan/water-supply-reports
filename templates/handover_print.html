@@ -69,24 +69,23 @@
   {% if watermark.enabled and watermark.text %}
   <svg class="watermark" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <defs>
-      <!-- Legend baseline: the upper arc of the band between the rings. -->
-      <path id="wm-arc" d="M 26,100 A 74,74 0 0 1 174,100" fill="none" />
+      <!-- Full ring, starting at the top and running clockwise. textLength
+           spreads the repeated legend evenly all the way round. -->
+      <path id="wm-ring" fill="none"
+            d="M 100,26 a 74,74 0 1 1 -0.01,0" />
       <polygon id="wm-star" points="0,-1 -0.247,-0.34 -0.951,-0.309 -0.4,0.13 -0.588,0.809
                                     0,0.42 0.588,0.809 0.4,0.13 0.951,-0.309 0.247,-0.34" />
     </defs>
     <g fill="none" stroke="#16324f">
       <circle cx="100" cy="100" r="96" stroke-width="4" />
       <circle cx="100" cy="100" r="90" stroke-width="1.2" />
-      <circle cx="100" cy="100" r="64" stroke-width="1.4" />
+      <circle cx="100" cy="100" r="58" stroke-width="1.4" />
     </g>
-    <text font-family="Helvetica, Arial, sans-serif" font-weight="bold" font-size="15"
-          fill="#16324f" letter-spacing="0.5">
-      <textPath href="#wm-arc" startOffset="50%" text-anchor="middle">{{ watermark.text|upper }}</textPath>
+    <text font-family="Helvetica, Arial, sans-serif" font-weight="bold" font-size="13" fill="#16324f">
+      <textPath href="#wm-ring" startOffset="0" textLength="465" lengthAdjust="spacing">{{ (watermark.text ~ '  ★  ')|upper * 3 }}</textPath>
     </text>
     <g fill="#16324f">
       <use href="#wm-star" transform="translate(100,100) scale(20)" />
-      <use href="#wm-star" transform="translate(20.5,100) scale(5.5)" />
-      <use href="#wm-star" transform="translate(179.5,100) scale(5.5)" />
     </g>
   </svg>
   {% endif %}

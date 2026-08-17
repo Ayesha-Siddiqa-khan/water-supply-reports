@@ -289,45 +289,77 @@ def build_handover_dataset(handover_df: pd.DataFrame, arrears_df: pd.DataFrame) 
     has_conn = a_parts["conn"] != ""
 
     # For every tier keep only keys that identify exactly one arrears row.
+    # Lookups map to the arrears ROW INDEX, not the amount, so a row can be
+    # marked as consumed and never applied to two connections.
     tier_lookups = []
     for label, fields in MATCH_TIERS:
         keys = _compose(a_parts, fields)[has_conn]
         unique = keys[~keys.duplicated(keep=False)]
-        tier_lookups.append((label, fields, dict(zip(unique, arrears_values[unique.index]))))
+        tier_lookups.append((label, fields, dict(zip(unique, unique.index))))
 
     all_conn_keys = set(a_parts["conn"][has_conn])
     h_tier_keys = [_compose(h_parts, fields) for _, fields in MATCH_TIERS]
 
     dup_in_handover = h_parts["conn"].duplicated(keep=False) & (h_parts["conn"] != "")
 
+    # Pass 1 — tiered exact matching.
+    row_source = [None] * len(handover_df)     # arrears row index applied here
+    labels = [None] * len(handover_df)
+    consumed = set()
+    unresolved: dict[str, list[int]] = {}
+    for pos in range(len(handover_df)):
+        conn = h_parts["conn"].iat[pos]
+        if not conn:
+            continue
+        for tier_index, (tier_label, _fields, lookup) in enumerate(tier_lookups):
+            source = lookup.get(h_tier_keys[tier_index].iat[pos])
+            if source is not None and source not in consumed:
+                row_source[pos], labels[pos] = source, tier_label
+                consumed.add(source)
+                break
+        else:
+            unresolved.setdefault(conn, []).append(pos)
+
+    # Pass 2 — a connection number reused N times on both sides, with no field
+    # left to separate the copies. Pairing them in file order consumes each
+    # arrears row exactly once, so the register still reconciles to the penny;
+    # the rows stay labelled so the pairing is visible in the exception report.
+    arrears_by_conn: dict[str, list[int]] = {}
+    for pos in range(len(arrears_df)):
+        key = a_parts["conn"].iat[pos]
+        if key:
+            arrears_by_conn.setdefault(key, []).append(pos)
+    for conn, positions in unresolved.items():
+        spare = [i for i in arrears_by_conn.get(conn, []) if i not in consumed]
+        if len(spare) != len(positions):
+            continue
+        for pos, source in zip(positions, spare):
+            row_source[pos], labels[pos] = source, "Matched by file order (duplicate connection no.)"
+            consumed.add(source)
+
     amounts, matches, flags = [], [], []
     for pos in range(len(handover_df)):
         conn = h_parts["conn"].iat[pos]
+        dup_note = "Duplicate connection no. in handover file" if dup_in_handover.iat[pos] else ""
         if not conn:
             amounts.append(0.0)
             matches.append("No connection number")
             flags.append("No connection number in handover file")
-            continue
-        amount, label = None, None
-        for tier_index, (tier_label, _fields, lookup) in enumerate(tier_lookups):
-            key = h_tier_keys[tier_index].iat[pos]
-            if key in lookup:
-                amount, label = lookup[key], tier_label
-                break
-        dup_note = "Duplicate connection no. in handover file" if dup_in_handover.iat[pos] else ""
-        if amount is None:
+        elif row_source[pos] is None:
+            amounts.append(0.0)
             if conn in all_conn_keys:
                 matches.append("Ambiguous — duplicate connection no. in arrears file")
                 flag = "Arrears not applied — duplicate connection no. could not be resolved"
             else:
                 matches.append("Not found in arrears file")
                 flag = "Connection no. missing from arrears file"
-            amounts.append(0.0)
             flags.append("; ".join(x for x in (flag, dup_note) if x))
         else:
-            amounts.append(amount)
-            matches.append(label)
-            flags.append(dup_note)
+            amounts.append(float(arrears_values.iat[row_source[pos]]))
+            matches.append(labels[pos])
+            note = "Arrears paired by file order — duplicate connection no." \
+                if labels[pos].startswith("Matched by file order") else ""
+            flags.append("; ".join(x for x in (note, dup_note) if x))
 
     sector_col = _pick(h_cols, "sector")
     locality_col = _pick(h_cols, "locality")
@@ -373,9 +405,11 @@ def build_handover_dataset(handover_df: pd.DataFrame, arrears_df: pd.DataFrame) 
         "not_found": int(sum(1 for m in matches if m == "Not found in arrears file")),
         "no_connection": int(sum(1 for m in matches if m == "No connection number")),
         "duplicate_in_handover": int(dup_in_handover.sum()),
+        "paired_by_order": int(sum(1 for m in matches if m.startswith("Matched by file order"))),
         "arrears_rows": int(len(arrears_df)),
         "arrears_total_file": float(arrears_values.sum()),
         "arrears_total_applied": float(sum(amounts)),
+        "arrears_unapplied": float(arrears_values.sum() - sum(amounts)),
         "handover_conn_col": h_conn,
         "arrears_conn_col": a_conn,
     }
@@ -513,15 +547,19 @@ SUMMARY_COLUMNS = [
     ("arrears", "Total Arrears (Rs.)", 0.10),
 ]
 
+# The printed serial, generated per sector. The imported "Sr #" stays available
+# as an optional column but is not used for numbering.
+SERIAL_COLUMN = "Sr"
+
 DEFAULT_DETAIL_COLUMNS = [
-    "Sr #", "Consumer Name", "F/H Name", "Mobile", "Sector", "Locality",
-    "Address", "Connection No.", "Connection Date", "Connection Status",
-    "Connection Type", "Total Arrears",
+    "Consumer Name", "F/H Name", "Mobile", "Sector", "Address",
+    "Connection No.", "Connection Date", "Total Arrears",
 ]
 
-# Columns rendered as wrapped paragraphs in the PDF; everything else stays a
-# plain string so a 10k-row register still builds in seconds.
-WRAP_COLUMNS = {"consumer name", "f/h name", "address", "sector", "locality", "data flag", "arrears match"}
+# Free text: wrapped and left-aligned. Everything else stays a plain centred
+# string, which is also what keeps a 10k-row register building in seconds.
+LEFT_COLUMNS = {"consumer name", "f/h name", "sector", "address"}
+WRAP_COLUMNS = LEFT_COLUMNS | {"locality", "data flag", "arrears match"}
 
 
 def detail_columns(df: pd.DataFrame) -> list[dict]:
@@ -546,19 +584,19 @@ def build_sections(frame: pd.DataFrame, columns: list[str]) -> list[dict]:
     """Split the register into one printable block per sector.
 
     Each block is: the sector name as a heading, a single summary line, and the
-    consumer rows. The sector is dropped from both the summary line and the
-    detail columns — it is constant inside the block, and repeating it on every
-    row costs width the register needs for names and addresses.
+    consumer rows, numbered from 1 within that sector. The printed serial is
+    generated per block rather than carried over from the source file, so the
+    register reads 1..N under every sector heading.
     """
-    detail_cols = [c for c in columns if _txt(c) != "sector"] or list(columns)
     sections = []
     for sector, block in frame.groupby("Sector", sort=True):
         rows, _ = build_sector_summary(block)
+        body = detail_rows(block, columns)
         sections.append({
             "sector": str(sector),
             "summary": rows[0] if rows else None,
-            "columns": detail_cols,
-            "rows": detail_rows(block, detail_cols),
+            "columns": [SERIAL_COLUMN] + list(columns),
+            "rows": [[str(i)] + row for i, row in enumerate(body, 1)],
         })
     return sections
 
@@ -572,7 +610,7 @@ SIGNATURE_POSITIONS = ("last", "every", "none")
 MAX_SIGNATURE_FIELDS = 6
 
 
-DEFAULT_WATERMARK_TEXT = "water supply M.C Chishtian"
+DEFAULT_WATERMARK_TEXT = "WATER SUPPLY MCQ"
 
 
 def read_watermark_config(args=None) -> dict:
@@ -677,6 +715,10 @@ def _render_page(snapshot_id: str | None = None):
 
     filtered = apply_filters(df, filters)
     summary_rows, grand = build_sector_summary(filtered)
+    # Same complete-dataset figures the PDF's first page prints, so the screen
+    # and the document can never disagree.
+    overall_summary_rows, overall = build_sector_summary(df)
+    overall_sectors = len(overall_summary_rows)
     columns = selected_columns(df, cols_param)
     preview_limit = 300
     flagged = filtered[filtered["Data Flag"].astype(str).str.strip() != ""]
@@ -704,6 +746,9 @@ def _render_page(snapshot_id: str | None = None):
         max_signature_fields=MAX_SIGNATURE_FIELDS,
         summary_rows=summary_rows,
         grand=grand,
+        overall=overall,
+        overall_sectors=overall_sectors,
+        summary_cards=SUMMARY_CARDS,
         columns=columns,
         preview_rows=detail_rows(filtered.head(preview_limit), columns),
         preview_limit=preview_limit,
@@ -922,9 +967,15 @@ def _report_context(snapshot_id: str | None):
         watermark = read_watermark_config()
     filtered = apply_filters(df, filters)
     summary_rows, grand = build_sector_summary(filtered)
+    # The first-page summary reports the complete imported dataset, not the
+    # filtered view — a status filter would otherwise zero out the very
+    # Suspended/Closed counts the summary exists to show.
+    overall_rows, overall = build_sector_summary(df)
     columns = selected_columns(df, cols_param)
     return {
         "meta": meta,
+        "overall": overall,
+        "overall_sectors": len(overall_rows),
         "filters": filters,
         "filter_text": meta.get("filter_text") if snapshot_id else filter_label(filters),
         "frame": filtered,
@@ -1086,9 +1137,9 @@ def export_handover(fmt_type: str):
     else:
         sections = build_sections(frame, columns)
         if part in ("register", "summary"):
-            # Overall totals for the whole filtered report, on their own first
-            # page; the sector blocks that follow are untouched.
-            elements.extend(_summary_page(grand, len(sections), page_w))
+            # Overall totals for the complete imported dataset, on their own
+            # first page; the sector blocks that follow are untouched.
+            elements.extend(_summary_page(ctx["overall"], ctx["overall_sectors"], page_w))
             if sections:
                 elements.append(PageBreak())
         if not sections:
@@ -1111,7 +1162,8 @@ def export_handover(fmt_type: str):
             elements.append(KeepTogether(block))
             if part in ("register", "detail") and section["rows"]:
                 elements.append(Spacer(1, 1.5 * mm))
-                elements.append(_register_table(section["columns"], section["rows"], page_w))
+                elements.append(_register_table(
+                    section["columns"], section["rows"], page_w, banner=section["sector"]))
             elements.append(Spacer(1, 2 * mm))
 
     if signature["position"] == "last":
@@ -1170,7 +1222,12 @@ def _summary_page(grand: dict, sector_count: int, page_w: float) -> list:
     return [Paragraph("Report Summary", heading), table]
 
 
-def _register_table(headers, rows, page_w, font_size=6.5):
+# Body type size for the register. Small enough to fit a landscape sheet
+# densely, large enough to stay readable in print.
+REGISTER_FONT_SIZE = 5.5
+
+
+def _register_table(headers, rows, page_w, banner=None, font_size=None):
     """A detail table for the printed register.
 
     Two corrections on top of the shared table builder, applied without
@@ -1180,6 +1237,7 @@ def _register_table(headers, rows, page_w, font_size=6.5):
       * the last row is un-bolded — the helper styles it as a grand total, but
         here the final row is just the last consumer on the list.
     """
+    font_size = REGISTER_FONT_SIZE if font_size is None else font_size
     main = _app()
     extents = _column_extents(headers, rows)
     widths = _detail_widths(headers, page_w, extents)
@@ -1190,21 +1248,56 @@ def _register_table(headers, rows, page_w, font_size=6.5):
     wrap_idx = {
         i for i, h in enumerate(headers)
         if _txt(h) in WRAP_COLUMNS
-        or stringWidth(extents[i], "Helvetica", font_size) > widths[i] - 6
+        or stringWidth(extents[i], "Helvetica", font_size) > widths[i] - 4
     }
+    # Names, sector and address read as text and are set left; numbers, dates,
+    # statuses and references stay centred.
+    left_idx = {i for i, h in enumerate(headers) if _txt(h) in LEFT_COLUMNS} | wrap_idx
     header_row = main.wrap_pdf_header_cells([_esc(h) for h in headers], font_size=font_size + 0.5)
+    data = [header_row] + _wrap_rows(rows, wrap_idx, font_size=font_size)
+    span_rows = None
+    offset = 0
+    if banner:
+        # A sector's rows can run over several pages. Carrying the sector name
+        # in a repeated banner row keeps every continuation page identified
+        # without repeating the name on all 9,648 rows.
+        styles = getSampleStyleSheet()
+        banner_style = ParagraphStyle(
+            "HOBanner", parent=styles["Normal"], fontName="Helvetica-Bold",
+            fontSize=font_size + 1.5, leading=font_size + 3.5, alignment=0,
+        )
+        data = [[Paragraph(_esc(banner), banner_style)] + [""] * (len(headers) - 1)] + data
+        span_rows = [0]
+        offset = 1
+
     table = main._make_pdf_table(
-        [header_row] + _wrap_rows(rows, wrap_idx, font_size=font_size),
-        col_widths=widths, left_cols=wrap_idx,
-        header_font_size=font_size + 0.5, body_font_size=font_size, cell_padding=2,
+        data, col_widths=widths, left_cols=left_idx, span_rows=span_rows,
+        header_font_size=font_size + 0.5, body_font_size=font_size, cell_padding=1,
     )
-    last = len(rows)
-    if last > 1:
-        table.setStyle(TableStyle([
+    if banner:
+        table.repeatRows = 2       # banner + column headers on every page
+
+    # The shared builder sets FONTSIZE but not LEADING, so plain string cells
+    # keep reportlab's 12pt default and every row is ~15pt tall no matter how
+    # small the type is. Setting leading explicitly is what actually makes the
+    # register dense.
+    extra = [("LEADING", (0, offset + 1), (-1, -1), font_size + 1)]
+    if banner:
+        # The shared builder paints row 0 as the header; the banner now sits
+        # there, so the real column-header row needs the dark fill applied to
+        # it — its text is white and would otherwise be invisible.
+        extra += [
+            ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor("#222222")),
+            ("LEADING", (0, 1), (-1, 1), font_size + 2),
+        ]
+    last = len(rows) + offset
+    if len(rows) > 1:
+        extra += [
             ("FONTNAME", (0, last), (-1, last), "Helvetica"),
             ("BACKGROUND", (0, last), (-1, last),
-             colors.HexColor("#f2f2f2") if last % 2 == 0 else colors.white),
-        ]))
+             colors.HexColor("#f2f2f2") if (last - offset) % 2 == 0 else colors.white),
+        ]
+    table.setStyle(TableStyle(extra))
     return table
 
 
@@ -1228,7 +1321,7 @@ def _wrap_rows(rows, wrap_idx, font_size=7):
         return rows
     style = ParagraphStyle(
         "HODetailCell", parent=getSampleStyleSheet()["Normal"],
-        fontName="Helvetica", fontSize=font_size, leading=font_size + 1,
+        fontName="Helvetica", fontSize=font_size, leading=font_size + 0.6,
         alignment=0, wordWrap="CJK",
     )
     return [
@@ -1258,9 +1351,12 @@ def _detail_widths(headers, page_w, extents=None):
     """
     weights = []
     for i, header in enumerate(headers):
-        header_floor = max((len(word) for word in str(header).split()), default=4)
+        # Headers are bold and a size larger than the body, so a header word
+        # needs more room per character than a body character — without the
+        # allowance, "Total Arrears" breaks mid-word into "Total Arre / ars".
+        header_floor = max((len(word) for word in str(header).split()), default=4) * 1.45
         content = len(extents[i]) if extents else 0
-        weights.append(max(5.0, float(header_floor), min(float(content), 26.0)))
+        weights.append(max(4.0, header_floor, min(float(content), 26.0)))
     total = sum(weights) or 1
     return [page_w * w / total for w in weights]
 
@@ -1384,38 +1480,35 @@ WATERMARK_ALPHA = 0.10
 WATERMARK_FILL_ALPHA = 0.06
 
 
-def _draw_arc_text(canvas_obj, cx, cy, radius, text, size, bottom=False):
-    """Set text around a circle, one glyph at a time.
+def _draw_ring_text(canvas_obj, cx, cy, radius, text, size, separator="  ★  "):
+    """Set text right around the circle, evenly spaced with no gap.
 
-    ReportLab has no curved-text primitive, so each character is translated to
-    its point on the circle and rotated to sit tangent to it.
+    The legend is repeated as many times as fits at roughly the requested size,
+    then the size is trimmed so the repetitions close the ring exactly — which
+    is what makes the spacing even all the way round instead of leaving a bald
+    patch at the bottom.
     """
     font = "Helvetica-Bold"
-    widths = [canvas_obj.stringWidth(ch, font, size) for ch in text]
-    sweep = sum(widths) / radius
+    unit = text + separator
+    circumference = 2 * math.pi * radius
+    unit_width = canvas_obj.stringWidth(unit, font, size)
+    if unit_width <= 0:
+        return
+    repeats = max(1, round(circumference / unit_width))
+    full = unit * repeats
+    size *= circumference / canvas_obj.stringWidth(full, font, size)
     canvas_obj.setFont(font, size)
-    if bottom:
-        angle = -math.pi / 2 - sweep / 2
-        for char, width in zip(text, widths):
-            step = width / radius
-            theta = angle + step / 2
-            canvas_obj.saveState()
-            canvas_obj.translate(cx + radius * math.cos(theta), cy + radius * math.sin(theta))
-            canvas_obj.rotate(math.degrees(theta) + 90)
-            canvas_obj.drawCentredString(0, 0, char)
-            canvas_obj.restoreState()
-            angle += step
-    else:
-        angle = math.pi / 2 + sweep / 2
-        for char, width in zip(text, widths):
-            step = width / radius
-            theta = angle - step / 2
-            canvas_obj.saveState()
-            canvas_obj.translate(cx + radius * math.cos(theta), cy + radius * math.sin(theta))
-            canvas_obj.rotate(math.degrees(theta) - 90)
-            canvas_obj.drawCentredString(0, 0, char)
-            canvas_obj.restoreState()
-            angle -= step
+
+    angle = math.pi / 2                       # start at the top
+    for char in full:
+        step = canvas_obj.stringWidth(char, font, size) / radius
+        theta = angle - step / 2
+        canvas_obj.saveState()
+        canvas_obj.translate(cx + radius * math.cos(theta), cy + radius * math.sin(theta))
+        canvas_obj.rotate(math.degrees(theta) - 90)
+        canvas_obj.drawCentredString(0, 0, char)
+        canvas_obj.restoreState()
+        angle -= step
 
 
 def _draw_star(canvas_obj, cx, cy, outer, points=5):
@@ -1453,16 +1546,8 @@ def _draw_watermark(canvas_obj, doc, watermark: dict):
     canvas_obj.setLineWidth(1.2)
     canvas_obj.circle(cx, cy, inner)
 
-    # Shrink the legend until it sits inside the upper arc (about 130 degrees).
-    # Anything wider runs down the sides and collides with the 3/9 o'clock stars.
-    size = 14.0
-    while size > 5.5 and canvas_obj.stringWidth(text, "Helvetica-Bold", size) / arc_radius > 2.3:
-        size -= 0.5
-    _draw_arc_text(canvas_obj, cx, cy, arc_radius, text.upper(), size)
-
-    # Separator stars at 3 and 9 o'clock, and the device in the middle.
-    for direction in (-1, 1):
-        _draw_star(canvas_obj, cx + direction * (radius - 9 * mm), cy, 3 * mm)
+    # Legend right around the ring, evenly spaced.
+    _draw_ring_text(canvas_obj, cx, cy, arc_radius, text.upper(), 12.0)
     _draw_star(canvas_obj, cx, cy, 11 * mm)
     canvas_obj.restoreState()
 
