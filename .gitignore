@@ -54,3 +54,14 @@ debug_*.js
 test_*.js
 .opencode/
 .playwright-mcp/
+
+# Generated report artifacts — these contain per-consumer data (names,
+# connection numbers, arrears) and must never reach the remote. Ignored by
+# pattern so a stray `git add -A` cannot publish them.
+Data-Audit-Exceptions-*.pdf
+Negative-Pending-*.pdf
+Negative-Pending-*.xlsx
+Negative-Pending-*.csv
+Consumer_List_*.pdf
+Consumer_List_*.xlsx
+Consumer_List_*.csv
