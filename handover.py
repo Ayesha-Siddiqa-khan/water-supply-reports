@@ -1195,10 +1195,11 @@ def export_handover(fmt_type: str):
 
 SUMMARY_CARDS = [
     ("Total Sectors", "sectors"),
-    ("Total Connections", "total"),
+    ("Total Entries", "total"),
     ("Active Connections", "active"),
     ("Suspended Connections", "suspended"),
     ("Closed Connections", "closed"),
+    ("New Connections", "new_demand"),
     ("Total Arrears (Rs.)", "arrears"),
 ]
 
@@ -1222,8 +1223,19 @@ def _summary_page(grand: dict, sector_count: int, page_w: float) -> list:
             f'<font size="9">{label.upper()}</font><br/>'
             f'<font size="22"><b>{amount:,.0f}</b></font>', card))
 
+    # Three to a row; a trailing odd card spans the rest of its row so the grid
+    # never ends on an empty cell.
+    grid, spans = [], []
+    for start in range(0, len(cells), 3):
+        chunk = cells[start:start + 3]
+        row = len(grid)
+        if len(chunk) < 3:
+            spans.append(("SPAN", (0, row), (2, row)))
+            chunk = chunk + [""] * (3 - len(chunk))
+        grid.append(chunk)
+
     col_w = page_w / 3
-    table = Table([cells[:3], cells[3:]], colWidths=[col_w] * 3, rowHeights=[30 * mm] * 2)
+    table = Table(grid, colWidths=[col_w] * 3, rowHeights=[28 * mm] * len(grid))
     table.setStyle(TableStyle([
         ("BOX", (0, 0), (-1, -1), 1.0, colors.black),
         ("INNERGRID", (0, 0), (-1, -1), 0.8, colors.black),
@@ -1232,7 +1244,7 @@ def _summary_page(grand: dict, sector_count: int, page_w: float) -> list:
         ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
         # Deliberately unfilled: a solid card background would mask the top half
         # of the watermark and leave it looking sliced off.
-    ]))
+    ] + spans))
     return [Paragraph("Report Summary", heading), table]
 
 

@@ -107,7 +107,7 @@
   <!-- Report Summary — the exact figures printed on page 1 of the PDF -->
   <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
     {% for label, key in summary_cards %}
-    <div class="stat-card {{ ['teal','violet','teal','amber','coral','amber'][loop.index0] }}">
+    <div class="stat-card {{ ['teal','violet','teal','amber','coral','violet','amber'][loop.index0 % 7] }}">
       <div class="stat-label">{{ label }}</div>
       <div class="stat-value">{{ "{:,.0f}".format(overall_sectors if key == 'sectors' else overall[key]) }}</div>
     </div>
