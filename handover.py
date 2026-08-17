@@ -553,7 +553,7 @@ SERIAL_COLUMN = "Sr"
 
 DEFAULT_DETAIL_COLUMNS = [
     "Consumer Name", "F/H Name", "Mobile", "Sector", "Address",
-    "Connection No.", "Connection Date", "Total Arrears",
+    "Connection No.", "Total Arrears",
 ]
 
 # Free text: wrapped and left-aligned. Everything else stays a plain centred
@@ -580,7 +580,8 @@ def selected_columns(df: pd.DataFrame, cols_param: str | None) -> list[str]:
     return [c for c in df.columns if _txt(c) in {_txt(d) for d in DEFAULT_DETAIL_COLUMNS}]
 
 
-def build_sections(frame: pd.DataFrame, columns: list[str]) -> list[dict]:
+def build_sections(frame: pd.DataFrame, columns: list[str],
+                   summary_source: pd.DataFrame | None = None) -> list[dict]:
     """Split the register into one printable block per sector.
 
     Each block is: the sector name as a heading, a single summary line, and the
@@ -590,7 +591,11 @@ def build_sections(frame: pd.DataFrame, columns: list[str]) -> list[dict]:
     """
     sections = []
     for sector, block in frame.groupby("Sector", sort=True):
-        rows, _ = build_sector_summary(block)
+        # The summary line describes the whole sector, so it is computed from
+        # the complete import. Taking it from the filtered block instead would
+        # print Suspended 0 / Closed 0 whenever an Active filter is applied.
+        counted = block if summary_source is None else summary_source[summary_source["Sector"] == sector]
+        rows, _ = build_sector_summary(counted)
         body = detail_rows(block, columns)
         sections.append({
             "sector": str(sector),
@@ -625,7 +630,9 @@ def read_watermark_config(args=None) -> dict:
         text = " ".join(str(args.get("wmtext") or "").split())
         enabled = bool(args.get("wm")) and bool(text)
     else:
-        text, enabled = DEFAULT_WATERMARK_TEXT, True
+        # Off unless asked for: a stamp over an official register is a
+        # deliberate choice, not something to apply behind the user's back.
+        text, enabled = DEFAULT_WATERMARK_TEXT, False
     return {"enabled": enabled, "text": text or DEFAULT_WATERMARK_TEXT}
 
 
@@ -976,6 +983,7 @@ def _report_context(snapshot_id: str | None):
         "meta": meta,
         "overall": overall,
         "overall_sectors": len(overall_rows),
+        "frame_all": df,
         "filters": filters,
         "filter_text": meta.get("filter_text") if snapshot_id else filter_label(filters),
         "frame": filtered,
@@ -996,7 +1004,7 @@ def handover_print():
     frame = ctx["frame"]
     return render_template(
         "handover_print.html",
-        sections=build_sections(frame, ctx["columns"]),
+        sections=build_sections(frame, ctx["columns"], ctx["frame_all"]),
         summary_columns=REGISTER_SUMMARY_COLUMNS,
         report_date=report_date(ctx["meta"]),
         signature=ctx["signature"],
@@ -1135,7 +1143,7 @@ def export_handover(fmt_type: str):
         else:
             elements.append(_register_table(headers, body, page_w))
     else:
-        sections = build_sections(frame, columns)
+        sections = build_sections(frame, columns, ctx["frame_all"])
         if part in ("register", "summary"):
             # Overall totals for the complete imported dataset, on their own
             # first page; the sector blocks that follow are untouched.
@@ -1534,10 +1542,11 @@ def _draw_watermark(canvas_obj, doc, watermark: dict):
     arc_radius = radius - 12 * mm     # legend baseline, centred in that band
 
     canvas_obj.saveState()
-    canvas_obj.setFillAlpha(WATERMARK_FILL_ALPHA)
-    canvas_obj.setStrokeAlpha(WATERMARK_ALPHA)
-    canvas_obj.setStrokeColor(WATERMARK_COLOR)
-    canvas_obj.setFillColor(WATERMARK_COLOR)
+    # Alpha must be passed WITH the colour: setFillColor/setStrokeColor reset
+    # alpha to the colour object's own (opaque) value, so setting the alpha
+    # first and the colour after silently produces a solid black stamp.
+    canvas_obj.setStrokeColor(WATERMARK_COLOR, alpha=WATERMARK_ALPHA)
+    canvas_obj.setFillColor(WATERMARK_COLOR, alpha=WATERMARK_FILL_ALPHA)
 
     canvas_obj.setLineWidth(3.0)
     canvas_obj.circle(cx, cy, radius)

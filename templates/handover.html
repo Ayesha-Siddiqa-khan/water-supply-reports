@@ -577,10 +577,27 @@ function hoToggle(id) { document.getElementById(id).classList.toggle('collapsed'
 
   // ── Export / preview / print links carry the current filter query ──
   var SNAP = {{ (snapshot_id or '')|tojson }};
+  // Filters and column choices come from the URL, because they decide what the
+  // page itself is showing and must stay in step with it. The watermark and
+  // signature settings change only the generated document, so they are read
+  // live from the form — otherwise typing a watermark text and pressing
+  // "Generate PDF" would silently produce the previous text.
+  var PDF_ONLY_KEYS = ['wmset', 'wm', 'wmtext', 'sigset', 'sigpos', 'sig'];
+
   function query(extra) {
     var params = SNAP
       ? new URLSearchParams({ snap: SNAP })
       : new URLSearchParams(window.location.search);
+    var form = document.getElementById('ho-filter-form');
+    if (!SNAP && form) {
+      PDF_ONLY_KEYS.forEach(function (k) { params.delete(k); });
+      var fd = new FormData(form);
+      ['wmset', 'wm', 'wmtext', 'sigset', 'sigpos'].forEach(function (k) {
+        var v = fd.get(k);
+        if (v !== null) params.set(k, v);
+      });
+      fd.getAll('sig').forEach(function (v) { params.append('sig', v); });
+    }
     Object.keys(extra || {}).forEach(function (k) { params.set(k, extra[k]); });
     return '?' + params.toString();
   }
@@ -811,17 +828,24 @@ function hoToggle(id) { document.getElementById(id).classList.toggle('collapsed'
     });
   }
 
-  // A report opened in a new tab may be answered by a different, empty
-  // instance; make sure one is holding the register before opening it.
-  if (SERVER_HAS_DATA && window.indexedDB) {
+  // Rebuild the target at click time so the current watermark text, signature
+  // fields and placement are picked up without pressing Apply Filters, and —
+  // where the browser can — make sure an instance is actually holding the
+  // register before a new tab asks it for one.
+  if (SERVER_HAS_DATA) {
     document.querySelectorAll('a.ho-export, #ho-preview, #ho-pdf, #ho-print').forEach(function (link) {
       link.addEventListener('click', function (e) {
         e.preventDefault();
-        var href = link.href;
+        var base = link.href.split('?')[0];
+        var extra = link.dataset.part ? { part: link.dataset.part }
+                  : (link.id === 'ho-print' ? { auto: '1' } : {});
+        if (link.id === 'ho-pdf') extra = { part: 'register' };
+        var href = base + query(extra);
         var newTab = link.target === '_blank';
-        serverReady().then(function (ready) {
-          return ready ? true : rehydrate('Preparing the report');
-        }).then(function () {
+        var ensure = window.indexedDB
+          ? serverReady().then(function (ready) { return ready ? true : rehydrate('Preparing the report'); })
+          : Promise.resolve(true);
+        ensure.then(function () {
           // Keep each link's own behaviour: reports open in a tab, downloads
           // navigate in place so no empty tab is left behind.
           if (newTab) window.open(href, '_blank', 'noopener');
