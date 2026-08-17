@@ -84,9 +84,8 @@
     <text font-family="Helvetica, Arial, sans-serif" font-weight="bold" font-size="13" fill="#16324f">
       <textPath href="#wm-ring" startOffset="0" textLength="465" lengthAdjust="spacing">{{ (watermark.text ~ '  ★  ')|upper * 3 }}</textPath>
     </text>
-    <g fill="#16324f">
-      <use href="#wm-star" transform="translate(100,100) scale(20)" />
-    </g>
+    <image href="{{ url_for('static', filename='emblem.jpg') }}"
+           x="27" y="27" width="146" height="146" preserveAspectRatio="xMidYMid meet" />
   </svg>
   {% endif %}
 

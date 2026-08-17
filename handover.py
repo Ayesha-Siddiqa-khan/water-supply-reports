@@ -1499,11 +1499,21 @@ class NumberedCanvas(canvas.Canvas):
 # Circular stamp watermark
 # ---------------------------------------------------------------------------
 
+EMBLEM_FILENAME = "emblem.jpg"
 WATERMARK_COLOR = colors.HexColor("#16324f")
 # Rings are thin lines and can carry a little more ink than the solid stars and
 # the lettering, which are what would otherwise show through the table text.
 WATERMARK_ALPHA = 0.10
 WATERMARK_FILL_ALPHA = 0.06
+
+
+def _emblem_path():
+    """The municipal emblem shipped in static/, or None if it is absent."""
+    try:
+        path = _app().resource_path("static", EMBLEM_FILENAME)
+    except Exception:
+        return None
+    return path if os.path.exists(path) else None
 
 
 def _draw_ring_text(canvas_obj, cx, cy, radius, text, size, separator="  ★  "):
@@ -1575,7 +1585,18 @@ def _draw_watermark(canvas_obj, doc, watermark: dict):
 
     # Legend right around the ring, evenly spaced.
     _draw_ring_text(canvas_obj, cx, cy, arc_radius, text.upper(), 12.0)
-    _draw_star(canvas_obj, cx, cy, 11 * mm)
+
+    # Municipal emblem in the middle, falling back to a star if the asset is
+    # missing. Its white background is harmless at watermark opacity — white
+    # over white paper stays white — so it needs no alpha channel.
+    emblem = _emblem_path()
+    if emblem:
+        side = inner * 1.5
+        canvas_obj.setFillAlpha(WATERMARK_FILL_ALPHA * 2)
+        canvas_obj.drawImage(emblem, cx - side / 2, cy - side / 2, width=side, height=side,
+                             mask="auto", preserveAspectRatio=True, anchor="c")
+    else:
+        _draw_star(canvas_obj, cx, cy, 11 * mm)
     canvas_obj.restoreState()
 
 
