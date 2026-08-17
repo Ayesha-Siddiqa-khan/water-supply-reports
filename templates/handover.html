@@ -673,6 +673,89 @@ function hoToggle(id) { document.getElementById(id).classList.toggle('collapsed'
     });
   }
 
+  // ── Keeping the register alive on serverless hosting ──────────────────
+  // The server stores the built register on local disk. On Vercel that disk
+  // is a per-instance /tmp that is wiped when the instance recycles, so a
+  // later request can land on an instance that has nothing. We keep the two
+  // compressed uploads (~1.5 MB) in IndexedDB and quietly re-send them
+  // whenever the instance answering us has come up empty.
+  var DB_NAME = 'handover-register', STORE = 'sources';
+
+  function idb() {
+    return new Promise(function (resolve, reject) {
+      var req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = function () { req.result.createObjectStore(STORE); };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error); };
+    });
+  }
+
+  function idbSet(key, value) {
+    return idb().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).put(value, key);
+        tx.oncomplete = resolve;
+        tx.onerror = function () { reject(tx.error); };
+      });
+    });
+  }
+
+  function idbGet(key) {
+    return idb().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(STORE, 'readonly');
+        var req = tx.objectStore(STORE).get(key);
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { reject(req.error); };
+      });
+    });
+  }
+
+  function idbClear() {
+    return idb().then(function (db) {
+      return new Promise(function (resolve) {
+        var tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).clear();
+        tx.oncomplete = resolve;
+        tx.onerror = resolve;
+      });
+    }).catch(function () {});
+  }
+
+  function postSources(packed) {
+    var fd = new FormData();
+    fd.append('action', 'upload');
+    fd.append('handover_file', packed.handover, packed.handoverName);
+    fd.append('arrears_file', packed.arrears, packed.arrearsName);
+    return fetch({{ url_for('handover.handover')|tojson }}, {
+      method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(function (r) { return r.json(); });
+  }
+
+  // Re-send the stored copy, but never more than once every 20s — otherwise a
+  // server-side failure would spin the page in a reload loop.
+  function rehydrate(reason) {
+    var last = parseInt(sessionStorage.getItem('ho_rehydrated') || '0', 10);
+    if (Date.now() - last < 20000) return Promise.resolve(false);
+    return idbGet('packed').then(function (packed) {
+      if (!packed) return false;
+      sessionStorage.setItem('ho_rehydrated', String(Date.now()));
+      var ui = overlay('Restoring register...', reason);
+      return postSources(packed).then(function (data) {
+        ui.remove();
+        return !!(data && data.ok);
+      }).catch(function () { ui.remove(); return false; });
+    }).catch(function () { return false; });
+  }
+
+  function serverReady() {
+    return fetch({{ url_for('handover.handover_status')|tojson }}, { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { return !!(d && d.ready); })
+      .catch(function () { return true; });   // never block on a check failure
+  }
+
   if (uploadForm) {
     uploadForm.addEventListener('submit', function (e) {
       var handover = uploadForm.querySelector('input[name=handover_file]').files[0];
@@ -687,27 +770,71 @@ function hoToggle(id) { document.getElementById(id).classList.toggle('collapsed'
       e.preventDefault();
       var ui = overlay('Compressing files...', 'Shrinking the upload so the server will accept it');
 
-      Promise.all([gzipFile(handover), gzipFile(arrears)]).then(function (packed) {
-        var mb = (packed[0].size + packed[1].size) / 1048576;
+      Promise.all([gzipFile(handover), gzipFile(arrears)]).then(function (gz) {
+        var mb = (gz[0].size + gz[1].size) / 1048576;
         ui.set('Uploading...', mb.toFixed(2) + ' MB compressed from ' +
                ((handover.size + arrears.size) / 1048576).toFixed(2) + ' MB');
-        var fd = new FormData();
-        fd.append('action', 'upload');
-        fd.append('handover_file', packed[0]);
-        fd.append('arrears_file', packed[1]);
-        return fetch(uploadForm.action, {
-          method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        });
-      }).then(function (res) {
-        if (res.status === 413) throw new Error('The server rejected the upload as too large even after compression.');
-        return res.json().catch(function () { throw new Error('Server error (' + res.status + ')'); });
+        var packed = {
+          handover: gz[0], arrears: gz[1],
+          handoverName: gz[0].name, arrearsName: gz[1].name
+        };
+        // Keep a copy so the register can be restored if the server instance
+        // holding it is recycled. Failure here must not fail the upload.
+        return idbSet('packed', packed).catch(function () {})
+          .then(function () { return postSources(packed); });
       }).then(function (data) {
-        if (!data.ok) throw new Error(data.error || 'Upload failed.');
+        if (!data || !data.ok) throw new Error((data && data.error) || 'Upload failed.');
         ui.set('Building register...', data.message || '');
+        sessionStorage.setItem('ho_rehydrated', String(Date.now()));
         window.location.href = data.redirect || window.location.pathname;
       }).catch(function (err) {
         ui.remove();
         alert(err.message || 'Upload failed.');
+      });
+    });
+  }
+
+  // Clearing must wipe the browser copy too, or the next page load would
+  // helpfully restore the data the user just deleted.
+  document.querySelectorAll('form').forEach(function (form) {
+    var action = form.querySelector('input[name=action]');
+    if (!action || action.value !== 'clear') return;
+    form.addEventListener('submit', function (e) {
+      if (form.dataset.cleared) return;
+      e.preventDefault();
+      idbClear().then(function () {
+        sessionStorage.removeItem('ho_rehydrated');
+        form.dataset.cleared = '1';
+        form.submit();
+      });
+    });
+  });
+
+  // This instance came up without the register — restore it and reload.
+  var SERVER_HAS_DATA = {{ (dataset is not none)|tojson }};
+  var IS_SNAPSHOT = !!SNAP;
+  if (!SERVER_HAS_DATA && !IS_SNAPSHOT && window.indexedDB) {
+    rehydrate('Re-sending your files to this server').then(function (ok) {
+      if (ok) window.location.reload();
+    });
+  }
+
+  // A report opened in a new tab may be answered by a different, empty
+  // instance; make sure one is holding the register before opening it.
+  if (SERVER_HAS_DATA && window.indexedDB) {
+    document.querySelectorAll('a.ho-export, #ho-preview, #ho-pdf, #ho-print').forEach(function (link) {
+      link.addEventListener('click', function (e) {
+        e.preventDefault();
+        var href = link.href;
+        var newTab = link.target === '_blank';
+        serverReady().then(function (ready) {
+          return ready ? true : rehydrate('Preparing the report');
+        }).then(function () {
+          // Keep each link's own behaviour: reports open in a tab, downloads
+          // navigate in place so no empty tab is left behind.
+          if (newTab) window.open(href, '_blank', 'noopener');
+          else window.location.href = href;
+        });
       });
     });
   }

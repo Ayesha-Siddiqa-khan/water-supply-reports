@@ -822,6 +822,19 @@ def _read_bytes(filename: str, blob: bytes) -> pd.DataFrame:
     return pd.read_excel(buf, dtype=str).fillna("")
 
 
+@handover_bp.route("/handover/status")
+def handover_status():
+    """Whether THIS instance still holds the working register.
+
+    Serverless instances keep the register in a disposable /tmp, so the browser
+    checks here before opening a report in a new tab and re-sends its stored
+    copy if the instance that answers has nothing.
+    """
+    from flask import jsonify
+
+    return jsonify({"ready": os.path.exists(_working_csv())})
+
+
 @handover_bp.route("/handover/snapshot/<snapshot_id>")
 def handover_snapshot(snapshot_id: str):
     return _render_page(snapshot_id)
