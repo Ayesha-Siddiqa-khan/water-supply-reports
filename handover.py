@@ -512,12 +512,15 @@ def summarise_block(df: pd.DataFrame, label: str = "", serial="") -> dict:
         "active": int((status == "Active").sum()),
         # A "Regular Connection" is Active AND Regular together — never all
         # Active records or all Regular records counted independently.
-        "active_regular": int(((status == "Active") & ~commercial).sum()),
+        "active_regular": int(((status == "Active") & (ctype == "Regular")).sum()),
         "suspended": int((status == "Suspended").sum()),
         "closed": int((status == "Closed").sum()),
         "new_demand": int((status == "New Demand").sum()),
         "other": int((~status.isin(["Active", "Suspended", "Closed", "New Demand"])).sum()),
+        # By rate type — these two always partition the block.
         "regular": int((ctype == "Regular").sum()),
+        "commercial_type": int((ctype == "Commercial").sum()),
+        # By sector — this is what places a record in the commercial section.
         "commercial": int(commercial.sum()),
         "arrears": float(df["Total Arrears"].sum()),
         "flagged": int((df["Data Flag"].astype(str).str.strip() != "").sum()),
@@ -668,17 +671,21 @@ def canonicalise_groups(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def is_commercial(df: pd.DataFrame) -> pd.Series:
-    """Commercial records, by sector name or by rate type.
+    """Records belonging to the commercial register, by SECTOR.
 
-    The source system files these under a sector literally named COMMERCIAL,
-    broken down by locality (HAMAM, SHOP, SCHOOL ...). A handful carry a
-    commercial rate type while sitting in an ordinary sector, and nine sit in
-    the COMMERCIAL sector on a domestic rate. Either mark makes a record part
-    of the commercial register, so neither group goes missing.
+    The source system files commercial connections under a sector literally
+    named COMMERCIAL, subdivided by locality into the trade categories — HAMAM,
+    SHOP, NURSERY/POULTRY/CATTLE FARM, PETROL PUMPs and so on. That sector is
+    what places a record in the commercial section.
+
+    Rate type deliberately does NOT place a record here. Twenty-six connections
+    carry a commercial rate while sitting in an ordinary sector (a shop inside
+    Baldia Colony, say); grouping those by locality would drop domestic names
+    like "Nasirabbad Zone C" and "Zamindara Colony" into the commercial
+    section. They stay under their own sector, where they belong, and their
+    commercial rate still keeps them out of the Active + Regular count.
     """
-    by_type = df["Connection Type"] == "Commercial"
-    by_sector = df["Sector"].map(_txt) == "commercial"
-    return by_type | by_sector
+    return df["Sector"].map(_txt) == "commercial"
 
 
 def build_sections(frame: pd.DataFrame, columns: list[str],

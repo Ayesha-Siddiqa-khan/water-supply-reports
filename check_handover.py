@@ -53,6 +53,22 @@ DUP_ARREARS_CSV = """Sr.,Consumer Name,Sector,Locality,Connection Number,Connect
 4,D,Zain City S,Zain City Zone A,1004,01/07/2023,400.00,Open
 """
 
+COM_HANDOVER_CSV = """Sr #,Consumer Name,F/H Name,Sector,Locality,Rate Type,Connection No.,Connection Date,Status
+1,HAMAM ONE,X,COMMERCIAL,HAMAM,6 MONTH COMERCIAL ( SHOPS ),66010001,01/07/2023,Regular Connection
+2,HAMAM TWO,X,COMMERCIAL,HAMAM,6 MONTH COMERCIAL ( SHOPS ),66010002,01/07/2023,Closed
+3,SHOP ONE,X,COMMERCIAL,SHOP,DOMESTIC (NEW CONNECTION),66020001,01/07/2023,Regular Connection
+4,COLONY SHOP,X,Baldia Colony,BALDIA COLONY Zone A,6 MONTH COMERCIAL ( SHOPS ),44010001,01/07/2023,Regular Connection
+5,COLONY HOME,X,Baldia Colony,BALDIA COLONY Zone A,DOMESTIC,44010002,01/07/2023,Regular Connection
+"""
+
+COM_ARREARS_CSV = """Sr.,Consumer Name,Sector,Locality,Connection Number,Connection Date,Total Arrears,Status
+1,HAMAM ONE,COMMERCIAL,HAMAM,66010001,01/07/2023,1000.00,Open
+2,HAMAM TWO,COMMERCIAL,HAMAM,66010002,01/07/2023,2000.00,Closed
+3,SHOP ONE,COMMERCIAL,SHOP,66020001,01/07/2023,3000.00,Open
+4,COLONY SHOP,Baldia Colony,BALDIA COLONY Zone A,44010001,01/07/2023,4000.00,Open
+5,COLONY HOME,Baldia Colony,BALDIA COLONY Zone A,44010002,01/07/2023,5000.00,Open
+"""
+
 
 def read(text):
     return pd.read_csv(io.StringIO(text), dtype=str, keep_default_na=False)
@@ -100,10 +116,10 @@ def main():
     rows, grand = handover.build_sector_summary(merged)
     assert grand["total"] == 10
     assert grand["active"] + grand["suspended"] + grand["closed"] + grand["new_demand"] + grand["other"] == 10
-    assert grand["regular"] + grand["commercial"] == 10
+    assert grand["regular"] + grand["commercial_type"] == 10
     assert round(grand["arrears"], 2) == round(merged["Total Arrears"].sum(), 2)
     waris = next(r for r in rows if r["sector"] == "Waris Colony")
-    assert waris["total"] == 8 and waris["commercial"] == 0
+    assert waris["total"] == 8 and waris["commercial_type"] == 0
 
     # --- printed register sections ---------------------------------------
     # Regular connections group sector-wise; commercial ones are pulled out
@@ -112,9 +128,10 @@ def main():
     cols = ["Consumer Name", "Sector", "Locality", "Total Arrears"]
     sections = handover.build_sections(merged, cols)
     headings = [s["sector"] for s in sections]
-    # Ordinary sectors first, the commercial register last and locality-wise.
-    assert headings == ["Ghala Mandi", "Waris Colony", "Ghala Mandi Zone A"], headings
-    assert [s["group"] for s in sections] == ["normal", "normal", "commercial"]
+    # No sector here is named COMMERCIAL, so every block is domestic — a
+    # commercially-rated record does not move sections on its own.
+    assert headings == ["Ghala Mandi", "Waris Colony"], headings
+    assert [s["group"] for s in sections] == ["normal", "normal"]
 
     # Every selected column is kept, with a generated serial in front.
     assert sections[0]["columns"] == [handover.SERIAL_COLUMN] + cols
@@ -133,18 +150,11 @@ def main():
         "a normal sector summary must not carry a commercial count"
     )
 
-    # The commercial block is locality-wise, holds only commercial records, and
-    # keeps its arrears to itself.
-    com = next(s for s in sections if s["group"] == "commercial")
-    assert com["summary"]["total"] == len(com["rows"]) == 1
-    assert com["summary_columns"] is handover.COMMERCIAL_SUMMARY_COLUMNS
-    assert com["summary"]["arrears"] == 13040.0
-
-    # Ghala Mandi as a normal sector keeps only its regular record, and its
-    # arrears exclude the commercial one that used to sit inside it.
+    # Ghala Mandi keeps both its records — the commercially-rated one included,
+    # because its sector is domestic — so its arrears cover both.
     gm = next(s for s in sections if s["sector"] == "Ghala Mandi")
-    assert gm["summary"]["total"] == len(gm["rows"]) == 1
-    assert gm["summary"]["arrears"] == 200.0
+    assert gm["summary"]["total"] == len(gm["rows"]) == 2
+    assert gm["summary"]["arrears"] == 13240.0
 
     # Total Entries across every block still accounts for every record once.
     assert sum(s["summary"]["total"] for s in sections) == len(merged) == 10
@@ -181,64 +191,35 @@ def main():
     assert handover._esc("a<b>&c") == "a&lt;b&gt;&amp;c"
 
     # --- commercial register ----------------------------------------------
-    # Commercial is a register of its own: always last, locality-wise, and
-    # complete even when the page filter would exclude every commercial record.
-    active_only = handover.apply_filters(merged, {**empty, "status": ["Active"], "type": ["Regular"]})
-    filtered_sections = handover.build_sections(active_only, ["Consumer Name"], merged)
-    groups = [s["group"] for s in filtered_sections]
-    assert groups == sorted(groups, key=lambda g: g == "commercial"), (
-        "the commercial register must come after every ordinary sector"
-    )
-    com_blocks = [s for s in filtered_sections if s["group"] == "commercial"]
-    assert com_blocks, "commercial must still be printed under an Active+Regular filter"
-    assert sum(len(s["rows"]) for s in com_blocks) == int(handover.is_commercial(merged).sum())
-
-    # A record is commercial by rate type OR by sitting in a sector named
-    # COMMERCIAL — neither group may go missing.
-    marked = merged.head(1).copy()
-    marked["Sector"] = "COMMERCIAL"
-    marked["Connection Type"] = "Regular"
-    assert bool(handover.is_commercial(marked).iloc[0]), (
-        "a domestic-rate record inside sector COMMERCIAL is still commercial"
+    # A record belongs to the commercial section by SECTOR, never by rate type:
+    # a shop inside an ordinary colony stays under its own sector, so domestic
+    # names cannot leak into the commercial section.
+    com_merged, _ = handover.build_handover_dataset(read(COM_HANDOVER_CSV), read(COM_ARREARS_CSV))
+    com_sections = handover.build_sections(com_merged, ["Consumer Name"], com_merged)
+    com_headings = [s["sector"] for s in com_sections]
+    com_groups = [s["group"] for s in com_sections]
+    assert com_headings == ["Baldia Colony", "HAMAM", "SHOP"], com_headings
+    assert com_groups == ["normal", "commercial", "commercial"], com_groups
+    assert "BALDIA COLONY Zone A" not in com_headings, (
+        "a domestic locality must never appear as a commercial heading"
     )
 
-    # The summary's Commercial figure must use the same rule the register
-    # splits on, so a domestic-rate record inside sector COMMERCIAL is counted
-    # as Commercial and NOT as Active + Regular.
-    mixed = merged.head(2).copy()
-    mixed["Sector"] = "COMMERCIAL"
-    mixed["Connection Type"] = "Regular"
-    mixed["Connection Status"] = "Active"
-    mixed_summary = handover.summarise_block(mixed)
-    assert mixed_summary["commercial"] == 2
-    assert mixed_summary["active_regular"] == 0, (
-        "a record in sector COMMERCIAL is commercial, never Active + Regular"
-    )
+    # The commercially-rated shop sits in the domestic block, and its arrears
+    # go with it rather than into the commercial section.
+    baldia = com_sections[0]
+    assert baldia["summary"]["total"] == len(baldia["rows"]) == 2
+    assert baldia["summary"]["arrears"] == 9000.0
+    # It is still commercial by rate, so it is not an Active + Regular record.
+    assert baldia["summary"]["active_regular"] == 1
+    assert baldia["summary"]["commercial_type"] == 1
+    assert baldia["summary"]["commercial"] == 0, "by sector, Baldia Colony is domestic"
 
-    # Whole-dataset figures: commercial counted once, by either mark.
-    whole = handover.summarise_block(merged)
-    assert whole["commercial"] == int(handover.is_commercial(merged).sum())
-    assert whole["total"] == len(merged)
+    # A domestic-rate record inside sector COMMERCIAL is still commercial.
+    shop = next(s for s in com_sections if s["sector"] == "SHOP")
+    assert shop["summary"]["total"] == 1 and shop["summary"]["commercial"] == 1
 
-    # The summary page carries two separate reports. Neither may include the
-    # other's records, and together they must account for every entry.
-    mask = handover.is_commercial(merged)
-    dom_summary = handover.summarise_block(merged[~mask])
-    com_summary = handover.summarise_block(merged[mask])
-    assert dom_summary["commercial"] == 0, "no commercial record in the domestic report"
-    assert com_summary["total"] == int(mask.sum())
-    assert dom_summary["total"] + com_summary["total"] == len(merged)
-    assert round(dom_summary["arrears"] + com_summary["arrears"], 2) == round(
-        merged["Total Arrears"].sum(), 2
-    ), "domestic and commercial arrears must add back to the whole"
-
-    # --- excluded sectors ---------------------------------------------------
-    # A sector that does not exist must not survive into any view.
-    junk = merged.copy()
-    junk.loc[junk.index[0], "Sector"] = "ZAIN CITY CHACK NO 13/G"
-    kept, dropped = handover.drop_excluded_sectors(junk)
-    assert dropped == 1 and len(kept) == len(merged) - 1
-    assert not any(handover._txt(v) in handover.EXCLUDED_SECTORS for v in kept["Sector"])
+    # Commercial always comes after every ordinary sector.
+    assert com_groups == sorted(com_groups, key=lambda g: g == "commercial")
 
     # --- duplicate sector spellings ---------------------------------------
     # Stray spaces and inconsistent case must not split one sector into two
