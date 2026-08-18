@@ -398,8 +398,10 @@ def build_handover_dataset(handover_df: pd.DataFrame, arrears_df: pd.DataFrame) 
             merged[canonical] = handover_df[found] if found else ""
 
     merged = canonicalise_groups(merged)
+    merged, excluded_rows = drop_excluded_sectors(merged)
 
     stats = {
+        "excluded_rows": excluded_rows,
         "total_rows": int(len(merged)),
         "matched": int(sum(1 for m in matches if m.startswith("Matched"))),
         "matched_exact": int(sum(1 for m in matches if m == MATCH_TIERS[0][0])),
@@ -436,6 +438,8 @@ def load_dataset(snapshot_id: str | None = None) -> tuple[pd.DataFrame | None, d
     if not snapshot_id:
         # A locked snapshot is left exactly as it was finalised.
         df = canonicalise_groups(df)
+        df, _ = drop_excluded_sectors(df)
+        df = df.reset_index(drop=True)
     meta = {}
     if os.path.exists(meta_path):
         with open(meta_path, "r", encoding="utf-8") as fh:
@@ -605,6 +609,25 @@ def selected_columns(df: pd.DataFrame, cols_param: str | None) -> list[str]:
     return [c for c in df.columns if _txt(c) in {_txt(d) for d in DEFAULT_DETAIL_COLUMNS}]
 
 
+# Sectors that do not exist in the real register and must never be counted,
+# listed by their normalised name. "ZAIN CITY CHACK NO 13/G" carries its own
+# 58010xxx connection block with no overlap against ZAIN CITY (PRIVATE
+# SOCITIES) 54010xxx, so its records are dropped outright rather than merged.
+EXCLUDED_SECTORS = {"zain city chack no 13/g"}
+
+
+def drop_excluded_sectors(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Remove records belonging to sectors that are not real.
+
+    Applied in the frame every consumer reads, so an excluded sector cannot
+    reappear in a filter list, a summary, a detail page or an export.
+    """
+    if "Sector" not in df.columns or not EXCLUDED_SECTORS:
+        return df, 0
+    keep = ~df["Sector"].map(_txt).isin(EXCLUDED_SECTORS)
+    return df[keep], int((~keep).sum())
+
+
 def _canonical_labels(series) -> dict:
     """Map visually identical labels onto one spelling.
 
@@ -643,47 +666,63 @@ def canonicalise_groups(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def is_commercial(df: pd.DataFrame) -> pd.Series:
+    """Commercial records, by sector name or by rate type.
+
+    The source system files these under a sector literally named COMMERCIAL,
+    broken down by locality (HAMAM, SHOP, SCHOOL ...). A handful carry a
+    commercial rate type while sitting in an ordinary sector, and nine sit in
+    the COMMERCIAL sector on a domestic rate. Either mark makes a record part
+    of the commercial register, so neither group goes missing.
+    """
+    by_type = df["Connection Type"] == "Commercial"
+    by_sector = df["Sector"].map(_txt) == "commercial"
+    return by_type | by_sector
+
+
 def build_sections(frame: pd.DataFrame, columns: list[str],
                    summary_source: pd.DataFrame | None = None) -> list[dict]:
     """Split the register into printable blocks.
 
-    Regular connections are grouped sector-wise. Commercial connections are
-    pulled out and reported as their own locality-wise blocks, so a normal
-    sector's counts and arrears never include commercial records — those are a
-    separate register in their own right.
+    Ordinary sectors come first, sector by sector, honouring the page filters.
+    The commercial register always follows at the very end, broken down
+    locality by locality — heading, summary, then that locality's consumers.
 
-    Each block is a heading, one summary line and the consumer rows, numbered
-    from 1 within that block. The printed serial is generated per block rather
-    than carried over from the source file.
+    The commercial part is built from the complete import rather than the
+    filtered view, so every commercial locality appears even when the page is
+    filtered to, say, Active + Regular, which would otherwise exclude every
+    commercial record and print nothing at all.
+
+    Each block is a heading, one summary line and its consumer rows, numbered
+    from 1 within that block.
     """
     source = frame if summary_source is None else summary_source
-    is_commercial = frame["Connection Type"] == "Commercial"
     sections = []
 
-    def add(heading, block, counted, summary_columns):
+    def add(heading, block, counted, summary_columns, group):
         body = detail_rows(block, columns)
         sections.append({
             "sector": heading,
+            "group": group,
             "summary": summarise_block(counted, heading),
             "summary_columns": summary_columns,
             "columns": [SERIAL_COLUMN] + list(columns),
             "rows": [[str(i)] + row for i, row in enumerate(body, 1)],
         })
 
-    # Regular connections, sector by sector. The summary line describes the
-    # whole sector from the complete import, so a status filter cannot zero out
-    # the Closed/Suspended counts it exists to report.
-    src_regular = source[source["Connection Type"] != "Commercial"]
-    for sector, block in frame[~is_commercial].groupby("Sector", sort=True):
-        add(str(sector), block, src_regular[src_regular["Sector"] == sector],
-            REGISTER_SUMMARY_COLUMNS)
+    # Ordinary sectors, sector by sector. The summary line describes the whole
+    # sector from the complete import, so a status filter cannot zero out the
+    # Closed/Suspended counts it exists to report.
+    src_normal = source[~is_commercial(source)]
+    for sector, block in frame[~is_commercial(frame)].groupby("Sector", sort=True):
+        add(str(sector), block, src_normal[src_normal["Sector"] == sector],
+            REGISTER_SUMMARY_COLUMNS, "normal")
 
-    # Commercial connections, locality by locality.
-    src_commercial = source[source["Connection Type"] == "Commercial"]
-    for locality, block in frame[is_commercial].groupby("Locality", sort=True):
-        add(f"Commercial — {locality}", block,
-            src_commercial[src_commercial["Locality"] == locality],
-            COMMERCIAL_SUMMARY_COLUMNS)
+    # The commercial register, locality by locality, always last and always
+    # complete.
+    src_commercial = source[is_commercial(source)]
+    for locality, block in src_commercial.groupby("Locality", sort=True):
+        add(str(locality), block, block, COMMERCIAL_SUMMARY_COLUMNS, "commercial")
 
     return sections
 
@@ -1213,6 +1252,10 @@ def export_handover(fmt_type: str):
                                   leading=15, alignment=1, spaceBefore=4 * mm,
                                   spaceAfter=2 * mm, textColor=colors.black,
                                   fontName="Helvetica-Bold")
+    commercial_title_style = ParagraphStyle(
+        "HOCommercial", parent=styles["Normal"], fontSize=17, leading=20,
+        alignment=1, spaceBefore=6 * mm, spaceAfter=3 * mm,
+        textColor=colors.black, fontName="Helvetica-Bold")
     note_style = ParagraphStyle("HONote", parent=styles["Normal"], fontSize=8,
                                 alignment=1, spaceAfter=1 * mm, textColor=colors.black)
 
@@ -1239,8 +1282,15 @@ def export_handover(fmt_type: str):
                 elements.append(PageBreak())
         if not sections:
             elements.append(Paragraph("No connections for the selected filters.", note_style))
+        seen_commercial = False
         for section in sections:
-            block = [Paragraph(_esc(section["sector"]), sector_style)]
+            block = []
+            if section.get("group") == "commercial" and not seen_commercial:
+                # One banner introduces the whole commercial register, which
+                # always sits at the end of the document.
+                seen_commercial = True
+                block.append(Paragraph("COMMERCIAL", commercial_title_style))
+            block.append(Paragraph(_esc(section["sector"]), sector_style))
             if part in ("register", "summary") and section["summary"]:
                 summary = section["summary"]
                 # Each block carries its own header set: commercial blocks are

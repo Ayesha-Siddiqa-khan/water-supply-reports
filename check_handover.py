@@ -112,7 +112,9 @@ def main():
     cols = ["Consumer Name", "Sector", "Locality", "Total Arrears"]
     sections = handover.build_sections(merged, cols)
     headings = [s["sector"] for s in sections]
-    assert headings == ["Ghala Mandi", "Waris Colony", "Commercial — Ghala Mandi Zone A"], headings
+    # Ordinary sectors first, the commercial register last and locality-wise.
+    assert headings == ["Ghala Mandi", "Waris Colony", "Ghala Mandi Zone A"], headings
+    assert [s["group"] for s in sections] == ["normal", "normal", "commercial"]
 
     # Every selected column is kept, with a generated serial in front.
     assert sections[0]["columns"] == [handover.SERIAL_COLUMN] + cols
@@ -133,7 +135,7 @@ def main():
 
     # The commercial block is locality-wise, holds only commercial records, and
     # keeps its arrears to itself.
-    com = next(s for s in sections if s["sector"].startswith("Commercial"))
+    com = next(s for s in sections if s["group"] == "commercial")
     assert com["summary"]["total"] == len(com["rows"]) == 1
     assert com["summary_columns"] is handover.COMMERCIAL_SUMMARY_COLUMNS
     assert com["summary"]["arrears"] == 13040.0
@@ -177,6 +179,36 @@ def main():
     wrapped = handover._wrap_rows(hostile, {0, 1, 2, 3}, font_size=6.5)
     assert len(wrapped[0]) == 4, "every hostile cell must survive as a flowable"
     assert handover._esc("a<b>&c") == "a&lt;b&gt;&amp;c"
+
+    # --- commercial register ----------------------------------------------
+    # Commercial is a register of its own: always last, locality-wise, and
+    # complete even when the page filter would exclude every commercial record.
+    active_only = handover.apply_filters(merged, {**empty, "status": ["Active"], "type": ["Regular"]})
+    filtered_sections = handover.build_sections(active_only, ["Consumer Name"], merged)
+    groups = [s["group"] for s in filtered_sections]
+    assert groups == sorted(groups, key=lambda g: g == "commercial"), (
+        "the commercial register must come after every ordinary sector"
+    )
+    com_blocks = [s for s in filtered_sections if s["group"] == "commercial"]
+    assert com_blocks, "commercial must still be printed under an Active+Regular filter"
+    assert sum(len(s["rows"]) for s in com_blocks) == int(handover.is_commercial(merged).sum())
+
+    # A record is commercial by rate type OR by sitting in a sector named
+    # COMMERCIAL — neither group may go missing.
+    marked = merged.head(1).copy()
+    marked["Sector"] = "COMMERCIAL"
+    marked["Connection Type"] = "Regular"
+    assert bool(handover.is_commercial(marked).iloc[0]), (
+        "a domestic-rate record inside sector COMMERCIAL is still commercial"
+    )
+
+    # --- excluded sectors ---------------------------------------------------
+    # A sector that does not exist must not survive into any view.
+    junk = merged.copy()
+    junk.loc[junk.index[0], "Sector"] = "ZAIN CITY CHACK NO 13/G"
+    kept, dropped = handover.drop_excluded_sectors(junk)
+    assert dropped == 1 and len(kept) == len(merged) - 1
+    assert not any(handover._txt(v) in handover.EXCLUDED_SECTORS for v in kept["Sector"])
 
     # --- duplicate sector spellings ---------------------------------------
     # Stray spaces and inconsistent case must not split one sector into two

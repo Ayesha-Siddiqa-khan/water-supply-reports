@@ -17,6 +17,10 @@
     .doc-head { text-align: center; margin-bottom: 8px; }
     .doc-head h1 { margin: 0 0 2px; font-size: 22px; letter-spacing: .02em; font-weight: 700; }
     .doc-head .date { font-size: 11px; }
+    .commercial-title {
+      text-align: center; font-size: 19px; font-weight: 700;
+      margin: 18px 0 6px; letter-spacing: .04em; page-break-before: auto;
+    }
     .sector-heading {
       text-align: center; font-size: 15px; font-weight: 700;
       margin: 12px 0 5px; letter-spacing: .01em;
@@ -60,7 +64,11 @@
       .toolbar { display: none; }
       thead { display: table-header-group; }
       tr { page-break-inside: avoid; }
-      .sector-heading { page-break-after: avoid; }
+      .commercial-title {
+      text-align: center; font-size: 19px; font-weight: 700;
+      margin: 18px 0 6px; letter-spacing: .04em; page-break-before: auto;
+    }
+    .sector-heading { page-break-after: avoid; }
     }
   </style>
 </head>
@@ -104,6 +112,9 @@
   {% endif %}
 
   {% for section in sections %}
+    {% if section.group == 'commercial' and (loop.previtem is not defined or loop.previtem.group != 'commercial') %}
+    <div class="commercial-title">COMMERCIAL</div>
+    {% endif %}
     <div class="sector-heading">{{ section.sector }}</div>
 
     {% if section.summary %}
