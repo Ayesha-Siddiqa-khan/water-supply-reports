@@ -47,6 +47,7 @@ from reportlab.lib.units import mm
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 from reportlab.platypus import (
+    Flowable,
     KeepTogether,
     PageBreak,
     Paragraph,
@@ -1282,34 +1283,49 @@ def export_handover(fmt_type: str):
     note_style = ParagraphStyle("HONote", parent=styles["Normal"], fontSize=8,
                                 alignment=1, spaceAfter=1 * mm, textColor=colors.black)
 
-    elements = [
-        Paragraph("Consumer List", title_style),
-        Paragraph(report_date(meta), date_style),
-    ]
-
     page_w = page_size[0] - 2 * margin
+    # An index is only meaningful for the sectioned register.
+    marks_wanted = part in ("register", "detail")
 
-    if part == "exceptions":
-        elements.append(Paragraph(f"Exception Report &mdash; {len(body):,} flagged connections", sector_style))
-        if not body:
-            elements.append(Paragraph("No flagged connections.", note_style))
-        else:
-            elements.append(_register_table(headers, body, page_w))
-    else:
+    def make_story(marks, index=None):
+        """Build the document's flowables from scratch.
+
+        Reportlab binds flowables to a frame as it lays them out, so the same
+        objects cannot be laid out twice — the measuring pass and the final
+        pass each need their own.
+        """
+        story = [
+            Paragraph("Consumer List", title_style),
+            Paragraph(report_date(meta), date_style),
+        ]
+        if index:
+            story.extend(index)
+            story.append(PageBreak())
+
+        if part == "exceptions":
+            story.append(Paragraph(
+                f"Exception Report &mdash; {len(body):,} flagged connections", sector_style))
+            if not body:
+                story.append(Paragraph("No flagged connections.", note_style))
+            else:
+                story.append(_register_table(headers, body, page_w))
+            return story
+
         sections = build_sections(frame, columns, ctx["frame_all"])
         if part in ("register", "summary"):
             # Overall totals for the complete imported dataset, on their own
             # first page; the sector blocks that follow are untouched.
-            elements.extend(_summary_page(
+            story.extend(_summary_page(
                 ctx["overall"], ctx["overall_sectors"],
                 ctx["commercial_overall"], ctx["commercial_localities"], page_w))
             if sections:
-                elements.append(PageBreak())
+                story.append(PageBreak())
         if not sections:
-            elements.append(Paragraph("No connections for the selected filters.", note_style))
+            story.append(Paragraph("No connections for the selected filters.", note_style))
+
         seen_commercial = False
         for section in sections:
-            block = []
+            block = [_PageMark(section["sector"], section.get("group", "normal"), marks)]
             if section.get("group") == "commercial" and not seen_commercial:
                 # One banner introduces the whole commercial register, which
                 # always sits at the end of the document.
@@ -1331,17 +1347,54 @@ def export_handover(fmt_type: str):
                     body_font_size=8, cell_padding=4,
                 ))
             # Heading and summary line must not be orphaned from their block.
-            elements.append(KeepTogether(block))
+            story.append(KeepTogether(block))
             if part in ("register", "detail") and section["rows"]:
-                elements.append(Spacer(1, 1.5 * mm))
-                elements.append(_register_table(
+                story.append(Spacer(1, 1.5 * mm))
+                story.append(_register_table(
                     section["columns"], section["rows"], page_w, banner=section["sector"]))
-            elements.append(Spacer(1, 2 * mm))
+            story.append(Spacer(1, 2 * mm))
 
-    if signature["position"] == "last":
-        elements.append(_signature_flowable(signature, page_w))
+        if signature["position"] == "last":
+            story.append(_signature_flowable(signature, page_w))
+        return story
 
     page_furniture = _page_furniture(signature, ctx["watermark"])
+    elements, index = make_story([]), None
+
+    if marks_wanted:
+        # Pass one measures where every section actually lands. The index is
+        # built from those real page numbers and inserted at the front, which
+        # shifts everything after it by exactly the number of pages the index
+        # occupies — fixed by construction, so the references stay true.
+        marks = []
+        probe = SimpleDocTemplate(
+            io.BytesIO(), pagesize=page_size, topMargin=margin,
+            bottomMargin=margin + 2 * mm + sig_band,
+            leftMargin=margin, rightMargin=margin,
+        )
+        probe.build(make_story(marks), onFirstPage=page_furniture,
+                    onLaterPages=page_furniture)
+        if marks:
+            # How many pages the index itself takes is measured, not guessed:
+            # the first index page also carries the document title, and a long
+            # index splits where reportlab decides, so an estimate is wrong by
+            # a page or two and every reference inherits the error. Laying the
+            # index out on its own gives the exact figure. Row heights do not
+            # depend on the digits printed, so the count is the same once the
+            # real page numbers go in.
+            gauge = SimpleDocTemplate(
+                io.BytesIO(), pagesize=page_size, topMargin=margin,
+                bottomMargin=margin + 2 * mm + sig_band,
+                leftMargin=margin, rightMargin=margin,
+            )
+            gauge.build([
+                Paragraph("Consumer List", title_style),
+                Paragraph(report_date(meta), date_style),
+            ] + _index_flowables(marks, 0, page_w))
+            offset = gauge.page
+            index = _index_flowables(marks, offset, page_w)
+            elements = make_story([], index)
+
     doc.build(elements, onFirstPage=page_furniture, onLaterPages=page_furniture,
               canvasmaker=NumberedCanvas)
     buf.seek(0)
@@ -1636,6 +1689,83 @@ def _draw_signature_band(canvas, doc, signature: dict):
         canvas.setFont("Helvetica-Bold", size)
         canvas.drawCentredString(left + col_w / 2, baseline - 4 * mm, text)
     canvas.restoreState()
+
+
+INDEX_ROWS_PER_PAGE = 46
+
+
+class _PageMark(Flowable):
+    """A zero-height marker that reports the page it lands on.
+
+    Placed at the head of a section block so the index can be built from where
+    each section actually starts, once reportlab has finished paginating.
+    """
+
+    def __init__(self, label, group, sink):
+        super().__init__()
+        self.label, self.group, self.sink = label, group, sink
+
+    def wrap(self, *_):
+        return (0, 0)
+
+    def draw(self):
+        self.sink.append({"label": self.label, "group": self.group,
+                          "page": self.canv.getPageNumber()})
+
+
+def _index_flowables(marks, offset, page_w):
+    """The table of contents: sector name on the left, page on the right.
+
+    ``offset`` is how many pages the index itself occupies — the marks were
+    measured on a build without it, so every reference shifts by exactly that.
+    """
+    styles = getSampleStyleSheet()
+    title = ParagraphStyle("HOIndexTitle", parent=styles["Normal"], fontSize=13,
+                           leading=15, alignment=1, spaceBefore=2 * mm,
+                           spaceAfter=3 * mm, fontName="Helvetica-Bold")
+    band = ParagraphStyle("HOIndexBand", parent=styles["Normal"], fontSize=10,
+                          leading=12, alignment=0, spaceBefore=2 * mm,
+                          spaceAfter=1.5 * mm, fontName="Helvetica-Bold")
+    name = ParagraphStyle("HOIndexName", parent=styles["Normal"], fontSize=8,
+                          leading=10, alignment=0)
+    dots = ParagraphStyle("HOIndexPage", parent=styles["Normal"], fontSize=8,
+                          leading=10, alignment=2)
+
+    rows, styling, group = [], [], None
+    for mark in marks:
+        if mark["group"] != group:
+            group = mark["group"]
+            label = "DOMESTIC SECTORS" if group == "normal" else "COMMERCIAL LOCALITIES"
+            styling.append(("SPAN", (0, len(rows)), (1, len(rows))))
+            styling.append(("BACKGROUND", (0, len(rows)), (1, len(rows)),
+                            colors.HexColor("#e6e6e6")))
+            rows.append([Paragraph(label, band), ""])
+        rows.append([Paragraph(_esc(mark["label"]), name),
+                     Paragraph(str(mark["page"] + offset), dots)])
+
+    elements = [Paragraph("Index", title)]
+    for start in range(0, len(rows), INDEX_ROWS_PER_PAGE):
+        chunk = rows[start:start + INDEX_ROWS_PER_PAGE]
+        table = Table(chunk, colWidths=[page_w * 0.86, page_w * 0.14])
+        local = [
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 1.5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("LINEBELOW", (0, 0), (-1, -1), 0.25, colors.HexColor("#cccccc")),
+        ]
+        for cmd in styling:
+            index = cmd[2][1]
+            if start <= index < start + INDEX_ROWS_PER_PAGE:
+                shifted = (cmd[0], (cmd[1][0], cmd[1][1] - start),
+                           (cmd[2][0], index - start)) + tuple(cmd[3:])
+                local.append(shifted)
+        table.setStyle(TableStyle(local))
+        elements.append(table)
+        if start + INDEX_ROWS_PER_PAGE < len(rows):
+            elements.append(PageBreak())
+    return elements
 
 
 class NumberedCanvas(canvas.Canvas):
