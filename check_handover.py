@@ -39,6 +39,20 @@ ARREARS_CSV = """Sr.,Consumer Name,Sector,Locality,Connection Number,Connection 
 11,CLONE,Waris Colony,Waris Colony Zone B,0999,01/07/2023,700.50,Open
 """
 
+DUP_HANDOVER_CSV = """Sr #,Consumer Name,F/H Name,Sector,Locality,Rate Type,Connection No.,Connection Date,Status
+1,A,X,Zain City S,Zain City Zone A,DOMESTIC,1001,01/07/2023,Regular Connection
+2,B,X,  Zain City S ,Zain City Zone A,DOMESTIC,1002,01/07/2023,Closed
+3,C,X,ZAIN CITY S,zain city zone a,DOMESTIC,1003,01/07/2023,Suspended
+4,D,X,Zain  City   S,Zain City Zone A,DOMESTIC,1004,01/07/2023,New Demand
+"""
+
+DUP_ARREARS_CSV = """Sr.,Consumer Name,Sector,Locality,Connection Number,Connection Date,Total Arrears,Status
+1,A,Zain City S,Zain City Zone A,1001,01/07/2023,100.00,Open
+2,B,Zain City S,Zain City Zone A,1002,01/07/2023,200.00,Closed
+3,C,Zain City S,Zain City Zone A,1003,01/07/2023,300.00,Open
+4,D,Zain City S,Zain City Zone A,1004,01/07/2023,400.00,Open
+"""
+
 
 def read(text):
     return pd.read_csv(io.StringIO(text), dtype=str, keep_default_na=False)
@@ -163,6 +177,21 @@ def main():
     wrapped = handover._wrap_rows(hostile, {0, 1, 2, 3}, font_size=6.5)
     assert len(wrapped[0]) == 4, "every hostile cell must survive as a flowable"
     assert handover._esc("a<b>&c") == "a&lt;b&gt;&amp;c"
+
+    # --- duplicate sector spellings ---------------------------------------
+    # Stray spaces and inconsistent case must not split one sector into two
+    # headings and two summary lines, and merging them must not lose a record.
+    dup_merged, _ = handover.build_handover_dataset(read(DUP_HANDOVER_CSV), read(DUP_ARREARS_CSV))
+    assert len(dup_merged) == 4, "de-duplicating headings must not drop records"
+    assert list(dup_merged["Sector"].unique()) == ["Zain City S"]
+    assert list(dup_merged["Locality"].unique()) == ["Zain City Zone A"]
+
+    dup_rows, _ = handover.build_sector_summary(dup_merged)
+    assert len(dup_rows) == 1, "one sector, one summary row"
+    assert dup_rows[0]["total"] == 4
+    dup_sections = handover.build_sections(dup_merged, ["Consumer Name"], dup_merged)
+    assert [s["sector"] for s in dup_sections] == ["Zain City S"]
+    assert len(dup_sections[0]["rows"]) == 4
 
     # --- signature configuration -----------------------------------------
     from werkzeug.datastructures import MultiDict

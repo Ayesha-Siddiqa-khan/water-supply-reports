@@ -397,6 +397,8 @@ def build_handover_dataset(handover_df: pd.DataFrame, arrears_df: pd.DataFrame) 
         if canonical not in merged.columns:
             merged[canonical] = handover_df[found] if found else ""
 
+    merged = canonicalise_groups(merged)
+
     stats = {
         "total_rows": int(len(merged)),
         "matched": int(sum(1 for m in matches if m.startswith("Matched"))),
@@ -431,6 +433,9 @@ def load_dataset(snapshot_id: str | None = None) -> tuple[pd.DataFrame | None, d
         return None, {}
     df = pd.read_csv(data_path, dtype=str, keep_default_na=False)
     df["Total Arrears"] = df["Total Arrears"].map(_to_amount)
+    if not snapshot_id:
+        # A locked snapshot is left exactly as it was finalised.
+        df = canonicalise_groups(df)
     meta = {}
     if os.path.exists(meta_path):
         with open(meta_path, "r", encoding="utf-8") as fh:
@@ -598,6 +603,44 @@ def selected_columns(df: pd.DataFrame, cols_param: str | None) -> list[str]:
         if chosen:
             return chosen
     return [c for c in df.columns if _txt(c) in {_txt(d) for d in DEFAULT_DETAIL_COLUMNS}]
+
+
+def _canonical_labels(series) -> dict:
+    """Map visually identical labels onto one spelling.
+
+    Sector and locality names arrive with stray spaces and inconsistent case,
+    which would otherwise split one sector into two headings and two summary
+    lines. Variants that match once trimmed and case-folded are collapsed onto
+    the spelling used by the most records (ties break alphabetically), and that
+    winner is itself whitespace-collapsed so no heading carries stray spacing.
+    """
+    variants: dict[str, dict[str, int]] = {}
+    for value in series:
+        text = str(value)
+        variants.setdefault(_txt(text), {})
+        variants[_txt(text)][text] = variants[_txt(text)].get(text, 0) + 1
+    mapping = {}
+    for group in variants.values():
+        winner = sorted(group.items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
+        canonical = " ".join(winner.split())
+        for spelling in group:
+            mapping[spelling] = canonical
+    return mapping
+
+
+def canonicalise_groups(df: pd.DataFrame) -> pd.DataFrame:
+    """Collapse duplicate Sector/Locality spellings before anything groups on them.
+
+    Applied once, in the frame every consumer reads, so the filters, the
+    on-screen summary, the PDF and the exports can never disagree about how
+    many sectors there are. No record is added, dropped or reassigned — only
+    the label it is grouped under is normalised.
+    """
+    for column in ("Sector", "Locality"):
+        if column in df.columns:
+            mapping = _canonical_labels(df[column])
+            df[column] = df[column].map(lambda v: mapping.get(str(v), str(v)))
+    return df
 
 
 def build_sections(frame: pd.DataFrame, columns: list[str],
