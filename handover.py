@@ -504,6 +504,7 @@ def summarise_block(df: pd.DataFrame, label: str = "", serial="") -> dict:
     """
     status = df["Connection Status"]
     ctype = df["Connection Type"]
+    commercial = is_commercial(df)
     return {
         "serial": serial,
         "sector": label,
@@ -511,13 +512,13 @@ def summarise_block(df: pd.DataFrame, label: str = "", serial="") -> dict:
         "active": int((status == "Active").sum()),
         # A "Regular Connection" is Active AND Regular together — never all
         # Active records or all Regular records counted independently.
-        "active_regular": int(((status == "Active") & (ctype == "Regular")).sum()),
+        "active_regular": int(((status == "Active") & ~commercial).sum()),
         "suspended": int((status == "Suspended").sum()),
         "closed": int((status == "Closed").sum()),
         "new_demand": int((status == "New Demand").sum()),
         "other": int((~status.isin(["Active", "Suspended", "Closed", "New Demand"])).sum()),
         "regular": int((ctype == "Regular").sum()),
-        "commercial": int((ctype == "Commercial").sum()),
+        "commercial": int(commercial.sum()),
         "arrears": float(df["Total Arrears"].sum()),
         "flagged": int((df["Data Flag"].astype(str).str.strip() != "").sum()),
     }
@@ -1329,10 +1330,11 @@ def export_handover(fmt_type: str):
 SUMMARY_CARDS = [
     ("Total Sectors", "sectors"),
     ("Total Entries", "total"),
-    ("Active Connections", "active"),
+    ("Active + Regular Connections", "active_regular"),
     ("Suspended Connections", "suspended"),
     ("Closed Connections", "closed"),
-    ("New Connections", "new_demand"),
+    ("New Demand", "new_demand"),
+    ("Commercial Connections", "commercial"),
     ("Total Arrears (Rs.)", "arrears"),
 ]
 
@@ -1363,7 +1365,8 @@ def _summary_page(grand: dict, sector_count: int, page_w: float) -> list:
         chunk = cells[start:start + 3]
         row = len(grid)
         if len(chunk) < 3:
-            spans.append(("SPAN", (0, row), (2, row)))
+            last = len(chunk) - 1
+            spans.append(("SPAN", (last, row), (2, row)))
             chunk = chunk + [""] * (3 - len(chunk))
         grid.append(chunk)
 

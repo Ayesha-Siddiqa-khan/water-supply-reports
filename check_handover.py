@@ -202,6 +202,24 @@ def main():
         "a domestic-rate record inside sector COMMERCIAL is still commercial"
     )
 
+    # The summary's Commercial figure must use the same rule the register
+    # splits on, so a domestic-rate record inside sector COMMERCIAL is counted
+    # as Commercial and NOT as Active + Regular.
+    mixed = merged.head(2).copy()
+    mixed["Sector"] = "COMMERCIAL"
+    mixed["Connection Type"] = "Regular"
+    mixed["Connection Status"] = "Active"
+    mixed_summary = handover.summarise_block(mixed)
+    assert mixed_summary["commercial"] == 2
+    assert mixed_summary["active_regular"] == 0, (
+        "a record in sector COMMERCIAL is commercial, never Active + Regular"
+    )
+
+    # Whole-dataset figures: commercial counted once, by either mark.
+    whole = handover.summarise_block(merged)
+    assert whole["commercial"] == int(handover.is_commercial(merged).sum())
+    assert whole["total"] == len(merged)
+
     # --- excluded sectors ---------------------------------------------------
     # A sector that does not exist must not survive into any view.
     junk = merged.copy()
