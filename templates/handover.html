@@ -105,30 +105,36 @@
   {% set stats = dataset.stats %}
   <!-- ============================== STATS ================================ -->
   <!-- Report Summary — the exact figures printed on page 1 of the PDF -->
-  <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
-    {% for label, key in summary_cards %}
-    <div class="stat-card {{ ['teal','violet','teal','amber','coral','violet','coral','amber'][loop.index0 % 8] }}">
+  <div class="ho-panel-title" style="margin:4px 0 8px;">Domestic Connections</div>
+  <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));">
+    {% for label, key in domestic_cards %}
+    <div class="stat-card {{ ['teal','violet','teal','amber','coral','violet','amber'][loop.index0 % 7] }}">
       <div class="stat-label">{{ label }}</div>
       <div class="stat-value">{{ "{:,.0f}".format(overall_sectors if key == 'sectors' else overall[key]) }}</div>
     </div>
     {% endfor %}
   </div>
+
+  <div class="ho-panel-title" style="margin:4px 0 8px;">Commercial Connections</div>
+  <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));">
+    {% for label, key in commercial_cards %}
+    <div class="stat-card {{ ['coral','violet','teal','amber','coral','violet','amber'][loop.index0 % 7] }}">
+      <div class="stat-label">{{ label }}</div>
+      <div class="stat-value">{{ "{:,.0f}".format(commercial_localities if key == 'sectors' else commercial_overall[key]) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
   <div class="filter-summary" style="margin-bottom:14px;">
-    Report Summary covers the complete imported dataset &mdash; identical to page 1 of the PDF.
-    Arrears reconcile exactly to the Arrears List total of
-    Rs. {{ "{:,.2f}".format(stats.arrears_total_file) }}
-    ({{ "{:,}".format(stats.matched) }} of {{ "{:,}".format(stats.total_rows) }} connections matched on Connection Number,
-    {{ "{:,}".format(stats.arrears_unapplied|default(0)|round|int) }} rupees unapplied).
+    Both reports cover the complete imported dataset and are identical to page 1 of the PDF.
+    Commercial figures are kept out of the domestic report entirely.
+    Arrears reconcile to the Arrears List total of Rs. {{ "{:,.2f}".format(stats.arrears_total_file) }}
+    ({{ "{:,}".format(stats.matched) }} of {{ "{:,}".format(stats.total_rows) }} connections matched on Connection Number).
+    {% if stats.excluded_rows %}
+    {{ "{:,}".format(stats.excluded_rows) }} record(s) sit in an excluded sector and are counted nowhere.
+    {% endif %}
     &nbsp;&bull;&nbsp; Current filter selects <strong>{{ "{:,}".format(row_count) }}</strong> connections
     with Rs. {{ "{:,.0f}".format(grand.arrears) }} arrears.
-    <br>
-    Of the <strong>{{ "{:,}".format(overall.active) }}</strong> Active connections,
-    <strong>{{ "{:,}".format(overall.active_regular) }}</strong> are Active + Regular and
-    <strong>{{ "{:,}".format(overall.active - overall.active_regular) }}</strong> are Active commercial &mdash;
-    the latter are printed in the Commercial section at the end, not under a sector.
-    {% if stats.excluded_rows %}
-    A further {{ "{:,}".format(stats.excluded_rows) }} record(s) sit in an excluded sector and are not counted anywhere.
-    {% endif %}
   </div>
 
   {% if not snapshot %}

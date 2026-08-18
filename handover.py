@@ -848,8 +848,12 @@ def _render_page(snapshot_id: str | None = None):
     summary_rows, grand = build_sector_summary(filtered)
     # Same complete-dataset figures the PDF's first page prints, so the screen
     # and the document can never disagree.
-    overall_summary_rows, overall = build_sector_summary(df)
-    overall_sectors = len(overall_summary_rows)
+    commercial_mask = is_commercial(df)
+    domestic_df, commercial_df = df[~commercial_mask], df[commercial_mask]
+    overall = summarise_block(domestic_df)
+    overall_sectors = domestic_df["Sector"].nunique()
+    commercial_overall = summarise_block(commercial_df)
+    commercial_localities = commercial_df["Locality"].nunique()
     columns = selected_columns(df, cols_param)
     preview_limit = 300
     flagged = filtered[filtered["Data Flag"].astype(str).str.strip() != ""]
@@ -879,7 +883,10 @@ def _render_page(snapshot_id: str | None = None):
         grand=grand,
         overall=overall,
         overall_sectors=overall_sectors,
-        summary_cards=SUMMARY_CARDS,
+        commercial_overall=commercial_overall,
+        commercial_localities=commercial_localities,
+        domestic_cards=DOMESTIC_SUMMARY_CARDS,
+        commercial_cards=COMMERCIAL_SUMMARY_CARDS,
         columns=columns,
         preview_rows=detail_rows(filtered.head(preview_limit), columns),
         preview_limit=preview_limit,
@@ -1100,13 +1107,21 @@ def _report_context(snapshot_id: str | None):
     summary_rows, grand = build_sector_summary(filtered)
     # The first-page summary reports the complete imported dataset, not the
     # filtered view — a status filter would otherwise zero out the very
-    # Suspended/Closed counts the summary exists to show.
-    overall_rows, overall = build_sector_summary(df)
+    # Suspended/Closed counts the summary exists to show. Domestic and
+    # commercial are summarised separately so neither leaks into the other.
+    commercial_mask = is_commercial(df)
+    domestic_df, commercial_df = df[~commercial_mask], df[commercial_mask]
+    overall = summarise_block(domestic_df)
+    overall_sectors = domestic_df["Sector"].nunique()
+    commercial_overall = summarise_block(commercial_df)
+    commercial_localities = commercial_df["Locality"].nunique()
     columns = selected_columns(df, cols_param)
     return {
         "meta": meta,
         "overall": overall,
-        "overall_sectors": len(overall_rows),
+        "overall_sectors": overall_sectors,
+        "commercial_overall": commercial_overall,
+        "commercial_localities": commercial_localities,
         "frame_all": df,
         "filters": filters,
         "filter_text": meta.get("filter_text") if snapshot_id else filter_label(filters),
@@ -1278,7 +1293,9 @@ def export_handover(fmt_type: str):
         if part in ("register", "summary"):
             # Overall totals for the complete imported dataset, on their own
             # first page; the sector blocks that follow are untouched.
-            elements.extend(_summary_page(ctx["overall"], ctx["overall_sectors"], page_w))
+            elements.extend(_summary_page(
+                ctx["overall"], ctx["overall_sectors"],
+                ctx["commercial_overall"], ctx["commercial_localities"], page_w))
             if sections:
                 elements.append(PageBreak())
         if not sections:
@@ -1327,61 +1344,79 @@ def export_handover(fmt_type: str):
     )
 
 
-SUMMARY_CARDS = [
+# The summary page carries two separate reports. Commercial figures never
+# appear in the domestic one and vice versa; each heading supplies the context,
+# so the card labels stay short.
+DOMESTIC_SUMMARY_CARDS = [
     ("Total Sectors", "sectors"),
     ("Total Entries", "total"),
     ("Active + Regular Connections", "active_regular"),
     ("Suspended Connections", "suspended"),
     ("Closed Connections", "closed"),
     ("New Demand", "new_demand"),
-    ("Commercial Connections", "commercial"),
+    ("Total Arrears (Rs.)", "arrears"),
+]
+
+COMMERCIAL_SUMMARY_CARDS = [
+    ("Total Localities", "sectors"),
+    ("Total Entries", "total"),
+    ("Active + Regular Connections", "active"),
+    ("Suspended Connections", "suspended"),
+    ("Closed Connections", "closed"),
+    ("New Demand", "new_demand"),
     ("Total Arrears (Rs.)", "arrears"),
 ]
 
 
-def _summary_page(grand: dict, sector_count: int, page_w: float) -> list:
-    """Overall totals for the whole filtered report, as a grid of cards."""
+def _summary_page(domestic: dict, domestic_sectors: int,
+                  commercial: dict, commercial_localities: int, page_w: float) -> list:
+    """The first page: a domestic report and a commercial report, side by side
+    in sequence, with neither set of figures leaking into the other."""
     styles = getSampleStyleSheet()
     heading = ParagraphStyle("HOOverall", parent=styles["Normal"], fontSize=13,
-                             leading=15, alignment=1, spaceBefore=2 * mm,
-                             spaceAfter=5 * mm, fontName="Helvetica-Bold",
+                             leading=15, alignment=1, spaceBefore=4 * mm,
+                             spaceAfter=3 * mm, fontName="Helvetica-Bold",
                              textColor=colors.black)
     card = ParagraphStyle("HOCard", parent=styles["Normal"], alignment=1,
-                          leading=26, textColor=colors.black)
+                          leading=22, textColor=colors.black)
 
-    values = dict(grand)
-    values["sectors"] = sector_count
-    cells = []
-    for label, key in SUMMARY_CARDS:
-        amount = values.get(key, 0)
-        cells.append(Paragraph(
-            f'<font size="9">{label.upper()}</font><br/>'
-            f'<font size="22"><b>{amount:,.0f}</b></font>', card))
+    def grid_for(summary, spec, count):
+        values = dict(summary)
+        values["sectors"] = count
+        cells = [
+            Paragraph(
+                f'<font size="8.5">{label.upper()}</font><br/>'
+                f'<font size="19"><b>{values.get(key, 0):,.0f}</b></font>', card)
+            for label, key in spec
+        ]
+        rows, spans = [], []
+        for start in range(0, len(cells), 3):
+            chunk = cells[start:start + 3]
+            row = len(rows)
+            if len(chunk) < 3:
+                # Span only the cells the row is short of, never a sibling card.
+                spans.append(("SPAN", (len(chunk) - 1, row), (2, row)))
+                chunk = chunk + [""] * (3 - len(chunk))
+            rows.append(chunk)
+        col_w = page_w / 3
+        table = Table(rows, colWidths=[col_w] * 3, rowHeights=[22 * mm] * len(rows))
+        table.setStyle(TableStyle([
+            ("BOX", (0, 0), (-1, -1), 1.0, colors.black),
+            ("INNERGRID", (0, 0), (-1, -1), 0.8, colors.black),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            # Deliberately unfilled: a solid card background would mask the top
+            # half of the watermark and leave it looking sliced off.
+        ] + spans))
+        return table
 
-    # Three to a row; a trailing odd card spans the rest of its row so the grid
-    # never ends on an empty cell.
-    grid, spans = [], []
-    for start in range(0, len(cells), 3):
-        chunk = cells[start:start + 3]
-        row = len(grid)
-        if len(chunk) < 3:
-            last = len(chunk) - 1
-            spans.append(("SPAN", (last, row), (2, row)))
-            chunk = chunk + [""] * (3 - len(chunk))
-        grid.append(chunk)
-
-    col_w = page_w / 3
-    table = Table(grid, colWidths=[col_w] * 3, rowHeights=[28 * mm] * len(grid))
-    table.setStyle(TableStyle([
-        ("BOX", (0, 0), (-1, -1), 1.0, colors.black),
-        ("INNERGRID", (0, 0), (-1, -1), 0.8, colors.black),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-        # Deliberately unfilled: a solid card background would mask the top half
-        # of the watermark and leave it looking sliced off.
-    ] + spans))
-    return [Paragraph("Report Summary", heading), table]
+    return [
+        Paragraph("Domestic Connections", heading),
+        grid_for(domestic, DOMESTIC_SUMMARY_CARDS, domestic_sectors),
+        Paragraph("Commercial Connections", heading),
+        grid_for(commercial, COMMERCIAL_SUMMARY_CARDS, commercial_localities),
+    ]
 
 
 # Body type size for the register. Small enough to fit a landscape sheet

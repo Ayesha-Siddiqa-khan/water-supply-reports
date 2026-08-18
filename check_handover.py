@@ -220,6 +220,18 @@ def main():
     assert whole["commercial"] == int(handover.is_commercial(merged).sum())
     assert whole["total"] == len(merged)
 
+    # The summary page carries two separate reports. Neither may include the
+    # other's records, and together they must account for every entry.
+    mask = handover.is_commercial(merged)
+    dom_summary = handover.summarise_block(merged[~mask])
+    com_summary = handover.summarise_block(merged[mask])
+    assert dom_summary["commercial"] == 0, "no commercial record in the domestic report"
+    assert com_summary["total"] == int(mask.sum())
+    assert dom_summary["total"] + com_summary["total"] == len(merged)
+    assert round(dom_summary["arrears"] + com_summary["arrears"], 2) == round(
+        merged["Total Arrears"].sum(), 2
+    ), "domestic and commercial arrears must add back to the whole"
+
     # --- excluded sectors ---------------------------------------------------
     # A sector that does not exist must not survive into any view.
     junk = merged.copy()
