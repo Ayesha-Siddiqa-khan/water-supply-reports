@@ -486,50 +486,66 @@ def filter_label(filters: dict) -> str:
     return " | ".join(parts) if parts else "All connections (no filter)"
 
 
+def summarise_block(df: pd.DataFrame, label: str = "", serial="") -> dict:
+    """Count one printable block as a single summary line.
+
+    Counts come straight from the status and type values, each record landing
+    in exactly one status bucket. Taking build_sector_summary()[0] instead
+    would drop rows whenever a block spans more than one sector.
+    """
+    status = df["Connection Status"]
+    ctype = df["Connection Type"]
+    return {
+        "serial": serial,
+        "sector": label,
+        "total": int(len(df)),
+        "active": int((status == "Active").sum()),
+        # A "Regular Connection" is Active AND Regular together — never all
+        # Active records or all Regular records counted independently.
+        "active_regular": int(((status == "Active") & (ctype == "Regular")).sum()),
+        "suspended": int((status == "Suspended").sum()),
+        "closed": int((status == "Closed").sum()),
+        "new_demand": int((status == "New Demand").sum()),
+        "other": int((~status.isin(["Active", "Suspended", "Closed", "New Demand"])).sum()),
+        "regular": int((ctype == "Regular").sum()),
+        "commercial": int((ctype == "Commercial").sum()),
+        "arrears": float(df["Total Arrears"].sum()),
+        "flagged": int((df["Data Flag"].astype(str).str.strip() != "").sum()),
+    }
+
+
 def build_sector_summary(df: pd.DataFrame) -> tuple[list[dict], dict]:
-    rows = []
+    empty = summarise_block(df.iloc[0:0] if len(df) else df, "GRAND TOTAL")
     if df.empty:
-        return rows, {
-            "sector": "GRAND TOTAL", "total": 0, "active": 0, "suspended": 0,
-            "closed": 0, "new_demand": 0, "other": 0, "regular": 0,
-            "commercial": 0, "arrears": 0.0, "flagged": 0,
-        }
-    for serial, (sector, block) in enumerate(df.groupby("Sector", sort=True), start=1):
-        status = block["Connection Status"]
-        ctype = block["Connection Type"]
-        rows.append({
-            "serial": serial,
-            "sector": sector,
-            "total": int(len(block)),
-            "active": int((status == "Active").sum()),
-            "suspended": int((status == "Suspended").sum()),
-            "closed": int((status == "Closed").sum()),
-            "new_demand": int((status == "New Demand").sum()),
-            "other": int((~status.isin(["Active", "Suspended", "Closed", "New Demand"])).sum()),
-            "regular": int((ctype == "Regular").sum()),
-            "commercial": int((ctype == "Commercial").sum()),
-            "arrears": float(block["Total Arrears"].sum()),
-            "flagged": int((block["Data Flag"].astype(str).str.strip() != "").sum()),
-        })
-    grand = {"sector": "GRAND TOTAL", "serial": ""}
-    for key in ("total", "active", "suspended", "closed", "new_demand", "other",
-                "regular", "commercial", "flagged"):
-        grand[key] = sum(r[key] for r in rows)
-    grand["arrears"] = sum(r["arrears"] for r in rows)
+        return [], empty
+    rows = [
+        summarise_block(block, sector, serial)
+        for serial, (sector, block) in enumerate(df.groupby("Sector", sort=True), start=1)
+    ]
+    grand = summarise_block(df, "GRAND TOTAL", "")
     return rows, grand
 
 
 # The printed register heads each block with its sector name, so the summary
 # line under it carries counts only — no sector column, no grand total row.
 REGISTER_SUMMARY_COLUMNS = [
-    ("total", "Total Connections", 0.16),
-    ("active", "Active", 0.10),
-    ("suspended", "Suspended", 0.11),
-    ("closed", "Closed", 0.10),
-    ("new_demand", "New Demand", 0.12),
-    ("regular", "Regular", 0.10),
-    ("commercial", "Commercial", 0.11),
-    ("arrears", "Total Arrears (Rs.)", 0.20),
+    ("total", "Total Entries", 0.17),
+    ("active_regular", "Active + Regular", 0.17),
+    ("new_demand", "New Demand", 0.15),
+    ("closed", "Closed", 0.14),
+    ("suspended", "Suspended", 0.15),
+    ("arrears", "Total Arrears (Rs.)", 0.22),
+]
+
+# Commercial blocks are type-scoped already, so their active count is simply
+# the Active records inside the block.
+COMMERCIAL_SUMMARY_COLUMNS = [
+    ("total", "Total Entries", 0.17),
+    ("active", "Active", 0.17),
+    ("new_demand", "New Demand", 0.15),
+    ("closed", "Closed", 0.14),
+    ("suspended", "Suspended", 0.15),
+    ("arrears", "Total Arrears (Rs.)", 0.22),
 ]
 
 # Spreadsheet/CSV summary exports keep the sector column and grand total —
@@ -551,8 +567,12 @@ SUMMARY_COLUMNS = [
 # as an optional column but is not used for numbering.
 SERIAL_COLUMN = "Sr"
 
+# Sector is deliberately NOT a default: every page repeats the sector name in
+# its banner, and commercial records are their own blocks, so the column is
+# redundant — dropping it is what buys ~40 records a page at 7pt instead of 30.
+# It stays available as an optional column.
 DEFAULT_DETAIL_COLUMNS = [
-    "Consumer Name", "F/H Name", "Mobile", "Sector", "Address",
+    "Consumer Name", "F/H Name", "Mobile", "Address",
     "Connection No.", "Total Arrears",
 ]
 
@@ -582,27 +602,46 @@ def selected_columns(df: pd.DataFrame, cols_param: str | None) -> list[str]:
 
 def build_sections(frame: pd.DataFrame, columns: list[str],
                    summary_source: pd.DataFrame | None = None) -> list[dict]:
-    """Split the register into one printable block per sector.
+    """Split the register into printable blocks.
 
-    Each block is: the sector name as a heading, a single summary line, and the
-    consumer rows, numbered from 1 within that sector. The printed serial is
-    generated per block rather than carried over from the source file, so the
-    register reads 1..N under every sector heading.
+    Regular connections are grouped sector-wise. Commercial connections are
+    pulled out and reported as their own locality-wise blocks, so a normal
+    sector's counts and arrears never include commercial records — those are a
+    separate register in their own right.
+
+    Each block is a heading, one summary line and the consumer rows, numbered
+    from 1 within that block. The printed serial is generated per block rather
+    than carried over from the source file.
     """
+    source = frame if summary_source is None else summary_source
+    is_commercial = frame["Connection Type"] == "Commercial"
     sections = []
-    for sector, block in frame.groupby("Sector", sort=True):
-        # The summary line describes the whole sector, so it is computed from
-        # the complete import. Taking it from the filtered block instead would
-        # print Suspended 0 / Closed 0 whenever an Active filter is applied.
-        counted = block if summary_source is None else summary_source[summary_source["Sector"] == sector]
-        rows, _ = build_sector_summary(counted)
+
+    def add(heading, block, counted, summary_columns):
         body = detail_rows(block, columns)
         sections.append({
-            "sector": str(sector),
-            "summary": rows[0] if rows else None,
+            "sector": heading,
+            "summary": summarise_block(counted, heading),
+            "summary_columns": summary_columns,
             "columns": [SERIAL_COLUMN] + list(columns),
             "rows": [[str(i)] + row for i, row in enumerate(body, 1)],
         })
+
+    # Regular connections, sector by sector. The summary line describes the
+    # whole sector from the complete import, so a status filter cannot zero out
+    # the Closed/Suspended counts it exists to report.
+    src_regular = source[source["Connection Type"] != "Commercial"]
+    for sector, block in frame[~is_commercial].groupby("Sector", sort=True):
+        add(str(sector), block, src_regular[src_regular["Sector"] == sector],
+            REGISTER_SUMMARY_COLUMNS)
+
+    # Commercial connections, locality by locality.
+    src_commercial = source[source["Connection Type"] == "Commercial"]
+    for locality, block in frame[is_commercial].groupby("Locality", sort=True):
+        add(f"Commercial — {locality}", block,
+            src_commercial[src_commercial["Locality"] == locality],
+            COMMERCIAL_SUMMARY_COLUMNS)
+
     return sections
 
 
@@ -1007,7 +1046,6 @@ def handover_print():
     return render_template(
         "handover_print.html",
         sections=build_sections(frame, ctx["columns"], ctx["frame_all"]),
-        summary_columns=REGISTER_SUMMARY_COLUMNS,
         report_date=report_date(ctx["meta"]),
         signature=ctx["signature"],
         watermark=ctx["watermark"],
@@ -1119,7 +1157,7 @@ def export_handover(fmt_type: str):
     # has to give up that height on every page or the table would run under it.
     sig_band = _signature_band_height(signature) if signature["position"] == "every" else 0
     doc = SimpleDocTemplate(
-        buf, pagesize=page_size, topMargin=margin, bottomMargin=margin + 5 * mm + sig_band,
+        buf, pagesize=page_size, topMargin=margin, bottomMargin=margin + 2 * mm + sig_band,
         leftMargin=margin, rightMargin=margin, title="Consumer List",
     )
     styles = getSampleStyleSheet()
@@ -1158,18 +1196,20 @@ def export_handover(fmt_type: str):
                 elements.append(PageBreak())
         if not sections:
             elements.append(Paragraph("No connections for the selected filters.", note_style))
-        summary_headers = [label for _, label, _ in REGISTER_SUMMARY_COLUMNS]
-        summary_widths = [page_w * w for _, _, w in REGISTER_SUMMARY_COLUMNS]
         for section in sections:
             block = [Paragraph(_esc(section["sector"]), sector_style)]
             if part in ("register", "summary") and section["summary"]:
                 summary = section["summary"]
+                # Each block carries its own header set: commercial blocks are
+                # already type-scoped, so they report Active rather than
+                # Active + Regular.
+                spec = section["summary_columns"]
                 block.append(_make_pdf_table(
-                    [summary_headers, [
+                    [[label for _, label, _ in spec], [
                         f"{summary[key]:,.0f}" if key == "arrears" else f"{summary[key]:,}"
-                        for key, _, _ in REGISTER_SUMMARY_COLUMNS
+                        for key, _, _ in spec
                     ]],
-                    col_widths=summary_widths, header_font_size=8,
+                    col_widths=[page_w * w for _, _, w in spec], header_font_size=8,
                     body_font_size=8, cell_padding=4,
                 ))
             # Heading and summary line must not be orphaned from their block.
@@ -1250,7 +1290,7 @@ def _summary_page(grand: dict, sector_count: int, page_w: float) -> list:
 
 # Body type size for the register. Small enough to fit a landscape sheet
 # densely, large enough to stay readable in print.
-REGISTER_FONT_SIZE = 5.5
+REGISTER_FONT_SIZE = 7.0
 
 
 def _register_table(headers, rows, page_w, banner=None, font_size=None):
@@ -1298,7 +1338,7 @@ def _register_table(headers, rows, page_w, banner=None, font_size=None):
 
     table = main._make_pdf_table(
         data, col_widths=widths, left_cols=left_idx, span_rows=span_rows,
-        header_font_size=font_size + 0.5, body_font_size=font_size, cell_padding=1,
+        header_font_size=font_size + 0.5, body_font_size=font_size, cell_padding=2,
     )
     if banner:
         table.repeatRows = 2       # banner + column headers on every page
@@ -1307,7 +1347,7 @@ def _register_table(headers, rows, page_w, banner=None, font_size=None):
     # keep reportlab's 12pt default and every row is ~15pt tall no matter how
     # small the type is. Setting leading explicitly is what actually makes the
     # register dense.
-    extra = [("LEADING", (0, offset + 1), (-1, -1), font_size + 1)]
+    extra = [("LEADING", (0, offset + 1), (-1, -1), font_size + 1.5)]
     if banner:
         # The shared builder paints row 0 as the header; the banner now sits
         # there, so the real column-header row needs the dark fill applied to
@@ -1491,7 +1531,7 @@ class NumberedCanvas(canvas.Canvas):
         self.setFillColor(colors.HexColor("#444444"))
         # Centred in the bottom margin: below the frame, and below the
         # repeated signature strip, so it can never overlap either.
-        self.drawCentredString(self._pagesize[0] / 2.0, 5 * mm, f"Page {self._pageNumber} of {total}")
+        self.drawCentredString(self._pagesize[0] / 2.0, 3.2 * mm, f"Page {self._pageNumber} of {total}")
         self.restoreState()
 
 

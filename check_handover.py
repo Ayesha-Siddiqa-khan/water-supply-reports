@@ -92,21 +92,46 @@ def main():
     assert waris["total"] == 8 and waris["commercial"] == 0
 
     # --- printed register sections ---------------------------------------
-    # The Consumer List prints one block per sector: heading, one summary line,
-    # then the rows, numbered from 1 within that sector.
+    # Regular connections group sector-wise; commercial ones are pulled out
+    # into their own locality-wise blocks so a normal sector's counts and
+    # arrears never include commercial records.
     cols = ["Consumer Name", "Sector", "Locality", "Total Arrears"]
     sections = handover.build_sections(merged, cols)
-    assert [s["sector"] for s in sections] == ["Ghala Mandi", "Waris Colony"]
+    headings = [s["sector"] for s in sections]
+    assert headings == ["Ghala Mandi", "Waris Colony", "Commercial — Ghala Mandi Zone A"], headings
+
     # Every selected column is kept, with a generated serial in front.
     assert sections[0]["columns"] == [handover.SERIAL_COLUMN] + cols
+
     waris_block = next(s for s in sections if s["sector"] == "Waris Colony")
-    # The printed serial restarts at 1 inside each sector and runs 1..N.
+    # The printed serial restarts at 1 inside each block and runs 1..N.
     assert [row[0] for row in waris_block["rows"]] == [str(i) for i in range(1, 9)]
-    assert [row[0] for row in sections[0]["rows"]] == ["1", "2"]
     # The one summary line must agree with the rows printed under it.
     assert waris_block["summary"]["total"] == len(waris_block["rows"]) == 8
-    assert waris_block["summary"]["active"] == 6 and waris_block["summary"]["commercial"] == 0
-    assert sum(s["summary"]["total"] for s in sections) == 10
+
+    # A Regular Connection is Active AND Regular — not every Active record and
+    # not every Regular record counted independently.
+    assert waris_block["summary"]["active_regular"] == 6
+    assert waris_block["summary_columns"] is handover.REGISTER_SUMMARY_COLUMNS
+    assert "commercial" not in [k for k, _, _ in waris_block["summary_columns"]], (
+        "a normal sector summary must not carry a commercial count"
+    )
+
+    # The commercial block is locality-wise, holds only commercial records, and
+    # keeps its arrears to itself.
+    com = next(s for s in sections if s["sector"].startswith("Commercial"))
+    assert com["summary"]["total"] == len(com["rows"]) == 1
+    assert com["summary_columns"] is handover.COMMERCIAL_SUMMARY_COLUMNS
+    assert com["summary"]["arrears"] == 13040.0
+
+    # Ghala Mandi as a normal sector keeps only its regular record, and its
+    # arrears exclude the commercial one that used to sit inside it.
+    gm = next(s for s in sections if s["sector"] == "Ghala Mandi")
+    assert gm["summary"]["total"] == len(gm["rows"]) == 1
+    assert gm["summary"]["arrears"] == 200.0
+
+    # Total Entries across every block still accounts for every record once.
+    assert sum(s["summary"]["total"] for s in sections) == len(merged) == 10
 
     # --- arrears reconciliation ------------------------------------------
     # Connection 999 is genuinely indistinguishable on both sides — same name,

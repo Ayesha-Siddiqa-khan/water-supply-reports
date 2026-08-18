@@ -108,9 +108,9 @@
 
     {% if section.summary %}
     <table class="summary-table">
-      <thead><tr>{% for _, label, _ in summary_columns %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+      <thead><tr>{% for _, label, _ in section.summary_columns %}<th>{{ label }}</th>{% endfor %}</tr></thead>
       <tbody><tr>
-        {% for key, _, _ in summary_columns %}
+        {% for key, _, _ in section.summary_columns %}
         <td>{{ "{:,.0f}".format(section.summary[key]) if key == 'arrears' else "{:,}".format(section.summary[key]) }}</td>
         {% endfor %}
       </tr></tbody>
