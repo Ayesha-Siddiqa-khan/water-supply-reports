@@ -17,7 +17,7 @@ COLUMNS = "Sr #,Consumer Name,F/H Name,Sector,Locality,Rate Type,Connection No.,
 # to keep apart.
 OLD_CSV = COLUMNS + """
 1,ALI,AKBAR,Waris Colony,Zone B,DOMESTIC,12020001,Regular Connection,Edit
-2,BILAL,AKBAR,Waris Colony,Zone B,DOMESTIC,0012020002,Regular Connection,Edit
+2,BILAL,AKBAR,Waris Colony,Zone B,DOMESTIC,12020002,Regular Connection,Edit
 3,CARIM,DAWOOD,Ghala Mandi,Zone A,DOMESTIC,12020003,Suspended,Edit
 4,SHUT,X,Waris Colony,Zone B,DOMESTIC,12020004,Closed,Edit
 5,CASED,Y,Waris Colony,Zone B,DOMESTIC,12020005,Regular Connection,Edit
@@ -99,9 +99,7 @@ def main():
     assert result["counts"]["all"] == 7, sorted(by_conn)
     # Unchanged Active, however differently it is now spelled.
     assert "12020005" not in by_conn, "CASED -> cased is not a status change"
-    # Leading zeros are not a difference: 0012020002 and 12020002 are one
-    # connection, Active in both files, so it is not listed.
-    assert "12020002" not in by_conn
+    assert "12020002" not in by_conn, "Active in both files"
     assert "12020004" not in by_conn, "Closed in both files never moved"
     assert "12020012" not in by_conn, "a new connection that is not Active changes no count"
 
@@ -183,6 +181,56 @@ def main():
     assert blank_result["counts"]["all"] == result["counts"]["all"], (
         "and cannot appear as a change either"
     )
+
+    # --- leading zeros are part of the connection number --------------------
+    # In this list 10010001, 010010001 and 0010010002 are three different
+    # consumers in three different sectors. Folding them onto one key merges
+    # real connections and undercounts Active. The Handover Register strips
+    # zeros on purpose - it joins two systems that pad differently - which is
+    # why this page keeps its own key rather than sharing that one.
+    assert dc._key("010010001") != dc._key("10010001")
+    assert dc._key(" 12-020/162 ") == dc._key("12020162"), "spacing and punctuation still go"
+    assert dc._key("00502-B") != dc._key("00502")
+    assert dc._key("") == "" and dc._key(None) == ""
+
+    padded = COLUMNS + """
+1,MIAN IMRAN,X,Zimindara Colony,Zone A,DOMESTIC,10010001,Closed,Edit
+2,WAJIH UR REHMAN,Y,Sukh Chain Colony,Zone B,DOMESTIC,010010001,Regular Connection,Edit
+3,MUHAMMAD ANEES,Z,Ghala Mandi,Zone A,DOMESTIC,0010010001,Regular Connection,Edit
+"""
+    pad = dc.build_comparison(read(padded), read(padded), "a.csv", "b.csv")
+    assert pad["summary"]["old"]["connections"] == 3, "three consumers, three connections"
+    assert pad["summary"]["old"]["total_active"] == 2
+    assert pad["counts"]["all"] == 0, "identical files, nothing moved"
+
+    # --- like for like, when one file is a partial export -------------------
+    # Whole file against whole file subtracts records the other never contained
+    # from records it did. That is how 21 real changes get printed as -5,494.
+    cmp_block = result["comparable"]
+    assert cmp_block["connections"] == 9, sorted(cmp_block.items())
+    assert cmp_block["only_old"] == 1, "12020009 is in the older file only"
+    assert cmp_block["only_new"] == 2, "12020011 and 12020012 are in the new file only"
+    # Among the shared connections: 7 were Active, 4 still are. 12020009 was
+    # Active and is simply absent, so it must NOT drag this figure down - the
+    # whole-file comparison counts it, this one does not.
+    assert cmp_block["old"]["total_active"] == 7
+    assert cmp_block["new"]["total_active"] == 4
+    assert cmp_block["old"]["commercial_active"] == 1 and cmp_block["new"]["commercial_active"] == 0
+    assert (summary["old"]["total_active"] - summary["new"]["total_active"]) == 3
+    assert (cmp_block["old"]["total_active"] - cmp_block["new"]["total_active"]) == 3, (
+        "here they agree; on a partial export they do not, which is the point"
+    )
+
+    # Movements that are really absences are counted apart from real changes.
+    assert result["lost_missing"] == 1 and result["lost_changed"] == 4
+    assert result["gained_missing"] == 1 and result["gained_changed"] == 1
+    assert result["lost_missing"] + result["lost_changed"] == result["lost"]
+    assert result["gained_missing"] + result["gained_changed"] == result["gained"]
+
+    # Comparing a file with itself leaves nothing unshared, so no like-for-like
+    # table is needed and none is claimed.
+    self_cmp = dc.build_comparison(read(OLD_CSV), read(OLD_CSV), "a.csv", "b.csv")["comparable"]
+    assert self_cmp["only_old"] == 0 and self_cmp["only_new"] == 0
 
     # --- file health --------------------------------------------------------
     # An export that repeats a page has the right number of rows and the wrong

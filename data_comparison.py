@@ -40,9 +40,10 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
+import re
+
 # The Handover Register's own definitions. Imported, never restated.
 from handover import (  # noqa: E402
-    _conn_key,
     _pick,
     _status_of,
     _txt,
@@ -54,7 +55,7 @@ from handover import (  # noqa: E402
 
 data_comparison_bp = Blueprint("data_comparison", __name__)
 
-RESULT_VERSION = 4
+RESULT_VERSION = 6
 
 # Shown in place of a status when a connection is in one file but not the other.
 MISSING_NEW = "Not in the new file"
@@ -170,6 +171,29 @@ def _column(df: pd.DataFrame, name):
     return df[name].map(_norm) if name else pd.Series([""] * len(df), index=df.index)
 
 
+def _key(value) -> str:
+    """Connection Number reduced to a comparable form. Leading zeros are KEPT.
+
+    The Handover Register strips them, and must: it joins the consumer export
+    to the arrears export, two systems that pad the same connection number
+    differently. This page joins two exports of the same list, which never
+    disagree with each other about padding — and inside this list the padding
+    is data. 10010001, 010010001 and 0010010002 are three different consumers
+    in three different sectors, and folding them together silently merged 172
+    connections, 27 of them Active.
+
+    Verified on the real exports: keeping the zeros matched 12,839 connections
+    against 12,755, and left no connection in either file unmatched that
+    stripping them would have matched. The strip cost accuracy and bought
+    nothing.
+    """
+    key = re.sub(r"[^0-9a-z]", "", str(value or "").lower())
+    # 0, 00 and 0000000000 are placeholders for "no number", not connection
+    # number zero. Keeping the zeros elsewhere means they have to be ruled out
+    # here instead of falling out of the strip for free.
+    return "" if not key.strip("0") else key
+
+
 def classify(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Reduce an export to the fields this page compares.
 
@@ -189,7 +213,7 @@ def classify(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
 
     frame = pd.DataFrame({
         "conn": _column(df, conn_col),
-        "key": df[conn_col].map(_conn_key),
+        "key": df[conn_col].map(_key),
         "name": _column(df, _pick(cols, "consumer name", "name")),
         "father": _column(df, _pick(cols, "f/h name", "father name", "father")),
         "Sector": _column(df, _pick(cols, "sector")),
@@ -234,36 +258,67 @@ def summarise(frame: pd.DataFrame, positions: dict, rows: int, excluded: int) ->
     too, and reported, so the three figures are never silently short.
     """
     one_each = frame.iloc[sorted(positions.values())] if positions else frame.iloc[0:0]
-    status, ctype = one_each["status"], one_each["type"]
-    commercial = is_commercial(one_each)
-    active = status == "Active"
-    domestic_regular = int((active & ~commercial & (ctype == "Regular")).sum())
-    commercial_active = int((active & commercial).sum())
-    total_active = int(active.sum())
+    counts = active_figures(one_each)
     # A handful of records are filed under 0, 00 or 0000000000. There is no
     # connection to match those against, so they cannot be compared — but they
     # are reported rather than quietly left out.
     blank = frame["key"] == ""
+    status = one_each["status"]
     return {
+        **counts,
         "rows": rows,
         "excluded": excluded,
         "entries": int(len(frame)),
         "connections": int(len(one_each)),
         "blank": int(blank.sum()),
         "blank_active": int((blank & (frame["status"] == "Active")).sum()),
-        "domestic_active_regular": domestic_regular,
-        "commercial_active": commercial_active,
-        "total_active": total_active,
-        # The same total counted row by row, which is what the live Consumer
+        # The Active total counted row by row, which is what the live Consumer
         # List and the printed register show. Equal to the figure above on a
         # clean export; above it by exactly the repeated rows on a broken one.
         "active_rows": int((frame["status"] == "Active").sum()),
-        # Active, in an ordinary sector, on a commercial rate: in neither of
-        # the two lines above. Stated rather than left as a silent shortfall.
-        "domestic_commercial_rate": total_active - domestic_regular - commercial_active,
         "suspended": int((status == "Suspended").sum()),
         "closed": int((status == "Closed").sum()),
         "new_demand": int((status == "New Demand").sum()),
+    }
+
+
+def active_figures(one_each: pd.DataFrame) -> dict:
+    """The three Active counts over a set of connections, each counted once."""
+    status, ctype = one_each["status"], one_each["type"]
+    commercial = is_commercial(one_each)
+    active = status == "Active"
+    domestic_regular = int((active & ~commercial & (ctype == "Regular")).sum())
+    commercial_active = int((active & commercial).sum())
+    total_active = int(active.sum())
+    return {
+        "domestic_active_regular": domestic_regular,
+        "commercial_active": commercial_active,
+        "total_active": total_active,
+        # Active, in an ordinary sector, on a commercial rate: in neither of
+        # the two lines above. Stated rather than left as a silent shortfall.
+        "domestic_commercial_rate": total_active - domestic_regular - commercial_active,
+    }
+
+
+def comparable(old: pd.DataFrame, new: pd.DataFrame, old_at: dict, new_at: dict) -> dict:
+    """The same figures over only the connections BOTH files contain.
+
+    When one file is a partial export, comparing whole file against whole file
+    subtracts records that were never exported from records that were, and
+    prints the result as though connections had been deactivated. On the exports
+    that prompted this it read -5,494, of which 5,473 were simply absent and 21
+    were real. A difference nobody can act on is not a difference; this is the
+    figure that answers the question the page exists to answer.
+    """
+    shared = set(old_at) & set(new_at)
+    pick = lambda frame, at: frame.iloc[sorted(at[k] for k in shared)] if shared else frame.iloc[0:0]
+    return {
+        "connections": len(shared),
+        "old": active_figures(pick(old, old_at)),
+        "new": active_figures(pick(new, new_at)),
+        # How many connections each file holds that the other does not.
+        "only_old": len(set(old_at) - shared),
+        "only_new": len(set(new_at) - shared),
     }
 
 
@@ -340,6 +395,11 @@ def build_comparison(old_df: pd.DataFrame, new_df: pd.DataFrame,
     new_summary = summarise(new, new_at, len(new_df), new_excluded)
     lost = sum(1 for c in changes if c["old"] == "Active")
     gained = sum(1 for c in changes if c["new"] == "Active")
+    # A connection absent from a file did not change status; it was not
+    # exported. Counting the two together is what turns 26 real changes into
+    # 5,501, so they are counted apart.
+    lost_missing = sum(1 for c in changes if c["old"] == "Active" and c["new"] == MISSING_NEW)
+    gained_missing = sum(1 for c in changes if c["new"] == "Active" and c["old"] == MISSING_OLD)
 
     counts = {key: sum(1 for c in changes if c["kind"] == key) for key in KIND_ORDER}
     counts["all"] = len(changes)
@@ -353,6 +413,11 @@ def build_comparison(old_df: pd.DataFrame, new_df: pd.DataFrame,
         "difference": new_summary["total_active"] - old_summary["total_active"],
         "lost": lost,
         "gained": gained,
+        "lost_missing": lost_missing,
+        "gained_missing": gained_missing,
+        "lost_changed": lost - lost_missing,
+        "gained_changed": gained - gained_missing,
+        "comparable": comparable(old, new, old_at, new_at),
         # Totals and movements are both per connection, so this is always zero.
         # It is computed rather than assumed: if it is ever not zero, the page
         # is contradicting itself and had better say so.
@@ -554,6 +619,26 @@ def _report_pdf(result, kind, headers, rows, slug):
         summary_table, col_widths=[page_w * w for w in (0.40, 0.20, 0.20, 0.20)],
         left_cols=[0], header_font_size=9, body_font_size=10, cell_padding=5))
 
+    # When one file is a partial export the table above subtracts records that
+    # were never exported from records that were. The real movement is over the
+    # connections both files hold, and it belongs on the page beside it.
+    cmp_block = result.get("comparable") or {}
+    if cmp_block.get("only_old") or cmp_block.get("only_new"):
+        elements.append(Spacer(1, 3 * mm))
+        elements.append(Paragraph(
+            f"Like for like &mdash; only the {cmp_block['connections']:,} connections both files contain. "
+            f"{cmp_block['only_old']:,} are in the older file only and {cmp_block['only_new']:,} in the new "
+            "file only; neither can have changed status, because one file has nothing to compare them "
+            "against. <b>This is the real movement.</b>", sub))
+        like = [["Figure", "Older File", "New File", "Change"]]
+        for label, key in SUMMARY_LINES[1:]:
+            was, now = cmp_block["old"][key], cmp_block["new"][key]
+            like.append([label, f"{was:,}", f"{now:,}",
+                         f"{now - was:+,}" if now != was else "0"])
+        elements.append(main._make_pdf_table(
+            like, col_widths=[page_w * w for w in (0.40, 0.20, 0.20, 0.20)],
+            left_cols=[0], header_font_size=9, body_font_size=10, cell_padding=5))
+
     if not rows:
         elements.append(Paragraph("No change found in Active Connections.", verdict))
         doc.build(elements)
@@ -561,10 +646,17 @@ def _report_pdf(result, kind, headers, rows, slug):
         return Response(buf.getvalue(), mimetype="application/pdf", headers={
             "Content-Disposition": f"inline; filename={slug}.pdf"})
 
-    elements.append(Paragraph(
-        f"{result['lost']:,} connection(s) are no longer Active and {result['gained']:,} became "
-        "Active. The two move independently, so a count alone cannot show this and every "
-        "connection was matched individually.", sub))
+    if result.get("lost_missing") or result.get("gained_missing"):
+        elements.append(Paragraph(
+            f"{result['lost_changed']:,} connection(s) actually changed out of Active and "
+            f"{result['gained_changed']:,} changed into it. A further {result['lost_missing']:,} were "
+            "Active in the older file and are not in the new file at all: those were not deactivated, "
+            "there is simply nothing to compare them against.", sub))
+    else:
+        elements.append(Paragraph(
+            f"{result['lost']:,} connection(s) are no longer Active and {result['gained']:,} became "
+            "Active. The two move independently, so a count alone cannot show this and every "
+            "connection was matched individually.", sub))
     # Helvetica's WinAnsi encoding has no arrow glyph, so the printed label
     # spells the movement out rather than dropping a black box into the heading.
     label = ("All changes" if kind in ("", "all")

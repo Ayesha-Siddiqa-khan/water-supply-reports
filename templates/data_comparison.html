@@ -129,6 +129,40 @@
           {% endfor %}
         </tbody>
       </table>
+      {% if result.comparable.only_old or result.comparable.only_new %}
+      <div style="margin-top:18px;">
+        <div class="dc-panel-title" style="margin-bottom:6px;">
+          Like for like &mdash; only the {{ "{:,}".format(result.comparable.connections) }} connections both files contain
+        </div>
+        <div class="dc-note" style="margin-bottom:10px;">
+          The table above subtracts records the new file never contained from records it did.
+          {% if result.comparable.only_old %}{{ "{:,}".format(result.comparable.only_old) }} connection(s)
+          are in the older file only{% endif %}{% if result.comparable.only_old and result.comparable.only_new %}
+          and {% endif %}{% if result.comparable.only_new %}{{ "{:,}".format(result.comparable.only_new) }}
+          connection(s) are in the new file only{% endif %} &mdash; those cannot have changed status,
+          because one file has nothing to compare them against. <strong>This is the real movement.</strong>
+        </div>
+        <table class="dc-summary">
+          <thead><tr><th>Figure</th><th>Older File</th><th>New File</th><th>Change</th></tr></thead>
+          <tbody>
+            {% for label, key in [('Domestic Active + Regular Connections', 'domestic_active_regular'),
+                                  ('Commercial Active Connections', 'commercial_active'),
+                                  ('Total Active Connections', 'total_active')] %}
+            {% set delta = result.comparable.new[key] - result.comparable.old[key] %}
+            <tr {% if key == 'total_active' %}class="total"{% endif %}>
+              <td>{{ label }}</td>
+              <td>{{ "{:,}".format(result.comparable.old[key]) }}</td>
+              <td>{{ "{:,}".format(result.comparable.new[key]) }}</td>
+              <td class="{% if delta < 0 %}accent-coral{% elif delta > 0 %}accent-teal{% endif %}">
+                {% if delta %}{{ "{:+,}".format(delta) }}{% else %}0{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
       <div class="dc-note" style="margin-top:10px;">
         Counted once per connection number, using the same Active / Regular / Commercial
         classification as the <a href="{{ url_for('handover.handover') }}">Consumer List</a>:
@@ -172,10 +206,19 @@
   </div>
   {% else %}
   <div class="dc-alert">
+    {% if result.lost_missing or result.gained_missing %}
+    <strong>{{ "{:,}".format(result.lost_changed) }} connection(s) actually changed out of Active</strong>
+    and <strong>{{ "{:,}".format(result.gained_changed) }}</strong> changed into it.
+    A further {{ "{:,}".format(result.lost_missing) }} were Active in the older file and are
+    <em>not in the new file at all</em>{% if result.gained_missing %}, and
+    {{ "{:,}".format(result.gained_missing) }} are Active in the new file but not in the older one{% endif %}.
+    Those were not deactivated &mdash; there is nothing in the other file to compare them against.
+    {% else %}
     <strong>{{ "{:,}".format(result.lost) }} connection(s) are no longer Active</strong>
     and <strong>{{ "{:,}".format(result.gained) }}</strong> became Active.
     {% if result.difference == 0 %}
     The totals match, but the connections behind them do not &mdash; which is why each was matched individually.
+    {% endif %}
     {% endif %}
     Every one is listed below and in the exports.
   </div>
