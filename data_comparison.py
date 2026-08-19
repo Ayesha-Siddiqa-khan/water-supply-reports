@@ -54,7 +54,7 @@ from handover import (  # noqa: E402
 
 data_comparison_bp = Blueprint("data_comparison", __name__)
 
-RESULT_VERSION = 1
+RESULT_VERSION = 2
 
 # Shown in place of a status when a connection is in one file but not the other.
 MISSING_NEW = "Not in the new file"
@@ -230,11 +230,17 @@ def summarise(frame: pd.DataFrame, positions: dict, rows: int, excluded: int) ->
     domestic_regular = int((active & ~commercial & (ctype == "Regular")).sum())
     commercial_active = int((active & commercial).sum())
     total_active = int(active.sum())
+    # A handful of records are filed under 0, 00 or 0000000000. There is no
+    # connection to match those against, so they cannot be counted or compared
+    # — but they are reported rather than quietly left out of the totals.
+    blank = frame["key"] == ""
     return {
         "rows": rows,
         "excluded": excluded,
         "entries": int(len(frame)),
         "connections": int(len(one_each)),
+        "blank": int(blank.sum()),
+        "blank_active": int((blank & (frame["status"] == "Active")).sum()),
         "domestic_active_regular": domestic_regular,
         "commercial_active": commercial_active,
         "total_active": total_active,

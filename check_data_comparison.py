@@ -148,6 +148,24 @@ def main():
     _, capped, capped_total = dc.change_rows(result, limit=2)
     assert len(capped) == 2 and capped_total == 7, "the cap never hides the true count"
 
+    # --- records with no connection number ---------------------------------
+    # The live list files a few records under 0, 00 or 0000000000. There is
+    # nothing to match those against, so they cannot be counted or compared —
+    # but they must be reported rather than quietly vanish from the totals.
+    blanks = read(OLD_CSV.rstrip("\n") +
+                  "\n12,NO NUMBER,N,Waris Colony,Zone B,DOMESTIC,0000000000,Regular Connection,Edit"
+                  "\n13,ALSO NONE,N,Waris Colony,Zone B,DOMESTIC,00,Closed,Edit\n")
+    blank_result = dc.build_comparison(blanks, read(NEW_CSV), "old.csv", "new.csv")
+    blank_old = blank_result["summary"]["old"]
+    assert blank_old["blank"] == 2 and blank_old["blank_active"] == 1
+    assert blank_old["entries"] == 12, "they are entries"
+    assert blank_old["total_active"] == summary["old"]["total_active"], (
+        "but a record with no connection number cannot join the Active count"
+    )
+    assert blank_result["counts"]["all"] == result["counts"]["all"], (
+        "and cannot appear as a change either"
+    )
+
     # --- file health --------------------------------------------------------
     # An export that repeats a page has the right number of rows and the wrong
     # number of connections. That is a broken export, not deleted records.

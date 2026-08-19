@@ -150,6 +150,14 @@
         <br>{{ "{:,}".format(summary.old.excluded) }} older and {{ "{:,}".format(summary.new.excluded) }}
         new rows were excluded as the Consumer List excludes them.
         {% endif %}
+        {% if summary.old.blank or summary.new.blank %}
+        <br>{{ "{:,}".format(summary.old.blank) }} older and {{ "{:,}".format(summary.new.blank) }} new
+        row(s) are filed under a connection number of 0, 00 or 0000000000. There is nothing to match
+        those against, so they are in Total Entries but in none of the Active figures
+        ({% if summary.old.blank_active or summary.new.blank_active %}<strong>{{ summary.old.blank_active }}
+        older and {{ summary.new.blank_active }} new of them are Active</strong>{% else %}none of them
+        are Active{% endif %}).
+        {% endif %}
       </div>
     </div>
   </div>
