@@ -12737,8 +12737,10 @@ def export_consumer_sector_remaining(fmt_type: str):
 # Handover Register — independent feature, registered last so handover.py can
 # import the shared PDF/upload helpers defined above without a circular import.
 from handover import handover_bp  # noqa: E402
+from compare import compare_bp  # noqa: E402
 
 app.register_blueprint(handover_bp)
+app.register_blueprint(compare_bp)
 
 
 if __name__ == "__main__":
