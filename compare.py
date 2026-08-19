@@ -29,18 +29,12 @@ from werkzeug.utils import secure_filename
 
 compare_bp = Blueprint("compare", __name__)
 
-# Status values are read the same way the Consumer List reads them, so the two
-# features can never disagree about what "Active" means.
-STATUS_MAP = {
-    "regular connection": "Active",
-    "active": "Active",
-    "open": "Active",
-    "suspended": "Suspended",
-    "closed": "Closed",
-    "new demand": "New Demand",
-    "new": "New Demand",
-    "dead": "Dead",
-}
+# Status wording and Connection Number normalisation are taken FROM the Handover
+# Register rather than restated here. A second copy is a second interpretation
+# waiting to drift: if the register ever learns a new spelling of "Active", this
+# audit learns it in the same commit or the two features start disagreeing about
+# which connections are live.
+from handover import STATUS_MAP, _conn_key, _txt  # noqa: E402
 STATUS_ORDER = ["Active", "Suspended", "Closed", "New Demand", "Dead", "Other"]
 
 # A live connection going dark, or a connection's identity/location moving.
@@ -91,25 +85,15 @@ def _paths():
             os.path.join(base, "result.json"))
 
 
-def _txt(value) -> str:
-    """Collapse whitespace and case — used only to decide whether two values
-    are the same, never to rewrite what is stored or displayed."""
-    return " ".join(str(value or "").split()).strip().lower()
-
-
 def _norm(value) -> str:
     """Collapse whitespace but keep case, for display and equality."""
     return " ".join(str(value or "").split()).strip()
 
 
-def _key(value) -> str:
-    """Connection Number reduced to a comparable form.
-
-    Digits and letters only, lower-cased, leading zeros dropped, so 0012020162
-    and 12020162 are recognised as the same connection while 502 and 502-B
-    stay apart.
-    """
-    return re.sub(r"[^0-9a-z]", "", str(value or "").lower()).lstrip("0")
+# The Handover Register's own key function: digits and letters only, lower-cased,
+# leading zeros dropped, so 0012020162 and 12020162 are one connection while 502
+# and 502-B stay apart.
+_key = _conn_key
 
 
 def status_of(raw) -> str:
