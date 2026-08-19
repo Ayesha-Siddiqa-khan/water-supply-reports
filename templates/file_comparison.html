@@ -16,6 +16,8 @@
   .fc-panel-title { font-size: 12px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; }
   .fc-input { background: var(--surface); border: 1px solid var(--border-bright); border-radius: var(--radius-sm);
               color: var(--text-primary); font-family: var(--font-ui); font-size: 11px; padding: 7px 10px; outline: none; width: 100%; }
+  .di-warn { border-left: 3px solid var(--amber); background: var(--amber-dim); padding: 12px 16px;
+             border-radius: var(--radius-sm); margin-bottom: 14px; font-size: 11px; color: var(--text-secondary); }
   .fc-note { font-size: 10px; color: var(--text-muted); }
   .fc-table td, .fc-table th { white-space: nowrap; }
   .fc-table td.wrap { white-space: normal; min-width: 130px; }
@@ -63,6 +65,21 @@
   {% endif %}
 
   {% if result %}
+  {% if result.health.new.incomplete or result.health.old.incomplete %}
+  <div class="di-warn">
+    <strong>&#9888; The {% if result.health.new.incomplete %}newer{% else %}older{% endif %} file looks incomplete &mdash; read the figures below with that in mind.</strong>
+    {% for side, label in [('old', 'Older'), ('new', 'Newer')] %}{% if result.health[side].incomplete %}
+    <br>{{ label }} file: {{ "{:,}".format(result.health[side].rows) }} rows but only
+    <strong>{{ "{:,}".format(result.health[side].distinct) }}</strong> distinct connection numbers
+    ({{ "{:,}".format(result.health[side].duplicate_rows) }} rows repeat one already in the file).
+    {% endif %}{% endfor %}
+    <br>A paginated export that returns the same page twice produces a file of the right length whose
+    connections are mostly duplicates. Connections reported as <em>missing</em> are missing
+    <em>from this file</em> &mdash; that is not the same as having been deleted from the system.
+    Re-export before treating the difference as real.
+  </div>
+  {% endif %}
+
   <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));">
     <div class="stat-card teal">
       <div class="stat-label">Rows — Older File</div>

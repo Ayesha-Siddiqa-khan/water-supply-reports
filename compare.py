@@ -47,6 +47,14 @@ STATUS_ORDER = ["Active", "Suspended", "Closed", "New Demand", "Dead", "Other"]
 SUSPICIOUS_TRANSITIONS = {
     ("Active", "Closed"), ("Active", "Suspended"), ("Active", "Dead"),
 }
+# Below this share of unique connection numbers a file is treated as
+# incomplete rather than trusted: a paginated export that repeats a page
+# looks exactly like thousands of deleted records otherwise.
+UNIQUE_RATIO_FLOOR = 0.95
+# ...and only once there are enough rows for the ratio to mean anything. A
+# handful of records with one repeat is not evidence of a broken export.
+HEALTH_MIN_ROWS = 100
+
 MISSING_LABEL = "Missing from new file"
 NOT_PRESENT_LABEL = "Not in older file"
 
@@ -57,7 +65,7 @@ KEY_COLUMN = "Connection No."
 # Bumped whenever the stored result's shape changes. A result written by an
 # older build is discarded rather than half-read, which would otherwise fail
 # with a template error instead of simply asking for the files again.
-RESULT_VERSION = 4
+RESULT_VERSION = 5
 
 
 def _app():
@@ -274,6 +282,24 @@ def build_comparison(old_df: pd.DataFrame, new_df: pd.DataFrame,
     lost.sort(key=order)
     gained.sort(key=order)
 
+    def health(df, keys, at):
+        """Whether a file looks like a complete export.
+
+        A paginated export that repeats a page produces a file of the right
+        length whose connection numbers are mostly duplicates. Left undetected
+        that reads as mass deletion, so it is measured and reported instead.
+        """
+        rows = len(df)
+        distinct = len(at)
+        ratio = distinct / rows if rows else 1.0
+        return {
+            "rows": rows,
+            "distinct": distinct,
+            "duplicate_rows": rows - distinct - keys.count(""),
+            "unique_ratio": round(ratio, 4),
+            "incomplete": rows >= HEALTH_MIN_ROWS and ratio < UNIQUE_RATIO_FLOOR,
+        }
+
     return {
         "version": RESULT_VERSION,
         "built_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
@@ -293,6 +319,10 @@ def build_comparison(old_df: pd.DataFrame, new_df: pd.DataFrame,
         "changes": changes,
         "changed_keys": sorted(changed_keys),
         "cosmetic_keys": sorted(cosmetic_keys - changed_keys),
+        "health": {
+            "old": health(old_df, old_keys, old_at),
+            "new": health(new_df, new_keys, new_at),
+        },
         "active_diff": {
             "old_active": old_active,
             "new_active": new_active,
@@ -623,6 +653,17 @@ def _audit_pdf(result, view, headers, rows, slug):
                   f"Newer: {files['new']['name']} &nbsp;&bull;&nbsp; matched on Connection No.", sub),
         Spacer(1, 2 * mm),
     ]
+
+    health = result.get("health", {})
+    if any(side.get("incomplete") for side in health.values()):
+        bad = "newer" if health.get("new", {}).get("incomplete") else "older"
+        detail = health.get("new" if bad == "newer" else "old", {})
+        elements.append(Paragraph(
+            f"<b>Warning: the {bad} file looks incomplete.</b> It has "
+            f"{detail.get('rows', 0):,} rows but only {detail.get('distinct', 0):,} distinct "
+            "connection numbers. Connections reported as missing are missing from that file, "
+            "which is not the same as having been deleted from the system.", sub))
+        elements.append(Spacer(1, 2 * mm))
 
     change = diff["difference"]
     elements.append(main._make_pdf_table([

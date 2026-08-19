@@ -157,6 +157,25 @@ def main():
     _, composed = compare.audit_rows(result, view="gained", sector="Waris Colony")
     assert {r[0] for r in composed} == {"12020006"}, "filters compose"
 
+    # --- file health --------------------------------------------------------
+    # A paginated export that repeats a page yields a file of the right length
+    # whose connections are mostly duplicates. That must be reported as an
+    # incomplete file, not read as thousands of deleted records.
+    health = result["health"]
+    assert health["old"]["incomplete"] is False
+    assert health["new"]["incomplete"] is False, "the fixture files are healthy"
+
+    repeated = read(NEW_CSV)
+    repeated = pd.concat([repeated] * 20, ignore_index=True)   # same rows, over and over
+    doubled = compare.build_comparison(read(OLD_CSV), repeated, "old.csv", "repeated.csv")
+    assert doubled["health"]["new"]["incomplete"] is True
+    assert doubled["health"]["new"]["distinct"] == health["new"]["distinct"], (
+        "repeating rows adds no connections"
+    )
+    assert doubled["health"]["new"]["unique_ratio"] < compare.UNIQUE_RATIO_FLOOR
+    # And the audit itself is unmoved by the repetition.
+    assert doubled["active_diff"]["new_active"] == result["active_diff"]["new_active"]
+
     # --- key normalisation -------------------------------------------------
     assert compare._key(" 00-1202/0001 ") == "12020001"
     assert compare._key("00502-B") != compare._key("00502"), "a suffix is a different connection"
