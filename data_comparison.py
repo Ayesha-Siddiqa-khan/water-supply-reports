@@ -55,7 +55,7 @@ from handover import (  # noqa: E402
 
 data_comparison_bp = Blueprint("data_comparison", __name__)
 
-RESULT_VERSION = 6
+RESULT_VERSION = 7
 
 # Shown in place of a status when a connection is in one file but not the other.
 MISSING_NEW = "Not in the new file"
@@ -194,8 +194,26 @@ def _key(value) -> str:
     return "" if not key.strip("0") else key
 
 
+# "In-Active", "InActive" and "In Active" are all the same word in this export.
+def _consumer_active(value):
+    """True / False from the Consumer Status column, None when it says nothing."""
+    text = re.sub(r"[^a-z]", "", str(value or "").lower())
+    if text == "active":
+        return True
+    if text in ("inactive", "notactive"):
+        return False
+    return None
+
+
 def classify(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Reduce an export to the fields this page compares.
+
+    A connection counts as Active only when BOTH status columns say so: Status
+    reading Regular Connection and Consumer Status reading Active. They are the
+    two columns that record whether a connection is live, and on a clean export
+    they agree on 27,700 rows out of 27,850 — but where they disagree, taking
+    either one alone quietly decides something the data does not actually say.
+    Those rows are counted and reported instead, never silently resolved.
 
     Column names are located with the Handover Register's own ``_pick``, so a
     file that spells a heading differently is still read rather than rejected.
@@ -221,8 +239,33 @@ def classify(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
         "status": df[status_col].map(_status_of),
         "type": df[rate_col].map(_type_of) if rate_col else "Regular",
     })
+
+    consumer_col = _pick(cols, "consumer status")
+    consumer = (df[consumer_col].map(_consumer_active) if consumer_col
+                else pd.Series([None] * len(df), index=df.index))
+    frame["consumer"] = consumer.values
+    says_active = frame["status"] == "Active"
+    # A file with no Consumer Status column is read on Status alone rather than
+    # rejected, so a missing value never contradicts anything.
+    said = frame["consumer"].map(lambda v: v is True)
+    known = frame["consumer"].map(lambda v: v is not None)
+    frame["disputed"] = known & (says_active != said)
+    frame["active"] = says_active & (said | ~known)
+
     frame, excluded = drop_excluded_sectors(frame)
     return canonicalise_groups(frame.reset_index(drop=True)), excluded
+
+
+def status_label(frame: pd.DataFrame, position: int) -> str:
+    """What to print for one record's status.
+
+    Where the two columns disagree both are shown, so a connection the page did
+    not count as Active carries the reason it did not on the face of the row.
+    """
+    row = frame.iloc[position]
+    if not row["disputed"]:
+        return row["status"]
+    return f'{row["status"]} / {"Active" if row["consumer"] else "In-Active"}'
 
 
 def first_positions(frame: pd.DataFrame) -> dict:
@@ -271,11 +314,14 @@ def summarise(frame: pd.DataFrame, positions: dict, rows: int, excluded: int) ->
         "entries": int(len(frame)),
         "connections": int(len(one_each)),
         "blank": int(blank.sum()),
-        "blank_active": int((blank & (frame["status"] == "Active")).sum()),
+        "blank_active": int((blank & frame["active"]).sum()),
         # The Active total counted row by row, which is what the live Consumer
         # List and the printed register show. Equal to the figure above on a
         # clean export; above it by exactly the repeated rows on a broken one.
-        "active_rows": int((frame["status"] == "Active").sum()),
+        "active_rows": int(frame["active"].sum()),
+        # Rows where Status and Consumer Status contradict each other. Not
+        # counted as Active, and never silently resolved either way.
+        "disputed": int(frame["disputed"].sum()),
         "suspended": int((status == "Suspended").sum()),
         "closed": int((status == "Closed").sum()),
         "new_demand": int((status == "New Demand").sum()),
@@ -284,9 +330,9 @@ def summarise(frame: pd.DataFrame, positions: dict, rows: int, excluded: int) ->
 
 def active_figures(one_each: pd.DataFrame) -> dict:
     """The three Active counts over a set of connections, each counted once."""
-    status, ctype = one_each["status"], one_each["type"]
+    ctype = one_each["type"]
     commercial = is_commercial(one_each)
-    active = status == "Active"
+    active = one_each["active"]
     domestic_regular = int((active & ~commercial & (ctype == "Regular")).sum())
     commercial_active = int((active & commercial).sum())
     total_active = int(active.sum())
@@ -369,37 +415,45 @@ def build_comparison(old_df: pd.DataFrame, new_df: pd.DataFrame,
 
     changes = []
     for key, position in old_at.items():
-        before = old["status"].iat[position]
+        was = bool(old["active"].iat[position])
         landing = new_at.get(key)
-        after = new["status"].iat[landing] if landing is not None else MISSING_NEW
-        if (before == "Active") == (after == "Active"):
+        now = bool(new["active"].iat[landing]) if landing is not None else False
+        if was == now:
             continue  # nothing crossed the Active line
+        before = status_label(old, position)
+        after = status_label(new, landing) if landing is not None else MISSING_NEW
         # Identity comes from the newer file when it has the connection, so the
         # report shows the current name and sector rather than a stale one.
         identity = _identity(new, landing) if landing is not None else _identity(old, position)
+        # The transition is named from the plain Status values; the labels above
+        # may carry the disagreement, which is display, not category.
+        pair = (old["status"].iat[position],
+                new["status"].iat[landing] if landing is not None else MISSING_NEW)
         changes.append({**identity, "key": key, "old": before, "new": after,
-                        "kind": TRANSITION_OF.get((before, after), OTHER)})
+                        "was_active": was, "kind": TRANSITION_OF.get(pair, OTHER)})
 
     for key, position in new_at.items():
         if key in old_at:
             continue
-        after = new["status"].iat[position]
-        if after != "Active":
+        if not bool(new["active"].iat[position]):
             continue  # a new connection that is not Active changes no count
-        changes.append({**_identity(new, position), "key": key,
-                        "old": MISSING_OLD, "new": after, "kind": OTHER})
+        changes.append({**_identity(new, position), "key": key, "old": MISSING_OLD,
+                        "new": status_label(new, position), "was_active": False,
+                        "kind": OTHER})
 
     changes.sort(key=lambda c: (KIND_ORDER.index(c["kind"]), c["conn"]))
 
     old_summary = summarise(old, old_at, len(old_df), old_excluded)
     new_summary = summarise(new, new_at, len(new_df), new_excluded)
-    lost = sum(1 for c in changes if c["old"] == "Active")
-    gained = sum(1 for c in changes if c["new"] == "Active")
+    # A change is only recorded when the connection crossed the Active line, so
+    # which way it crossed is exactly whether it was Active before.
+    lost = sum(1 for c in changes if c["was_active"])
+    gained = sum(1 for c in changes if not c["was_active"])
     # A connection absent from a file did not change status; it was not
     # exported. Counting the two together is what turns 26 real changes into
     # 5,501, so they are counted apart.
-    lost_missing = sum(1 for c in changes if c["old"] == "Active" and c["new"] == MISSING_NEW)
-    gained_missing = sum(1 for c in changes if c["new"] == "Active" and c["old"] == MISSING_OLD)
+    lost_missing = sum(1 for c in changes if c["was_active"] and c["new"] == MISSING_NEW)
+    gained_missing = sum(1 for c in changes if not c["was_active"] and c["old"] == MISSING_OLD)
 
     counts = {key: sum(1 for c in changes if c["kind"] == key) for key in KIND_ORDER}
     counts["all"] = len(changes)
