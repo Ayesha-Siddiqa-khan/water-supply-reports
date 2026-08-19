@@ -47,16 +47,8 @@ STATUS_ORDER = ["Active", "Suspended", "Closed", "New Demand", "Dead", "Other"]
 SUSPICIOUS_TRANSITIONS = {
     ("Active", "Closed"), ("Active", "Suspended"), ("Active", "Dead"),
 }
-ACTIVE_BUCKETS = [
-    ("still_active", "Still Active"),
-    ("closed", "Active → Closed"),
-    ("suspended", "Active → Suspended"),
-    ("new_demand", "Active → New Demand"),
-    ("other", "Active → Other Status"),
-    ("missing", "Missing from New File"),
-]
-# The two that mean a running connection stopped running.
-ACTIVE_ALERT_BUCKETS = ("closed", "missing")
+MISSING_LABEL = "Missing from new file"
+NOT_PRESENT_LABEL = "Not in older file"
 
 IDENTITY_FIELDS = {"consumer name", "f/h name", "sector", "locality", "connection no."}
 
@@ -65,7 +57,7 @@ KEY_COLUMN = "Connection No."
 # Bumped whenever the stored result's shape changes. A result written by an
 # older build is discarded rather than half-read, which would otherwise fail
 # with a template error instead of simply asking for the files again.
-RESULT_VERSION = 3
+RESULT_VERSION = 4
 
 
 def _app():
@@ -235,38 +227,52 @@ def build_comparison(old_df: pd.DataFrame, new_df: pd.DataFrame,
                 counts[name] = counts.get(name, 0) + 1
         return counts
 
-    # ---- The audit proper: follow every connection that was Active in the
-    # older file into the newer one, one connection at a time. Aggregate
-    # counts can stay level while individual connections close, so each is
-    # resolved on its own and placed in exactly one bucket.
-    active_records, active_counts = [], dict.fromkeys(dict(ACTIVE_BUCKETS), 0)
-    for key, position in old_at.items():
-        before_row = old_records[position]
-        if status_of(before_row.get(status_col)) != "Active":
-            continue
-        if key in new_at:
-            after_row = new_records[new_at[key]]
-            after = status_of(after_row.get(status_col))
-            bucket = {"Active": "still_active", "Closed": "closed",
-                      "Suspended": "suspended", "New Demand": "new_demand"}.get(after, "other")
-            source = after_row
-        else:
-            after, bucket, source = "Missing from new file", "missing", before_row
-        active_counts[bucket] += 1
-        active_records.append({
-            "key": key,
-            "bucket": bucket,
-            # Identity is taken from the older file, which is the baseline the
-            # audit is asking about; the status is what the newer file says.
-            "connection": _norm(before_row.get(KEY_COLUMN)),
-            "consumer": _norm(before_row.get("Consumer Name")),
-            "father": _norm(before_row.get("F/H Name")),
-            "sector": _norm(before_row.get("Sector")),
-            "locality": _norm(before_row.get("Locality")),
-            "old": "Active",
+    # ---- The audit proper: which Active connections changed.
+    # Only connections that moved into or out of Active are recorded. Listing
+    # the unchanged ones would bury the answer, and the count on its own
+    # cannot be trusted — Active can hold steady while one closes and another
+    # opens — so both directions are resolved connection by connection.
+    def identity(row, before, after):
+        return {
+            "connection": _norm(row.get(KEY_COLUMN)),
+            "consumer": _norm(row.get("Consumer Name")),
+            "father": _norm(row.get("F/H Name")),
+            "sector": _norm(row.get("Sector")),
+            "locality": _norm(row.get("Locality")),
+            "old": before,
             "new": after,
-        })
-    active_records.sort(key=lambda r: (r["sector"], r["locality"], r["connection"]))
+        }
+
+    lost, gained = [], []
+    old_active = new_active = 0
+
+    for key, position in old_at.items():
+        row = old_records[position]
+        if status_of(row.get(status_col)) != "Active":
+            continue
+        old_active += 1
+        if key in new_at:
+            after = status_of(new_records[new_at[key]].get(status_col))
+            if after != "Active":
+                lost.append(identity(row, "Active", after))
+        else:
+            lost.append(identity(row, "Active", MISSING_LABEL))
+
+    for key, position in new_at.items():
+        row = new_records[position]
+        if status_of(row.get(status_col)) != "Active":
+            continue
+        new_active += 1
+        if key in old_at:
+            before = status_of(old_records[old_at[key]].get(status_col))
+            if before != "Active":
+                gained.append(identity(row, before, "Active"))
+        else:
+            gained.append(identity(row, NOT_PRESENT_LABEL, "Active"))
+
+    order = lambda r: (r["sector"], r["connection"])
+    lost.sort(key=order)
+    gained.sort(key=order)
 
     return {
         "version": RESULT_VERSION,
@@ -287,10 +293,12 @@ def build_comparison(old_df: pd.DataFrame, new_df: pd.DataFrame,
         "changes": changes,
         "changed_keys": sorted(changed_keys),
         "cosmetic_keys": sorted(cosmetic_keys - changed_keys),
-        "active_audit": {
-            "total": len(active_records),
-            "counts": active_counts,
-            "records": active_records,
+        "active_diff": {
+            "old_active": old_active,
+            "new_active": new_active,
+            "difference": new_active - old_active,
+            "lost": lost,
+            "gained": gained,
         },
         "status": {
             "old": status_counts(old_records, old_at),
@@ -475,21 +483,25 @@ def export_file_comparison(view: str):
 # ---------------------------------------------------------------------------
 
 AUDIT_HEADERS = ["Connection No.", "Consumer Name", "Father Name",
-                 "Sector", "Locality", "Old Status", "New Status"]
+                 "Sector", "Old Status", "New Status"]
+
+AUDIT_VIEWS = [("changed", "All Changes"),
+               ("lost", "No Longer Active"),
+               ("gained", "Became Active")]
 
 
-def audit_rows(result, view="all", sector="", locality="", search=""):
-    """The audit table: every connection that was Active in the older file.
+def audit_rows(result, view="changed", sector="", locality="", search=""):
+    """Only the connections that moved into or out of Active.
 
-    ``view`` is a bucket key, or "all". Filtering never changes a record's
-    bucket — it only decides which are listed — so the summary counts and the
-    table can never tell different stories.
+    Unchanged active connections are never listed: the report exists to name
+    the ones responsible for the difference.
     """
+    diff = result["active_diff"]
+    records = {"lost": diff["lost"], "gained": diff["gained"]}.get(
+        view, diff["lost"] + diff["gained"])
     search = _txt(search)
     rows = []
-    for record in result["active_audit"]["records"]:
-        if view != "all" and record["bucket"] != view:
-            continue
+    for record in records:
         if sector and _txt(record["sector"]) != _txt(sector):
             continue
         if locality and _txt(record["locality"]) != _txt(locality):
@@ -498,7 +510,7 @@ def audit_rows(result, view="all", sector="", locality="", search=""):
                               ("connection", "consumer", "father", "sector", "locality")):
             continue
         rows.append([record["connection"], record["consumer"], record["father"],
-                     record["sector"], record["locality"], record["old"], record["new"]])
+                     record["sector"], record["old"], record["new"]])
     return AUDIT_HEADERS, rows
 
 
@@ -515,35 +527,34 @@ def data_integrity():
     if result is None:
         return render_template("data_integrity.html", active_page="data_integrity", result=None)
 
-    buckets = dict(ACTIVE_BUCKETS)
-    view = request.args.get("view", "all")
-    if view not in buckets and view != "all":
-        view = "all"
-    sector = request.args.get("sector", "")
-    locality = request.args.get("locality", "")
+    view = request.args.get("view", "changed")
+    if view not in dict(AUDIT_VIEWS):
+        view = "changed"
+    sector, locality = request.args.get("sector", ""), request.args.get("locality", "")
     search = request.args.get("q", "")
 
+    diff = result["active_diff"]
     headers, rows = audit_rows(result, view, sector, locality, search)
-    records = result["active_audit"]["records"]
+    everything = diff["lost"] + diff["gained"]
 
     return render_template(
         "data_integrity.html",
         active_page="data_integrity",
         result=result,
-        audit=result["active_audit"],
-        bucket_labels=ACTIVE_BUCKETS,
-        alert_buckets=ACTIVE_ALERT_BUCKETS,
+        diff=diff,
+        views=AUDIT_VIEWS,
+        counts={"changed": len(everything), "lost": len(diff["lost"]),
+                "gained": len(diff["gained"])},
         view=view,
         sector=sector,
         locality=locality,
         search=search,
-        sectors=sorted({r["sector"] for r in records if r["sector"]}),
-        localities=sorted({r["locality"] for r in records if r["locality"]}),
+        sectors=sorted({r["sector"] for r in everything if r["sector"]}),
+        localities=sorted({r["locality"] for r in everything if r["locality"]}),
         headers=headers,
         rows=rows[:PREVIEW_LIMIT],
         shown=min(len(rows), PREVIEW_LIMIT),
         total=len(rows),
-        preview_limit=PREVIEW_LIMIT,
     )
 
 
@@ -554,12 +565,12 @@ def export_data_integrity(fmt: str):
         flash("Upload both files first.")
         return redirect(url_for("compare.data_integrity"))
 
-    view = request.args.get("view", "all")
-    if view not in dict(ACTIVE_BUCKETS) and view != "all":
-        view = "all"
+    view = request.args.get("view", "changed")
+    if view not in dict(AUDIT_VIEWS):
+        view = "changed"
     headers, rows = audit_rows(result, view, request.args.get("sector", ""),
                                request.args.get("locality", ""), request.args.get("q", ""))
-    slug = f"Active_Consumer_Audit_{view}_{datetime.now().strftime('%Y%m%d_%H%M')}"
+    slug = f"Active_Connection_Changes_{datetime.now().strftime('%Y%m%d_%H%M')}"
 
     if fmt == "csv":
         out = io.StringIO()
@@ -575,8 +586,11 @@ def export_data_integrity(fmt: str):
     return _audit_pdf(result, view, headers, rows, slug)
 
 
+PDF_ROW_CAP = 400
+
+
 def _audit_pdf(result, view, headers, rows, slug):
-    """The audit as a permanent record: which Active connections moved, and where."""
+    """A short audit report: the three figures, then the connections that moved."""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -586,10 +600,10 @@ def _audit_pdf(result, view, headers, rows, slug):
     main = _app()
     buf = io.BytesIO()
     page_size = landscape(A4)
-    margin = 8 * mm
+    margin = 10 * mm
     doc = SimpleDocTemplate(buf, pagesize=page_size, topMargin=margin,
-                            bottomMargin=margin + 4 * mm, leftMargin=margin,
-                            rightMargin=margin, title="Active Consumer Audit")
+                            bottomMargin=margin, leftMargin=margin, rightMargin=margin,
+                            title="Active Connection Changes")
     styles = getSampleStyleSheet()
     title = ParagraphStyle("CATitle", parent=styles["Heading1"], fontSize=17, alignment=1,
                            spaceAfter=1.5 * mm, textColor=colors.black, fontName="Helvetica-Bold")
@@ -597,58 +611,57 @@ def _audit_pdf(result, view, headers, rows, slug):
                          spaceAfter=1 * mm, textColor=colors.black)
     head = ParagraphStyle("CAHead", parent=styles["Normal"], fontSize=11, spaceBefore=4 * mm,
                           spaceAfter=2 * mm, fontName="Helvetica-Bold", textColor=colors.black)
+    verdict = ParagraphStyle("CAVerdict", parent=styles["Normal"], fontSize=12, alignment=1,
+                             spaceBefore=6 * mm, fontName="Helvetica-Bold", textColor=colors.black)
 
-    files, audit = result["files"], result["active_audit"]
+    files, diff = result["files"], result["active_diff"]
     page_w = page_size[0] - 2 * margin
     elements = [
-        Paragraph("Active Consumer Audit", title),
+        Paragraph("Active Connection Changes", title),
         Paragraph(f"Generated {datetime.now().strftime('%d/%m/%Y %H:%M')}", sub),
-        Paragraph(
-            f"Baseline: {files['old']['name']} ({files['old']['rows']:,} rows) "
-            f"&nbsp;&bull;&nbsp; Compared with: {files['new']['name']} "
-            f"({files['new']['rows']:,} rows) &nbsp;&bull;&nbsp; matched on Connection No.", sub),
-        Paragraph(
-            "Every connection recorded as Active in the baseline file is followed into the "
-            "newer file individually, so a connection closing cannot hide behind a level total.",
-            sub),
-        Spacer(1, 3 * mm),
-        Paragraph("Summary", head),
+        Paragraph(f"Older: {files['old']['name']} &nbsp;&bull;&nbsp; "
+                  f"Newer: {files['new']['name']} &nbsp;&bull;&nbsp; matched on Connection No.", sub),
+        Spacer(1, 2 * mm),
     ]
 
-    summary = [["Active consumers in the older file", f"{audit['total']:,}"]]
-    for key, label in ACTIVE_BUCKETS:
-        summary.append([label, f"{audit['counts'].get(key, 0):,}"])
-    elements.append(main._make_pdf_table(
-        [["Measure", "Connections"]] + summary,
-        col_widths=[page_w * 0.62, page_w * 0.38], left_cols={0},
-        header_font_size=9, body_font_size=8.5, cell_padding=3))
+    change = diff["difference"]
+    elements.append(main._make_pdf_table([
+        ["Active Connections — Older File", "Active Connections — Newer File", "Difference"],
+        [f"{diff['old_active']:,}", f"{diff['new_active']:,}",
+         f"{change:+,}" if change else "0"],
+    ], col_widths=[page_w / 3] * 3, header_font_size=9.5, body_font_size=14, cell_padding=6))
 
-    alerts = sum(audit["counts"].get(k, 0) for k in ACTIVE_ALERT_BUCKETS)
-    elements.append(Paragraph(
-        f"<b>{alerts:,}</b> previously-active connection(s) are now closed or absent from the "
-        "newer file." if alerts else
-        "<b>No previously-active connection was closed, and none is absent from the newer file.</b>",
-        sub))
-
-    label = dict(ACTIVE_BUCKETS).get(view, "All previously-active connections")
-    elements.append(Paragraph(f"{label} — {len(rows):,} connection(s)", head))
     if not rows:
-        elements.append(Paragraph("No connections in this category.", sub))
-    else:
-        cell = ParagraphStyle("CACell", parent=styles["Normal"], fontSize=6.5,
-                              leading=7.5, alignment=0)
-        wrap_idx = {1, 2, 3, 4}
-        body = [[Paragraph(str(value).replace("&", "&amp;").replace("<", "&lt;"), cell)
-                 if i in wrap_idx else str(value)
-                 for i, value in enumerate(row)] for row in rows[:6000]]
-        widths = [page_w * w for w in (0.12, 0.18, 0.18, 0.20, 0.18, 0.07, 0.07)]
-        table = main._make_pdf_table([headers] + body, col_widths=widths, left_cols=wrap_idx,
-                                     header_font_size=7.5, body_font_size=6.5, cell_padding=2)
-        table.setStyle(TableStyle([("LEADING", (0, 1), (-1, -1), 7.5)]))
-        elements.append(table)
-        if len(rows) > 6000:
-            elements.append(Paragraph(
-                f"Showing the first 6,000 of {len(rows):,}; the CSV export carries them all.", sub))
+        elements.append(Paragraph("No change found in Active Connections.", verdict))
+        doc.build(elements)
+        buf.seek(0)
+        return Response(buf.getvalue(), mimetype="application/pdf", headers={
+            "Content-Disposition": f"inline; filename={slug}.pdf"})
+
+    lost, gained = len(diff["lost"]), len(diff["gained"])
+    elements.append(Paragraph(
+        f"{lost:,} connection(s) are no longer Active and {gained:,} became Active. "
+        "A count alone cannot show this: the two move independently, so each connection "
+        "was matched individually.", sub))
+
+    label = dict(AUDIT_VIEWS).get(view, "All Changes")
+    elements.append(Paragraph(f"{label} — {len(rows):,} connection(s)", head))
+
+    cell = ParagraphStyle("CACell", parent=styles["Normal"], fontSize=7, leading=8, alignment=0)
+    wrap_idx = {1, 2, 3}
+    shown = rows[:PDF_ROW_CAP]
+    body = [[Paragraph(str(value).replace("&", "&amp;").replace("<", "&lt;"), cell)
+             if i in wrap_idx else str(value)
+             for i, value in enumerate(row)] for row in shown]
+    widths = [page_w * w for w in (0.14, 0.22, 0.22, 0.24, 0.09, 0.09)]
+    table = main._make_pdf_table([headers] + body, col_widths=widths, left_cols=wrap_idx,
+                                 header_font_size=8, body_font_size=7, cell_padding=2)
+    table.setStyle(TableStyle([("LEADING", (0, 1), (-1, -1), 8)]))
+    elements.append(table)
+    if len(rows) > PDF_ROW_CAP:
+        elements.append(Paragraph(
+            f"Listing the first {PDF_ROW_CAP:,} of {len(rows):,} changed connections to keep this "
+            "report short; the CSV export carries every one.", sub))
 
     doc.build(elements)
     buf.seek(0)

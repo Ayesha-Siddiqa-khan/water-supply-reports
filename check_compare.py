@@ -104,55 +104,58 @@ def main():
     # is 3 then 4 even though one connection closed, because another opened.
     assert len(status["records"]) == 4
 
-    # --- active consumer audit ---------------------------------------------
-    # Every connection Active in the baseline is followed into the newer file
-    # and lands in exactly one bucket.
-    audit = result["active_audit"]
-    counts = audit["counts"]
-    assert audit["total"] == 6, audit["total"]
-    assert sum(counts.values()) == audit["total"], "each connection lands in exactly one bucket"
-    assert counts["still_active"] == 2      # 12020002, 12020005
-    assert counts["closed"] == 1            # 12020001
-    assert counts["suspended"] == 1         # 12020007
-    assert counts["new_demand"] == 1        # 12020008
-    assert counts["missing"] == 1           # 12020009
-    assert counts["other"] == 0
+    # --- active connection difference ---------------------------------------
+    # Three figures, then only the connections that moved into or out of Active.
+    diff = result["active_diff"]
+    assert diff["old_active"] == 6
+    assert diff["new_active"] == 4
+    assert diff["difference"] == -2
 
-    # A connection that was NOT Active in the baseline is out of scope, even
-    # though its status changed.
-    assert not any(r["key"] == "12020003" for r in audit["records"]), (
-        "12020003 was Suspended in the baseline, so this audit does not cover it"
-    )
-    # Nor is a connection that only exists in the newer file.
-    assert not any(r["key"] == "12020006" for r in audit["records"])
+    # The arithmetic has to close: old - lost + gained == new.
+    assert diff["old_active"] - len(diff["lost"]) + len(diff["gained"]) == diff["new_active"]
 
-    by_key = {r["key"]: r for r in audit["records"]}
-    closed = by_key["12020001"]
-    assert (closed["old"], closed["new"]) == ("Active", "Closed")
-    assert closed["consumer"] == "ALI" and closed["father"] == "AKBAR"
-    assert closed["sector"] == "Waris Colony" and closed["locality"] == "Waris Zone B"
-    # A missing connection keeps its baseline identity, since the newer file
-    # has nothing to describe it with.
-    gone = by_key["12020009"]
-    assert gone["bucket"] == "missing" and gone["consumer"] == "VANISHED"
-    assert gone["new"] == "Missing from new file"
+    lost = {r["connection"]: r for r in diff["lost"]}
+    gained = {r["connection"]: r for r in diff["gained"]}
+    assert set(lost) == {"12020001", "12020007", "12020008", "12020009"}
+    # 12020003 was Suspended and is now Active — the reverse case counts too.
+    assert set(gained) == {"12020003", "12020006"}
+
+    # Each carries where it went, including "missing" when the newer file has
+    # no such connection at all.
+    assert lost["12020001"]["new"] == "Closed"
+    assert lost["12020007"]["new"] == "Suspended"
+    assert lost["12020008"]["new"] == "New Demand"
+    assert lost["12020009"]["new"] == compare.MISSING_LABEL
+    assert lost["12020001"]["consumer"] == "ALI" and lost["12020001"]["father"] == "AKBAR"
+
+    # A connection absent from the baseline but Active in the newer file counts
+    # as gained, with its identity taken from the file that has it.
+    assert gained["12020006"]["old"] == compare.NOT_PRESENT_LABEL
+    assert gained["12020006"]["consumer"] == "BRAND NEW"
+
+    # Connections that were Active in both files are never listed.
+    assert "12020002" not in lost and "12020002" not in gained
+    assert "12020005" not in lost and "12020005" not in gained
+    # One that was not Active in the baseline can only ever appear as gained.
+    assert "12020003" not in lost and gained["12020003"]["old"] == "Suspended"
 
     # --- audit table and filters -------------------------------------------
     headers, rows = compare.audit_rows(result)
     assert headers == ["Connection No.", "Consumer Name", "Father Name",
-                       "Sector", "Locality", "Old Status", "New Status"]
-    assert len(rows) == 6
+                       "Sector", "Old Status", "New Status"]
+    assert len(rows) == 6, "four lost plus two gained, and nothing unchanged"
 
-    _, closed_rows = compare.audit_rows(result, view="closed")
-    assert len(closed_rows) == 1 and closed_rows[0][0] == "12020001"
+    _, lost_rows = compare.audit_rows(result, view="lost")
+    _, gained_rows = compare.audit_rows(result, view="gained")
+    assert len(lost_rows) == 4 and len(gained_rows) == 2
 
-    # Filtering narrows the list without moving anything between buckets.
     _, ghala = compare.audit_rows(result, sector="Ghala Mandi")
-    assert {r[0] for r in ghala} == {"12020008", "12020009"}
+    # 12020003 is in Ghala Mandi too and became Active, so it belongs here.
+    assert {r[0] for r in ghala} == {"12020003", "12020008", "12020009"}
     _, searched = compare.audit_rows(result, search="vanished")
     assert len(searched) == 1 and searched[0][1] == "VANISHED"
-    _, none_left = compare.audit_rows(result, view="closed", sector="Ghala Mandi")
-    assert none_left == [], "filters compose"
+    _, composed = compare.audit_rows(result, view="gained", sector="Waris Colony")
+    assert {r[0] for r in composed} == {"12020006"}, "filters compose"
 
     # --- key normalisation -------------------------------------------------
     assert compare._key(" 00-1202/0001 ") == "12020001"
