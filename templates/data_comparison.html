@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% block title %}Water Supply Report — Data Comparison{% endblock %}
+{% block meta_description %}Compare connection status between two Consumer List exports.{% endblock %}
+{% block active_page %}data_comparison{% endblock %}
+{% block breadcrumb %}Data Comparison{% endblock %}
+{% block pill_label %}Comparison{% endblock %}
+{% block pill_detail %}{% if result %}{{ "{:+,}".format(result.difference) }} active{% else %}Awaiting files{% endif %}{% endblock %}
+
+{% block head_extra %}
+<style>
+  .dc-content { max-width: none !important; padding: 28px 32px !important; }
+  .dc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .dc-field { display: flex; flex-direction: column; gap: 6px; font-size: 11px; color: var(--text-muted); }
+  .dc-field > span { font-weight: 600; color: var(--text-secondary); letter-spacing: .02em; }
+  .dc-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px 18px; margin-bottom: 14px; }
+  .dc-panel-title { font-size: 12px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; }
+  .dc-input { background: var(--surface); border: 1px solid var(--border-bright); border-radius: var(--radius-sm);
+              color: var(--text-primary); font-family: var(--font-ui); font-size: 11px; padding: 7px 10px; outline: none; width: 100%; }
+  .dc-note { font-size: 10px; color: var(--text-muted); }
+  .dc-table td, .dc-table th { white-space: nowrap; }
+  .dc-table td.wrap { white-space: normal; min-width: 130px; }
+  .dc-alert { border-left: 3px solid var(--coral); background: var(--coral-dim); padding: 12px 16px;
+              border-radius: var(--radius-sm); margin-bottom: 14px; font-size: 11px; color: var(--text-secondary); }
+  .dc-warn { border-left: 3px solid var(--amber); background: var(--amber-dim); padding: 12px 16px;
+             border-radius: var(--radius-sm); margin-bottom: 14px; font-size: 11px; color: var(--text-secondary); }
+  .dc-ok { border-left: 3px solid var(--teal); background: var(--teal-dim); padding: 14px 16px;
+           border-radius: var(--radius-sm); margin-bottom: 14px; font-size: 12px; color: var(--text-secondary); }
+  .dc-summary { width: 100%; border-collapse: collapse; }
+  .dc-summary th, .dc-summary td { padding: 9px 12px; border-bottom: 1px solid var(--border); font-size: 12px; text-align: right; }
+  .dc-summary th:first-child, .dc-summary td:first-child { text-align: left; color: var(--text-secondary); }
+  .dc-summary thead th { font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
+  .dc-summary td { font-family: var(--font-mono, ui-monospace, monospace); color: var(--text-primary); }
+  .dc-summary tr.total td { font-weight: 700; }
+</style>
+{% endblock %}
+
+{% block topbar_actions %}
+  {% if result %}
+  <a class="topbar-btn" target="_blank" rel="noopener"
+     href="{{ url_for('data_comparison.export_data_comparison', fmt='pdf') }}?kind={{ kind }}&sector={{ sector }}&locality={{ locality }}&q={{ search }}">Report PDF</a>
+  <a class="topbar-btn"
+     href="{{ url_for('data_comparison.export_data_comparison', fmt='csv') }}?kind={{ kind }}&sector={{ sector }}&locality={{ locality }}&q={{ search }}">Report CSV</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page">
+<div class="content dc-content">
+
+  <div class="page-header">
+    <div class="page-tag">Data Comparison</div>
+    <h1 class="page-title">Data Comparison</h1>
+    <p class="page-subtitle">Two complete Consumer List exports, matched on Connection Number. How many connections were Active in each, and exactly which ones were activated or closed. Nothing else is compared and neither file is altered.</p>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" action="{{ url_for('data_comparison.data_comparison') }}" id="dc-upload-form" style="margin-bottom:16px;">
+    <div class="dc-panel">
+      <div class="dc-panel-title">Upload both files</div>
+      <div class="dc-grid">
+        <label class="dc-field">
+          <span>1. Older File</span>
+          <input class="dc-input" type="file" name="old_file" accept=".csv,.xlsx" required>
+        </label>
+        <label class="dc-field">
+          <span>2. New File</span>
+          <input class="dc-input" type="file" name="new_file" accept=".csv,.xlsx" required>
+        </label>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button type="submit" class="btn btn-primary">Compare Files</button>
+        {% if result %}
+        <span class="dc-note">{{ result.files.old.name }} vs {{ result.files.new.name }} &middot; compared {{ result.built_at }}</span>
+        {% endif %}
+      </div>
+    </div>
+  </form>
+
+  {% if not result %}
+  <div class="empty-state">
+    <div class="empty-state-icon">&#128202;</div>
+    <div class="empty-state-title">No comparison yet</div>
+    <div class="empty-state-desc">Upload the older and the new Consumer List export. Both are read only &mdash; this page reports which connections changed status and changes nothing in your files.</div>
+  </div>
+  {% endif %}
+
+  {% if result %}
+  {% if result.health.old.incomplete or result.health.new.incomplete %}
+  <div class="dc-warn">
+    <strong>&#9888; {% if result.health.new.incomplete and result.health.old.incomplete %}Both files look incomplete{% elif result.health.new.incomplete %}The new file looks incomplete{% else %}The older file looks incomplete{% endif %} &mdash; read every figure below with that in mind.</strong>
+    {% for side, label in [('old', 'Older'), ('new', 'New')] %}{% if result.health[side].incomplete %}
+    <br>{{ label }} file: {{ "{:,}".format(result.health[side].rows) }} rows but only
+    <strong>{{ "{:,}".format(result.health[side].distinct) }}</strong> distinct connection numbers
+    ({{ "{:,}".format(result.health[side].duplicate_rows) }} rows repeat one already in the file).
+    {% endif %}{% endfor %}
+    <br>An export that returns the same page twice produces a file of the right length whose
+    connections are mostly duplicates. Connections reported as missing are missing
+    <em>from that file</em> &mdash; that is not the same as having been removed from the system.
+    Re-export before treating any difference here as real.
+  </div>
+  {% endif %}
+
+  <!-- ===================== SUMMARY FOR BOTH FILES ===================== -->
+  <div class="section" id="sec-dc-summary">
+    <div class="section-header" onclick="dcToggle('sec-dc-summary')">
+      <div class="section-header-icon">&#128203;</div>
+      <div class="section-title">Summary</div>
+      <span class="section-badge">{{ "{:+,}".format(result.difference) }} active</span>
+      <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+    </div>
+    <div class="section-body">
+      <table class="dc-summary">
+        <thead>
+          <tr><th>Figure</th><th>Older File</th><th>New File</th><th>Change</th></tr>
+        </thead>
+        <tbody>
+          {% for label, key in [('Total Entries', 'entries'),
+                                ('Domestic Active + Regular Connections', 'domestic_active_regular'),
+                                ('Commercial Active Connections', 'commercial_active'),
+                                ('Total Active Connections', 'total_active')] %}
+          {% set delta = summary.new[key] - summary.old[key] %}
+          <tr {% if key == 'total_active' %}class="total"{% endif %}>
+            <td>{{ label }}</td>
+            <td>{{ "{:,}".format(summary.old[key]) }}</td>
+            <td>{{ "{:,}".format(summary.new[key]) }}</td>
+            <td class="{% if delta < 0 %}accent-coral{% elif delta > 0 %}accent-teal{% endif %}">
+              {% if delta %}{{ "{:+,}".format(delta) }}{% else %}0{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="dc-note" style="margin-top:10px;">
+        Counted once per connection number, using the same Active / Regular / Commercial
+        classification as the <a href="{{ url_for('handover.handover') }}">Consumer List</a>:
+        Commercial is decided by sector, and Regular excludes commercial rate types.
+        {% if summary.old.entries != summary.old.connections or summary.new.entries != summary.new.connections %}
+        <br><strong>The Active figures count each connection number once.</strong>
+        The older file repeats a connection number on
+        {{ "{:,}".format(summary.old.entries - summary.old.connections) }} row(s) and the new file on
+        {{ "{:,}".format(summary.new.entries - summary.new.connections) }}, so these figures are lower
+        than a straight row count &mdash; and lower than the Consumer List, which prints every row.
+        {% endif %}
+        {% if summary.old.domestic_commercial_rate or summary.new.domestic_commercial_rate %}
+        <br>{{ "{:,}".format(summary.old.domestic_commercial_rate) }} older and
+        {{ "{:,}".format(summary.new.domestic_commercial_rate) }} new Active connections sit in an
+        ordinary sector on a commercial rate, so they are in the total but in neither of the two
+        lines above.
+        {% endif %}
+        {% if summary.old.excluded or summary.new.excluded %}
+        <br>{{ "{:,}".format(summary.old.excluded) }} older and {{ "{:,}".format(summary.new.excluded) }}
+        new rows were excluded as the Consumer List excludes them.
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if result.counts.all == 0 %}
+  <div class="dc-ok">
+    <strong>No change found in Active Connections.</strong>
+    Every connection Active in the older file is still Active in the new one, and none became Active.
+  </div>
+  {% else %}
+  <div class="dc-alert">
+    <strong>{{ "{:,}".format(result.lost) }} connection(s) are no longer Active</strong>
+    and <strong>{{ "{:,}".format(result.gained) }}</strong> became Active.
+    {% if result.difference == 0 %}
+    The totals match, but the connections behind them do not &mdash; which is why each was matched individually.
+    {% endif %}
+    Every one is listed below and in the exports.
+  </div>
+
+  <!-- ===================== CHANGED CONNECTIONS ===================== -->
+  <div class="section" id="sec-dc-changes">
+    <div class="section-header" onclick="dcToggle('sec-dc-changes')">
+      <div class="section-header-icon">&#128269;</div>
+      <div class="section-title">Connections whose status changed</div>
+      <span class="section-badge">{{ "{:,}".format(total) }} in this view</span>
+      <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+    </div>
+    <div class="section-body">
+      <form method="get" action="{{ url_for('data_comparison.data_comparison') }}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+        <div class="col-chips">
+          {% for key, label in kinds %}
+          <button type="submit" name="kind" value="{{ key }}" class="col-chip {% if kind == key %}active{% endif %}"
+                  style="border:1px solid var(--border-bright);cursor:pointer;">{{ label }} ({{ "{:,}".format(result.counts[key] if key != 'all' else result.counts.all) }})</button>
+          {% endfor %}
+        </div>
+        <select name="sector" class="filter-select">
+          <option value="">All sectors</option>
+          {% for s in result.sectors %}<option value="{{ s }}" {% if sector == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+        </select>
+        <select name="locality" class="filter-select">
+          <option value="">All localities</option>
+          {% for l in result.localities %}<option value="{{ l }}" {% if locality == l %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select>
+        <input class="dc-input" type="search" name="q" value="{{ search }}" placeholder="Connection, name, sector..." style="max-width:220px;">
+        <button type="submit" class="btn btn-sm">Apply</button>
+      </form>
+
+      {% if total > shown %}
+      <div class="dc-note" style="margin-bottom:8px;">Showing {{ "{:,}".format(shown) }} of {{ "{:,}".format(total) }}. The CSV export carries every one.</div>
+      {% endif %}
+
+      {% if rows %}
+      <div class="table-wrapper" style="max-height:600px;">
+        <table class="data-table dc-table">
+          <thead><tr>{% for h in headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+          <tbody>
+            {% for row in rows %}
+            <tr>
+              {% for cell in row %}
+              <td class="{% if headers[loop.index0] in ['Consumer Name','Father Name','Sector','Locality'] %}wrap{% else %}mono{% endif %}{% if headers[loop.index0] == 'New Status' and cell == 'Active' %} accent-teal{% elif headers[loop.index0] == 'New Status' %} accent-coral{% endif %}">{{ cell }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="dc-note" style="padding:14px 0;">No connections match these filters.</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="dc-note" style="margin-top:12px;">
+    Matched on Connection No., ignoring spacing and leading zeros. A connection Active in both
+    files, or inactive in both, is never listed however differently its details are spelled.
+  </div>
+
+  <form method="post" action="{{ url_for('data_comparison.data_comparison') }}" style="margin-top:16px;">
+    <input type="hidden" name="action" value="clear">
+    <button type="submit" class="btn btn-danger btn-sm">Clear Comparison</button>
+  </form>
+  {% endif %}
+
+</div>
+</div>
+
+<script>
+function dcToggle(id) { document.getElementById(id).classList.toggle('collapsed'); }
+{% include "_comparison_upload.js" %}
+</script>
+{% endblock %}

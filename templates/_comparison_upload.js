@@ -1,9 +1,9 @@
-// Shared upload behaviour for the comparison pages.
+// Upload behaviour for the Data Comparison page.
 // Two exports run to ~12 MB together and a serverless request body caps at
 // 4.5 MB, so both files are gzipped in the browser before posting. Browsers
 // without CompressionStream fall back to a plain post, which is fine locally.
 (function () {
-  var form = document.getElementById('fc-upload-form') || document.getElementById('di-upload-form');
+  var form = document.getElementById('dc-upload-form');
   if (!form) return;
 
   function overlay(title, status) {
@@ -42,7 +42,7 @@
     if (!oldFile || !newFile) return;          // let validation handle it
 
     if (typeof CompressionStream === 'undefined') {
-      overlay('Comparing files...', 'Matching records on Connection No.');
+      overlay('Comparing files...', 'Matching connections on Connection No.');
       return;
     }
 
