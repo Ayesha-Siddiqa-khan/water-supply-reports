@@ -49,7 +49,7 @@
           </div>
           <div class="upload-text">
             <strong>Drop CSV / Excel files here or click to browse</strong>
-            <span>Accepts .csv and .xlsx files. Multiple files allowed. Rows are written in the order shown below &mdash; check the numbering before merging.</span>
+            <span>Accepts .csv and .xlsx files. Multiple files allowed. Files are put in name order automatically &mdash; 1st, 2nd, 3rd &mdash; and merged top to bottom in the order numbered below.</span>
           </div>
           <input type="file" id="csv-input" name="files" multiple accept=".csv,.xlsx" style="display:none;" onchange="handleCsvFiles(this.files)">
         </div>
@@ -305,6 +305,11 @@ function handleCsvFiles(fileList) {
       csvFiles.push(f);
     }
   }
+  // Put them in sequence straight away: 1st, 2nd, 3rd, not whatever order the
+  // browser happened to hand them over in. Merging is the whole point of this
+  // page and a merge is only correct in order, so the correct order is the
+  // default rather than something to remember to ask for.
+  csvFiles.sort(function(a, b) { return nameOrder(a.name, b.name); });
   renderCsvList();
   // Reset the input so re-selecting the same files triggers change
   document.getElementById('csv-input').value = '';
@@ -370,7 +375,7 @@ function renderOrderWarning() {
   warn.className = 'merger-order-warn';
   warn.id = 'csv-order-warn';
   warn.innerHTML =
-    '<span>These files are not in name order. The merged file writes them top to bottom, so ' +
+    '<span>You have changed the order. The merged file writes them top to bottom, so ' +
     '<strong>' + escapeHtml(csvFiles[0].name) + '</strong> will come first and ' +
     '<strong>' + escapeHtml(csvFiles[csvFiles.length - 1].name) + '</strong> last.</span>' +
     '<button type="button" onclick="sortCsvFilesByName()">Sort by name</button>';
