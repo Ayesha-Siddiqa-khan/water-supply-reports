@@ -54,7 +54,7 @@ from handover import (  # noqa: E402
 
 data_comparison_bp = Blueprint("data_comparison", __name__)
 
-RESULT_VERSION = 2
+RESULT_VERSION = 3
 
 # Shown in place of a status when a connection is in one file but not the other.
 MISSING_NEW = "Not in the new file"
@@ -215,7 +215,13 @@ def first_positions(frame: pd.DataFrame) -> dict:
 
 
 def summarise(frame: pd.DataFrame, positions: dict, rows: int, excluded: int) -> dict:
-    """The four figures for one file, counted once per connection number.
+    """The four figures for one file, counted row by row.
+
+    Row by row is what the live Consumer List counts when you filter it by
+    Connection Status, and what the Handover Register prints. Counting each
+    connection number once instead would be defensible arithmetic and the wrong
+    answer: the figure here has to be the figure you can check against the
+    screen, or nobody can check it at all.
 
     ``Domestic Active + Regular`` and ``Commercial Active`` are the register's
     two headline counts: Commercial is decided by SECTOR, and a commercial rate
@@ -223,16 +229,19 @@ def summarise(frame: pd.DataFrame, positions: dict, rows: int, excluded: int) ->
     without moving it into the commercial one. Those records are counted here
     too, and reported, so the three figures are never silently short.
     """
-    one_each = frame.iloc[sorted(positions.values())] if positions else frame.iloc[0:0]
-    status, ctype = one_each["status"], one_each["type"]
-    commercial = is_commercial(one_each)
+    status, ctype = frame["status"], frame["type"]
+    commercial = is_commercial(frame)
     active = status == "Active"
     domestic_regular = int((active & ~commercial & (ctype == "Regular")).sum())
     commercial_active = int((active & commercial).sum())
     total_active = int(active.sum())
+    # The change list can only work per connection number, so the Active total
+    # is carried in that form too — that is what the movements have to
+    # reconcile against when a file repeats a connection.
+    one_each = frame.iloc[sorted(positions.values())] if positions else frame.iloc[0:0]
     # A handful of records are filed under 0, 00 or 0000000000. There is no
-    # connection to match those against, so they cannot be counted or compared
-    # — but they are reported rather than quietly left out of the totals.
+    # connection to match those against, so they cannot be compared — but they
+    # are reported rather than quietly left out.
     blank = frame["key"] == ""
     return {
         "rows": rows,
@@ -240,10 +249,11 @@ def summarise(frame: pd.DataFrame, positions: dict, rows: int, excluded: int) ->
         "entries": int(len(frame)),
         "connections": int(len(one_each)),
         "blank": int(blank.sum()),
-        "blank_active": int((blank & (frame["status"] == "Active")).sum()),
+        "blank_active": int((blank & active).sum()),
         "domestic_active_regular": domestic_regular,
         "commercial_active": commercial_active,
         "total_active": total_active,
+        "active_connections": int((one_each["status"] == "Active").sum()),
         # Active, in an ordinary sector, on a commercial rate: in neither of
         # the two lines above. Stated rather than left as a silent shortfall.
         "domestic_commercial_rate": total_active - domestic_regular - commercial_active,
@@ -339,6 +349,12 @@ def build_comparison(old_df: pd.DataFrame, new_df: pd.DataFrame,
         "difference": new_summary["total_active"] - old_summary["total_active"],
         "lost": lost,
         "gained": gained,
+        # The headline totals count rows, the movements count connections. On a
+        # clean export those are the same number and this is zero; when a file
+        # repeats a connection they are not, and the page says so rather than
+        # presenting an equation that does not add up.
+        "residual": (old_summary["active_connections"] - lost + gained
+                     - new_summary["active_connections"]),
         "counts": counts,
         "changes": changes,
         "sectors": sorted({c["sector"] for c in changes if c["sector"]}),
