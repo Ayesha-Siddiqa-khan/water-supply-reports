@@ -47,6 +47,17 @@ STATUS_ORDER = ["Active", "Suspended", "Closed", "New Demand", "Dead", "Other"]
 SUSPICIOUS_TRANSITIONS = {
     ("Active", "Closed"), ("Active", "Suspended"), ("Active", "Dead"),
 }
+ACTIVE_BUCKETS = [
+    ("still_active", "Still Active"),
+    ("closed", "Active → Closed"),
+    ("suspended", "Active → Suspended"),
+    ("new_demand", "Active → New Demand"),
+    ("other", "Active → Other Status"),
+    ("missing", "Missing from New File"),
+]
+# The two that mean a running connection stopped running.
+ACTIVE_ALERT_BUCKETS = ("closed", "missing")
+
 IDENTITY_FIELDS = {"consumer name", "f/h name", "sector", "locality", "connection no."}
 
 KEY_COLUMN = "Connection No."
@@ -54,7 +65,7 @@ KEY_COLUMN = "Connection No."
 # Bumped whenever the stored result's shape changes. A result written by an
 # older build is discarded rather than half-read, which would otherwise fail
 # with a template error instead of simply asking for the files again.
-RESULT_VERSION = 2
+RESULT_VERSION = 3
 
 
 def _app():
@@ -224,6 +235,39 @@ def build_comparison(old_df: pd.DataFrame, new_df: pd.DataFrame,
                 counts[name] = counts.get(name, 0) + 1
         return counts
 
+    # ---- The audit proper: follow every connection that was Active in the
+    # older file into the newer one, one connection at a time. Aggregate
+    # counts can stay level while individual connections close, so each is
+    # resolved on its own and placed in exactly one bucket.
+    active_records, active_counts = [], dict.fromkeys(dict(ACTIVE_BUCKETS), 0)
+    for key, position in old_at.items():
+        before_row = old_records[position]
+        if status_of(before_row.get(status_col)) != "Active":
+            continue
+        if key in new_at:
+            after_row = new_records[new_at[key]]
+            after = status_of(after_row.get(status_col))
+            bucket = {"Active": "still_active", "Closed": "closed",
+                      "Suspended": "suspended", "New Demand": "new_demand"}.get(after, "other")
+            source = after_row
+        else:
+            after, bucket, source = "Missing from new file", "missing", before_row
+        active_counts[bucket] += 1
+        active_records.append({
+            "key": key,
+            "bucket": bucket,
+            # Identity is taken from the older file, which is the baseline the
+            # audit is asking about; the status is what the newer file says.
+            "connection": _norm(before_row.get(KEY_COLUMN)),
+            "consumer": _norm(before_row.get("Consumer Name")),
+            "father": _norm(before_row.get("F/H Name")),
+            "sector": _norm(before_row.get("Sector")),
+            "locality": _norm(before_row.get("Locality")),
+            "old": "Active",
+            "new": after,
+        })
+    active_records.sort(key=lambda r: (r["sector"], r["locality"], r["connection"]))
+
     return {
         "version": RESULT_VERSION,
         "built_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
@@ -243,6 +287,11 @@ def build_comparison(old_df: pd.DataFrame, new_df: pd.DataFrame,
         "changes": changes,
         "changed_keys": sorted(changed_keys),
         "cosmetic_keys": sorted(cosmetic_keys - changed_keys),
+        "active_audit": {
+            "total": len(active_records),
+            "counts": active_counts,
+            "records": active_records,
+        },
         "status": {
             "old": status_counts(old_records, old_at),
             "new": status_counts(new_records, new_at),
@@ -425,43 +474,32 @@ def export_file_comparison(view: str):
 # Page 2 — Data Integrity Check (status audit)
 # ---------------------------------------------------------------------------
 
-AUDIT_VIEWS = ("status", "active_closed", "modified", "added", "deleted", "duplicates", "all")
+AUDIT_HEADERS = ["Connection No.", "Consumer Name", "Father Name",
+                 "Sector", "Locality", "Old Status", "New Status"]
 
 
-def _audit_rows(result, view, sector, locality, search):
-    """Rows for the audit table, already filtered. Returns (headers, rows)."""
-    def keep(record):
-        if sector and _txt(record.get("sector")) != _txt(sector):
-            return False
-        if locality and _txt(record.get("locality")) != _txt(locality):
-            return False
-        if search and not any(search in _txt(record.get(f)) for f in
-                              ("connection", "consumer", "sector", "locality", "old", "new", "field")):
-            return False
-        return True
+def audit_rows(result, view="all", sector="", locality="", search=""):
+    """The audit table: every connection that was Active in the older file.
 
-    status_records = result["status"]["records"]
-    if view == "active_closed":
-        picked = [r for r in status_records if r["old"] == "Active" and r["new"] == "Closed"]
-        headers = ["Connection No.", "Consumer Name", "Sector", "Locality", "Old Status", "New Status"]
-        rows = [[r["connection"], r["consumer"], r["sector"], r["locality"], r["old"], r["new"]]
-                for r in status_records if keep(r) and r in picked]
-        return headers, rows
-    if view == "status":
-        headers = ["Connection No.", "Consumer Name", "Sector", "Locality", "Old Status", "New Status"]
-        rows = [[r["connection"], r["consumer"], r["sector"], r["locality"], r["old"], r["new"]]
-                for r in status_records if keep(r)]
-        return headers, rows
-
-    headers = ["Connection No.", "Consumer Name", "Sector", "Locality",
-               "Field Changed", "Old Value", "New Value", "Kind"]
-    changes = result["changes"]
-    if view == "modified":
-        changes = [c for c in changes if not c["cosmetic"]]
-    rows = [[c["connection"], c["consumer"], c["sector"], c["locality"], c["field"],
-             c["old"], c["new"], "Case/format only" if c["cosmetic"] else "Substantive"]
-            for c in changes if keep(c)]
-    return headers, rows
+    ``view`` is a bucket key, or "all". Filtering never changes a record's
+    bucket — it only decides which are listed — so the summary counts and the
+    table can never tell different stories.
+    """
+    search = _txt(search)
+    rows = []
+    for record in result["active_audit"]["records"]:
+        if view != "all" and record["bucket"] != view:
+            continue
+        if sector and _txt(record["sector"]) != _txt(sector):
+            continue
+        if locality and _txt(record["locality"]) != _txt(locality):
+            continue
+        if search and not any(search in _txt(record[f]) for f in
+                              ("connection", "consumer", "father", "sector", "locality")):
+            continue
+        rows.append([record["connection"], record["consumer"], record["father"],
+                     record["sector"], record["locality"], record["old"], record["new"]])
+    return AUDIT_HEADERS, rows
 
 
 @compare_bp.route("/data-integrity", methods=["GET", "POST"])
@@ -477,90 +515,51 @@ def data_integrity():
     if result is None:
         return render_template("data_integrity.html", active_page="data_integrity", result=None)
 
-    view = request.args.get("view", "status")
-    if view not in AUDIT_VIEWS:
-        view = "status"
+    buckets = dict(ACTIVE_BUCKETS)
+    view = request.args.get("view", "all")
+    if view not in buckets and view != "all":
+        view = "all"
     sector = request.args.get("sector", "")
     locality = request.args.get("locality", "")
-    search = _txt(request.args.get("q", ""))
+    search = request.args.get("q", "")
 
-    if view in ("added", "deleted", "duplicates"):
-        if view == "added":
-            columns, rows, total = rows_for_keys(new_df, result["matching"]["added"], PREVIEW_LIMIT)
-        elif view == "deleted":
-            columns, rows, total = rows_for_keys(old_df, result["matching"]["removed"], PREVIEW_LIMIT)
-        else:
-            columns, rows, total = rows_for_keys(
-                new_df, [d["key"] for d in result["duplicates"]["new"]], PREVIEW_LIMIT)
-        headers = columns
-    else:
-        headers, rows = _audit_rows(result, view, sector, locality, search)
-        total = len(rows)
-        rows = rows[:PREVIEW_LIMIT]
-
-    status_records = result["status"]["records"]
-    substantive = [c for c in result["changes"] if not c["cosmetic"]]
-    sectors = sorted({r["sector"] for r in status_records if r["sector"]} |
-                     {c["sector"] for c in substantive if c["sector"]})
-    localities = sorted({r["locality"] for r in status_records if r["locality"]} |
-                        {c["locality"] for c in substantive if c["locality"]})
-
-    old_counts, new_counts = result["status"]["old"], result["status"]["new"]
-    status_rows = [
-        {"name": name, "old": old_counts.get(name, 0), "new": new_counts.get(name, 0),
-         "delta": new_counts.get(name, 0) - old_counts.get(name, 0)}
-        for name in STATUS_ORDER if old_counts.get(name) or new_counts.get(name)
-    ]
+    headers, rows = audit_rows(result, view, sector, locality, search)
+    records = result["active_audit"]["records"]
 
     return render_template(
         "data_integrity.html",
         active_page="data_integrity",
         result=result,
+        audit=result["active_audit"],
+        bucket_labels=ACTIVE_BUCKETS,
+        alert_buckets=ACTIVE_ALERT_BUCKETS,
         view=view,
         sector=sector,
         locality=locality,
-        search=request.args.get("q", ""),
-        sectors=sectors,
-        localities=localities,
-        status_rows=status_rows,
-        transitions=sorted(result["status"]["transitions"].items(), key=lambda kv: -kv[1]),
-        active_closed=[r for r in status_records if r["old"] == "Active" and r["new"] == "Closed"],
+        search=search,
+        sectors=sorted({r["sector"] for r in records if r["sector"]}),
+        localities=sorted({r["locality"] for r in records if r["locality"]}),
         headers=headers,
-        rows=rows,
-        shown=len(rows),
-        total=total,
+        rows=rows[:PREVIEW_LIMIT],
+        shown=min(len(rows), PREVIEW_LIMIT),
+        total=len(rows),
         preview_limit=PREVIEW_LIMIT,
-        substantive_count=len(substantive),
-        cosmetic_count=len(result["changes"]) - len(substantive),
     )
 
 
 @compare_bp.route("/data-integrity/export/<fmt>")
 def export_data_integrity(fmt: str):
-    result, old_df, new_df = load_comparison()
+    result, _, _ = load_comparison()
     if result is None:
         flash("Upload both files first.")
         return redirect(url_for("compare.data_integrity"))
 
-    view = request.args.get("view", "status")
-    if view not in AUDIT_VIEWS:
-        view = "status"
-    sector, locality = request.args.get("sector", ""), request.args.get("locality", "")
-    search = _txt(request.args.get("q", ""))
-
-    if view in ("added", "deleted", "duplicates"):
-        if view == "added":
-            headers, rows, _ = rows_for_keys(new_df, result["matching"]["added"])
-        elif view == "deleted":
-            headers, rows, _ = rows_for_keys(old_df, result["matching"]["removed"])
-        else:
-            headers, rows, _ = rows_for_keys(
-                new_df, [d["key"] for d in result["duplicates"]["new"]])
-    else:
-        headers, rows = _audit_rows(result, view, sector, locality, search)
-
-    stamp = datetime.now().strftime("%Y%m%d_%H%M")
-    slug = f"Data_Integrity_{view}_{stamp}"
+    view = request.args.get("view", "all")
+    if view not in dict(ACTIVE_BUCKETS) and view != "all":
+        view = "all"
+    headers, rows = audit_rows(result, view, request.args.get("sector", ""),
+                               request.args.get("locality", ""), request.args.get("q", ""))
+    slug = f"Active_Consumer_Audit_{view}_{datetime.now().strftime('%Y%m%d_%H%M')}"
 
     if fmt == "csv":
         out = io.StringIO()
@@ -573,17 +572,16 @@ def export_data_integrity(fmt: str):
     if fmt != "pdf":
         flash("Unsupported export format.")
         return redirect(url_for("compare.data_integrity"))
-
     return _audit_pdf(result, view, headers, rows, slug)
 
 
 def _audit_pdf(result, view, headers, rows, slug):
-    """The audit as a permanent record: what was compared, and what moved."""
+    """The audit as a permanent record: which Active connections moved, and where."""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import mm
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, TableStyle
 
     main = _app()
     buf = io.BytesIO()
@@ -591,86 +589,66 @@ def _audit_pdf(result, view, headers, rows, slug):
     margin = 8 * mm
     doc = SimpleDocTemplate(buf, pagesize=page_size, topMargin=margin,
                             bottomMargin=margin + 4 * mm, leftMargin=margin,
-                            rightMargin=margin, title="Data Integrity Audit")
+                            rightMargin=margin, title="Active Consumer Audit")
     styles = getSampleStyleSheet()
     title = ParagraphStyle("CATitle", parent=styles["Heading1"], fontSize=17, alignment=1,
-                           spaceAfter=1.5 * mm, textColor=colors.black,
-                           fontName="Helvetica-Bold")
+                           spaceAfter=1.5 * mm, textColor=colors.black, fontName="Helvetica-Bold")
     sub = ParagraphStyle("CASub", parent=styles["Normal"], fontSize=8.5, alignment=1,
                          spaceAfter=1 * mm, textColor=colors.black)
     head = ParagraphStyle("CAHead", parent=styles["Normal"], fontSize=11, spaceBefore=4 * mm,
                           spaceAfter=2 * mm, fontName="Helvetica-Bold", textColor=colors.black)
 
-    files = result["files"]
-    substantive = [c for c in result["changes"] if not c["cosmetic"]]
+    files, audit = result["files"], result["active_audit"]
+    page_w = page_size[0] - 2 * margin
     elements = [
-        Paragraph("Data Integrity Audit", title),
+        Paragraph("Active Consumer Audit", title),
         Paragraph(f"Generated {datetime.now().strftime('%d/%m/%Y %H:%M')}", sub),
         Paragraph(
-            f"Older: {files['old']['name']} ({files['old']['rows']:,} rows) &nbsp;&bull;&nbsp; "
-            f"Newer: {files['new']['name']} ({files['new']['rows']:,} rows) &nbsp;&bull;&nbsp; "
-            f"matched on Connection No.", sub),
+            f"Baseline: {files['old']['name']} ({files['old']['rows']:,} rows) "
+            f"&nbsp;&bull;&nbsp; Compared with: {files['new']['name']} "
+            f"({files['new']['rows']:,} rows) &nbsp;&bull;&nbsp; matched on Connection No.", sub),
+        Paragraph(
+            "Every connection recorded as Active in the baseline file is followed into the "
+            "newer file individually, so a connection closing cannot hide behind a level total.",
+            sub),
         Spacer(1, 3 * mm),
         Paragraph("Summary", head),
     ]
 
-    page_w = page_size[0] - 2 * margin
-    summary = [
-        ["Connections in both files", f"{result['matching']['common']:,}"],
-        ["Records added", f"{len(result['matching']['added']):,}"],
-        ["Records deleted", f"{len(result['matching']['removed']):,}"],
-        ["Records with a substantive change", f"{len(result['changed_keys']):,}"],
-        ["Records with case/format changes only", f"{len(result['cosmetic_keys']):,}"],
-        ["Substantive field changes", f"{len(substantive):,}"],
-        ["Case/format-only field changes", f"{len(result['changes']) - len(substantive):,}"],
-        ["Status changes", f"{len(result['status']['records']):,}"],
-        ["Duplicate connection numbers (older / newer)",
-         f"{len(result['duplicates']['old']):,} / {len(result['duplicates']['new']):,}"],
-        ["Columns added / removed",
-         f"{', '.join(result['columns']['added']) or '—'} / "
-         f"{', '.join(result['columns']['removed']) or '—'}"],
-    ]
+    summary = [["Active consumers in the older file", f"{audit['total']:,}"]]
+    for key, label in ACTIVE_BUCKETS:
+        summary.append([label, f"{audit['counts'].get(key, 0):,}"])
     elements.append(main._make_pdf_table(
-        [["Measure", "Value"]] + summary,
+        [["Measure", "Connections"]] + summary,
         col_widths=[page_w * 0.62, page_w * 0.38], left_cols={0},
         header_font_size=9, body_font_size=8.5, cell_padding=3))
 
-    elements.append(Paragraph("Connection status, per connection", head))
-    old_counts, new_counts = result["status"]["old"], result["status"]["new"]
-    status_table = [["Status", "Older file", "Newer file", "Change"]]
-    for name in STATUS_ORDER:
-        before, after = old_counts.get(name, 0), new_counts.get(name, 0)
-        if before or after:
-            delta = after - before
-            status_table.append([name, f"{before:,}", f"{after:,}",
-                                 f"{delta:+,}" if delta else "0"])
-    elements.append(main._make_pdf_table(
-        status_table, col_widths=[page_w * 0.4] + [page_w * 0.2] * 3, left_cols={0},
-        header_font_size=9, body_font_size=8.5, cell_padding=3))
+    alerts = sum(audit["counts"].get(k, 0) for k in ACTIVE_ALERT_BUCKETS)
+    elements.append(Paragraph(
+        f"<b>{alerts:,}</b> previously-active connection(s) are now closed or absent from the "
+        "newer file." if alerts else
+        "<b>No previously-active connection was closed, and none is absent from the newer file.</b>",
+        sub))
 
-    elements.append(Paragraph(f"{view.replace('_', ' ').title()} — {len(rows):,} record(s)", head))
+    label = dict(ACTIVE_BUCKETS).get(view, "All previously-active connections")
+    elements.append(Paragraph(f"{label} — {len(rows):,} connection(s)", head))
     if not rows:
-        elements.append(Paragraph("Nothing to report for this view.", sub))
+        elements.append(Paragraph("No connections in this category.", sub))
     else:
-        wrap_idx = {i for i, h in enumerate(headers)
-                    if _txt(h) in {"consumer name", "sector", "locality", "old value",
-                                   "new value", "address", "f/h name"}}
-        body = [[Paragraph(main._esc_html(str(c)) if hasattr(main, "_esc_html") else
-                           str(c).replace("&", "&amp;").replace("<", "&lt;"),
-                           ParagraphStyle("CACell", parent=styles["Normal"], fontSize=6.5,
-                                          leading=7.5, alignment=0))
-                 if i in wrap_idx else str(c)
-                 for i, c in enumerate(row)] for row in rows[:4000]]
-        widths = [page_w / len(headers)] * len(headers)
+        cell = ParagraphStyle("CACell", parent=styles["Normal"], fontSize=6.5,
+                              leading=7.5, alignment=0)
+        wrap_idx = {1, 2, 3, 4}
+        body = [[Paragraph(str(value).replace("&", "&amp;").replace("<", "&lt;"), cell)
+                 if i in wrap_idx else str(value)
+                 for i, value in enumerate(row)] for row in rows[:6000]]
+        widths = [page_w * w for w in (0.12, 0.18, 0.18, 0.20, 0.18, 0.07, 0.07)]
         table = main._make_pdf_table([headers] + body, col_widths=widths, left_cols=wrap_idx,
                                      header_font_size=7.5, body_font_size=6.5, cell_padding=2)
-        table.setStyle(__import__("reportlab.platypus", fromlist=["TableStyle"]).TableStyle(
-            [("LEADING", (0, 1), (-1, -1), 7.5)]))
+        table.setStyle(TableStyle([("LEADING", (0, 1), (-1, -1), 7.5)]))
         elements.append(table)
-        if len(rows) > 4000:
+        if len(rows) > 6000:
             elements.append(Paragraph(
-                f"Showing the first 4,000 of {len(rows):,} rows; the CSV export carries them all.",
-                sub))
+                f"Showing the first 6,000 of {len(rows):,}; the CSV export carries them all.", sub))
 
     doc.build(elements)
     buf.seek(0)

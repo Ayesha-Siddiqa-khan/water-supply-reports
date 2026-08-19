@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Water Supply Report — Data Integrity Check{% endblock %}
-{% block meta_description %}Audit what changed between two Consumer List exports, connection by connection.{% endblock %}
+{% block title %}Water Supply Report — Active Consumer Audit{% endblock %}
+{% block meta_description %}Follow every Active connection from the baseline export into the newer one.{% endblock %}
 {% block active_page %}data_integrity{% endblock %}
 {% block breadcrumb %}Data Integrity Check{% endblock %}
 {% block pill_label %}Integrity{% endblock %}
-{% block pill_detail %}{% if result %}{{ "{:,}".format(result.status.records|length) }} status changes{% else %}Awaiting files{% endif %}{% endblock %}
+{% block pill_detail %}{% if result %}{{ "{:,}".format(audit.total) }} active checked{% else %}Awaiting files{% endif %}{% endblock %}
 
 {% block head_extra %}
 <style>
@@ -23,7 +23,6 @@
               border-radius: var(--radius-sm); margin-bottom: 14px; font-size: 11px; color: var(--text-secondary); }
   .di-ok { border-left: 3px solid var(--teal); background: var(--teal-dim); padding: 12px 16px;
            border-radius: var(--radius-sm); margin-bottom: 14px; font-size: 11px; color: var(--text-secondary); }
-  .di-up { color: var(--teal); } .di-down { color: var(--coral); }
 </style>
 {% endblock %}
 
@@ -42,8 +41,8 @@
 
   <div class="page-header">
     <div class="page-tag">Data Integrity</div>
-    <h1 class="page-title">Data Integrity Check</h1>
-    <p class="page-subtitle">Read-only audit of what changed between two Consumer List exports. Every connection is compared individually on Connection No., so a connection closing while another opens can never hide inside an unchanged total.</p>
+    <h1 class="page-title">Active Consumer Audit</h1>
+    <p class="page-subtitle">Takes every connection recorded as <strong>Active</strong> in the older file and follows it into the newer one, connection by connection. Aggregate totals can stay level while individual connections close, so each is resolved on its own.</p>
   </div>
 
   <form method="post" enctype="multipart/form-data" action="{{ url_for('compare.data_integrity') }}" id="di-upload-form" style="margin-bottom:16px;">
@@ -51,7 +50,7 @@
       <div class="di-panel-title">Upload both files</div>
       <div class="di-grid">
         <label class="di-field">
-          <span>1. Older file &mdash; the known-good baseline</span>
+          <span>1. Older file &mdash; the baseline</span>
           <input class="di-input" type="file" name="old_file" accept=".csv,.xlsx" required>
         </label>
         <label class="di-field">
@@ -60,7 +59,7 @@
         </label>
       </div>
       <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        <button type="submit" class="btn btn-primary">Run Integrity Check</button>
+        <button type="submit" class="btn btn-primary">Run Audit</button>
         {% if result %}
         <span class="di-note">{{ result.files.old.name }} vs {{ result.files.new.name }} &middot; checked {{ result.built_at }}</span>
         {% endif %}
@@ -72,136 +71,94 @@
   <div class="empty-state">
     <div class="empty-state-icon">&#128737;</div>
     <div class="empty-state-title">No audit yet</div>
-    <div class="empty-state-desc">Upload the older and newer exports. Neither file is modified &mdash; this page only reads them and reports what differs.</div>
+    <div class="empty-state-desc">Upload the older (baseline) and newer exports. Neither file is modified &mdash; this page only reads them and reports where each previously-active connection ended up.</div>
   </div>
   {% endif %}
 
   {% if result %}
-  {% set ac = active_closed|length %}
-  {% if ac %}
+  {% set closed = audit.counts.closed %}
+  {% set missing = audit.counts.missing %}
+  {% if closed or missing %}
   <div class="di-alert">
-    <strong>{{ "{:,}".format(ac) }} connection(s) changed from Active to Closed.</strong>
-    Listed in full under <em>Active &rarr; Closed</em> below, and included in the audit exports.
+    <strong>{{ "{:,}".format(closed + missing) }} previously-active connection(s) need checking:</strong>
+    {{ "{:,}".format(closed) }} changed to Closed and {{ "{:,}".format(missing) }} cannot be found in the newer file at all.
+    Both are listed in full below and in the audit exports.
   </div>
   {% else %}
   <div class="di-ok">
-    <strong>No connection changed from Active to Closed.</strong>
-    {{ "{:,}".format(result.status.records|length) }} status change(s) were found in total across
-    {{ "{:,}".format(result.matching.common) }} connections present in both files.
+    <strong>No previously-active connection was closed, and none is missing from the newer file.</strong>
+    All {{ "{:,}".format(audit.total) }} are still Active.
   </div>
   {% endif %}
 
   <!-- ============================ SUMMARY ============================ -->
-  <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(165px,1fr));">
+  <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));">
     <div class="stat-card teal">
-      <div class="stat-label">Records Checked</div>
-      <div class="stat-value">{{ "{:,}".format(result.matching.common) }}</div>
-      <div class="stat-delta">present in both files</div>
+      <div class="stat-label">Active in Older File</div>
+      <div class="stat-value">{{ "{:,}".format(audit.total) }}</div>
+      <div class="stat-delta">the baseline being audited</div>
     </div>
     <div class="stat-card teal">
-      <div class="stat-label">Unchanged</div>
-      <div class="stat-value">{{ "{:,}".format(result.matching.common - result.changed_keys|length - result.cosmetic_keys|length) }}</div>
-      <div class="stat-delta">identical in every field</div>
+      <div class="stat-label">Still Active</div>
+      <div class="stat-value">{{ "{:,}".format(audit.counts.still_active) }}</div>
+      <div class="stat-delta">unchanged in the newer file</div>
     </div>
     <div class="stat-card coral">
-      <div class="stat-label">Modified</div>
-      <div class="stat-value">{{ "{:,}".format(result.changed_keys|length) }}</div>
-      <div class="stat-delta">{{ "{:,}".format(substantive_count) }} field change(s)</div>
+      <div class="stat-label">Changed to Closed</div>
+      <div class="stat-value">{{ "{:,}".format(audit.counts.closed) }}</div>
+      <div class="stat-delta">a running connection stopped</div>
     </div>
     <div class="stat-card amber">
-      <div class="stat-label">Added</div>
-      <div class="stat-value">{{ "{:,}".format(result.matching.added|length) }}</div>
-      <div class="stat-delta">only in the newer file</div>
+      <div class="stat-label">Changed to Suspended</div>
+      <div class="stat-value">{{ "{:,}".format(audit.counts.suspended) }}</div>
+      <div class="stat-delta">from the same connection no.</div>
+    </div>
+    <div class="stat-card violet">
+      <div class="stat-label">Changed to New Demand</div>
+      <div class="stat-value">{{ "{:,}".format(audit.counts.new_demand) }}</div>
+      <div class="stat-delta">reverted to a pending state</div>
     </div>
     <div class="stat-card coral">
-      <div class="stat-label">Deleted</div>
-      <div class="stat-value">{{ "{:,}".format(result.matching.removed|length) }}</div>
-      <div class="stat-delta">missing from the newer file</div>
+      <div class="stat-label">Missing from New File</div>
+      <div class="stat-value">{{ "{:,}".format(audit.counts.missing) }}</div>
+      <div class="stat-delta">connection no. not found at all</div>
     </div>
+    {% if audit.counts.other %}
     <div class="stat-card violet">
-      <div class="stat-label">Duplicates</div>
-      <div class="stat-value">{{ "{:,}".format(result.duplicates.new|length) }}</div>
-      <div class="stat-delta">newer file &middot; older {{ "{:,}".format(result.duplicates.old|length) }}</div>
+      <div class="stat-label">Changed to Other Status</div>
+      <div class="stat-value">{{ "{:,}".format(audit.counts.other) }}</div>
+      <div class="stat-delta">any other status value</div>
     </div>
-    <div class="stat-card violet">
-      <div class="stat-label">Status Changes</div>
-      <div class="stat-value">{{ "{:,}".format(result.status.records|length) }}</div>
-      <div class="stat-delta">connection by connection</div>
-    </div>
+    {% endif %}
   </div>
 
   <div class="filter-summary" style="margin-bottom:14px;">
-    <strong>{{ "{:,}".format(substantive_count) }}</strong> substantive field changes across
-    <strong>{{ "{:,}".format(result.changed_keys|length) }}</strong> records.
-    A further {{ "{:,}".format(cosmetic_count) }} differences on {{ "{:,}".format(result.cosmetic_keys|length) }} records
-    are letter-case or spacing only &mdash; the export re-casing itself, not an edit &mdash; and are marked as such.
-    &nbsp;&bull;&nbsp; Columns added: {{ result.columns.added|join(', ') if result.columns.added else 'none' }};
-    removed: {{ result.columns.removed|join(', ') if result.columns.removed else 'none' }}.
+    Matched on Connection No., ignoring spacing and leading zeros so
+    <code>0012020162</code> and <code>12020162</code> are recognised as one connection.
+    The newer file holds {{ "{:,}".format(result.status.counted.new) }} distinct connections
+    against {{ "{:,}".format(result.status.counted.old) }} in the baseline
+    {%- if result.duplicates.new %}, and repeats {{ "{:,}".format(result.duplicates.new|length) }} connection number(s){% endif %}.
+    Structural differences between the files are on the <a href="{{ url_for('compare.file_comparison') }}">File Comparison</a> page.
   </div>
 
-  <!-- ======================= STATUS COUNTS ======================= -->
-  <div class="section" id="sec-di-status">
-    <div class="section-header" onclick="diToggle('sec-di-status')">
-      <div class="section-header-icon">&#128202;</div>
-      <div class="section-title">Connection Status &mdash; Old vs New</div>
-      <span class="section-badge">counted once per connection</span>
-      <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
-    </div>
-    <div class="section-body">
-      <div class="di-note" style="margin-bottom:10px;">
-        Each connection is counted once, using its first row, so a file that repeats a connection number
-        cannot inflate a status total. Connections counted: {{ "{:,}".format(result.status.counted.old) }} older,
-        {{ "{:,}".format(result.status.counted.new) }} newer.
-      </div>
-      <div class="table-wrapper">
-        <table class="data-table">
-          <thead><tr><th>Status</th><th>Older File</th><th>Newer File</th><th>Change</th></tr></thead>
-          <tbody>
-            {% for row in status_rows %}
-            <tr>
-              <td>{{ row.name }}</td>
-              <td class="mono">{{ "{:,}".format(row.old) }}</td>
-              <td class="mono">{{ "{:,}".format(row.new) }}</td>
-              <td class="mono {% if row.delta > 0 %}di-up{% elif row.delta < 0 %}di-down{% endif %}">
-                {% if row.delta > 0 %}+{% endif %}{{ "{:,}".format(row.delta) }}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% if transitions %}
-      <div class="di-panel-title" style="margin-top:16px;">Status transitions found</div>
-      <div class="table-wrapper" style="max-height:240px;">
-        <table class="data-table">
-          <thead><tr><th>Transition</th><th>Connections</th></tr></thead>
-          <tbody>
-            {% for name, count in transitions %}
-            <tr><td>{{ name }}</td><td class="mono">{{ "{:,}".format(count) }}</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% else %}
-      <div class="di-note" style="margin-top:12px;">No connection changed status between the two files.</div>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- ======================= AUDIT TABLE ======================= -->
+  <!-- ============================ AUDIT ============================ -->
   <div class="section" id="sec-di-audit">
     <div class="section-header" onclick="diToggle('sec-di-audit')">
       <div class="section-header-icon">&#128269;</div>
-      <div class="section-title">Audit Detail</div>
+      <div class="section-title">Where each previously-active connection ended up</div>
       <span class="section-badge">{{ "{:,}".format(total) }} in this view</span>
       <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
     </div>
     <div class="section-body">
       <form method="get" action="{{ url_for('compare.data_integrity') }}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
         <div class="col-chips">
-          {% for key, label in [('status','Status Changes'), ('active_closed','Active → Closed'), ('modified','Modified'), ('added','Added'), ('deleted','Deleted'), ('duplicates','Duplicates'), ('all','All Changes')] %}
+          <button type="submit" name="view" value="all" class="col-chip {% if view == 'all' %}active{% endif %}"
+                  style="border:1px solid var(--border-bright);cursor:pointer;">All ({{ "{:,}".format(audit.total) }})</button>
+          {% for key, label in bucket_labels %}
           <button type="submit" name="view" value="{{ key }}" class="col-chip {% if view == key %}active{% endif %}"
-                  style="border:1px solid var(--border-bright);cursor:pointer;">{{ label }}</button>
+                  style="border:1px solid var(--border-bright);cursor:pointer;{% if key in alert_buckets and audit.counts[key] %}color:var(--coral);{% endif %}">
+            {{ label }} ({{ "{:,}".format(audit.counts[key]) }})
+          </button>
           {% endfor %}
         </div>
         <select name="sector" class="filter-select">
@@ -212,23 +169,23 @@
           <option value="">All localities</option>
           {% for l in localities %}<option value="{{ l }}" {% if locality == l %}selected{% endif %}>{{ l }}</option>{% endfor %}
         </select>
-        <input class="di-input" type="search" name="q" value="{{ search }}" placeholder="Search..." style="max-width:220px;">
+        <input class="di-input" type="search" name="q" value="{{ search }}" placeholder="Connection, name, sector..." style="max-width:220px;">
         <button type="submit" class="btn btn-sm">Apply</button>
       </form>
 
       {% if total > shown %}
-      <div class="di-note" style="margin-bottom:8px;">Showing {{ "{:,}".format(shown) }} of {{ "{:,}".format(total) }}. The exports contain every row.</div>
+      <div class="di-note" style="margin-bottom:8px;">Showing {{ "{:,}".format(shown) }} of {{ "{:,}".format(total) }}. The PDF and CSV exports carry every row in this view.</div>
       {% endif %}
 
       {% if rows %}
-      <div class="table-wrapper" style="max-height:560px;">
+      <div class="table-wrapper" style="max-height:600px;">
         <table class="data-table di-table">
           <thead><tr>{% for h in headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
           <tbody>
             {% for row in rows %}
             <tr>
               {% for cell in row %}
-              <td class="{% if headers[loop.index0] in ['Consumer Name','F/H Name','Address','Sector','Locality','Old Value','New Value'] %}wrap{% else %}mono{% endif %}{% if headers[loop.index0] == 'New Status' and cell in ['Closed','Suspended','Dead'] %} accent-coral{% endif %}">{{ cell }}</td>
+              <td class="{% if headers[loop.index0] in ['Consumer Name','Father Name','Sector','Locality'] %}wrap{% else %}mono{% endif %}{% if headers[loop.index0] == 'New Status' and cell not in ['Active'] %} accent-coral{% endif %}">{{ cell }}</td>
               {% endfor %}
             </tr>
             {% endfor %}
@@ -236,7 +193,7 @@
         </table>
       </div>
       {% else %}
-      <div class="di-note" style="padding:14px 0;">Nothing to report for this view.</div>
+      <div class="di-note" style="padding:14px 0;">No connections in this category.</div>
       {% endif %}
     </div>
   </div>
