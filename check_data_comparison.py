@@ -80,13 +80,13 @@ def main():
     assert summary["old"]["total_active"] == 8
     assert summary["old"]["domestic_commercial_rate"] == 1
 
-    # Counted row by row, as the live Consumer List and the register both count:
-    # the repeated 12020011 row is a second Active row but not a second connection.
-    assert summary["new"]["domestic_active_regular"] == 5
+    # Every connection counted once: the repeated 12020011 row is a second
+    # Active ROW but not a second Active connection, and must not inflate this.
+    assert summary["new"]["domestic_active_regular"] == 4
     assert summary["new"]["commercial_active"] == 0, "the one commercial connection closed"
-    assert summary["new"]["total_active"] == 6
-    assert summary["new"]["active_connections"] == 5, "the same figure per connection"
-    assert result["difference"] == -2
+    assert summary["new"]["total_active"] == 5
+    assert summary["new"]["active_rows"] == 6, "row counting would have said 6"
+    assert result["difference"] == -3
 
     # The three figures must account for the total, with the odd ones named.
     for side in ("old", "new"):
@@ -124,13 +124,19 @@ def main():
 
     # --- the arithmetic has to close ---------------------------------------
     assert result["lost"] == 5 and result["gained"] == 2
-    # The movements are per connection, so they reconcile against the per
-    # connection totals. The residual is what the repeated rows account for.
-    assert (summary["old"]["active_connections"] - result["lost"] + result["gained"]
-            == summary["new"]["active_connections"]), "old - lost + gained must equal new"
-    assert result["residual"] == 0
-    assert summary["new"]["total_active"] - summary["new"]["active_connections"] == 1, (
-        "one repeated Active row is the whole difference between the two bases"
+    assert (summary["old"]["total_active"] - result["lost"] + result["gained"]
+            == summary["new"]["total_active"]), "old - lost + gained must equal new"
+    assert result["residual"] == 0, "totals and movements are both per connection"
+
+    # The point of counting connections rather than rows: an export that serves
+    # the same page again must not report growth. Three copies of the newer
+    # file leave every Active figure exactly where it was.
+    tripled = pd.concat([read(NEW_CSV)] * 3, ignore_index=True)
+    same = dc.build_comparison(read(OLD_CSV), tripled, "old.csv", "tripled.csv")
+    for key in ("domestic_active_regular", "commercial_active", "total_active"):
+        assert same["summary"]["new"][key] == summary["new"][key], key
+    assert same["summary"]["new"]["active_rows"] == 3 * summary["new"]["active_rows"], (
+        "counted by row it would have tripled"
     )
 
     # --- identity comes from the file that has the connection --------------
@@ -168,11 +174,11 @@ def main():
     blank_old = blank_result["summary"]["old"]
     assert blank_old["blank"] == 2 and blank_old["blank_active"] == 1
     assert blank_old["entries"] == 12, "they are entries"
-    # Row counting is what the live list does, so an Active row still counts;
-    # what it cannot do is be matched, so it never becomes a movement.
-    assert blank_old["total_active"] == summary["old"]["total_active"] + 1
-    assert blank_old["active_connections"] == summary["old"]["active_connections"], (
+    assert blank_old["total_active"] == summary["old"]["total_active"], (
         "but a record with no connection number is no connection"
+    )
+    assert blank_old["active_rows"] == summary["old"]["active_rows"] + 1, (
+        "it is still an Active row in the file, and the row figure says so"
     )
     assert blank_result["counts"]["all"] == result["counts"]["all"], (
         "and cannot appear as a change either"
@@ -191,7 +197,7 @@ def main():
         "repeating rows adds no connections"
     )
     # And the audit itself is unmoved by the repetition.
-    assert doubled["summary"]["new"]["active_connections"] == summary["new"]["active_connections"], (
+    assert doubled["summary"]["new"]["total_active"] == summary["new"]["total_active"], (
         "repeating rows adds no Active connection"
     )
     assert doubled["counts"]["all"] == result["counts"]["all"], "and no movement"

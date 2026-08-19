@@ -133,15 +133,15 @@
         Counted once per connection number, using the same Active / Regular / Commercial
         classification as the <a href="{{ url_for('handover.handover') }}">Consumer List</a>:
         Commercial is decided by sector, and Regular excludes commercial rate types.
-        Counted row by row, so these are the figures the live Consumer List shows when you filter it
-        by Connection Status, less the excluded sectors.
-        {% if summary.old.entries != summary.old.connections or summary.new.entries != summary.new.connections %}
-        <br><strong>The change list below is matched per connection number, which the totals are not.</strong>
-        The older file repeats a connection number on
+        <strong>Every connection is counted once</strong>, however many times the file repeats it, so a
+        page served twice cannot inflate a figure here.
+        {% if summary.old.total_active != summary.old.active_rows or summary.new.total_active != summary.new.active_rows %}
+        <br>Counting rows instead &mdash; as the live Consumer List does, since it prints every row &mdash;
+        the Active totals would read
+        {{ "{:,}".format(summary.old.active_rows) }} and {{ "{:,}".format(summary.new.active_rows) }},
+        because the older file repeats a connection number on
         {{ "{:,}".format(summary.old.entries - summary.old.connections) }} row(s) and the new file on
-        {{ "{:,}".format(summary.new.entries - summary.new.connections) }}, so a repeated connection is
-        one movement but more than one row, and the movements below will not close the gap between the
-        two totals exactly.
+        {{ "{:,}".format(summary.new.entries - summary.new.connections) }}.
         {% endif %}
         {% if summary.old.domestic_commercial_rate or summary.new.domestic_commercial_rate %}
         <br>{{ "{:,}".format(summary.old.domestic_commercial_rate) }} older and

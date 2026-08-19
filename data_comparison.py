@@ -54,7 +54,7 @@ from handover import (  # noqa: E402
 
 data_comparison_bp = Blueprint("data_comparison", __name__)
 
-RESULT_VERSION = 3
+RESULT_VERSION = 4
 
 # Shown in place of a status when a connection is in one file but not the other.
 MISSING_NEW = "Not in the new file"
@@ -215,13 +215,17 @@ def first_positions(frame: pd.DataFrame) -> dict:
 
 
 def summarise(frame: pd.DataFrame, positions: dict, rows: int, excluded: int) -> dict:
-    """The four figures for one file, counted row by row.
+    """The four figures for one file. Every connection counted exactly once.
 
-    Row by row is what the live Consumer List counts when you filter it by
-    Connection Status, and what the Handover Register prints. Counting each
-    connection number once instead would be defensible arithmetic and the wrong
-    answer: the figure here has to be the figure you can check against the
-    screen, or nobody can check it at all.
+    A connection number that appears twice in a file is one connection. Counting
+    the rows instead reads a repeated page as growth: on an export that served
+    one page three times it reported 745 Active commercial connections where
+    there are 249, and a figure that moves with the export's own faults is worse
+    than useless — it is wrong in the direction that hides the fault.
+
+    Total Entries stays a row count, because that is what an entry is, and the
+    row-based Active total is carried alongside so the page can still be tied
+    back to the live Consumer List, which prints every row.
 
     ``Domestic Active + Regular`` and ``Commercial Active`` are the register's
     two headline counts: Commercial is decided by SECTOR, and a commercial rate
@@ -229,16 +233,13 @@ def summarise(frame: pd.DataFrame, positions: dict, rows: int, excluded: int) ->
     without moving it into the commercial one. Those records are counted here
     too, and reported, so the three figures are never silently short.
     """
-    status, ctype = frame["status"], frame["type"]
-    commercial = is_commercial(frame)
+    one_each = frame.iloc[sorted(positions.values())] if positions else frame.iloc[0:0]
+    status, ctype = one_each["status"], one_each["type"]
+    commercial = is_commercial(one_each)
     active = status == "Active"
     domestic_regular = int((active & ~commercial & (ctype == "Regular")).sum())
     commercial_active = int((active & commercial).sum())
     total_active = int(active.sum())
-    # The change list can only work per connection number, so the Active total
-    # is carried in that form too — that is what the movements have to
-    # reconcile against when a file repeats a connection.
-    one_each = frame.iloc[sorted(positions.values())] if positions else frame.iloc[0:0]
     # A handful of records are filed under 0, 00 or 0000000000. There is no
     # connection to match those against, so they cannot be compared — but they
     # are reported rather than quietly left out.
@@ -249,11 +250,14 @@ def summarise(frame: pd.DataFrame, positions: dict, rows: int, excluded: int) ->
         "entries": int(len(frame)),
         "connections": int(len(one_each)),
         "blank": int(blank.sum()),
-        "blank_active": int((blank & active).sum()),
+        "blank_active": int((blank & (frame["status"] == "Active")).sum()),
         "domestic_active_regular": domestic_regular,
         "commercial_active": commercial_active,
         "total_active": total_active,
-        "active_connections": int((one_each["status"] == "Active").sum()),
+        # The same total counted row by row, which is what the live Consumer
+        # List and the printed register show. Equal to the figure above on a
+        # clean export; above it by exactly the repeated rows on a broken one.
+        "active_rows": int((frame["status"] == "Active").sum()),
         # Active, in an ordinary sector, on a commercial rate: in neither of
         # the two lines above. Stated rather than left as a silent shortfall.
         "domestic_commercial_rate": total_active - domestic_regular - commercial_active,
@@ -349,12 +353,11 @@ def build_comparison(old_df: pd.DataFrame, new_df: pd.DataFrame,
         "difference": new_summary["total_active"] - old_summary["total_active"],
         "lost": lost,
         "gained": gained,
-        # The headline totals count rows, the movements count connections. On a
-        # clean export those are the same number and this is zero; when a file
-        # repeats a connection they are not, and the page says so rather than
-        # presenting an equation that does not add up.
-        "residual": (old_summary["active_connections"] - lost + gained
-                     - new_summary["active_connections"]),
+        # Totals and movements are both per connection, so this is always zero.
+        # It is computed rather than assumed: if it is ever not zero, the page
+        # is contradicting itself and had better say so.
+        "residual": (old_summary["total_active"] - lost + gained
+                     - new_summary["total_active"]),
         "counts": counts,
         "changes": changes,
         "sectors": sorted({c["sector"] for c in changes if c["sector"]}),
