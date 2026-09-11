@@ -1148,10 +1148,15 @@ def arrears_analysis():
             all_available_cols=[],
             selected_cols=[],
             detail_records={},
+            category=request.args.get("category", "domestic").strip().lower(),
             active_page="arrears_analysis",
         )
 
     # Sector and Locality selection from query args
+    category = request.args.get("category", "domestic").strip().lower()
+    if category not in ("domestic", "commercial", "all"):
+        category = "domestic"
+
     sort_by = request.args.get("sort", "arrears_desc").strip()
     full_analysis = compute_arrears_analysis(df, None, sort_by=sort_by)
     all_raw_localities = full_analysis["all_localities"]
@@ -1159,6 +1164,9 @@ def arrears_analysis():
     sector_locality_map = full_analysis["sector_locality_map"]
 
     selected_sector = request.args.get("sector", "").strip()
+    if category == "commercial" and not selected_sector:
+        selected_sector = "COMMERCIAL"
+
     req_localities = request.args.getlist("locality")
     explicit_selection = bool(req_localities)
     if explicit_selection:
@@ -1252,6 +1260,7 @@ def arrears_analysis():
         all_available_cols=all_available_cols,
         selected_cols=selected_cols,
         detail_records=detail_records,
+        category=category,
         active_page="arrears_analysis",
     )
 

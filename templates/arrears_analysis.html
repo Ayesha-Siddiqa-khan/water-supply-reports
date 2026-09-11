@@ -205,6 +205,7 @@
               {% endfor %}
             </div>
             <input type="hidden" name="cols" id="selected-cols-input" value="{{ selected_cols|join(',') }}">
+            <input type="hidden" name="category" id="selected-category-input" value="{{ category|default('domestic') }}">
           </div>
 
           <!-- 3. SUMMARY TABLE COLUMNS (SHOW / HIDE) -->
@@ -274,9 +275,19 @@
     </div>
 
     <!-- SECTOR & LOCALITY HIERARCHICAL FILTER TOOLBAR (Always visible in Summary, Detailed, or Both modes) -->
-    <div class="card" style="margin-bottom:20px;padding:12px 16px;background:var(--card-bg, #1e293b);border:1px solid var(--border, #334155);border-radius:var(--radius, 8px);">
+    <div class="card" id="sector-locality-toolbar" style="margin-bottom:20px;padding:12px 16px;background:var(--card-bg, #1e293b);border:1px solid var(--border, #334155);border-radius:var(--radius, 8px);">
       <div style="width:100%;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         
+        <!-- 0. Category Switcher (Domestic / Commercial / All) -->
+        <div style="display:flex;align-items:center;gap:6px;padding-right:8px;border-right:1px solid var(--border-bright, rgba(255,255,255,0.1));" id="category-tab-wrap">
+          <label style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">Category:</label>
+          <div style="display:inline-flex;gap:4px;background:rgba(0,0,0,0.25);padding:3px;border-radius:6px;border:1px solid var(--border, #334155);">
+            <button type="button" class="btn btn-sm" id="btn-cat-dom" onclick="setFilterCategory('domestic')" style="font-size:12px;padding:4px 10px;font-weight:600;border-radius:4px;transition:all 0.15s ease;" title="Show Domestic Sectors & Localities">🏠 Domestic</button>
+            <button type="button" class="btn btn-sm" id="btn-cat-comm" onclick="setFilterCategory('commercial')" style="font-size:12px;padding:4px 10px;font-weight:600;border-radius:4px;transition:all 0.15s ease;" title="Show Commercial Localities & Details">🏢 Commercial</button>
+            <button type="button" class="btn btn-sm" id="btn-cat-all" onclick="setFilterCategory('all')" style="font-size:12px;padding:4px 8px;font-weight:600;border-radius:4px;transition:all 0.15s ease;" title="Show All Sectors & Localities">🌐 All</button>
+          </div>
+        </div>
+
         <!-- 1. Multi-Sector Searchable Checkbox Dropdown -->
         <div style="display:flex;align-items:center;gap:6px;position:relative;" id="sector-multi-dropdown-wrap">
           <label style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">🏢 Sector:</label>
@@ -331,9 +342,10 @@
               </div>
               <div id="locality-cb-scrollbox" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;padding-right:4px;">
                 {% for s in analysis.locality_summaries %}
-                <label class="loc-item-label" data-loc="{{ s.locality|lower }}" data-sec="{{ s.sector|lower }}" data-sector-allowed="1" style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;cursor:pointer;padding:4px 6px;border-radius:4px;color:var(--text);user-select:none;">
+                {% set is_comm = (s.sector|upper == 'COMMERCIAL' and 'COLONY' not in s.locality|upper) %}
+                <label class="loc-item-label" data-loc="{{ s.locality|lower }}" data-sec="{{ s.sector|lower }}" data-cat="{% if is_comm %}commercial{% else %}domestic{% endif %}" data-sector-allowed="1" data-category-allowed="1" style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;cursor:pointer;padding:4px 6px;border-radius:4px;color:var(--text);user-select:none;">
                   <div style="display:flex;align-items:center;gap:8px;overflow:hidden;">
-                    <input type="checkbox" class="locality-multi-cb" value="{{ s.locality }}" data-sector="{{ s.sector }}" {% if explicit_selection and s.locality in selected_localities %}checked{% endif %} onchange="onLocalityMultiCheckboxChange()">
+                    <input type="checkbox" class="locality-multi-cb" value="{{ s.locality }}" data-sector="{{ s.sector }}" data-cat="{% if is_comm %}commercial{% else %}domestic{% endif %}" {% if explicit_selection and s.locality in selected_localities %}checked{% endif %} onchange="onLocalityMultiCheckboxChange()">
                     <span class="loc-name-text" onclick="selectSingleLocality('{{ s.locality|escape }}')" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="Click to filter only {{ s.locality }}">{{ s.locality }}</span>
                   </div>
                   <button type="button" class="mini-btn" onclick="selectSingleLocality('{{ s.locality|escape }}')" style="font-size:10px;padding:1px 6px;" title="Select only {{ s.locality }}">Only</button>
@@ -392,13 +404,6 @@
 
           <!-- Filter & Sort Toolbar inside Table Header -->
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <!-- Category Switcher: All / Domestic / Commercial -->
-            <div style="display:inline-flex;gap:2px;background:var(--nav-hover, rgba(0,0,0,0.06));padding:2px;border-radius:6px;border:1px solid var(--border);">
-              <button type="button" class="btn btn-sm btn-primary" id="btn-cat-all" onclick="setFilterCategory('all')" style="font-size:11px;padding:3px 8px;">🌐 All</button>
-              <button type="button" class="btn btn-sm" id="btn-cat-dom" onclick="setFilterCategory('domestic')" style="font-size:11px;padding:3px 8px;color:#34d399;font-weight:600;">🏠 Domestic</button>
-              <button type="button" class="btn btn-sm" id="btn-cat-comm" onclick="setFilterCategory('commercial')" style="font-size:11px;padding:3px 8px;color:#38bdf8;font-weight:600;">🏢 Commercial</button>
-            </div>
-
             <!-- Quick Search -->
             <input type="text" id="summary-search-input" placeholder="Quick search locality / sector..." class="filter-input" style="font-size:12px;padding:5px 10px;width:170px;" oninput="onSearchTable(this.value)">
 
@@ -537,7 +542,8 @@
       {% for s in analysis.locality_summaries %}
       {% set is_zero = (s.regular_count == 0 and s.suspended_count == 0 and s.total_arrears == 0) %}
       {% set loc_records = detail_records.get(s.locality, []) %}
-      <div class="card loc-detail-card" id="detail-card-{{ loop.index }}" data-locality="{{ s.locality }}" data-sector="{{ s.sector }}" data-is-zero="{% if is_zero %}1{% else %}0{% endif %}" style="margin-bottom:20px;{% if is_zero %}display:none;{% endif %}">
+      {% set is_comm = (s.sector|upper == 'COMMERCIAL' and 'COLONY' not in s.locality|upper) %}
+      <div class="card loc-detail-card" id="detail-card-{{ loop.index }}" data-locality="{{ s.locality }}" data-sector="{{ s.sector }}" data-cat="{% if is_comm %}commercial{% else %}domestic{% endif %}" data-is-zero="{% if is_zero %}1{% else %}0{% endif %}" style="margin-bottom:20px;{% if is_zero %}display:none;{% endif %}">
         <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;background:var(--nav-hover, rgba(0,0,0,0.02));">
           <div>
             <span style="font-size:16px;font-weight:700;color:var(--text);">{{ s.locality }}</span>
@@ -888,8 +894,9 @@
     labels.forEach(function(lbl) {
       var name = lbl.dataset.loc || '';
       var inSector = (lbl.dataset.sectorAllowed !== '0');
+      var inCategory = (lbl.dataset.categoryAllowed !== '0');
       var matchQ = (!q || name.indexOf(q) !== -1);
-      lbl.style.display = (inSector && matchQ) ? 'flex' : 'none';
+      lbl.style.display = (inSector && inCategory && matchQ) ? 'flex' : 'none';
     });
   }
 
@@ -919,7 +926,29 @@
     var searchInput = document.getElementById('locality-filter-search');
     if (searchInput) searchInput.value = '';
     onSearchLocalitiesInDropdown('');
-    onLocalityMultiCheckboxChange();
+
+    var locLabels = document.querySelectorAll('#locality-cb-scrollbox .loc-item-label');
+    var allowedCount = 0;
+    locLabels.forEach(function(lbl) {
+      var inCat = (lbl.dataset.categoryAllowed !== '0');
+      var inSec = (lbl.dataset.sectorAllowed !== '0');
+      if (inCat && inSec) allowedCount++;
+    });
+
+    var locLbl = document.getElementById('locality-select-label');
+    if (locLbl) {
+      if (currentCategory === 'commercial') {
+        locLbl.textContent = '-- All Localities (' + allowedCount + ' Commercial Localities) --';
+      } else if (currentCategory === 'domestic') {
+        locLbl.textContent = '-- All Localities (' + allowedCount + ' Domestic Localities) --';
+      } else {
+        locLbl.textContent = '-- All Localities (' + allowedCount + ' Localities) --';
+      }
+    }
+    var btnClearLoc = document.getElementById('btn-clear-loc');
+    if (btnClearLoc) btnClearLoc.style.display = 'none';
+
+    applyFilters();
   }
 
   function getSelectedLocalities() {
@@ -934,12 +963,18 @@
   function onLocalityMultiCheckboxChange() {
     var selLocs = getSelectedLocalities();
     var lbl = document.getElementById('locality-select-label');
-    var visibleLabels = document.querySelectorAll('#locality-cb-scrollbox .loc-item-label:not([data-sector-allowed="0"])');
-    var totalLocs = visibleLabels.length || document.querySelectorAll('#locality-cb-scrollbox .locality-multi-cb').length;
+    var visibleLabels = document.querySelectorAll('#locality-cb-scrollbox .loc-item-label:not([data-sector-allowed="0"]):not([data-category-allowed="0"])');
+    var totalLocs = visibleLabels.length;
 
     if (lbl) {
       if (selLocs.length === 0) {
-        lbl.textContent = '-- All Localities (' + totalLocs + ' Localities) --';
+        if (currentCategory === 'commercial') {
+          lbl.textContent = '-- All Localities (' + totalLocs + ' Commercial Localities) --';
+        } else if (currentCategory === 'domestic') {
+          lbl.textContent = '-- All Localities (' + totalLocs + ' Domestic Localities) --';
+        } else {
+          lbl.textContent = '-- All Localities (' + totalLocs + ' Localities) --';
+        }
       } else if (selLocs.length === 1) {
         lbl.textContent = '📍 Locality: ' + selLocs[0];
       } else if (selLocs.length <= 2) {
@@ -994,9 +1029,10 @@
     locLabels.forEach(function(lbl) {
       var cb = lbl.querySelector('.locality-multi-cb');
       var locVal = cb ? cb.value.trim() : '';
-      var isAllowed = availableLocalities.has(locVal);
-      lbl.dataset.sectorAllowed = isAllowed ? '1' : '0';
-      if (!isAllowed) {
+      var isSecAllowed = availableLocalities.has(locVal);
+      var isCatAllowed = (lbl.dataset.categoryAllowed !== '0');
+      lbl.dataset.sectorAllowed = isSecAllowed ? '1' : '0';
+      if (!isSecAllowed || !isCatAllowed) {
         lbl.style.display = 'none';
         if (cb) cb.checked = false; // uncheck when excluded from active sectors
       } else {
@@ -1015,7 +1051,13 @@
     var locLbl = document.getElementById('locality-select-label');
     if (locLbl) {
       if (selLocs.length === 0) {
-        locLbl.textContent = '-- All Localities (' + countInSector + ' Localities) --';
+        if (currentCategory === 'commercial') {
+          locLbl.textContent = '-- All Localities (' + countInSector + ' Commercial Localities) --';
+        } else if (currentCategory === 'domestic') {
+          locLbl.textContent = '-- All Localities (' + countInSector + ' Domestic Localities) --';
+        } else {
+          locLbl.textContent = '-- All Localities (' + countInSector + ' Localities) --';
+        }
       } else if (selLocs.length === 1) {
         locLbl.textContent = '📍 Locality: ' + selLocs[0];
       } else if (selLocs.length <= 2) {
@@ -1032,77 +1074,217 @@
   }
 
   function resetSectorLocalityFilters() {
-    var secBoxes = document.querySelectorAll('#sector-cb-scrollbox .sector-multi-cb');
-    secBoxes.forEach(function(cb) { cb.checked = false; });
-    var secLbl = document.getElementById('sector-select-label');
-    if (secLbl) secLbl.textContent = '-- All Sectors (' + secBoxes.length + ' Sectors) --';
-    var btnClearSec = document.getElementById('btn-clear-sector');
-    if (btnClearSec) btnClearSec.style.display = 'none';
-
-    var secSearch = document.getElementById('sector-filter-search');
-    if (secSearch) secSearch.value = '';
-    onSearchSectorsInDropdown('');
-
-    var locBoxes = document.querySelectorAll('#locality-cb-scrollbox .locality-multi-cb');
-    locBoxes.forEach(function(cb) { cb.checked = false; });
-    var locLabels = document.querySelectorAll('#locality-cb-scrollbox .loc-item-label');
-    locLabels.forEach(function(lbl) {
-      lbl.dataset.sectorAllowed = '1';
-      lbl.style.display = 'flex';
-    });
-    var locSearch = document.getElementById('locality-filter-search');
-    if (locSearch) locSearch.value = '';
-
-    var locLbl = document.getElementById('locality-select-label');
-    if (locLbl) locLbl.textContent = '-- All Localities (' + locBoxes.length + ' Localities) --';
-    var btnClearLoc = document.getElementById('btn-clear-loc');
-    if (btnClearLoc) btnClearLoc.style.display = 'none';
-
+    resetSectorFilterOnly();
+    resetLocFilterOnly();
     var searchInput = document.getElementById('summary-search-input');
     if (searchInput) searchInput.value = '';
-
     applyFilters();
   }
 
-  // Category switcher (All / Domestic / Commercial)
-  var currentCategory = 'all'; // 'all', 'domestic', 'commercial'
+  // Category switcher (Domestic / Commercial / All)
+  var currentCategory = 'domestic'; // default to domestic
+
+  function highlightExportButtonsForCategory(cat) {
+    var domButtons = [
+      document.getElementById('print-report-btn'),
+      document.getElementById('pdf-export-btn'),
+      document.getElementById('xlsx-export-btn'),
+      document.getElementById('csv-export-btn')
+    ];
+    var commButtons = [
+      document.getElementById('comm-print-btn'),
+      document.getElementById('comm-pdf-export-btn'),
+      document.getElementById('comm-xlsx-export-btn'),
+      document.getElementById('comm-csv-export-btn')
+    ];
+
+    if (cat === 'commercial') {
+      commButtons.forEach(function(btn) {
+        if (btn) {
+          btn.style.opacity = '1';
+          btn.style.transform = 'scale(1.02)';
+          btn.style.boxShadow = '0 0 10px rgba(2,132,199,0.35)';
+        }
+      });
+      domButtons.forEach(function(btn) {
+        if (btn) {
+          btn.style.opacity = '0.55';
+          btn.style.transform = 'scale(1)';
+          btn.style.boxShadow = 'none';
+        }
+      });
+    } else if (cat === 'domestic') {
+      domButtons.forEach(function(btn) {
+        if (btn) {
+          btn.style.opacity = '1';
+          btn.style.transform = 'scale(1.02)';
+          btn.style.boxShadow = '0 0 10px rgba(5,150,105,0.35)';
+        }
+      });
+      commButtons.forEach(function(btn) {
+        if (btn) {
+          btn.style.opacity = '0.55';
+          btn.style.transform = 'scale(1)';
+          btn.style.boxShadow = 'none';
+        }
+      });
+    } else {
+      domButtons.concat(commButtons).forEach(function(btn) {
+        if (btn) {
+          btn.style.opacity = '1';
+          btn.style.transform = 'scale(1)';
+          btn.style.boxShadow = 'none';
+        }
+      });
+    }
+  }
 
   function setFilterCategory(cat) {
-    currentCategory = cat || 'all';
+    currentCategory = cat || 'domestic';
 
+    // Update Category Input for Form Submission
+    var catInput = document.getElementById('selected-category-input');
+    if (catInput) catInput.value = currentCategory;
+
+    // Update active button styles
     var btnAll = document.getElementById('btn-cat-all');
     var btnDom = document.getElementById('btn-cat-dom');
     var btnComm = document.getElementById('btn-cat-comm');
 
-    if (btnAll) {
-      if (currentCategory === 'all') {
-        btnAll.classList.add('btn-primary');
-      } else {
-        btnAll.classList.remove('btn-primary');
+    [btnDom, btnComm, btnAll].forEach(function(b) {
+      if (b) {
+        b.classList.remove('btn-primary');
+        b.style.background = 'transparent';
+        b.style.boxShadow = 'none';
       }
-    }
-    if (btnDom) {
-      if (currentCategory === 'domestic') {
-        btnDom.classList.add('btn-primary');
-        btnDom.style.background = '#059669';
-        btnDom.style.color = '#fff';
-      } else {
-        btnDom.classList.remove('btn-primary');
-        btnDom.style.background = '';
-        btnDom.style.color = '#34d399';
-      }
-    }
-    if (btnComm) {
-      if (currentCategory === 'commercial') {
+    });
+
+    if (currentCategory === 'commercial') {
+      if (btnComm) {
         btnComm.classList.add('btn-primary');
         btnComm.style.background = '#0284c7';
         btnComm.style.color = '#fff';
+        btnComm.style.borderColor = '#0284c7';
+        btnComm.style.boxShadow = '0 0 12px rgba(2,132,199,0.45)';
+      }
+      if (btnDom) { btnDom.style.color = '#94a3b8'; btnDom.style.borderColor = 'transparent'; }
+      if (btnAll) { btnAll.style.color = '#94a3b8'; btnAll.style.borderColor = 'transparent'; }
+    } else if (currentCategory === 'domestic') {
+      if (btnDom) {
+        btnDom.classList.add('btn-primary');
+        btnDom.style.background = '#059669';
+        btnDom.style.color = '#fff';
+        btnDom.style.borderColor = '#059669';
+        btnDom.style.boxShadow = '0 0 12px rgba(5,150,105,0.45)';
+      }
+      if (btnComm) { btnComm.style.color = '#94a3b8'; btnComm.style.borderColor = 'transparent'; }
+      if (btnAll) { btnAll.style.color = '#94a3b8'; btnAll.style.borderColor = 'transparent'; }
+    } else {
+      if (btnAll) {
+        btnAll.classList.add('btn-primary');
+        btnAll.style.background = '#6366f1';
+        btnAll.style.color = '#fff';
+        btnAll.style.borderColor = '#6366f1';
+        btnAll.style.boxShadow = '0 0 12px rgba(99,102,241,0.45)';
+      }
+      if (btnDom) { btnDom.style.color = '#94a3b8'; btnDom.style.borderColor = 'transparent'; }
+      if (btnComm) { btnComm.style.color = '#94a3b8'; btnComm.style.borderColor = 'transparent'; }
+    }
+
+    // Filter locality dropdown items by category
+    var locLabels = document.querySelectorAll('#locality-cb-scrollbox .loc-item-label');
+    var allowedCount = 0;
+    locLabels.forEach(function(lbl) {
+      var itemCat = lbl.dataset.cat || 'domestic';
+      var cb = lbl.querySelector('.locality-multi-cb');
+      var isAllowed = false;
+      if (currentCategory === 'all') {
+        isAllowed = true;
+      } else if (currentCategory === 'commercial') {
+        isAllowed = (itemCat === 'commercial');
       } else {
-        btnComm.classList.remove('btn-primary');
-        btnComm.style.background = '';
-        btnComm.style.color = '#38bdf8';
+        isAllowed = (itemCat === 'domestic');
+      }
+
+      lbl.dataset.categoryAllowed = isAllowed ? '1' : '0';
+      if (!isAllowed) {
+        lbl.style.display = 'none';
+        if (cb) cb.checked = false; // uncheck excluded localities
+      } else {
+        allowedCount++;
+        var inSector = (lbl.dataset.sectorAllowed !== '0');
+        lbl.style.display = inSector ? 'flex' : 'none';
+      }
+    });
+
+    // Reset Locality search input
+    var locSearch = document.getElementById('locality-filter-search');
+    if (locSearch) {
+      locSearch.value = '';
+      if (currentCategory === 'commercial') {
+        locSearch.placeholder = 'Quick search ' + allowedCount + ' commercial localities...';
+      } else if (currentCategory === 'domestic') {
+        locSearch.placeholder = 'Quick search ' + allowedCount + ' domestic localities...';
+      } else {
+        locSearch.placeholder = 'Quick search ' + allowedCount + ' localities...';
       }
     }
+
+    // Uncheck locality checkboxes for fresh selection
+    var locBoxes = document.querySelectorAll('#locality-cb-scrollbox .locality-multi-cb');
+    locBoxes.forEach(function(cb) { cb.checked = false; });
+
+    // Update locality dropdown label
+    var locLbl = document.getElementById('locality-select-label');
+    if (locLbl) {
+      if (currentCategory === 'commercial') {
+        locLbl.textContent = '-- All Localities (' + allowedCount + ' Commercial Localities) --';
+      } else if (currentCategory === 'domestic') {
+        locLbl.textContent = '-- All Localities (' + allowedCount + ' Domestic Localities) --';
+      } else {
+        locLbl.textContent = '-- All Localities (' + allowedCount + ' Localities) --';
+      }
+    }
+
+    var btnClearLoc = document.getElementById('btn-clear-loc');
+    if (btnClearLoc) btnClearLoc.style.display = 'none';
+
+    // Sync Sector dropdown checkboxes
+    var secBoxes = document.querySelectorAll('#sector-cb-scrollbox .sector-multi-cb');
+    var secLbl = document.getElementById('sector-select-label');
+    var btnClearSec = document.getElementById('btn-clear-sector');
+
+    if (currentCategory === 'commercial') {
+      secBoxes.forEach(function(cb) {
+        cb.checked = (cb.value.trim().toUpperCase() === 'COMMERCIAL');
+      });
+      if (secLbl) secLbl.textContent = '🏢 Sector: COMMERCIAL';
+      if (btnClearSec) btnClearSec.style.display = 'inline-block';
+    } else if (currentCategory === 'domestic') {
+      secBoxes.forEach(function(cb) {
+        if (cb.value.trim().toUpperCase() === 'COMMERCIAL') {
+          cb.checked = false;
+        }
+      });
+      var activeSecs = getSelectedSectors();
+      if (activeSecs.length === 0) {
+        if (secLbl) secLbl.textContent = '-- All Sectors (' + secBoxes.length + ' Sectors) --';
+        if (btnClearSec) btnClearSec.style.display = 'none';
+      } else {
+        if (secLbl) secLbl.textContent = '🏢 Sector: ' + activeSecs.join(', ');
+        if (btnClearSec) btnClearSec.style.display = 'inline-block';
+      }
+    } else {
+      // 'all'
+      var activeSecs = getSelectedSectors();
+      if (activeSecs.length === 0) {
+        if (secLbl) secLbl.textContent = '-- All Sectors (' + secBoxes.length + ' Sectors) --';
+        if (btnClearSec) btnClearSec.style.display = 'none';
+      }
+    }
+
+    // Highlight export buttons for clarity
+    highlightExportButtonsForCategory(currentCategory);
 
     applyFilters();
   }
@@ -1605,6 +1787,16 @@
     if (form) {
       form.addEventListener('submit', function() {
         form.querySelectorAll('input.dynamic-filter-input').forEach(function(el) { el.remove(); });
+        var catInput = document.getElementById('selected-category-input');
+        if (!catInput) {
+          catInput = document.createElement('input');
+          catInput.type = 'hidden';
+          catInput.name = 'category';
+          catInput.id = 'selected-category-input';
+          form.appendChild(catInput);
+        }
+        catInput.value = currentCategory;
+
         var selSecs = getSelectedSectors();
         var selLocs = getSelectedLocalities();
         selSecs.forEach(function(sec) {
@@ -1625,6 +1817,10 @@
         });
       });
     }
+
+    var urlParams = new URLSearchParams(window.location.search);
+    var initCat = urlParams.get('category') || '{{ category|default("domestic") }}' || 'domestic';
+    setFilterCategory(initCat);
 
     var selSectors = getSelectedSectors();
     var selLocs = getSelectedLocalities();
