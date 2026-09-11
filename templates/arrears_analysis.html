@@ -198,7 +198,7 @@
             </div>
 
             <div class="col-chips" id="aa-col-chips">
-              {% for col in all_available_cols %}
+              {% for col in selected_cols %}
               <span class="col-chip {% if col in selected_cols %}active{% endif %}" data-col="{{ col }}" onclick="toggleColChip(this)">
                 {{ col }}
               </span>
@@ -539,7 +539,14 @@
         </span>
       </div>
 
+      {% if is_detail_limited %}
+      <div class="alert" style="background:rgba(2,132,199,0.12);border:1px solid #0284c7;color:#38bdf8;padding:10px 14px;border-radius:6px;margin-bottom:16px;font-size:13px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <span>ℹ️ <strong>Displaying Top 3 Localities by Arrears</strong> (out of {{ detail_limit_count }} localities). To view consumer records for any other locality, select it from the <strong>📍 Locality</strong> dropdown above.</span>
+      </div>
+      {% endif %}
+
       {% for s in analysis.locality_summaries %}
+      {% if s.locality in detail_records %}
       {% set is_zero = (s.regular_count == 0 and s.suspended_count == 0 and s.total_arrears == 0) %}
       {% set loc_records = detail_records.get(s.locality, []) %}
       {% set is_comm = (s.sector|upper == 'COMMERCIAL' and 'COLONY' not in s.locality|upper) %}
@@ -565,8 +572,8 @@
             <thead>
               <tr>
                 <th style="width:40px;text-align:center;">#</th>
-                {% for col in all_available_cols %}
-                <th class="detail-data-th" data-col-name="{{ col }}" style="{% if col not in selected_cols %}display:none;{% endif %}{% if 'arrear' in col.lower() or 'rate' in col.lower() %}text-align:right;{% endif %}">{{ col }}</th>
+                {% for col in selected_cols %}
+                <th class="detail-data-th" data-col-name="{{ col }}" style="{% if 'arrear' in col.lower() or 'rate' in col.lower() %}text-align:right;{% endif %}">{{ col }}</th>
                 {% endfor %}
               </tr>
             </thead>
@@ -574,8 +581,8 @@
               {% for rec in loc_records %}
               <tr>
                 <td style="text-align:center;color:var(--text-muted);font-size:11px;">{{ loop.index }}</td>
-                {% for col in all_available_cols %}
-                <td class="detail-data-td" data-col-name="{{ col }}" style="{% if col not in selected_cols %}display:none;{% endif %}{% if 'arrear' in col.lower() or 'rate' in col.lower() %}text-align:right;font-family:monospace;font-weight:600;{% endif %}">
+                {% for col in selected_cols %}
+                <td class="detail-data-td" data-col-name="{{ col }}" style="{% if 'arrear' in col.lower() or 'rate' in col.lower() %}text-align:right;font-family:monospace;font-weight:600;{% endif %}">
                   {{ rec.get(col, '') }}
                 </td>
                 {% endfor %}
@@ -591,6 +598,7 @@
           </table>
         </div>
       </div>
+      {% endif %}
       {% endfor %}
     </div>
     {% endif %}

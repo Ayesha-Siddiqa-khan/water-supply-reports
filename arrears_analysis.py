@@ -1158,7 +1158,12 @@ def arrears_analysis():
         category = "domestic"
 
     sort_by = request.args.get("sort", "arrears_desc").strip()
-    full_analysis = compute_arrears_analysis(df, None, sort_by=sort_by)
+    full_analysis = compute_arrears_analysis(
+        df,
+        None,
+        category=(category if category in ("domestic", "commercial") else ""),
+        sort_by=sort_by,
+    )
     all_raw_localities = full_analysis["all_localities"]
     all_sectors = full_analysis["all_sectors"]
     sector_locality_map = full_analysis["sector_locality_map"]
@@ -1219,6 +1224,8 @@ def arrears_analysis():
 
     # Detailed consumer records per locality if detail or both mode
     detail_records = {}
+    is_detail_limited = False
+    detail_limit_count = 0
     if report_mode in ("detailed", "both"):
         detected = full_analysis["detected_columns"]
         loc_col = detected["locality"] or "Locality"
@@ -1229,8 +1236,30 @@ def arrears_analysis():
         valid_statuses = ["Open", "Suspended"] if not include_closed else ["Open", "Suspended", "Closed"]
         df_work_valid = df_work[df_work["_st"].isin(valid_statuses)]
 
-        for loc_name in all_raw_localities:
-            grp = df_work_valid[df_work_valid[loc_col].astype(str).str.strip() == loc_name]
+        # Target localities for consumer records to keep payload safely within serverless limits (< 4.5 MB)
+        if explicit_selection:
+            target_detail_localities = [l for l in selected_localities if l in all_raw_localities]
+        elif category == "commercial":
+            # All 19 commercial localities have only 250 records total - safe to render all
+            target_detail_localities = [s["locality"] for s in full_analysis["locality_summaries"]]
+        elif selected_sector and selected_sector in sector_locality_map:
+            target_detail_localities = sector_locality_map[selected_sector]
+        else:
+            # Safe default for large domestic dataset: top 3 localities by arrears
+            active_summaries = [s for s in full_analysis["locality_summaries"] if s["total_arrears"] > 0]
+            target_detail_localities = [s["locality"] for s in active_summaries[:3]]
+            is_detail_limited = (len(active_summaries) > 3)
+            detail_limit_count = len(active_summaries)
+
+        for loc_name in target_detail_localities:
+            if category == "commercial":
+                grp = df_work_valid[
+                    (df_work_valid[loc_col].astype(str).str.strip() == loc_name)
+                    & (df_work_valid["Sector"].astype(str).str.strip().str.upper() == "COMMERCIAL")
+                ]
+            else:
+                grp = df_work_valid[df_work_valid[loc_col].astype(str).str.strip() == loc_name]
+
             records = []
             for _, r in grp.iterrows():
                 row_dict = {}
@@ -1261,6 +1290,8 @@ def arrears_analysis():
         selected_cols=selected_cols,
         detail_records=detail_records,
         category=category,
+        is_detail_limited=is_detail_limited,
+        detail_limit_count=detail_limit_count,
         active_page="arrears_analysis",
     )
 
