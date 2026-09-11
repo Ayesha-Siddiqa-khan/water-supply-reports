@@ -167,6 +167,33 @@ def load_working_dataset() -> tuple[pd.DataFrame | None, dict[str, Any]]:
         except Exception:
             pass
 
+    # Auto-detect bundled Bills CSV from repo root (ensures Vercel deployment has data immediately)
+    import app
+    base_dirs = [
+        os.path.dirname(os.path.abspath(__file__)),
+        getattr(app, "BASE_DIR", "."),
+        os.getcwd(),
+    ]
+    seen_dirs = set()
+    for bdir in base_dirs:
+        if not bdir or bdir in seen_dirs:
+            continue
+        seen_dirs.add(bdir)
+        candidate = os.path.join(bdir, "Bills-15-05-2026-08_11_13.csv")
+        if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
+            try:
+                df = pd.read_csv(candidate, dtype=str, keep_default_na=False)
+                meta = {
+                    "source": "Bundled Bills Dataset",
+                    "filename": "Bills-15-05-2026-08_11_13.csv",
+                    "loaded_at": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                    "auto_detected": True,
+                    "rows": len(df),
+                }
+                return df, meta
+            except Exception:
+                pass
+
     return None, {}
 
 
@@ -1093,8 +1120,34 @@ def arrears_analysis():
         return render_template(
             "arrears_analysis.html",
             has_data=False,
-            meta=meta,
+            meta=meta or {},
             handover_available=handover_available,
+            analysis={
+                "grand_total": {
+                    "regular_count": 0,
+                    "regular_arrears_fmt": "0",
+                    "suspended_count": 0,
+                    "suspended_arrears_fmt": "0",
+                    "closed_count": 0,
+                    "closed_arrears_fmt": "0",
+                    "total_count": 0,
+                    "total_arrears_fmt": "0",
+                },
+                "locality_summaries": [],
+                "all_localities": [],
+                "all_sectors": [],
+                "active_localities": [],
+            },
+            all_sectors=[],
+            sector_locality_map={},
+            selected_sector="",
+            selected_localities=[],
+            explicit_selection=False,
+            report_mode="summary",
+            sort_by="arrears_desc",
+            all_available_cols=[],
+            selected_cols=[],
+            detail_records={},
             active_page="arrears_analysis",
         )
 

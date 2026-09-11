@@ -183,25 +183,25 @@
       "arrears_analysis_numberedcanvas_save",
       "arrears_analysis_numberedcanvas_showpage",
       "arrears_analysis_parse_amount",
-      "arrears_analysis_py_dataframe",
       "arrears_analysis_rationale_1",
       "arrears_analysis_rationale_114",
-      "arrears_analysis_rationale_1208",
       "arrears_analysis_rationale_125",
-      "arrears_analysis_rationale_1354",
+      "arrears_analysis_rationale_1261",
+      "arrears_analysis_rationale_1407",
       "arrears_analysis_rationale_141",
-      "arrears_analysis_rationale_180",
-      "arrears_analysis_rationale_358",
-      "arrears_analysis_rationale_390",
-      "arrears_analysis_rationale_414",
-      "arrears_analysis_rationale_442",
-      "arrears_analysis_rationale_461",
+      "arrears_analysis_rationale_207",
+      "arrears_analysis_rationale_385",
+      "arrears_analysis_rationale_417",
+      "arrears_analysis_rationale_441",
+      "arrears_analysis_rationale_469",
+      "arrears_analysis_rationale_488",
       "arrears_analysis_rationale_76",
       "arrears_analysis_rationale_89",
       "arrears_analysis_rationale_94",
       "arrears_analysis_resolve_detail_columns",
       "arrears_analysis_working_csv",
-      "arrears_analysis_working_meta"
+      "arrears_analysis_working_meta",
+      "dataframe"
     ],
     "4": [
       "app",
@@ -657,25 +657,25 @@
       "templates_comparison_upload_overlay"
     ],
     "28": [
-      "check_bill_list"
+      "arrears_analysis_py_dataframe"
     ],
     "29": [
-      "check_csv"
+      "check_bill_list"
     ],
     "30": [
-      "check_dup"
+      "check_csv"
     ],
     "31": [
-      "check_import"
+      "check_dup"
     ],
     "32": [
-      "check_keys"
+      "check_import"
     ],
     "33": [
-      "check_schema"
+      "check_keys"
     ],
     "34": [
-      "dataframe"
+      "check_schema"
     ],
     "35": [
       "ext_pdflib"
@@ -793,17 +793,6 @@
   ],
   "surprises": [
     {
-      "source": "arrears_analysis()",
-      "target": "allowed_file()",
-      "source_files": [
-        "arrears_analysis.py",
-        "app.py"
-      ],
-      "confidence": "INFERRED",
-      "relation": "calls",
-      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
-    },
-    {
       "source": "handover()",
       "target": "allowed_file()",
       "source_files": [
@@ -845,6 +834,17 @@
       ],
       "confidence": "INFERRED",
       "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "_sort_summary_rows()",
+      "target": "_key()",
+      "source_files": [
+        "app.py",
+        "data_comparison.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "indirect_call",
       "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
     }
   ],

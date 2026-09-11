@@ -6,7 +6,7 @@
 
 {% block pill_label %}Arrears Analysis{% endblock %}
 {% block pill_detail %}
-  {% if has_data %}{{ analysis.grand_total.total_count }} Active Connections{% else %}Awaiting CSV Data{% endif %}
+  {% if has_data and analysis and analysis.grand_total %}{{ analysis.grand_total.total_count }} Active Connections{% else %}Awaiting CSV Data{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -594,6 +594,7 @@
   </div>
 </div>
 
+{% if has_data %}
 <script>
   // Format currency / amounts
   function formatPKR(val) {
@@ -778,7 +779,7 @@
   }
 
   // Sector & Locality Hierarchical Filter with Multi-Sector Selection
-  var sectorLocalityMap = {{ sector_locality_map|tojson }};
+  var sectorLocalityMap = {{ (sector_locality_map or {})|tojson }};
   var currentColOrder = 'loc_first'; // 'loc_first' or 'sec_first'
 
   function toggleSectorDropdown(e) {
@@ -1640,4 +1641,5 @@
     }
   });
 </script>
+{% endif %}
 {% endblock %}
