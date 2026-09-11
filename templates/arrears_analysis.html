@@ -70,7 +70,7 @@
       <div class="card-body">
         <form method="post" enctype="multipart/form-data" action="{{ url_for('arrears_analysis.arrears_analysis') }}" id="aa-upload-form" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
           <input type="hidden" name="action" value="upload">
-          <input type="file" name="csv_file" id="aa-file-input" accept=".csv,.xlsx,.xls" style="display:none;" onchange="document.getElementById('aa-upload-form').submit();">
+          <input type="file" name="csv_file" id="aa-file-input" accept=".csv,.xlsx,.xls" style="display:none;">
           
           <button type="button" class="btn btn-primary" onclick="document.getElementById('aa-file-input').click();">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
@@ -86,6 +86,7 @@
           <span style="font-size:12px;color:var(--text-muted);">
             Expected columns: Sector, Locality, Status, Total Arrears, Consumer Name, etc.
           </span>
+          <div id="aa-upload-status" style="display:none;font-size:12px;font-weight:500;padding:8px 14px;border-radius:8px;background:rgba(15,212,176,0.08);border:1px solid rgba(15,212,176,0.25);color:var(--teal);margin-top:6px;width:100%;"></div>
         </form>
       </div>
     </div>
@@ -101,6 +102,7 @@
       <button type="button" class="btn btn-primary" onclick="document.getElementById('aa-file-input').click();">
         Choose CSV / Excel File
       </button>
+      <div id="aa-empty-upload-status" style="display:none;font-size:12px;font-weight:500;padding:8px 14px;border-radius:8px;background:rgba(15,212,176,0.08);border:1px solid rgba(15,212,176,0.25);color:var(--teal);margin:14px auto 0;max-width:480px;text-align:left;"></div>
       {% if handover_available %}
       <div style="margin-top:14px;">
         <form method="post" action="{{ url_for('arrears_analysis.arrears_analysis') }}" style="display:inline;">
@@ -1846,4 +1848,134 @@
   });
 </script>
 {% endif %}
+
+<!-- Client-side compressed upload to bypass Vercel 4.5MB serverless body limit -->
+<script>
+  (function() {
+    var fileInput = document.getElementById('aa-file-input');
+    var statusEl = document.getElementById('aa-upload-status');
+    var emptyStatusEl = document.getElementById('aa-empty-upload-status');
+    if (!fileInput) return;
+
+    function showStatus(msg) {
+      [statusEl, emptyStatusEl].forEach(function(el) {
+        if (!el) return;
+        el.style.display = 'block';
+        el.style.color = 'var(--teal)';
+        el.style.borderColor = 'rgba(15,212,176,0.35)';
+        el.style.background = 'rgba(15,212,176,0.08)';
+        el.innerHTML = '<span style="display:inline-block;animation:spin 1s linear infinite;margin-right:6px;">&#9696;</span> ' + msg;
+      });
+    }
+
+    function showSuccess(msg) {
+      [statusEl, emptyStatusEl].forEach(function(el) {
+        if (!el) return;
+        el.style.display = 'block';
+        el.style.color = 'var(--teal)';
+        el.style.borderColor = 'rgba(15,212,176,0.35)';
+        el.style.background = 'rgba(15,212,176,0.08)';
+        el.innerHTML = '&#10003; ' + msg;
+      });
+    }
+
+    function showError(msg) {
+      [statusEl, emptyStatusEl].forEach(function(el) {
+        if (!el) return;
+        el.style.display = 'block';
+        el.style.color = '#fca5a5';
+        el.style.borderColor = 'rgba(239,68,68,0.4)';
+        el.style.background = 'rgba(239,68,68,0.12)';
+        el.innerHTML = '&#9888; ' + msg;
+      });
+    }
+
+    function arrayBufferToBase64(buffer) {
+      var binary = '';
+      var bytes = new Uint8Array(buffer);
+      var len = bytes.byteLength;
+      var chunkSize = 0x8000; // 32KB chunks
+      for (var i = 0; i < len; i += chunkSize) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + chunkSize, len)));
+      }
+      return btoa(binary);
+    }
+
+    fileInput.addEventListener('change', async function() {
+      if (!fileInput.files || !fileInput.files.length) return;
+      var file = fileInput.files[0];
+      var name = file.name;
+      var ext = name.split('.').pop().toLowerCase();
+
+      if (['csv', 'xlsx', 'xls'].indexOf(ext) === -1) {
+        showError('Please select a CSV or Excel (.xlsx, .xls) file.');
+        return;
+      }
+
+      var sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+      showStatus('Reading ' + name + ' (' + sizeMb + ' MB)...');
+
+      try {
+        var isGzip = false;
+        var b64Data = '';
+        var action = 'upload_compressed';
+
+        if (ext === 'csv') {
+          // If browser supports native CompressionStream, gzip compress client-side
+          // to easily bypass Vercel's 4.5MB serverless body limit for any large file.
+          if ('CompressionStream' in window) {
+            showStatus('Compressing ' + name + ' (' + sizeMb + ' MB) for fast upload...');
+            var cs = new CompressionStream('gzip');
+            var stream = file.stream().pipeThrough(cs);
+            var compBuf = await new Response(stream).arrayBuffer();
+            var compMb = (compBuf.byteLength / (1024 * 1024)).toFixed(2);
+            showStatus('Uploading ' + name + ' (compressed to ' + compMb + ' MB)...');
+            b64Data = arrayBufferToBase64(compBuf);
+            isGzip = true;
+          } else {
+            showStatus('Uploading ' + name + ' (' + sizeMb + ' MB)...');
+            var rawBuf = await file.arrayBuffer();
+            b64Data = arrayBufferToBase64(rawBuf);
+            isGzip = false;
+          }
+        } else {
+          // Excel file (.xlsx / .xls)
+          showStatus('Uploading Excel ' + name + ' (' + sizeMb + ' MB)...');
+          var rawBuf = await file.arrayBuffer();
+          b64Data = arrayBufferToBase64(rawBuf);
+          isGzip = false;
+          action = 'upload_excel';
+        }
+
+        var payload = {
+          action: action,
+          filename: name,
+          is_gzip: isGzip,
+          data_base64: b64Data
+        };
+
+        var resp = await fetch('{{ url_for("arrears_analysis.arrears_analysis") }}', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        var result = await resp.json();
+        if (result && result.ok) {
+          showSuccess('Upload completed! Loading analysis...');
+          setTimeout(function() {
+            window.location.href = result.redirect || '{{ url_for("arrears_analysis.arrears_analysis") }}';
+          }, 350);
+        } else {
+          showError((result && result.error) ? result.error : 'Upload failed.');
+        }
+      } catch (err) {
+        showError('Upload failed: ' + (err.message || err));
+      }
+    });
+  })();
+</script>
 {% endblock %}

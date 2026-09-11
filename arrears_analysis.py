@@ -9,8 +9,10 @@ and professional PDF/Excel/CSV exports.
 
 from __future__ import annotations
 
+import base64
 import csv
 from datetime import datetime
+import gzip
 import io
 import json
 import os
@@ -1048,8 +1050,55 @@ def build_arrears_pdf(
 def arrears_analysis():
     main = _app()
     allowed_file = main.allowed_file
+    ajax_error = getattr(main, "ajax_error", lambda err, code=400: ({"ok": False, "error": err}, code))
+    ajax_ok = getattr(main, "ajax_ok", lambda message="", redirect_url=None: ({"ok": True, "message": message, "redirect": redirect_url}))
 
     if request.method == "POST":
+        # -------------------------------------------------------------------
+        # JSON upload: handles client-side compressed / base64 payloads to
+        # bypass Vercel's 4.5MB serverless body limit for large datasets.
+        # -------------------------------------------------------------------
+        if request.is_json:
+            payload = request.get_json(silent=True) or {}
+            act = payload.get("action", "")
+            if act in ("upload_compressed", "upload_excel", "upload_data"):
+                fn = secure_filename(payload.get("filename", "upload.csv"))
+                if not allowed_file(fn):
+                    return ajax_error(f"Unsupported file format: {fn}")
+
+                b64_data = payload.get("data_base64") or payload.get("data_gz_base64", "")
+                if not b64_data:
+                    return ajax_error("No file data received.")
+
+                try:
+                    raw_bytes = base64.b64decode(b64_data)
+                    if payload.get("is_gzip") or act == "upload_compressed":
+                        try:
+                            raw_bytes = gzip.decompress(raw_bytes)
+                        except Exception:
+                            pass  # Fallback if bytes were already uncompressed
+
+                    bio = io.BytesIO(raw_bytes)
+                    if fn.lower().endswith((".xlsx", ".xls")):
+                        df = pd.read_excel(bio, dtype=str, keep_default_na=False)
+                    else:
+                        df = pd.read_csv(bio, dtype=str, keep_default_na=False)
+
+                    df.to_csv(_working_csv(), index=False)
+                    meta = {
+                        "source": "Uploaded File",
+                        "filename": fn,
+                        "loaded_at": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                        "rows": len(df),
+                    }
+                    with open(_working_meta(), "w", encoding="utf-8") as fh:
+                        json.dump(meta, fh, indent=2)
+
+                    msg = f"Successfully uploaded {fn} ({len(df):,} records)."
+                    return ajax_ok(message=msg, redirect_url=url_for("arrears_analysis.arrears_analysis"))
+                except Exception as exc:
+                    return ajax_error(f"Error parsing file: {exc}")
+
         action = request.form.get("action", "")
 
         if action == "clear":
