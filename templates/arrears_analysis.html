@@ -1,0 +1,1643 @@
+{% extends "base.html" %}
+
+{% block title %}Arrears Analysis - Water Supply Report{% endblock %}
+{% block meta_description %}Comprehensive locality-wise consumer arrears analysis with Regular vs Suspended breakdown.{% endblock %}
+{% block active_page %}arrears_analysis{% endblock %}
+
+{% block pill_label %}Arrears Analysis{% endblock %}
+{% block pill_detail %}
+  {% if has_data %}{{ analysis.grand_total.total_count }} Active Connections{% else %}Awaiting CSV Data{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="content">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div class="page-tag">Arrears Analysis</div>
+        <h1 class="page-title">Locality-wise Arrears Report</h1>
+        <p class="page-subtitle">
+          Comprehensive analysis of consumer arrears grouped by Locality. Compares Regular/Open vs Suspended connections, calculates arrears totals, and provides selectable detailed consumer listings.
+        </p>
+      </div>
+      {% if has_data %}
+      <div style="display:flex;gap:8px;align-items:center;">
+        <form method="post" action="{{ url_for('arrears_analysis.arrears_analysis') }}" onsubmit="return confirm('Clear current analysis dataset?');">
+          <input type="hidden" name="action" value="clear">
+          <button type="submit" class="btn btn-sm" style="border-color:var(--danger);color:var(--danger);">Clear Data</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+
+    <style>
+      .sec-item-label:hover, .loc-item-label:hover {
+        background: var(--bg-hover, rgba(255, 255, 255, 0.06));
+      }
+    </style>
+
+    <!-- FLASH MESSAGES -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div style="margin-bottom:16px;">
+          {% for category, message in messages %}
+            <div class="alert {% if category == 'error' %}alert-danger{% elif category == 'success' %}alert-success{% else %}alert-info{% endif %}" style="padding:10px 14px;border-radius:6px;margin-bottom:8px;font-size:13px;display:flex;align-items:center;gap:8px;">
+              <span>{{ message }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- DATASET SOURCE / UPLOAD CARD -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="card-title" style="display:flex;align-items:center;gap:8px;">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4z"/>
+            <path d="M7 10h6M7 14h4M7 6h6"/>
+          </svg>
+          Connections Data Source
+        </div>
+        {% if has_data and meta %}
+        <span class="chip" style="font-size:11px;background:rgba(16,185,129,0.12);color:var(--teal);border-color:rgba(16,185,129,0.3);">
+          Active: {{ meta.filename|default('connections.csv') }} ({{ meta.rows|default(analysis.total_rows)|int }} records)
+        </span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data" action="{{ url_for('arrears_analysis.arrears_analysis') }}" id="aa-upload-form" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <input type="hidden" name="action" value="upload">
+          <input type="file" name="csv_file" id="aa-file-input" accept=".csv,.xlsx,.xls" style="display:none;" onchange="document.getElementById('aa-upload-form').submit();">
+          
+          <button type="button" class="btn btn-primary" onclick="document.getElementById('aa-file-input').click();">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+            Upload Connections CSV / Excel
+          </button>
+
+          {% if not has_data and handover_available %}
+          <button type="submit" name="action" value="use_handover" class="btn" style="border-color:var(--teal);color:var(--teal);">
+            Use Loaded Handover Connections
+          </button>
+          {% endif %}
+
+          <span style="font-size:12px;color:var(--text-muted);">
+            Expected columns: Sector, Locality, Status, Total Arrears, Consumer Name, etc.
+          </span>
+        </form>
+      </div>
+    </div>
+
+    {% if not has_data %}
+    <!-- EMPTY STATE -->
+    <div class="empty-state" style="padding:48px 24px;text-align:center;border:2px dashed var(--border);border-radius:12px;margin:30px 0;">
+      <div class="empty-state-icon" style="font-size:42px;margin-bottom:12px;">📊</div>
+      <div class="empty-state-title" style="font-size:18px;font-weight:600;margin-bottom:8px;">No Connections Dataset Loaded</div>
+      <div class="empty-state-desc" style="max-width:560px;margin:0 auto 20px;color:var(--text-muted);font-size:13px;line-height:1.5;">
+        Upload a consumer connections CSV file to analyze arrears by locality. The system will automatically calculate Regular (Open) vs Suspended connections and outstanding balances, excluding Closed and New Demand records.
+      </div>
+      <button type="button" class="btn btn-primary" onclick="document.getElementById('aa-file-input').click();">
+        Choose CSV / Excel File
+      </button>
+      {% if handover_available %}
+      <div style="margin-top:14px;">
+        <form method="post" action="{{ url_for('arrears_analysis.arrears_analysis') }}" style="display:inline;">
+          <input type="hidden" name="action" value="use_handover">
+          <button type="submit" class="btn" style="border-color:var(--teal);color:var(--teal);font-size:12px;">
+            ⚡ Quick Load from Handover Register
+          </button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if has_data %}
+
+    <!-- STAT SUMMARY TILES -->
+    <div class="stat-grid" style="margin-bottom:20px;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));">
+      <div class="stat-card teal">
+        <div class="stat-card-icon">💧</div>
+        <div class="stat-label">Regular Connections</div>
+        <div class="stat-value">{{ analysis.grand_total.regular_count|int }}</div>
+        <div class="stat-delta">Arrears: {{ analysis.grand_total.regular_arrears_fmt }}</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-card-icon">⏸️</div>
+        <div class="stat-label">Suspended Connections</div>
+        <div class="stat-value">{{ analysis.grand_total.suspended_count|int }}</div>
+        <div class="stat-delta">Arrears: {{ analysis.grand_total.suspended_arrears_fmt }}</div>
+      </div>
+      <div class="stat-card red" style="border-left:3px solid #ef4444;">
+        <div class="stat-card-icon">🚫</div>
+        <div class="stat-label">Closed Connections</div>
+        <div class="stat-value">{{ analysis.grand_total.closed_count|int }}</div>
+        <div class="stat-delta">Arrears: {{ analysis.grand_total.closed_arrears_fmt }}</div>
+      </div>
+      <div class="stat-card coral">
+        <div class="stat-card-icon">💰</div>
+        <div class="stat-label">Combined Total Arrears</div>
+        <div class="stat-value" style="font-size:20px;">{{ analysis.grand_total.total_arrears_fmt }}</div>
+        <div class="stat-delta">Regular + Suspended + Closed</div>
+      </div>
+      <div class="stat-card violet">
+        <div class="stat-card-icon">🏘️</div>
+        <div class="stat-label">Combined Connections</div>
+        <div class="stat-value">{{ analysis.grand_total.total_count|int }}</div>
+        <div class="stat-delta">Across {{ analysis.locality_summaries|length }} selected localities</div>
+      </div>
+    </div>
+
+    <!-- MAIN FILTER & CONTROLS FORM -->
+    <form method="get" action="{{ url_for('arrears_analysis.arrears_analysis') }}" id="aa-filter-form">
+      <input type="hidden" name="all_loc" value="0">
+      <input type="hidden" name="sort" id="form-sort-input" value="{{ sort_by }}">
+      
+      <!-- REPORT CONFIGURATION CARD -->
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+          <div class="card-title">Report & View Controls</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button type="submit" class="btn btn-primary btn-sm">Apply & Update</button>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <!-- 1. REPORT OPTIONS (Summary / Detailed / Both) -->
+          <div style="margin-bottom:18px;">
+            <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">
+              Report Mode
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <label class="btn btn-sm {% if report_mode == 'summary' %}btn-primary{% endif %}" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                <input type="radio" name="mode" value="summary" {% if report_mode == 'summary' %}checked{% endif %} onchange="document.getElementById('aa-filter-form').submit();">
+                Summary Only
+              </label>
+              <label class="btn btn-sm {% if report_mode == 'detailed' %}btn-primary{% endif %}" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                <input type="radio" name="mode" value="detailed" {% if report_mode == 'detailed' %}checked{% endif %} onchange="document.getElementById('aa-filter-form').submit();">
+                Detailed Consumer Report
+              </label>
+              <label class="btn btn-sm {% if report_mode == 'both' %}btn-primary{% endif %}" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                <input type="radio" name="mode" value="both" {% if report_mode == 'both' %}checked{% endif %} onchange="document.getElementById('aa-filter-form').submit();">
+                Both (Summary + Details)
+              </label>
+            </div>
+          </div>
+
+          <!-- 2. SELECT COLUMNS FOR EXPORT / DETAILED REPORT (PROMINENT & ALWAYS VISIBLE) -->
+          <div class="col-select-area" id="column-selection-section" style="padding-top:14px;border-top:1px solid var(--border-bright, rgba(255,255,255,0.08));">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+              <div class="col-select-label" style="margin:0;">SELECT COLUMNS FOR EXPORT / DETAILED REPORT</div>
+              <div class="column-actions">
+                <button type="button" class="mini-btn" onclick="toggleAllColumns(true)">Select All</button>
+                <button type="button" class="mini-btn" onclick="toggleAllColumns(false)">Deselect All</button>
+                <button type="button" class="mini-btn" onclick="resetDefaultColumns()">Reset Default</button>
+              </div>
+            </div>
+
+            <div class="col-chips" id="aa-col-chips">
+              {% for col in all_available_cols %}
+              <span class="col-chip {% if col in selected_cols %}active{% endif %}" data-col="{{ col }}" onclick="toggleColChip(this)">
+                {{ col }}
+              </span>
+              {% endfor %}
+            </div>
+            <input type="hidden" name="cols" id="selected-cols-input" value="{{ selected_cols|join(',') }}">
+          </div>
+
+          <!-- 3. SUMMARY TABLE COLUMNS (SHOW / HIDE) -->
+          <div class="col-select-area" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border-bright, rgba(255,255,255,0.08));">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+              <div class="col-select-label" style="margin:0;">SUMMARY TABLE COLUMNS (SHOW / HIDE)</div>
+              <div class="column-actions">
+                <button type="button" class="mini-btn" onclick="toggleAllSummaryCols(true)">Show All</button>
+                <button type="button" class="mini-btn" onclick="resetDefaultSummaryCols()">Reset Default</button>
+              </div>
+            </div>
+            <div class="col-chips" id="summary-col-chips">
+              <span class="col-chip active" data-sum-col="locality" onclick="toggleSummaryTableCol(this, 'locality')">📍 Locality</span>
+              <span class="col-chip active" data-sum-col="sector" onclick="toggleSummaryTableCol(this, 'sector')">🏢 Sector</span>
+              <span class="col-chip active" data-sum-col="reg_count" onclick="toggleSummaryTableCol(this, 'reg_count')">Regular Conns</span>
+              <span class="col-chip active" data-sum-col="reg_arr" onclick="toggleSummaryTableCol(this, 'reg_arr')">Regular Arrears</span>
+              <span class="col-chip active" data-sum-col="sus_count" onclick="toggleSummaryTableCol(this, 'sus_count')">Suspended Conns</span>
+              <span class="col-chip active" data-sum-col="sus_arr" onclick="toggleSummaryTableCol(this, 'sus_arr')">Suspended Arrears</span>
+              <span class="col-chip" data-sum-col="cls_count" onclick="toggleSummaryTableCol(this, 'cls_count')">Closed Conns</span>
+              <span class="col-chip" data-sum-col="cls_arr" onclick="toggleSummaryTableCol(this, 'cls_arr')">Closed Arrears</span>
+              <span class="col-chip active" data-sum-col="total_count" onclick="toggleSummaryTableCol(this, 'total_count')">Combined Conns</span>
+              <span class="col-chip active" data-sum-col="total_arr" onclick="toggleSummaryTableCol(this, 'total_arr')">Combined Total Arrears</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </form>
+
+    <!-- EXPORT & PRINT ACTION BAR -->
+    <div class="export-bar" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+      <div style="font-size:12px;color:var(--text-muted);">
+        Active Selection: <strong id="action-bar-selected-count">{{ analysis.active_localities|length }}</strong> of {{ analysis.locality_summaries|length }} localities &middot; Mode: <strong>{{ report_mode.title() }}</strong>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <!-- Domestic Reports (Excludes Commercial) -->
+        <a class="chip" id="print-report-btn" target="_blank" rel="noopener" style="background:rgba(16,185,129,0.12);border-color:#10b981;color:#34d399;font-weight:600;" title="Print Domestic Arrears Report (Excludes Commercial)">
+          🖨️ Domestic Print
+        </a>
+        <a class="chip pdf" id="pdf-export-btn" target="_blank" rel="noopener" style="background:#059669;color:#fff;border-color:#059669;font-weight:700;" title="Download PDF for Domestic Arrears (Excludes Commercial)">
+          🏠 Domestic PDF
+        </a>
+        <a class="chip" id="xlsx-export-btn" style="background:rgba(16,185,129,0.12);border-color:#10b981;color:#34d399;font-weight:600;" title="Download Excel for Domestic Arrears">
+          📗 Domestic Excel
+        </a>
+        <a class="chip" id="csv-export-btn" style="background:rgba(16,185,129,0.12);border-color:#10b981;color:#34d399;font-weight:600;" title="Download CSV for Domestic Arrears">
+          📄 Domestic CSV
+        </a>
+
+        <!-- Separator -->
+        <span style="display:inline-block;width:1px;height:24px;background:var(--border-bright, rgba(255,255,255,0.2));margin:0 4px;"></span>
+
+        <!-- Commercial Sector Reports (Excludes Domestic) -->
+        <a class="chip" id="comm-print-btn" target="_blank" rel="noopener" style="background:rgba(2,132,199,0.15);border-color:#0284c7;color:#38bdf8;font-weight:600;" title="Print Commercial Sector Report (Excludes Domestic)" href="{{ url_for('arrears_analysis.arrears_analysis_print') }}?category=commercial&mode={{ report_mode }}&sort={{ sort_by }}&cols={{ selected_cols|join(',') }}">
+          🖨️ Commercial Print
+        </a>
+        <a class="chip pdf" id="comm-pdf-export-btn" target="_blank" rel="noopener" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:700;" title="Download PDF for Commercial Sector (Excludes Domestic)" href="{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='pdf') }}?category=commercial&mode={{ report_mode }}&sort={{ sort_by }}&cols={{ selected_cols|join(',') }}">
+          🏢 Commercial PDF
+        </a>
+        <a class="chip" id="comm-xlsx-export-btn" style="background:rgba(2,132,199,0.15);border-color:#0284c7;color:#38bdf8;font-weight:600;" title="Download Excel for Commercial Sector" href="{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='xlsx') }}?category=commercial&mode={{ report_mode }}&sort={{ sort_by }}&cols={{ selected_cols|join(',') }}">
+          📗 Commercial Excel
+        </a>
+        <a class="chip" id="comm-csv-export-btn" style="background:rgba(2,132,199,0.15);border-color:#0284c7;color:#38bdf8;font-weight:600;" title="Download CSV for Commercial Sector" href="{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='csv') }}?category=commercial&mode={{ report_mode }}&sort={{ sort_by }}&cols={{ selected_cols|join(',') }}">
+          📄 Commercial CSV
+        </a>
+      </div>
+    </div>
+
+    <!-- SECTOR & LOCALITY HIERARCHICAL FILTER TOOLBAR (Always visible in Summary, Detailed, or Both modes) -->
+    <div class="card" style="margin-bottom:20px;padding:12px 16px;background:var(--card-bg, #1e293b);border:1px solid var(--border, #334155);border-radius:var(--radius, 8px);">
+      <div style="width:100%;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        
+        <!-- 1. Multi-Sector Searchable Checkbox Dropdown -->
+        <div style="display:flex;align-items:center;gap:6px;position:relative;" id="sector-multi-dropdown-wrap">
+          <label style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">🏢 Sector:</label>
+          <div style="position:relative;display:inline-block;">
+            <button type="button" class="filter-select" id="sector-select-btn" onclick="toggleSectorDropdown(event)" style="display:flex;align-items:center;justify-content:space-between;min-width:240px;max-width:320px;padding:5px 12px;font-size:12px;cursor:pointer;background:var(--card-bg, #1e293b);border:1px solid var(--border, #334155);border-radius:4px;color:var(--text);gap:8px;">
+              <span id="sector-select-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">-- All Sectors ({{ all_sectors|length }} Sectors) --</span>
+              <span style="font-size:9px;color:var(--text-muted);">▼</span>
+            </button>
+            
+            <!-- Dropdown Menu -->
+            <div id="sector-dropdown-menu" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:1050;width:340px;background:var(--card-bg, #1e293b);border:1px solid var(--border, #334155);border-radius:8px;box-shadow:0 12px 28px rgba(0,0,0,0.5);padding:10px;">
+              <div style="display:flex;gap:6px;margin-bottom:8px;">
+                <input type="text" id="sector-filter-search" placeholder="Quick search 83 sectors..." class="filter-input" style="font-size:11px;padding:4px 8px;flex:1;" oninput="onSearchSectorsInDropdown(this.value)">
+                <button type="button" class="mini-btn" onclick="toggleAllSectorsMulti(true)">Select All</button>
+                <button type="button" class="mini-btn" onclick="toggleAllSectorsMulti(false)">Clear</button>
+              </div>
+              <div id="sector-cb-scrollbox" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;padding-right:4px;">
+                {% for sec in all_sectors %}
+                <label class="sec-item-label" data-sec="{{ sec|lower }}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;cursor:pointer;padding:4px 6px;border-radius:4px;color:var(--text);user-select:none;">
+                  <div style="display:flex;align-items:center;gap:8px;overflow:hidden;">
+                    <input type="checkbox" class="sector-multi-cb" value="{{ sec }}" {% if selected_sector == sec %}checked{% endif %} onchange="onSectorMultiCheckboxChange()">
+                    <span class="sec-name-text" onclick="selectSingleSector('{{ sec|escape }}')" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="Click to filter only {{ sec }}">{{ sec }}</span>
+                  </div>
+                  <button type="button" class="mini-btn" onclick="selectSingleSector('{{ sec|escape }}')" style="font-size:10px;padding:1px 6px;" title="Select only {{ sec }}">Only</button>
+                </label>
+                {% endfor %}
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:6px;border-top:1px solid var(--border-bright, rgba(255,255,255,0.08));">
+                <button type="button" class="btn btn-sm" onclick="selectCommercialOnly()" style="font-size:10px;padding:3px 8px;background:#0284c7;color:#fff;font-weight:600;">🏢 Commercial Only</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="closeSectorDropdown()" style="font-size:11px;padding:3px 12px;">Done</button>
+              </div>
+            </div>
+          </div>
+          <button type="button" id="btn-clear-sector" onclick="resetSectorFilterOnly()" style="display:none;font-size:11px;padding:3px 8px;background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#f87171;border-radius:4px;cursor:pointer;" title="Reset to All Sectors">✕ All Sectors</button>
+        </div>
+
+        <!-- 2. Multi-Locality Searchable Checkbox Dropdown -->
+        <div style="display:flex;align-items:center;gap:6px;position:relative;" id="locality-multi-dropdown-wrap">
+          <label style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">📍 Locality:</label>
+          <div style="position:relative;display:inline-block;">
+            <button type="button" class="filter-select" id="locality-select-btn" onclick="toggleLocalityDropdown(event)" style="display:flex;align-items:center;justify-content:space-between;min-width:240px;max-width:320px;padding:5px 12px;font-size:12px;cursor:pointer;background:var(--card-bg, #1e293b);border:1px solid var(--border, #334155);border-radius:4px;color:var(--text);gap:8px;">
+              <span id="locality-select-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">-- All Localities ({{ analysis.locality_summaries|length }} Localities) --</span>
+              <span style="font-size:9px;color:var(--text-muted);">▼</span>
+            </button>
+            
+            <!-- Dropdown Menu -->
+            <div id="locality-dropdown-menu" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:1050;width:360px;background:var(--card-bg, #1e293b);border:1px solid var(--border, #334155);border-radius:8px;box-shadow:0 12px 28px rgba(0,0,0,0.5);padding:10px;">
+              <div style="display:flex;gap:6px;margin-bottom:8px;">
+                <input type="text" id="locality-filter-search" placeholder="Quick search {{ analysis.locality_summaries|length }} localities..." class="filter-input" style="font-size:11px;padding:4px 8px;flex:1;" oninput="onSearchLocalitiesInDropdown(this.value)">
+                <button type="button" class="mini-btn" onclick="toggleAllLocalitiesMulti(true)">Select All</button>
+                <button type="button" class="mini-btn" onclick="toggleAllLocalitiesMulti(false)">Clear</button>
+              </div>
+              <div id="locality-cb-scrollbox" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;padding-right:4px;">
+                {% for s in analysis.locality_summaries %}
+                <label class="loc-item-label" data-loc="{{ s.locality|lower }}" data-sec="{{ s.sector|lower }}" data-sector-allowed="1" style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;cursor:pointer;padding:4px 6px;border-radius:4px;color:var(--text);user-select:none;">
+                  <div style="display:flex;align-items:center;gap:8px;overflow:hidden;">
+                    <input type="checkbox" class="locality-multi-cb" value="{{ s.locality }}" data-sector="{{ s.sector }}" {% if explicit_selection and s.locality in selected_localities %}checked{% endif %} onchange="onLocalityMultiCheckboxChange()">
+                    <span class="loc-name-text" onclick="selectSingleLocality('{{ s.locality|escape }}')" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="Click to filter only {{ s.locality }}">{{ s.locality }}</span>
+                  </div>
+                  <button type="button" class="mini-btn" onclick="selectSingleLocality('{{ s.locality|escape }}')" style="font-size:10px;padding:1px 6px;" title="Select only {{ s.locality }}">Only</button>
+                </label>
+                {% endfor %}
+              </div>
+              <div style="display:flex;justify-content:flex-end;align-items:center;margin-top:8px;padding-top:6px;border-top:1px solid var(--border-bright, rgba(255,255,255,0.08));">
+                <button type="button" class="btn btn-sm btn-primary" onclick="closeLocalityDropdown()" style="font-size:11px;padding:3px 12px;">Done</button>
+              </div>
+            </div>
+          </div>
+          <button type="button" id="btn-clear-loc" onclick="resetLocFilterOnly()" style="display:none;font-size:11px;padding:3px 8px;background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#f87171;border-radius:4px;cursor:pointer;" title="Reset to All Localities">✕ All Localities</button>
+        </div>
+
+        <!-- 3. Sequence / Ordering Toggle (Locality First vs Sector First) -->
+        <div style="display:flex;align-items:center;gap:6px;padding-left:6px;border-left:1px solid var(--border-bright, rgba(255,255,255,0.1));">
+          <span style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">Order:</span>
+          <button type="button" class="btn btn-sm" id="btn-col-order" onclick="toggleColOrder()" style="display:flex;align-items:center;gap:6px;font-weight:600;background:rgba(99,102,241,0.15);border-color:#6366f1;color:#818cf8;" title="Swap order between Locality and Sector in table and PDF/Print">
+            <span id="order-icon">📍 ➔ 🏢</span>
+            <span id="order-text">Locality First</span>
+          </button>
+        </div>
+
+        <!-- 4. Column Visibility (Locality & Sector) -->
+        <div style="display:flex;align-items:center;gap:8px;padding-left:6px;border-left:1px solid var(--border-bright, rgba(255,255,255,0.1));">
+          <span style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">Show:</span>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;cursor:pointer;margin:0;">
+            <input type="checkbox" id="chk-show-loc" checked onchange="onToggleColLoc(this.checked)"> 📍 Locality
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;cursor:pointer;margin:0;">
+            <input type="checkbox" id="chk-show-sec" checked onchange="onToggleColSec(this.checked)"> 🏢 Sector
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;cursor:pointer;margin:0;color:var(--text-muted);" title="Show localities where all connections and arrears are zero (Hidden by default)">
+            <input type="checkbox" id="chk-show-zero" onchange="onToggleShowZero(this.checked)"> 0️⃣ Zero Rows
+          </label>
+        </div>
+
+        <!-- 5. Clear Filter -->
+        <div style="display:flex;gap:6px;margin-left:auto;align-items:center;">
+          <button type="button" class="btn btn-sm" onclick="resetSectorLocalityFilters()">Clear Filter</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUMMARY REPORT TABLE (Shown if mode is summary or both) -->
+    {% if report_mode in ('summary', 'both') %}
+    <div class="card" style="margin-bottom:24px;" id="summary-table-card">
+      <div class="card-header" style="display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;width:100%;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="card-title" style="margin:0;">Locality Arrears Summary Table</div>
+            <span class="chip" id="table-loc-chip" style="font-size:11px;">
+              <span id="header-selected-count">{{ analysis.active_localities|length }}</span> of {{ analysis.locality_summaries|length }} Selected
+            </span>
+          </div>
+
+          <!-- Filter & Sort Toolbar inside Table Header -->
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <!-- Category Switcher: All / Domestic / Commercial -->
+            <div style="display:inline-flex;gap:2px;background:var(--nav-hover, rgba(0,0,0,0.06));padding:2px;border-radius:6px;border:1px solid var(--border);">
+              <button type="button" class="btn btn-sm btn-primary" id="btn-cat-all" onclick="setFilterCategory('all')" style="font-size:11px;padding:3px 8px;">🌐 All</button>
+              <button type="button" class="btn btn-sm" id="btn-cat-dom" onclick="setFilterCategory('domestic')" style="font-size:11px;padding:3px 8px;color:#34d399;font-weight:600;">🏠 Domestic</button>
+              <button type="button" class="btn btn-sm" id="btn-cat-comm" onclick="setFilterCategory('commercial')" style="font-size:11px;padding:3px 8px;color:#38bdf8;font-weight:600;">🏢 Commercial</button>
+            </div>
+
+            <!-- Quick Search -->
+            <input type="text" id="summary-search-input" placeholder="Quick search locality / sector..." class="filter-input" style="font-size:12px;padding:5px 10px;width:170px;" oninput="onSearchTable(this.value)">
+
+            <!-- Higher to Lower / Lower to Higher Filter Dropdown -->
+            <select id="summary-sort-select" class="filter-select" style="font-size:12px;padding:5px 10px;" onchange="onChangeSort(this.value)">
+              <option value="arrears_desc" {% if sort_by == 'arrears_desc' %}selected{% endif %}>Sort: Highest Arrears First (High → Low)</option>
+              <option value="arrears_asc" {% if sort_by == 'arrears_asc' %}selected{% endif %}>Sort: Lowest Arrears First (Low → High)</option>
+              <option value="name_asc" {% if sort_by == 'name_asc' %}selected{% endif %}>Sort: Locality Name (A → Z)</option>
+              <option value="name_desc" {% if sort_by == 'name_desc' %}selected{% endif %}>Sort: Locality Name (Z → A)</option>
+              <option value="conn_desc" {% if sort_by == 'conn_desc' %}selected{% endif %}>Sort: Most Connections First</option>
+              <option value="conn_asc" {% if sort_by == 'conn_asc' %}selected{% endif %}>Sort: Least Connections First</option>
+            </select>
+
+            <!-- Checkbox action buttons -->
+            <button type="button" class="btn btn-sm" onclick="toggleAllTableCheckboxes(true)" title="Check all visible localities">Select All</button>
+            <button type="button" class="btn btn-sm" onclick="toggleAllTableCheckboxes(false)" title="Uncheck all visible localities">Deselect All</button>
+            <button type="button" class="btn btn-sm btn-primary" onclick="selectOnlyWithArrears()" title="Check only localities with arrears > 0">Only Arrears (&gt; 0)</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table" id="locality-summary-table">
+          <thead>
+            <tr id="locality-summary-head-tr">
+              <th style="width:36px;text-align:center;" id="th-col-check">
+                <input type="checkbox" id="th-select-all" checked title="Toggle all visible rows" onchange="toggleAllTableCheckboxes(this.checked)" style="cursor:pointer;">
+              </th>
+              <th style="width:44px;text-align:center;" id="th-col-sr">#</th>
+              <th class="sortable-th col-locality" onclick="sortTableByCol('locality')" style="cursor:pointer;" title="Click to sort by Locality Name" id="th-col-locality">
+                Locality Name <span class="th-sort-arrow" id="sort-arrow-locality">⬍</span>
+              </th>
+              <th class="sortable-th col-sector" onclick="sortTableByCol('sector')" style="cursor:pointer;" title="Click to sort by Sector" id="th-col-sector">
+                Sector <span class="th-sort-arrow" id="sort-arrow-sector">⬍</span>
+              </th>
+              <th class="sortable-th col-reg_count" style="text-align:center;cursor:pointer;" onclick="sortTableByCol('reg_count')" title="Click to sort by Regular Connections">
+                Regular Conns <span class="th-sort-arrow" id="sort-arrow-reg_count">⬍</span>
+              </th>
+              <th class="sortable-th col-reg_arr" style="text-align:center;cursor:pointer;" onclick="sortTableByCol('reg_arr')" title="Click to sort by Regular Arrears">
+                Regular Arrears (PKR) <span class="th-sort-arrow" id="sort-arrow-reg_arr">⬍</span>
+              </th>
+              <th class="sortable-th col-sus_count" style="text-align:center;cursor:pointer;" onclick="sortTableByCol('sus_count')" title="Click to sort by Suspended Connections">
+                Suspended Conns <span class="th-sort-arrow" id="sort-arrow-sus_count">⬍</span>
+              </th>
+              <th class="sortable-th col-sus_arr" style="text-align:center;cursor:pointer;" onclick="sortTableByCol('sus_arr')" title="Click to sort by Suspended Arrears">
+                Suspended Arrears (PKR) <span class="th-sort-arrow" id="sort-arrow-sus_arr">⬍</span>
+              </th>
+              <th class="sortable-th col-cls_count" style="text-align:center;cursor:pointer;display:none;" onclick="sortTableByCol('cls_count')" title="Click to sort by Closed Connections">
+                Closed Conns <span class="th-sort-arrow" id="sort-arrow-cls_count">⬍</span>
+              </th>
+              <th class="sortable-th col-cls_arr" style="text-align:center;cursor:pointer;display:none;" onclick="sortTableByCol('cls_arr')" title="Click to sort by Closed Arrears">
+                Closed Arrears (PKR) <span class="th-sort-arrow" id="sort-arrow-cls_arr">⬍</span>
+              </th>
+              <th class="sortable-th col-total_count" style="text-align:center;cursor:pointer;" onclick="sortTableByCol('total_count')" title="Click to sort by Combined Connections">
+                Combined Conns <span class="th-sort-arrow" id="sort-arrow-total_count">⬍</span>
+              </th>
+              <th class="sortable-th col-total_arr" style="text-align:center;cursor:pointer;" onclick="sortTableByCol('total_arr')" title="Click to sort by Combined Total Arrears">
+                Combined Total Arrears (PKR) <span class="th-sort-arrow" id="sort-arrow-total_arr">⬍</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody id="locality-summary-tbody">
+            {% for s in analysis.locality_summaries %}
+            {% set is_zero = (s.regular_count == 0 and s.suspended_count == 0 and s.total_arrears == 0) %}
+            <tr class="loc-summary-row"
+                data-locality="{{ s.locality }}"
+                data-sector="{{ s.sector }}"
+                data-locality-lower="{{ s.locality|lower }}"
+                data-sector-lower="{{ s.sector|lower }}"
+                data-reg-count="{{ s.regular_count }}"
+                data-reg-arr="{{ s.regular_arrears }}"
+                data-sus-count="{{ s.suspended_count }}"
+                data-sus-arr="{{ s.suspended_arrears }}"
+                data-cls-count="{{ s.closed_count }}"
+                data-cls-arr="{{ s.closed_arrears }}"
+                data-total-count="{{ s.total_count }}"
+                data-total-arr="{{ s.total_arrears }}"
+                data-is-zero="{% if is_zero %}1{% else %}0{% endif %}"
+                style="{% if is_zero %}display:none;{% endif %}">
+              <td style="text-align:center;">
+                <input type="checkbox"
+                       class="loc-row-checkbox"
+                       value="{{ s.locality }}"
+                       {% if explicit_selection %}{% if s.locality in selected_localities %}checked{% endif %}{% else %}{% if (s.total_arrears > 0 or s.total_count > 0) and not is_zero %}checked{% endif %}{% endif %}
+                       onchange="onRowCheckboxChange(this)"
+                       style="cursor:pointer;">
+              </td>
+              <td class="row-sr-num" style="text-align:center;color:var(--text-muted);">{{ loop.index }}</td>
+              <td class="col-locality"><strong>{{ s.locality }}</strong></td>
+              <td class="col-sector"><span class="chip" style="font-size:10px;padding:2px 6px;">{{ s.sector }}</span></td>
+              <td class="col-reg_count" style="text-align:center;">{{ s.regular_count|int }}</td>
+              <td class="col-reg_arr" style="text-align:center;font-family:monospace;">{{ s.regular_arrears_fmt }}</td>
+              <td class="col-sus_count" style="text-align:center;">{{ s.suspended_count|int }}</td>
+              <td class="col-sus_arr" style="text-align:center;font-family:monospace;">{{ s.suspended_arrears_fmt }}</td>
+              <td class="col-cls_count" style="text-align:center;display:none;">{{ s.closed_count|int }}</td>
+              <td class="col-cls_arr" style="text-align:center;font-family:monospace;display:none;">{{ s.closed_arrears_fmt }}</td>
+              <td class="col-total_count" style="text-align:center;font-weight:600;">{{ s.total_count|int }}</td>
+              <td class="col-total_arr" style="text-align:center;font-weight:700;font-family:monospace;color:var(--danger, #ef4444);">{{ s.total_arrears_fmt }}</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="12" style="text-align:center;padding:20px;color:var(--text-muted);">
+                No localities found.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr style="background:var(--nav-hover, rgba(0,0,0,0.04));font-weight:700;">
+              <td colspan="4" style="text-align:right;" id="foot-label-cell">SELECTED GRAND TOTAL:</td>
+              <td class="col-reg_count" style="text-align:center;" id="foot-reg-count">{{ analysis.grand_total.regular_count|int }}</td>
+              <td class="col-reg_arr" style="text-align:center;font-family:monospace;" id="foot-reg-arr">{{ analysis.grand_total.regular_arrears_fmt }}</td>
+              <td class="col-sus_count" style="text-align:center;" id="foot-sus-count">{{ analysis.grand_total.suspended_count|int }}</td>
+              <td class="col-sus_arr" style="text-align:center;font-family:monospace;" id="foot-sus-arr">{{ analysis.grand_total.suspended_arrears_fmt }}</td>
+              <td class="col-cls_count" style="text-align:center;display:none;" id="foot-cls-count">{{ analysis.grand_total.closed_count|int }}</td>
+              <td class="col-cls_arr" style="text-align:center;font-family:monospace;display:none;" id="foot-cls-arr">{{ analysis.grand_total.closed_arrears_fmt }}</td>
+              <td class="col-total_count" style="text-align:center;" id="foot-comb-count">{{ analysis.grand_total.total_count|int }}</td>
+              <td class="col-total_arr" style="text-align:center;font-family:monospace;color:var(--danger, #ef4444);" id="foot-comb-arr">{{ analysis.grand_total.total_arrears_fmt }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- DETAILED CONSUMER REPORTS PER LOCALITY (Shown if mode is detailed or both) -->
+    {% if report_mode in ('detailed', 'both') %}
+    <div style="margin-top:28px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h2 style="font-size:18px;font-weight:600;margin:0;">Detailed Consumer Arrears by Locality</h2>
+        <span style="font-size:12px;color:var(--text-muted);">
+          Displaying selected columns for selected localities
+        </span>
+      </div>
+
+      {% for s in analysis.locality_summaries %}
+      {% set is_zero = (s.regular_count == 0 and s.suspended_count == 0 and s.total_arrears == 0) %}
+      {% set loc_records = detail_records.get(s.locality, []) %}
+      <div class="card loc-detail-card" id="detail-card-{{ loop.index }}" data-locality="{{ s.locality }}" data-sector="{{ s.sector }}" data-is-zero="{% if is_zero %}1{% else %}0{% endif %}" style="margin-bottom:20px;{% if is_zero %}display:none;{% endif %}">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;background:var(--nav-hover, rgba(0,0,0,0.02));">
+          <div>
+            <span style="font-size:16px;font-weight:700;color:var(--text);">{{ s.locality }}</span>
+            <span class="chip" style="font-size:10px;margin-left:8px;">Sector: {{ s.sector }}</span>
+          </div>
+          <div style="display:flex;gap:10px;font-size:11px;color:var(--text-muted);align-items:center;flex-wrap:wrap;">
+            <span>Regular: <strong>{{ s.regular_count }}</strong> ({{ s.regular_arrears_fmt }})</span>
+            <span>&bull;</span>
+            <span>Suspended: <strong>{{ s.suspended_count }}</strong> ({{ s.suspended_arrears_fmt }})</span>
+            <span>&bull;</span>
+            <span>Closed: <strong>{{ s.closed_count }}</strong> ({{ s.closed_arrears_fmt }})</span>
+            <span>&bull;</span>
+            <span style="font-weight:700;color:var(--text);">Total: {{ s.total_arrears_fmt }}</span>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width:40px;text-align:center;">#</th>
+                {% for col in all_available_cols %}
+                <th class="detail-data-th" data-col-name="{{ col }}" style="{% if col not in selected_cols %}display:none;{% endif %}{% if 'arrear' in col.lower() or 'rate' in col.lower() %}text-align:right;{% endif %}">{{ col }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for rec in loc_records %}
+              <tr>
+                <td style="text-align:center;color:var(--text-muted);font-size:11px;">{{ loop.index }}</td>
+                {% for col in all_available_cols %}
+                <td class="detail-data-td" data-col-name="{{ col }}" style="{% if col not in selected_cols %}display:none;{% endif %}{% if 'arrear' in col.lower() or 'rate' in col.lower() %}text-align:right;font-family:monospace;font-weight:600;{% endif %}">
+                  {{ rec.get(col, '') }}
+                </td>
+                {% endfor %}
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="{{ all_available_cols|length + 1 }}" style="text-align:center;padding:16px;color:var(--text-muted);">
+                  No active consumer records with arrears in this locality.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% endif %}
+
+  </div>
+</div>
+
+<script>
+  // Format currency / amounts
+  function formatPKR(val) {
+    return 'PKR ' + Math.round(val || 0).toLocaleString('en-US');
+  }
+  function formatAmount(val) {
+    return Math.round(val || 0).toLocaleString('en-US');
+  }
+
+  // Live real-time recalculation of checked rows
+  function recalculateTotals() {
+    var rows = document.querySelectorAll('#locality-summary-tbody tr.loc-summary-row');
+    var regCount = 0, regArr = 0.0;
+    var susCount = 0, susArr = 0.0;
+    var clsCount = 0, clsArr = 0.0;
+    var totalCount = 0, totalArr = 0.0;
+    var checkedCount = 0;
+    var totalRows = rows.length;
+
+    var incClosedChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="cls_arr"]');
+    var incClosed = incClosedChip ? incClosedChip.classList.contains('active') : false;
+
+    var selectedLocalities = [];
+
+    rows.forEach(function(row) {
+      var cb = row.querySelector('.loc-row-checkbox');
+      var isChecked = cb ? cb.checked : true;
+      var locName = row.dataset.locality;
+
+      var regC = parseInt(row.dataset.regCount || '0', 10);
+      var regA = parseFloat(row.dataset.regArr || '0');
+      var susC = parseInt(row.dataset.susCount || '0', 10);
+      var susA = parseFloat(row.dataset.susArr || '0');
+      var clsC = parseInt(row.dataset.clsCount || '0', 10);
+      var clsA = parseFloat(row.dataset.clsArr || '0');
+
+      var rowTotC = incClosed ? (regC + susC + clsC) : (regC + susC);
+      var rowTotA = incClosed ? (regA + susA + clsA) : (regA + susA);
+
+      row.dataset.totalCount = rowTotC;
+      row.dataset.totalArr = rowTotA;
+
+      var tdTotC = row.querySelector('.col-total_count');
+      var tdTotA = row.querySelector('.col-total_arr');
+      if (tdTotC) tdTotC.textContent = rowTotC.toLocaleString();
+      if (tdTotA) tdTotA.textContent = formatAmount(rowTotA);
+
+      if (isChecked) {
+        checkedCount++;
+        selectedLocalities.push(locName);
+        row.style.opacity = '1';
+        row.style.background = '';
+
+        regCount += regC;
+        regArr += regA;
+        susCount += susC;
+        susArr += susA;
+        clsCount += clsC;
+        clsArr += clsA;
+        totalCount += rowTotC;
+        totalArr += rowTotA;
+      } else {
+        row.style.opacity = '0.45';
+        row.style.background = 'rgba(0,0,0,0.03)';
+      }
+
+      // Sync detail cards visibility
+      var rowSec = (row.dataset.sector || '').trim();
+      var detailCard = document.querySelector('.loc-detail-card[data-locality="' + CSS.escape(locName) + '"][data-sector="' + CSS.escape(rowSec) + '"]');
+      if (!detailCard) {
+        detailCard = document.querySelector('.loc-detail-card[data-locality="' + CSS.escape(locName) + '"]');
+      }
+      if (detailCard) {
+        detailCard.style.display = (isChecked && row.style.display !== 'none') ? '' : 'none';
+      }
+    });
+
+    // If summary rows are not in DOM (detailed-only mode), filter detail cards directly from filters
+    if (rows.length === 0) {
+      var selSectors = (typeof getSelectedSectors === 'function') ? getSelectedSectors() : [];
+      var hasSectorFilter = (selSectors.length > 0);
+      var selLocalities = (typeof getSelectedLocalities === 'function') ? getSelectedLocalities() : [];
+      var hasLocFilter = (selLocalities.length > 0);
+      var chkShowZero = document.getElementById('chk-show-zero');
+      var showZero = chkShowZero ? chkShowZero.checked : false;
+
+      var allCards = document.querySelectorAll('.loc-detail-card');
+      allCards.forEach(function(card) {
+        var cardSec = (card.dataset.sector || '').trim();
+        var cardLoc = (card.dataset.locality || '').trim();
+
+        var isCommercial = (cardSec.toUpperCase() === 'COMMERCIAL' && cardLoc.toUpperCase().indexOf('COLONY') === -1);
+        var matchCategory = true;
+        if (currentCategory === 'commercial') {
+          matchCategory = isCommercial;
+        } else if (currentCategory === 'domestic') {
+          matchCategory = (cardSec.toUpperCase() !== 'COMMERCIAL');
+        }
+
+        var matchSector = !hasSectorFilter || (selSectors.indexOf(cardSec) !== -1);
+        var matchLoc = !hasLocFilter || (selLocalities.indexOf(cardLoc) !== -1);
+
+        var isZero = card.dataset.isZero === '1';
+        var matchZero = showZero || !isZero;
+
+        var isVisible = matchCategory && matchSector && matchLoc && matchZero;
+        card.style.display = isVisible ? '' : 'none';
+        if (isVisible) {
+          checkedCount++;
+          selectedLocalities.push(cardLoc);
+        }
+      });
+    }
+
+    // Update table footer
+    var elRegCount = document.getElementById('foot-reg-count');
+    var elRegArr = document.getElementById('foot-reg-arr');
+    var elSusCount = document.getElementById('foot-sus-count');
+    var elSusArr = document.getElementById('foot-sus-arr');
+    var elClsCount = document.getElementById('foot-cls-count');
+    var elClsArr = document.getElementById('foot-cls-arr');
+    var elCombCount = document.getElementById('foot-comb-count');
+    var elCombArr = document.getElementById('foot-comb-arr');
+
+    if (elRegCount) elRegCount.textContent = regCount.toLocaleString();
+    if (elRegArr) elRegArr.textContent = formatAmount(regArr);
+    if (elSusCount) elSusCount.textContent = susCount.toLocaleString();
+    if (elSusArr) elSusArr.textContent = formatAmount(susArr);
+    if (elClsCount) elClsCount.textContent = clsCount.toLocaleString();
+    if (elClsArr) elClsArr.textContent = formatAmount(clsArr);
+    if (elCombCount) elCombCount.textContent = totalCount.toLocaleString();
+    if (elCombArr) elCombArr.textContent = formatAmount(totalArr);
+
+    // Update top stat cards
+    var statTiles = document.querySelectorAll('.stat-grid .stat-card');
+    if (statTiles.length >= 5) {
+      // Tile 1: Regular
+      statTiles[0].querySelector('.stat-value').textContent = regCount.toLocaleString();
+      statTiles[0].querySelector('.stat-delta').textContent = 'Arrears: ' + formatPKR(regArr);
+      // Tile 2: Suspended
+      statTiles[1].querySelector('.stat-value').textContent = susCount.toLocaleString();
+      statTiles[1].querySelector('.stat-delta').textContent = 'Arrears: ' + formatPKR(susArr);
+      // Tile 3: Closed
+      statTiles[2].querySelector('.stat-value').textContent = clsCount.toLocaleString();
+      statTiles[2].querySelector('.stat-delta').textContent = 'Arrears: ' + formatPKR(clsArr);
+      // Tile 4: Combined Arrears
+      statTiles[3].querySelector('.stat-value').textContent = formatPKR(totalArr);
+      // Tile 5: Combined Conns
+      statTiles[4].querySelector('.stat-value').textContent = totalCount.toLocaleString();
+    }
+
+    // Update header & action bar counts
+    var elHeaderCount = document.getElementById('header-selected-count');
+    var elActionCount = document.getElementById('action-bar-selected-count');
+    if (elHeaderCount) elHeaderCount.textContent = checkedCount;
+    if (elActionCount) elActionCount.textContent = checkedCount;
+
+    // Master check state
+    var masterCheck = document.getElementById('th-select-all');
+    if (masterCheck) {
+      masterCheck.checked = (checkedCount === totalRows && totalRows > 0);
+      masterCheck.indeterminate = (checkedCount > 0 && checkedCount < totalRows);
+    }
+
+    // Update export URLs
+    syncExportLinks(selectedLocalities);
+  }
+
+  function onRowCheckboxChange() {
+    recalculateTotals();
+  }
+
+  function toggleAllTableCheckboxes(checkVal) {
+    var rows = document.querySelectorAll('#locality-summary-tbody tr.loc-summary-row');
+    rows.forEach(function(row) {
+      if (row.style.display !== 'none') {
+        var cb = row.querySelector('.loc-row-checkbox');
+        if (cb) cb.checked = checkVal;
+      }
+    });
+    recalculateTotals();
+  }
+
+  // Sector & Locality Hierarchical Filter with Multi-Sector Selection
+  var sectorLocalityMap = {{ sector_locality_map|tojson }};
+  var currentColOrder = 'loc_first'; // 'loc_first' or 'sec_first'
+
+  function toggleSectorDropdown(e) {
+    if (e) e.stopPropagation();
+    var menu = document.getElementById('sector-dropdown-menu');
+    if (menu) {
+      var isClosed = (menu.style.display === 'none' || !menu.style.display);
+      menu.style.display = isClosed ? 'block' : 'none';
+      if (isClosed) closeLocalityDropdown();
+    }
+  }
+
+  function closeSectorDropdown() {
+    var menu = document.getElementById('sector-dropdown-menu');
+    if (menu) menu.style.display = 'none';
+  }
+
+  function toggleLocalityDropdown(e) {
+    if (e) e.stopPropagation();
+    var menu = document.getElementById('locality-dropdown-menu');
+    if (menu) {
+      var isClosed = (menu.style.display === 'none' || !menu.style.display);
+      menu.style.display = isClosed ? 'block' : 'none';
+      if (isClosed) closeSectorDropdown();
+    }
+  }
+
+  function closeLocalityDropdown() {
+    var menu = document.getElementById('locality-dropdown-menu');
+    if (menu) menu.style.display = 'none';
+  }
+
+  document.addEventListener('click', function(e) {
+    var wrapSec = document.getElementById('sector-multi-dropdown-wrap');
+    var menuSec = document.getElementById('sector-dropdown-menu');
+    if (wrapSec && menuSec && !wrapSec.contains(e.target)) {
+      menuSec.style.display = 'none';
+    }
+
+    var wrapLoc = document.getElementById('locality-multi-dropdown-wrap');
+    var menuLoc = document.getElementById('locality-dropdown-menu');
+    if (wrapLoc && menuLoc && !wrapLoc.contains(e.target)) {
+      menuLoc.style.display = 'none';
+    }
+  });
+
+  function onSearchSectorsInDropdown(query) {
+    var q = (query || '').trim().toLowerCase();
+    var labels = document.querySelectorAll('#sector-cb-scrollbox .sec-item-label');
+    labels.forEach(function(lbl) {
+      var name = lbl.dataset.sec || '';
+      lbl.style.display = (!q || name.indexOf(q) !== -1) ? 'flex' : 'none';
+    });
+  }
+
+  function toggleAllSectorsMulti(checkAll) {
+    var boxes = document.querySelectorAll('#sector-cb-scrollbox .sector-multi-cb');
+    boxes.forEach(function(cb) {
+      var parent = cb.closest('.sec-item-label');
+      if (!parent || parent.style.display !== 'none') {
+        cb.checked = checkAll;
+      }
+    });
+    onSectorMultiCheckboxChange();
+  }
+
+  function selectCommercialOnly() {
+    var boxes = document.querySelectorAll('#sector-cb-scrollbox .sector-multi-cb');
+    boxes.forEach(function(cb) {
+      cb.checked = (cb.value.toLowerCase().indexOf('commercial') !== -1);
+    });
+    onSectorMultiCheckboxChange();
+  }
+
+  function getSelectedSectors() {
+    var boxes = document.querySelectorAll('#sector-cb-scrollbox .sector-multi-cb:checked');
+    var list = [];
+    boxes.forEach(function(cb) {
+      list.push(cb.value.trim());
+    });
+    return list;
+  }
+
+  function selectSingleSector(secName) {
+    var boxes = document.querySelectorAll('#sector-cb-scrollbox .sector-multi-cb');
+    boxes.forEach(function(cb) {
+      cb.checked = (cb.value.trim().toLowerCase() === secName.trim().toLowerCase());
+    });
+    closeSectorDropdown();
+    onSectorMultiCheckboxChange();
+  }
+
+  function resetSectorFilterOnly() {
+    var boxes = document.querySelectorAll('#sector-cb-scrollbox .sector-multi-cb');
+    boxes.forEach(function(cb) { cb.checked = false; });
+    var searchInput = document.getElementById('sector-filter-search');
+    if (searchInput) searchInput.value = '';
+    onSearchSectorsInDropdown('');
+    onSectorMultiCheckboxChange();
+  }
+
+  // Locality Multi-select Helper Functions
+  function onSearchLocalitiesInDropdown(query) {
+    var q = (query || '').trim().toLowerCase();
+    var labels = document.querySelectorAll('#locality-cb-scrollbox .loc-item-label');
+    labels.forEach(function(lbl) {
+      var name = lbl.dataset.loc || '';
+      var inSector = (lbl.dataset.sectorAllowed !== '0');
+      var matchQ = (!q || name.indexOf(q) !== -1);
+      lbl.style.display = (inSector && matchQ) ? 'flex' : 'none';
+    });
+  }
+
+  function toggleAllLocalitiesMulti(checkAll) {
+    var boxes = document.querySelectorAll('#locality-cb-scrollbox .locality-multi-cb');
+    boxes.forEach(function(cb) {
+      var parent = cb.closest('.loc-item-label');
+      if (!parent || parent.style.display !== 'none') {
+        cb.checked = checkAll;
+      }
+    });
+    onLocalityMultiCheckboxChange();
+  }
+
+  function selectSingleLocality(locName) {
+    var boxes = document.querySelectorAll('#locality-cb-scrollbox .locality-multi-cb');
+    boxes.forEach(function(cb) {
+      cb.checked = (cb.value.trim().toLowerCase() === locName.trim().toLowerCase());
+    });
+    closeLocalityDropdown();
+    onLocalityMultiCheckboxChange();
+  }
+
+  function resetLocFilterOnly() {
+    var boxes = document.querySelectorAll('#locality-cb-scrollbox .locality-multi-cb');
+    boxes.forEach(function(cb) { cb.checked = false; });
+    var searchInput = document.getElementById('locality-filter-search');
+    if (searchInput) searchInput.value = '';
+    onSearchLocalitiesInDropdown('');
+    onLocalityMultiCheckboxChange();
+  }
+
+  function getSelectedLocalities() {
+    var boxes = document.querySelectorAll('#locality-cb-scrollbox .locality-multi-cb:checked');
+    var list = [];
+    boxes.forEach(function(cb) {
+      list.push(cb.value.trim());
+    });
+    return list;
+  }
+
+  function onLocalityMultiCheckboxChange() {
+    var selLocs = getSelectedLocalities();
+    var lbl = document.getElementById('locality-select-label');
+    var visibleLabels = document.querySelectorAll('#locality-cb-scrollbox .loc-item-label:not([data-sector-allowed="0"])');
+    var totalLocs = visibleLabels.length || document.querySelectorAll('#locality-cb-scrollbox .locality-multi-cb').length;
+
+    if (lbl) {
+      if (selLocs.length === 0) {
+        lbl.textContent = '-- All Localities (' + totalLocs + ' Localities) --';
+      } else if (selLocs.length === 1) {
+        lbl.textContent = '📍 Locality: ' + selLocs[0];
+      } else if (selLocs.length <= 2) {
+        lbl.textContent = '📍 Localities: ' + selLocs.join(', ');
+      } else {
+        lbl.textContent = '📍 ' + selLocs.length + ' Localities Selected';
+      }
+    }
+
+    var btnClearLoc = document.getElementById('btn-clear-loc');
+    if (btnClearLoc) btnClearLoc.style.display = (selLocs.length > 0) ? 'inline-block' : 'none';
+
+    applyFilters();
+  }
+
+  function onSectorMultiCheckboxChange() {
+    var selSectors = getSelectedSectors();
+    var lbl = document.getElementById('sector-select-label');
+    var totalSectors = document.querySelectorAll('#sector-cb-scrollbox .sector-multi-cb').length;
+
+    if (lbl) {
+      if (selSectors.length === 0) {
+        lbl.textContent = '-- All Sectors (' + totalSectors + ' Sectors) --';
+      } else if (selSectors.length === 1) {
+        lbl.textContent = '🏢 Sector: ' + selSectors[0];
+      } else if (selSectors.length <= 2) {
+        lbl.textContent = '🏢 Sectors: ' + selSectors.join(', ');
+      } else {
+        lbl.textContent = '🏢 ' + selSectors.length + ' Sectors Selected';
+      }
+    }
+
+    var btnClearSec = document.getElementById('btn-clear-sector');
+    if (btnClearSec) btnClearSec.style.display = (selSectors.length > 0) ? 'inline-block' : 'none';
+
+    // Update locality availability based on selected sectors
+    var availableLocalities = new Set();
+    if (selSectors.length > 0) {
+      selSectors.forEach(function(sec) {
+        if (sectorLocalityMap[sec]) {
+          sectorLocalityMap[sec].forEach(function(loc) { availableLocalities.add(loc); });
+        }
+      });
+    } else {
+      Object.keys(sectorLocalityMap).forEach(function(sec) {
+        sectorLocalityMap[sec].forEach(function(loc) { availableLocalities.add(loc); });
+      });
+    }
+
+    var locLabels = document.querySelectorAll('#locality-cb-scrollbox .loc-item-label');
+    var countInSector = 0;
+    locLabels.forEach(function(lbl) {
+      var cb = lbl.querySelector('.locality-multi-cb');
+      var locVal = cb ? cb.value.trim() : '';
+      var isAllowed = availableLocalities.has(locVal);
+      lbl.dataset.sectorAllowed = isAllowed ? '1' : '0';
+      if (!isAllowed) {
+        lbl.style.display = 'none';
+        if (cb) cb.checked = false; // uncheck when excluded from active sectors
+      } else {
+        countInSector++;
+        lbl.style.display = 'flex';
+      }
+    });
+
+    var locSearch = document.getElementById('locality-filter-search');
+    if (locSearch && locSearch.value) {
+      onSearchLocalitiesInDropdown(locSearch.value);
+    }
+
+    // Refresh Locality select label & state
+    var selLocs = getSelectedLocalities();
+    var locLbl = document.getElementById('locality-select-label');
+    if (locLbl) {
+      if (selLocs.length === 0) {
+        locLbl.textContent = '-- All Localities (' + countInSector + ' Localities) --';
+      } else if (selLocs.length === 1) {
+        locLbl.textContent = '📍 Locality: ' + selLocs[0];
+      } else if (selLocs.length <= 2) {
+        locLbl.textContent = '📍 Localities: ' + selLocs.join(', ');
+      } else {
+        locLbl.textContent = '📍 ' + selLocs.length + ' Localities Selected';
+      }
+    }
+
+    var btnClearLoc = document.getElementById('btn-clear-loc');
+    if (btnClearLoc) btnClearLoc.style.display = (selLocs.length > 0) ? 'inline-block' : 'none';
+
+    applyFilters();
+  }
+
+  function resetSectorLocalityFilters() {
+    var secBoxes = document.querySelectorAll('#sector-cb-scrollbox .sector-multi-cb');
+    secBoxes.forEach(function(cb) { cb.checked = false; });
+    var secLbl = document.getElementById('sector-select-label');
+    if (secLbl) secLbl.textContent = '-- All Sectors (' + secBoxes.length + ' Sectors) --';
+    var btnClearSec = document.getElementById('btn-clear-sector');
+    if (btnClearSec) btnClearSec.style.display = 'none';
+
+    var secSearch = document.getElementById('sector-filter-search');
+    if (secSearch) secSearch.value = '';
+    onSearchSectorsInDropdown('');
+
+    var locBoxes = document.querySelectorAll('#locality-cb-scrollbox .locality-multi-cb');
+    locBoxes.forEach(function(cb) { cb.checked = false; });
+    var locLabels = document.querySelectorAll('#locality-cb-scrollbox .loc-item-label');
+    locLabels.forEach(function(lbl) {
+      lbl.dataset.sectorAllowed = '1';
+      lbl.style.display = 'flex';
+    });
+    var locSearch = document.getElementById('locality-filter-search');
+    if (locSearch) locSearch.value = '';
+
+    var locLbl = document.getElementById('locality-select-label');
+    if (locLbl) locLbl.textContent = '-- All Localities (' + locBoxes.length + ' Localities) --';
+    var btnClearLoc = document.getElementById('btn-clear-loc');
+    if (btnClearLoc) btnClearLoc.style.display = 'none';
+
+    var searchInput = document.getElementById('summary-search-input');
+    if (searchInput) searchInput.value = '';
+
+    applyFilters();
+  }
+
+  // Category switcher (All / Domestic / Commercial)
+  var currentCategory = 'all'; // 'all', 'domestic', 'commercial'
+
+  function setFilterCategory(cat) {
+    currentCategory = cat || 'all';
+
+    var btnAll = document.getElementById('btn-cat-all');
+    var btnDom = document.getElementById('btn-cat-dom');
+    var btnComm = document.getElementById('btn-cat-comm');
+
+    if (btnAll) {
+      if (currentCategory === 'all') {
+        btnAll.classList.add('btn-primary');
+      } else {
+        btnAll.classList.remove('btn-primary');
+      }
+    }
+    if (btnDom) {
+      if (currentCategory === 'domestic') {
+        btnDom.classList.add('btn-primary');
+        btnDom.style.background = '#059669';
+        btnDom.style.color = '#fff';
+      } else {
+        btnDom.classList.remove('btn-primary');
+        btnDom.style.background = '';
+        btnDom.style.color = '#34d399';
+      }
+    }
+    if (btnComm) {
+      if (currentCategory === 'commercial') {
+        btnComm.classList.add('btn-primary');
+        btnComm.style.background = '#0284c7';
+        btnComm.style.color = '#fff';
+      } else {
+        btnComm.classList.remove('btn-primary');
+        btnComm.style.background = '';
+        btnComm.style.color = '#38bdf8';
+      }
+    }
+
+    applyFilters();
+  }
+
+  function onSearchTable(query) {
+    applyFilters();
+  }
+
+  function applyFilters() {
+    var selSectors = getSelectedSectors();
+    var hasSectorFilter = (selSectors.length > 0);
+    var selLocalities = getSelectedLocalities();
+    var hasLocFilter = (selLocalities.length > 0);
+    var searchInput = document.getElementById('summary-search-input');
+    var query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+
+    var incClosedChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="cls_arr"]');
+    var incClosed = incClosedChip ? incClosedChip.classList.contains('active') : false;
+    var chkShowZero = document.getElementById('chk-show-zero');
+    var showZero = chkShowZero ? chkShowZero.checked : false;
+
+    var rows = document.querySelectorAll('#locality-summary-tbody tr.loc-summary-row');
+    var visibleIdx = 1;
+
+    rows.forEach(function(row) {
+      var rowSec = (row.dataset.sector || '').trim();
+      var rowLoc = (row.dataset.locality || '').trim();
+      var locLower = row.dataset.localityLower || '';
+      var secLower = row.dataset.sectorLower || '';
+
+      var isCommercial = (rowSec.toUpperCase() === 'COMMERCIAL' && rowLoc.toUpperCase().indexOf('COLONY') === -1);
+      var matchCategory = true;
+      if (currentCategory === 'commercial') {
+        matchCategory = isCommercial;
+      } else if (currentCategory === 'domestic') {
+        matchCategory = (rowSec.toUpperCase() !== 'COMMERCIAL');
+      }
+
+      var matchSector = !hasSectorFilter || (selSectors.indexOf(rowSec) !== -1);
+      var matchLoc = !hasLocFilter || (selLocalities.indexOf(rowLoc) !== -1);
+      var matchSearch = !query || (locLower.indexOf(query) !== -1 || secLower.indexOf(query) !== -1);
+
+      // Check if all fields are zero
+      var regC = parseFloat(row.dataset.regCount || '0');
+      var susC = parseFloat(row.dataset.susCount || '0');
+      var clsC = parseFloat(row.dataset.clsCount || '0');
+      var totalA = parseFloat(row.dataset.totalArr || '0');
+      var visCount = incClosed ? (regC + susC + clsC) : (regC + susC);
+      var isAllZero = (visCount === 0 && totalA === 0);
+      var matchZero = showZero || !isAllZero;
+
+      var isVisible = matchCategory && matchSector && matchLoc && matchSearch && matchZero;
+      row.style.display = isVisible ? '' : 'none';
+
+      var cb = row.querySelector('.loc-row-checkbox');
+      if (isVisible) {
+        var sr = row.querySelector('.row-sr-num');
+        if (sr) sr.textContent = visibleIdx++;
+        if (hasSectorFilter || hasLocFilter || currentCategory !== 'all') {
+          if (hasLocFilter) {
+            if (cb) cb.checked = (selLocalities.indexOf(rowLoc) !== -1);
+          } else {
+            if (cb) cb.checked = true;
+          }
+        }
+      } else {
+        if (cb) cb.checked = false;
+      }
+    });
+
+    recalculateTotals();
+  }
+
+  // Column Ordering Switcher (Locality First vs Sector First)
+  function toggleColOrder() {
+    currentColOrder = (currentColOrder === 'loc_first') ? 'sec_first' : 'loc_first';
+    applyColumnOrderDOM();
+    syncExportLinks();
+  }
+
+  function applyColumnOrderDOM() {
+    var btn = document.getElementById('btn-col-order');
+    var icon = document.getElementById('order-icon');
+    var text = document.getElementById('order-text');
+
+    if (currentColOrder === 'sec_first') {
+      if (icon) icon.textContent = '🏢 ➔ 📍';
+      if (text) text.textContent = 'Sector First';
+    } else {
+      if (icon) icon.textContent = '📍 ➔ 🏢';
+      if (text) text.textContent = 'Locality First';
+    }
+
+    // Re-order header th elements
+    var thLoc = document.getElementById('th-col-locality');
+    var thSec = document.getElementById('th-col-sector');
+    var headRow = document.getElementById('locality-summary-head-tr');
+    if (thLoc && thSec && headRow) {
+      if (currentColOrder === 'sec_first') {
+        headRow.insertBefore(thSec, thLoc);
+      } else {
+        headRow.insertBefore(thLoc, thSec);
+      }
+    }
+
+    // Re-order tbody td elements for every row
+    var rows = document.querySelectorAll('#locality-summary-tbody tr.loc-summary-row');
+    rows.forEach(function(row) {
+      var tdLoc = row.querySelector('.col-locality');
+      var tdSec = row.querySelector('.col-sector');
+      if (tdLoc && tdSec) {
+        if (currentColOrder === 'sec_first') {
+          row.insertBefore(tdSec, tdLoc);
+        } else {
+          row.insertBefore(tdLoc, tdSec);
+        }
+      }
+    });
+  }
+
+  // Column Visibility (Locality & Sector)
+  function isLocColVisible() {
+    var chk = document.getElementById('chk-show-loc');
+    return chk ? chk.checked : true;
+  }
+
+  function isSecColVisible() {
+    var chk = document.getElementById('chk-show-sec');
+    return chk ? chk.checked : true;
+  }
+
+  function onToggleColLoc(checked) {
+    if (!checked && !isSecColVisible()) {
+      alert('At least one name column (Locality or Sector) must be visible.');
+      var chk = document.getElementById('chk-show-loc');
+      if (chk) chk.checked = true;
+      return;
+    }
+    document.querySelectorAll('.col-locality').forEach(function(el) {
+      el.style.display = checked ? '' : 'none';
+    });
+    var chip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="locality"]');
+    if (chip) {
+      if (checked) chip.classList.add('active');
+      else chip.classList.remove('active');
+    }
+    adjustFooterColspan();
+    syncExportLinks();
+  }
+
+  function onToggleColSec(checked) {
+    if (!checked && !isLocColVisible()) {
+      alert('At least one name column (Locality or Sector) must be visible.');
+      var chk = document.getElementById('chk-show-sec');
+      if (chk) chk.checked = true;
+      return;
+    }
+    document.querySelectorAll('.col-sector').forEach(function(el) {
+      el.style.display = checked ? '' : 'none';
+    });
+    var chip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="sector"]');
+    if (chip) {
+      if (checked) chip.classList.add('active');
+      else chip.classList.remove('active');
+    }
+    adjustFooterColspan();
+    syncExportLinks();
+  }
+
+  // Sorting Table Rows
+  var currentSortCol = 'total_arr';
+  var currentSortDir = 'desc';
+
+  function onChangeSort(val) {
+    var sortInput = document.getElementById('form-sort-input');
+    if (sortInput) sortInput.value = val;
+
+    if (val === 'arrears_desc') {
+      executeSort('total_arr', 'desc');
+    } else if (val === 'arrears_asc') {
+      executeSort('total_arr', 'asc');
+    } else if (val === 'name_asc') {
+      executeSort('locality', 'asc');
+    } else if (val === 'name_desc') {
+      executeSort('locality', 'desc');
+    } else if (val === 'conn_desc') {
+      executeSort('total_count', 'desc');
+    } else if (val === 'conn_asc') {
+      executeSort('total_count', 'asc');
+    }
+  }
+
+  function sortTableByCol(colKey) {
+    if (currentSortCol === colKey) {
+      currentSortDir = (currentSortDir === 'asc') ? 'desc' : 'asc';
+    } else {
+      currentSortCol = colKey;
+      currentSortDir = (colKey.indexOf('arr') !== -1 || colKey.indexOf('count') !== -1) ? 'desc' : 'asc';
+    }
+
+    var sel = document.getElementById('summary-sort-select');
+    if (sel) {
+      if (colKey === 'total_arr' && currentSortDir === 'desc') sel.value = 'arrears_desc';
+      else if (colKey === 'total_arr' && currentSortDir === 'asc') sel.value = 'arrears_asc';
+      else if (colKey === 'locality' && currentSortDir === 'asc') sel.value = 'name_asc';
+      else if (colKey === 'locality' && currentSortDir === 'desc') sel.value = 'name_desc';
+      else if (colKey === 'total_count' && currentSortDir === 'desc') sel.value = 'conn_desc';
+      else if (colKey === 'total_count' && currentSortDir === 'asc') sel.value = 'conn_asc';
+    }
+
+    executeSort(colKey, currentSortDir);
+  }
+
+  function executeSort(colKey, dir) {
+    currentSortCol = colKey;
+    currentSortDir = dir;
+
+    document.querySelectorAll('.th-sort-arrow').forEach(function(el) { el.textContent = '⬍'; el.style.color = ''; });
+    var activeArrow = document.getElementById('sort-arrow-' + colKey);
+    if (activeArrow) {
+      activeArrow.textContent = (dir === 'desc') ? '▼' : '▲';
+      activeArrow.style.color = 'var(--teal, #10b981)';
+    }
+
+    var tbody = document.getElementById('locality-summary-tbody');
+    if (!tbody) return;
+    var rows = Array.from(tbody.querySelectorAll('tr.loc-summary-row'));
+
+    rows.sort(function(a, b) {
+      var valA, valB;
+      if (colKey === 'locality') {
+        valA = a.dataset.localityLower || '';
+        valB = b.dataset.localityLower || '';
+        return (dir === 'desc') ? valB.localeCompare(valA) : valA.localeCompare(valB);
+      } else if (colKey === 'sector') {
+        valA = a.dataset.sectorLower || '';
+        valB = b.dataset.sectorLower || '';
+        return (dir === 'desc') ? valB.localeCompare(valA) : valA.localeCompare(valB);
+      } else {
+        var attrMap = {
+          'reg_count': 'regCount',
+          'reg_arr': 'regArr',
+          'sus_count': 'susCount',
+          'sus_arr': 'susArr',
+          'cls_count': 'clsCount',
+          'cls_arr': 'clsArr',
+          'total_count': 'totalCount',
+          'total_arr': 'totalArr'
+        };
+        var attr = attrMap[colKey] || 'totalArr';
+        valA = parseFloat(a.dataset[attr] || '0');
+        valB = parseFloat(b.dataset[attr] || '0');
+        return (dir === 'desc') ? (valB - valA) : (valA - valB);
+      }
+    });
+
+    var idx = 1;
+    rows.forEach(function(row) {
+      tbody.appendChild(row);
+      if (row.style.display !== 'none') {
+        var sr = row.querySelector('.row-sr-num');
+        if (sr) sr.textContent = idx++;
+      }
+    });
+
+    syncExportLinks();
+  }
+
+  // Locality selection toolbar: Only With Arrears (> 0)
+  function selectOnlyWithArrears() {
+    var rows = document.querySelectorAll('#locality-summary-tbody tr.loc-summary-row');
+    rows.forEach(function(row) {
+      var cb = row.querySelector('.loc-row-checkbox');
+      var arr = parseFloat(row.dataset.totalArr || '0');
+      if (cb) cb.checked = (arr > 0);
+    });
+    recalculateTotals();
+  }
+
+  // Summary Table Column Toggles (Show / Hide)
+  function toggleSummaryTableCol(chip, colKey) {
+    if (colKey === 'locality') {
+      var willBeActive = !chip.classList.contains('active');
+      if (!willBeActive && !isSecColVisible()) {
+        alert('At least one name column (Locality or Sector) must remain visible.');
+        return;
+      }
+      var chkLoc = document.getElementById('chk-show-loc');
+      if (chkLoc) chkLoc.checked = willBeActive;
+      onToggleColLoc(willBeActive);
+      return;
+    }
+    if (colKey === 'sector') {
+      var willBeActive = !chip.classList.contains('active');
+      if (!willBeActive && !isLocColVisible()) {
+        alert('At least one name column (Locality or Sector) must remain visible.');
+        return;
+      }
+      var chkSec = document.getElementById('chk-show-sec');
+      if (chkSec) chkSec.checked = willBeActive;
+      onToggleColSec(willBeActive);
+      return;
+    }
+
+    chip.classList.toggle('active');
+    var isVisible = chip.classList.contains('active');
+    document.querySelectorAll('.col-' + colKey).forEach(function(el) {
+      el.style.display = isVisible ? '' : 'none';
+    });
+    adjustFooterColspan();
+    if (colKey === 'cls_count' || colKey === 'cls_arr') {
+      recalculateTotals();
+    }
+  }
+
+  function toggleAllSummaryCols(showAll) {
+    var chips = document.querySelectorAll('#summary-col-chips .col-chip');
+    chips.forEach(function(chip) {
+      var colKey = chip.dataset.sumCol;
+      if (showAll) {
+        chip.classList.add('active');
+        document.querySelectorAll('.col-' + colKey).forEach(function(el) { el.style.display = ''; });
+        if (colKey === 'locality') { var c = document.getElementById('chk-show-loc'); if (c) c.checked = true; }
+        if (colKey === 'sector') { var c = document.getElementById('chk-show-sec'); if (c) c.checked = true; }
+      } else {
+        if (colKey === 'locality') return; // keep at least locality
+        chip.classList.remove('active');
+        document.querySelectorAll('.col-' + colKey).forEach(function(el) { el.style.display = 'none'; });
+        if (colKey === 'sector') { var c = document.getElementById('chk-show-sec'); if (c) c.checked = false; }
+      }
+    });
+    adjustFooterColspan();
+    recalculateTotals();
+  }
+
+  function resetDefaultSummaryCols() {
+    var chips = document.querySelectorAll('#summary-col-chips .col-chip');
+    chips.forEach(function(chip) {
+      var colKey = chip.dataset.sumCol;
+      var isDefaultActive = (colKey !== 'cls_count' && colKey !== 'cls_arr');
+      if (isDefaultActive) {
+        chip.classList.add('active');
+        document.querySelectorAll('.col-' + colKey).forEach(function(el) { el.style.display = ''; });
+        if (colKey === 'locality') { var c = document.getElementById('chk-show-loc'); if (c) c.checked = true; }
+        if (colKey === 'sector') { var c = document.getElementById('chk-show-sec'); if (c) c.checked = true; }
+      } else {
+        chip.classList.remove('active');
+        document.querySelectorAll('.col-' + colKey).forEach(function(el) { el.style.display = 'none'; });
+      }
+    });
+    adjustFooterColspan();
+    recalculateTotals();
+  }
+
+  function adjustFooterColspan() {
+    var locVis = isLocColVisible();
+    var secVis = isSecColVisible();
+    var span = 2; // sr + check
+    if (locVis) span++;
+    if (secVis) span++;
+    if (span < 2) span = 2;
+    var footLabel = document.getElementById('foot-label-cell');
+    if (footLabel) {
+      footLabel.colSpan = span;
+    }
+  }
+
+  // Export / Detailed Column Chips
+  function toggleColChip(chip) {
+    chip.classList.toggle('active');
+    updateSelectedCols();
+  }
+
+  function toggleAllColumns(selectAll) {
+    var chips = document.querySelectorAll('#aa-col-chips .col-chip');
+    chips.forEach(function(c) {
+      if (selectAll) c.classList.add('active');
+      else c.classList.remove('active');
+    });
+    updateSelectedCols();
+  }
+
+  function resetDefaultColumns() {
+    var defaults = ["consumer name", "mobile", "connection number", "status", "total arrears"];
+    var chips = document.querySelectorAll('#aa-col-chips .col-chip');
+    chips.forEach(function(c) {
+      var name = (c.dataset.col || '').toLowerCase().trim();
+      var match = defaults.some(function(d) { return name === d || name.indexOf(d) !== -1 || d.indexOf(name) !== -1; });
+      if (match) c.classList.add('active');
+      else c.classList.remove('active');
+    });
+    updateSelectedCols();
+  }
+
+  function updateSelectedCols() {
+    var activeChips = document.querySelectorAll('#aa-col-chips .col-chip.active');
+    var selected = [];
+    activeChips.forEach(function(c) {
+      if (c.dataset.col) selected.push(c.dataset.col);
+    });
+    var input = document.getElementById('selected-cols-input');
+    if (input) input.value = selected.join(',');
+
+    document.querySelectorAll('.detail-data-th, .detail-data-td').forEach(function(cell) {
+      var colName = cell.dataset.colName;
+      if (colName) {
+        cell.style.display = (selected.indexOf(colName) !== -1) ? '' : 'none';
+      }
+    });
+
+    syncExportLinks();
+  }
+
+  function syncExportLinks(selectedLocalities) {
+    var mode = document.querySelector('input[name="mode"]:checked');
+    var modeVal = mode ? mode.value : 'summary';
+    var colsInput = document.getElementById('selected-cols-input');
+    var colsVal = colsInput ? colsInput.value : '';
+
+    var selLocalities = (typeof getSelectedLocalities === 'function') ? getSelectedLocalities() : [];
+    var locStr = '';
+
+    if (selLocalities.length > 0) {
+      selLocalities.forEach(function(loc) {
+        locStr += '&locality=' + encodeURIComponent(loc);
+      });
+    } else if (selectedLocalities && selectedLocalities.length > 0) {
+      var allRows = document.querySelectorAll('#locality-summary-tbody tr.loc-summary-row');
+      var allCards = document.querySelectorAll('.loc-detail-card');
+      var totalItems = allRows.length > 0 ? allRows.length : allCards.length;
+      if (selectedLocalities.length < totalItems) {
+        var locParams = [];
+        selectedLocalities.forEach(function(loc) {
+          locParams.push('&locality=' + encodeURIComponent(loc));
+        });
+        locStr = locParams.join('');
+      }
+    }
+
+    var sortVal = currentSortCol ? (currentSortCol === 'total_arr' && currentSortDir === 'desc' ? 'arrears_desc' : (currentSortCol === 'total_arr' && currentSortDir === 'asc' ? 'arrears_asc' : 'arrears_desc')) : 'arrears_desc';
+
+    // Multi-sector parameters
+    var selSectors = getSelectedSectors();
+    var secParam = '';
+    if (selSectors.length > 0) {
+      selSectors.forEach(function(sec) {
+        secParam += '&sector=' + encodeURIComponent(sec);
+      });
+    }
+
+    var showLoc = isLocColVisible();
+    var showSec = isSecColVisible();
+    var colParams = '&show_loc=' + (showLoc ? '1' : '0') + '&show_sec=' + (showSec ? '1' : '0') + '&order=' + encodeURIComponent(currentColOrder);
+
+    var incClosedChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="cls_arr"]');
+    var incClosed = incClosedChip ? incClosedChip.classList.contains('active') : false;
+    var incClosedParam = '&inc_closed=' + (incClosed ? '1' : '0');
+
+    var chkShowZero = document.getElementById('chk-show-zero');
+    var showZero = chkShowZero ? chkShowZero.checked : false;
+    var incZeroParam = '&inc_zero=' + (showZero ? '1' : '0');
+
+    var printBtn = document.getElementById('print-report-btn');
+    var pdfBtn = document.getElementById('pdf-export-btn');
+    var xlsxBtn = document.getElementById('xlsx-export-btn');
+    var csvBtn = document.getElementById('csv-export-btn');
+
+    var domCatParam = '&category=domestic';
+    if (printBtn) printBtn.href = "{{ url_for('arrears_analysis.arrears_analysis_print') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + domCatParam + secParam + incClosedParam + incZeroParam + colParams + locStr;
+    if (pdfBtn) pdfBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='pdf') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + domCatParam + secParam + incClosedParam + incZeroParam + colParams + locStr;
+    if (xlsxBtn) xlsxBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='xlsx') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + domCatParam + secParam + incClosedParam + incZeroParam + colParams + locStr;
+    if (csvBtn) csvBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='csv') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + domCatParam + secParam + incClosedParam + incZeroParam + colParams + locStr;
+
+    // Commercial Dedicated Export Links
+    var commPrintBtn = document.getElementById('comm-print-btn');
+    var commPdfBtn = document.getElementById('comm-pdf-export-btn');
+    var commXlsxBtn = document.getElementById('comm-xlsx-export-btn');
+    var commCsvBtn = document.getElementById('comm-csv-export-btn');
+    var commSecParam = '&category=commercial&sector=' + encodeURIComponent('COMMERCIAL');
+
+    if (commPrintBtn) commPrintBtn.href = "{{ url_for('arrears_analysis.arrears_analysis_print') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + commSecParam + incClosedParam + incZeroParam + colParams + locStr;
+    if (commPdfBtn) commPdfBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='pdf') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + commSecParam + incClosedParam + incZeroParam + colParams + locStr;
+    if (commXlsxBtn) commXlsxBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='xlsx') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + commSecParam + incClosedParam + incZeroParam + colParams + locStr;
+    if (commCsvBtn) commCsvBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='csv') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + commSecParam + incClosedParam + incZeroParam + colParams + locStr;
+  }
+
+  function onToggleShowZero(checked) {
+    applyFilters();
+    syncExportLinks();
+  }
+
+  // Quick Filter Commercial Sector
+  function filterCommercialSector() {
+    selectCommercialOnly();
+  }
+
+  // Initial sort & live totals execution on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('aa-filter-form');
+    if (form) {
+      form.addEventListener('submit', function() {
+        form.querySelectorAll('input.dynamic-filter-input').forEach(function(el) { el.remove(); });
+        var selSecs = getSelectedSectors();
+        var selLocs = getSelectedLocalities();
+        selSecs.forEach(function(sec) {
+          var inp = document.createElement('input');
+          inp.type = 'hidden';
+          inp.name = 'sector';
+          inp.value = sec;
+          inp.className = 'dynamic-filter-input';
+          form.appendChild(inp);
+        });
+        selLocs.forEach(function(loc) {
+          var inp = document.createElement('input');
+          inp.type = 'hidden';
+          inp.name = 'locality';
+          inp.value = loc;
+          inp.className = 'dynamic-filter-input';
+          form.appendChild(inp);
+        });
+      });
+    }
+
+    var selSectors = getSelectedSectors();
+    var selLocs = getSelectedLocalities();
+    if (selSectors.length > 0) {
+      onSectorMultiCheckboxChange();
+    } else if (selLocs.length > 0) {
+      onLocalityMultiCheckboxChange();
+    } else {
+      var sortSelect = document.getElementById('summary-sort-select');
+      if (sortSelect) {
+        onChangeSort(sortSelect.value);
+      }
+      recalculateTotals();
+    }
+  });
+</script>
+{% endblock %}
