@@ -11383,67 +11383,118 @@ def export_consumer_report(fmt_type: str):
 
 @app.route("/consumer-report/export-detail/<fmt_type>", methods=["POST"])
 def export_consumer_detail(fmt_type: str):
-    """Export filtered consumer-level connection details to PDF, Excel, or CSV."""
-    raw_rows = request.form.get("rows_json") or ""
-    raw_cols = request.form.get("detail_cols") or ""
-    title = (request.form.get("title") or "Consumer Connection Detail").strip()
-    subtitle = (request.form.get("subtitle") or "").strip()
+    """Export filtered consumer-level connection details to PDF, Excel, or CSV with GZIP decompression support."""
+    import gzip, base64
 
-    try:
-        rows = json.loads(raw_rows) if raw_rows else []
-    except Exception:
-        rows = []
+    # Support JSON payload (compressed or raw) as well as form data
+    data = {}
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+    elif request.form:
+        data = request.form
 
-    if not rows:
+    title = (data.get("title") or request.form.get("title") or "Consumer Connection Detail").strip()
+    subtitle = (data.get("subtitle") or request.form.get("subtitle") or "").strip()
+
+    table_rows = []
+    headers = []
+    active_cols = []
+
+    # 1. Compressed GZIP Base64 payload (bypasses Vercel 4.5MB limit)
+    if data.get("is_gzip") and data.get("compressed_data"):
+        try:
+            raw_bytes = base64.b64decode(data.get("compressed_data"))
+            decompressed = gzip.decompress(raw_bytes).decode("utf-8")
+            payload = json.loads(decompressed)
+            headers = payload.get("headers") or []
+            active_cols = payload.get("active_cols") or []
+            table_rows = payload.get("rows") or []
+            title = payload.get("title") or title
+            subtitle = payload.get("subtitle") or subtitle
+        except Exception as e:
+            logger.warning(f"Failed to decompress export payload: {e}")
+            table_rows = []
+
+    # 2. Compact 2D array payload
+    elif data.get("rows") and isinstance(data.get("rows"), list):
+        headers = data.get("headers") or []
+        active_cols = data.get("active_cols") or []
+        table_rows = data.get("rows")
+
+    # 3. Form submit / list of dicts (backward-compatible)
+    else:
+        raw_rows = data.get("rows_json") or request.form.get("rows_json") or ""
+        raw_cols = data.get("detail_cols") or request.form.get("detail_cols") or ""
+
+        try:
+            rows = json.loads(raw_rows) if raw_rows else []
+        except Exception:
+            rows = []
+
+        if not rows:
+            flash("No connection detail rows to export.")
+            return redirect(url_for("consumer_report"))
+
+        COL_LABELS = {
+            "sr": "SR #",
+            "consumer_name": "Consumer Name",
+            "father_name": "F/H Name",
+            "mobile": "Mobile",
+            "sector": "Sector",
+            "locality": "Locality",
+            "address": "Address",
+            "order_number": "Order / Reg No",
+            "rate_type": "Rate Type",
+            "connection": "Connection No.",
+            "old_connection": "Old Connection No.",
+            "connection_date": "Connection Date",
+            "status": "Status",
+            "consumer_status": "Consumer Status",
+        }
+
+        if raw_cols:
+            try:
+                cols = json.loads(raw_cols) if raw_cols.startswith("[") else [c.strip() for c in raw_cols.split(",") if c.strip()]
+            except Exception:
+                cols = [c.strip() for c in raw_cols.split(",") if c.strip()]
+        else:
+            cols = ["sr", "consumer_name", "father_name", "mobile", "sector", "locality", "address", "connection", "rate_type", "status"]
+
+        active_cols = [c for c in cols if c in COL_LABELS]
+        if not active_cols:
+            active_cols = ["sr", "consumer_name", "father_name", "mobile", "locality", "address", "connection", "status"]
+
+        headers = [COL_LABELS[c] for c in active_cols]
+        table_rows = []
+        for i, r in enumerate(rows, 1):
+            row_vals = []
+            for c in active_cols:
+                if c == "sr":
+                    row_vals.append(str(r.get("sr") or i))
+                else:
+                    row_vals.append(str(r.get(c) or ""))
+            table_rows.append(row_vals)
+
+    if not table_rows:
         flash("No connection detail rows to export.")
         return redirect(url_for("consumer_report"))
 
-    COL_LABELS = {
-        "sr": "SR #",
-        "consumer_name": "Consumer Name",
-        "father_name": "F/H Name",
-        "mobile": "Mobile",
-        "sector": "Sector",
-        "locality": "Locality",
-        "address": "Address",
-        "order_number": "Order / Reg No",
-        "rate_type": "Rate Type",
-        "connection": "Connection No.",
-        "old_connection": "Old Connection No.",
-        "connection_date": "Connection Date",
-        "status": "Status",
-        "consumer_status": "Consumer Status",
-    }
-
-    if raw_cols:
-        try:
-            cols = json.loads(raw_cols) if raw_cols.startswith("[") else [c.strip() for c in raw_cols.split(",") if c.strip()]
-        except Exception:
-            cols = [c.strip() for c in raw_cols.split(",") if c.strip()]
-    else:
-        cols = ["sr", "consumer_name", "father_name", "mobile", "sector", "locality", "address", "connection", "rate_type", "status"]
-
-    active_cols = [c for c in cols if c in COL_LABELS]
-    if not active_cols:
-        active_cols = ["sr", "consumer_name", "father_name", "mobile", "locality", "address", "connection", "status"]
-
-    headers = [COL_LABELS[c] for c in active_cols]
-    table_rows = []
-    for i, r in enumerate(rows, 1):
-        row_vals = []
-        for c in active_cols:
-            if c == "sr":
-                row_vals.append(str(r.get("sr") or i))
-            else:
-                row_vals.append(str(r.get(c) or ""))
-        table_rows.append(row_vals)
+    if not headers and active_cols:
+        COL_LABELS = {
+            "sr": "SR #", "consumer_name": "Consumer Name", "father_name": "F/H Name", "mobile": "Mobile",
+            "sector": "Sector", "locality": "Locality", "address": "Address", "order_number": "Order / Reg No",
+            "rate_type": "Rate Type", "connection": "Connection No.", "old_connection": "Old Connection No.",
+            "connection_date": "Connection Date", "status": "Status", "consumer_status": "Consumer Status",
+        }
+        headers = [COL_LABELS.get(c, c.replace("_", " ").title()) for c in active_cols]
 
     safe_title = secure_filename(title.replace(" ", "_")) or "Consumer_Detail"
 
     if fmt_type == "csv":
         out = io.StringIO()
         writer = csv.writer(out)
-        writer.writerow(headers)
+        if headers:
+            writer.writerow(headers)
         for r in table_rows:
             writer.writerow(r)
         return Response(out.getvalue(), mimetype="text/csv",
@@ -11452,7 +11503,7 @@ def export_consumer_detail(fmt_type: str):
     if fmt_type == "xlsx":
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-            pd.DataFrame(table_rows, columns=headers).to_excel(writer, sheet_name="Consumer Details", index=False)
+            pd.DataFrame(table_rows, columns=headers if headers else None).to_excel(writer, sheet_name="Consumer Details", index=False)
         buf.seek(0)
         return Response(buf.getvalue(),
                         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -11467,7 +11518,7 @@ def export_consumer_detail(fmt_type: str):
         from xml.sax.saxutils import escape
 
         # Choose page orientation: landscape if > 6 columns, else portrait
-        is_landscape = len(active_cols) > 6
+        is_landscape = len(headers) > 6
         page_size = landscape(A4) if is_landscape else A4
         page_w, page_h = page_size
         left_m = 8 * mm
@@ -11498,28 +11549,6 @@ def export_consumer_detail(fmt_type: str):
             alignment=1,
             spaceAfter=7,
         )
-        head_style = ParagraphStyle(
-            "DetailHead",
-            parent=styles["Normal"],
-            fontName="Helvetica-Bold",
-            fontSize=7.5,
-            textColor=colors.white,
-            alignment=1,
-        )
-        cell_style = ParagraphStyle(
-            "DetailCell",
-            parent=styles["Normal"],
-            fontName="Helvetica",
-            fontSize=7,
-            leading=8.5,
-            textColor=colors.HexColor("#1e293b"),
-            alignment=0,
-        )
-        cell_center_style = ParagraphStyle(
-            "DetailCellCenter",
-            parent=cell_style,
-            alignment=1,
-        )
 
         elements = [
             Paragraph(escape(title), title_style),
@@ -11530,46 +11559,57 @@ def export_consumer_detail(fmt_type: str):
             elements.append(Paragraph(f"Total Connections: {len(table_rows):,}", subtitle_style))
 
         WEIGHTS = {
-            "sr": 8,
-            "consumer_name": 30,
-            "father_name": 26,
+            "sr": 8, "sr #": 8,
+            "consumer_name": 30, "consumer name": 30,
+            "father_name": 26, "f/h name": 26,
             "mobile": 20,
             "sector": 25,
             "locality": 26,
             "address": 35,
-            "order_number": 16,
+            "order_number": 16, "order / reg no": 16,
             "rate_type": 28,
-            "connection": 18,
-            "old_connection": 16,
+            "connection": 18, "connection no.": 18,
+            "old_connection": 16, "old connection no.": 16,
             "connection_date": 16,
             "status": 15,
             "consumer_status": 15,
         }
-        total_w = sum(WEIGHTS.get(c, 20) for c in active_cols)
-        col_widths = [usable_w * (WEIGHTS.get(c, 20) / total_w) for c in active_cols]
+        active_keys = active_cols if active_cols else [str(h).lower() for h in headers]
+        total_w = sum(WEIGHTS.get(str(c).lower(), 20) for c in active_keys) or 1
+        col_widths = [usable_w * (WEIGHTS.get(str(c).lower(), 20) / total_w) for c in active_keys]
 
-        pdf_table_data = [[Paragraph(escape(h), head_style) for h in headers]]
+        # Use plain strings in Table for fast generation & minimal memory overhead
+        pdf_table_data = [[str(h or "") for h in headers]]
         for row in table_rows:
-            row_cells = []
-            for c_idx, val in enumerate(row):
-                col_name = active_cols[c_idx]
-                st = cell_center_style if col_name in ("sr", "mobile", "connection", "old_connection", "connection_date", "status", "order_number") else cell_style
-                row_cells.append(Paragraph(escape(val), st))
-            pdf_table_data.append(row_cells)
+            pdf_table_data.append([str(c or "") for c in row])
 
         t = Table(pdf_table_data, colWidths=col_widths, repeatRows=1, hAlign="CENTER")
         style_cmds = [
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e293b")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 7.5),
+            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#94a3b8")),
-            ("TOPPADDING", (0, 0), (-1, -1), 2.5),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
-            ("LEFTPADDING", (0, 0), (-1, -1), 2.5),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 2.5),
+            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 1), (-1, -1), 6.5),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("LEFTPADDING", (0, 0), (-1, -1), 2),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 2),
         ]
+        # Set column alignments
+        for c_idx, c_key in enumerate(active_keys):
+            ck = str(c_key).lower()
+            if ck in ("sr", "sr #", "mobile", "connection", "connection no.", "old_connection", "old connection no.", "connection_date", "status", "order_number", "order / reg no"):
+                style_cmds.append(("ALIGN", (c_idx, 1), (c_idx, -1), "CENTER"))
+            else:
+                style_cmds.append(("ALIGN", (c_idx, 1), (c_idx, -1), "LEFT"))
+
         for r_idx in range(1, len(pdf_table_data)):
-            bg = colors.HexColor("#f8fafc") if r_idx % 2 == 0 else colors.white
-            style_cmds.append(("BACKGROUND", (0, r_idx), (-1, r_idx), bg))
+            if r_idx % 2 == 0:
+                style_cmds.append(("BACKGROUND", (0, r_idx), (-1, r_idx), colors.HexColor("#f8fafc")))
 
         t.setStyle(TableStyle(style_cmds))
         elements.append(t)

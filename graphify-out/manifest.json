@@ -1,8 +1,8 @@
 {
   "app.py": {
-    "mtime": 1789206241.158861,
-    "ast_hash": "98053ad568364db186024329a23c2468",
-    "semantic_hash": "98053ad568364db186024329a23c2468"
+    "mtime": 1789209167.232195,
+    "ast_hash": "cfd50f683607b459ffbcc79be6054c1b",
+    "semantic_hash": "cfd50f683607b459ffbcc79be6054c1b"
   },
   "arrears_analysis.py": {
     "mtime": 1789148000.0779276,
@@ -59,26 +59,6 @@
     "ast_hash": "02fbd4773a77b38f04f578b13900a876",
     "semantic_hash": "02fbd4773a77b38f04f578b13900a876"
   },
-  "debug_budget.js": {
-    "mtime": 1783430004.2850206,
-    "ast_hash": "f8eac1f76bdacb7da28f9c897bfd4feb",
-    "semantic_hash": ""
-  },
-  "debug_commercial.js": {
-    "mtime": 1783430047.6297216,
-    "ast_hash": "0bc8acbc458e8b6a026ca190c12ad9c5",
-    "semantic_hash": ""
-  },
-  "debug_commercial2.js": {
-    "mtime": 1783431599.4537046,
-    "ast_hash": "f88c18dd1c63ab989d44a7269521fce3",
-    "semantic_hash": ""
-  },
-  "debug_csv.js": {
-    "mtime": 1783429944.2478156,
-    "ast_hash": "da0c262167fa7aa903088cb59a041c48",
-    "semantic_hash": ""
-  },
   "handover.py": {
     "mtime": 1787063004.839187,
     "ast_hash": "841236c55021c0995a392bf235483616",
@@ -104,21 +84,6 @@
     "ast_hash": "2cfca2f90a1c2aa2d6a142cd7a5ca1e8",
     "semantic_hash": "2cfca2f90a1c2aa2d6a142cd7a5ca1e8"
   },
-  "test_commercial_budget.js": {
-    "mtime": 1783432838.6035216,
-    "ast_hash": "fa2be7bf4020e8252f691ce41780ecc7",
-    "semantic_hash": ""
-  },
-  "test_rate_match.js": {
-    "mtime": 1783432810.3817365,
-    "ast_hash": "c4b536af998b6bbac68aac5cd8dfb99f",
-    "semantic_hash": ""
-  },
-  "scratch/test_upload_endpoint.py": {
-    "mtime": 1789148056.9610147,
-    "ast_hash": "939059f4f946ed8a12b8246d0782ab46",
-    "semantic_hash": "939059f4f946ed8a12b8246d0782ab46"
-  },
   "static/upload-progress.js": {
     "mtime": 1783581542.6630585,
     "ast_hash": "2230daa353482300907f7d79c5903c30",
@@ -134,29 +99,9 @@
     "ast_hash": "69247afced5a03eab1c20128fae74f54",
     "semantic_hash": ""
   },
-  "command.txt": {
-    "mtime": 1783433646.5550518,
-    "ast_hash": "126af519f8220fc84980f42db811a46d",
-    "semantic_hash": ""
-  },
   "instruction.md.md": {
     "mtime": 1778761370.1597085,
     "ast_hash": "ebecc0c98d89aed3961b3fa772ca109a",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/Negative-Pending-Audit_91fb3e1c.md": {
-    "mtime": 1789148105.7310424,
-    "ast_hash": "4d35ccd95234fe24b932c463ed796d06",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/Negative-Pending-Sector-34_21be2d66.md": {
-    "mtime": 1789148108.3690305,
-    "ast_hash": "314eb7fa0c3553827d60b9bf074f1228",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/Negative-Pending-Strict_71535ac2.md": {
-    "mtime": 1789148109.726785,
-    "ast_hash": "8c0520f8f88f23ba240811f4e00316c9",
     "semantic_hash": ""
   },
   "PORTABLE_APP_README.txt": {
@@ -167,126 +112,6 @@
   "requirements.txt": {
     "mtime": 1783493833.3010852,
     "ast_hash": "c8b57d95cd933558ea728eae4c3aa734",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/12_ac7b5118.md": {
-    "mtime": 1789148110.6027524,
-    "ast_hash": "59c31ca63eab604ae441f4c9c521ae3f",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/4_9cc6c07d.md": {
-    "mtime": 1789148110.7635787,
-    "ast_hash": "8d344f8de15a76532b03f602e2dc0354",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 1_1d5d6c81.md": {
-    "mtime": 1789148110.9353473,
-    "ast_hash": "e73bcafd64fff432219a91783fe800fb",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 10_212c3af7.md": {
-    "mtime": 1789148111.1019115,
-    "ast_hash": "8e9a96e682b08541951e62e3ef04df09",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 11_771730e0.md": {
-    "mtime": 1789148111.2660036,
-    "ast_hash": "c730035d7c38c3a0282d583a2a2d4a0c",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 2_fbca6446.md": {
-    "mtime": 1789148111.5193787,
-    "ast_hash": "5e10b66448353b098efe78243c8346db",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 3_baa31421.md": {
-    "mtime": 1789148111.689174,
-    "ast_hash": "4a50d2333e6e6fad37facf539f432d4d",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 5_e6912e51.md": {
-    "mtime": 1789148111.8535755,
-    "ast_hash": "d49a50b26d9379d32b54c336215f13dc",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 6_e4f2b12e.md": {
-    "mtime": 1789148112.0505848,
-    "ast_hash": "c746a128bfbad3aca6bfc0772382a79e",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 7_72ce65eb.md": {
-    "mtime": 1789148112.22657,
-    "ast_hash": "3874749fdde318ae5edfcba37170eee5",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 8_d1b66213.md": {
-    "mtime": 1789148112.4700446,
-    "ast_hash": "0c713824f556c5a9f8f32809675c3819",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 9_c6d90d14.md": {
-    "mtime": 1789148112.8821654,
-    "ast_hash": "03bd1605ad927bf1e761f7054b278115",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/12_d21defc1.md": {
-    "mtime": 1789148112.9643023,
-    "ast_hash": "59c31ca63eab604ae441f4c9c521ae3f",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/4_cdf7e117.md": {
-    "mtime": 1789148113.1933222,
-    "ast_hash": "8d344f8de15a76532b03f602e2dc0354",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 1_ec059b67.md": {
-    "mtime": 1789148113.3704057,
-    "ast_hash": "e73bcafd64fff432219a91783fe800fb",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 10_389b06f9.md": {
-    "mtime": 1789148113.5456765,
-    "ast_hash": "8e9a96e682b08541951e62e3ef04df09",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 11_56a46448.md": {
-    "mtime": 1789148113.7120838,
-    "ast_hash": "c730035d7c38c3a0282d583a2a2d4a0c",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 2_8328322a.md": {
-    "mtime": 1789148113.8846402,
-    "ast_hash": "5e10b66448353b098efe78243c8346db",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 3_1ac21ea6.md": {
-    "mtime": 1789148114.0569286,
-    "ast_hash": "4a50d2333e6e6fad37facf539f432d4d",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 5_71d81faa.md": {
-    "mtime": 1789148114.211988,
-    "ast_hash": "d49a50b26d9379d32b54c336215f13dc",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 6_6118086f.md": {
-    "mtime": 1789148114.37843,
-    "ast_hash": "c746a128bfbad3aca6bfc0772382a79e",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 7_4f601822.md": {
-    "mtime": 1789148114.5577474,
-    "ast_hash": "3874749fdde318ae5edfcba37170eee5",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 8_e01b0f12.md": {
-    "mtime": 1789148114.7194607,
-    "ast_hash": "0c713824f556c5a9f8f32809675c3819",
-    "semantic_hash": ""
-  },
-  "graphify-out/converted/DateWiseReport 9_a0b3d6f2.md": {
-    "mtime": 1789148114.9267533,
-    "ast_hash": "03bd1605ad927bf1e761f7054b278115",
     "semantic_hash": ""
   },
   "templates/arrears_analysis.html": {
@@ -374,154 +199,9 @@
     "ast_hash": "32ab14f847420015ba0be037f4c59920",
     "semantic_hash": ""
   },
-  "WaterSupplyReport-Portable/README.txt": {
-    "mtime": 1778135876.0,
-    "ast_hash": "dd73595ad4b068407dfdcbc3e5448f42",
-    "semantic_hash": ""
-  },
-  "WaterSupplyReport-Portable/_internal/chardet/models/training_metadata.yaml": {
-    "mtime": 1778831572.0,
-    "ast_hash": "910737e372f7889fd0a07d3c8b15ab60",
-    "semantic_hash": ""
-  },
-  "WaterSupplyReport-Portable/_internal/click-8.3.3.dist-info/licenses/LICENSE.txt": {
-    "mtime": 1778831574.0,
-    "ast_hash": "1fa98232fd645608937a0fdc82e999b8",
-    "semantic_hash": ""
-  },
-  "WaterSupplyReport-Portable/_internal/flask-3.0.3.dist-info/entry_points.txt": {
-    "mtime": 1778831574.0,
-    "ast_hash": "8feddca68819b423f57dfb59ce8ee3bd",
-    "semantic_hash": ""
-  },
-  "WaterSupplyReport-Portable/_internal/flask-3.0.3.dist-info/LICENSE.txt": {
-    "mtime": 1778831574.0,
-    "ast_hash": "ffeffa59c90c9c4a033c7574f8f3fb75",
-    "semantic_hash": ""
-  },
-  "WaterSupplyReport-Portable/_internal/itsdangerous-2.2.0.dist-info/LICENSE.txt": {
-    "mtime": 1778831574.0,
-    "ast_hash": "4cda9a0ebd516714f360b0e9418cfb37",
-    "semantic_hash": ""
-  },
-  "WaterSupplyReport-Portable/_internal/markupsafe-3.0.3.dist-info/top_level.txt": {
-    "mtime": 1778831574.0,
-    "ast_hash": "5862354c9fbb5b15204672c79808e25c",
-    "semantic_hash": ""
-  },
-  "WaterSupplyReport-Portable/_internal/markupsafe-3.0.3.dist-info/licenses/LICENSE.txt": {
-    "mtime": 1778831574.0,
-    "ast_hash": "779964cd6648aa66466fb0d1a9629339",
-    "semantic_hash": ""
-  },
-  "WaterSupplyReport-Portable/_internal/setuptools/_vendor/importlib_metadata-8.7.1.dist-info/top_level.txt": {
-    "mtime": 1778831572.0,
-    "ast_hash": "a24465f7850ba59507bf86d89165525c",
-    "semantic_hash": ""
-  },
-  "WaterSupplyReport-Portable/_internal/setuptools/_vendor/jaraco/text/Lorem ipsum.txt": {
-    "mtime": 1778831572.0,
-    "ast_hash": "4ce7501f6608f6ce4011d627979e1ae4",
-    "semantic_hash": ""
-  },
-  "WaterSupplyReport-Portable/_internal/templates/bill_list.html": {
-    "mtime": 1778831572.0,
-    "ast_hash": "d2e4495c665f82ae3ee0bb1f56c05284",
-    "semantic_hash": ""
-  },
-  "WaterSupplyReport-Portable/_internal/templates/daily_staff_receive.html": {
-    "mtime": 1778831572.0,
-    "ast_hash": "9e61e835cf749c7283155f4c1d894aa9",
-    "semantic_hash": ""
-  },
-  "WaterSupplyReport-Portable/_internal/templates/index.html": {
-    "mtime": 1778831572.0,
-    "ast_hash": "b64288ffd5ef0988153542255c6b92d9",
-    "semantic_hash": ""
-  },
-  "WaterSupplyReport-Portable/_internal/werkzeug-3.1.8.dist-info/licenses/LICENSE.txt": {
-    "mtime": 1778831574.0,
-    "ast_hash": "5dc88300786f1c214c1e9827a5229462",
-    "semantic_hash": ""
-  },
-  "Data-Audit-Exceptions-All.pdf": {
-    "mtime": 1784990350.8127594,
-    "ast_hash": "2ffe666acfda38c64c46633519fbf081",
-    "semantic_hash": ""
-  },
-  "Data-Audit-Exceptions-Waris-Colony.pdf": {
-    "mtime": 1784990349.5520442,
-    "ast_hash": "ae3ecf9e394296d875b0035e4418b4be",
-    "semantic_hash": ""
-  },
   "Data-Audit-Findings.pdf": {
     "mtime": 1784988224.610103,
     "ast_hash": "796beab4bb751baf007b40da5168b7d5",
-    "semantic_hash": ""
-  },
-  "Negative-Pending-All-931.pdf": {
-    "mtime": 1784995278.4310172,
-    "ast_hash": "33d2325aaf460de6b7d7fd174c08cbd0",
-    "semantic_hash": ""
-  },
-  "Negative-Pending-Audit.pdf": {
-    "mtime": 1784990615.8553042,
-    "ast_hash": "5278064e26ce1af548bf76143a86ae16",
-    "semantic_hash": ""
-  },
-  "Negative-Pending-Compact.pdf": {
-    "mtime": 1784997168.6228435,
-    "ast_hash": "b4a32efff833a3a0b8684286bf9d1202",
-    "semantic_hash": ""
-  },
-  "Negative-Pending-Sector-34.pdf": {
-    "mtime": 1784994439.5429387,
-    "ast_hash": "ef98e50fb7ff68e4954ae92e2f2bd246",
-    "semantic_hash": ""
-  },
-  "Negative-Pending-Strict-All-Sectors.pdf": {
-    "mtime": 1784993373.7652369,
-    "ast_hash": "7818c9e9714703c1f98e2ded101f4e6d",
-    "semantic_hash": ""
-  },
-  "Negative-Pending-Strict-Sector-34-Iqbal-Nager.pdf": {
-    "mtime": 1784993374.017954,
-    "ast_hash": "5eacd6529318adf0e217a0b280409fa0",
-    "semantic_hash": ""
-  },
-  "Negative-Pending-Tab.pdf": {
-    "mtime": 1784990946.526425,
-    "ast_hash": "c923053d1f8c672d2d34925986542bce",
-    "semantic_hash": ""
-  },
-  "consumer-report-after-upload.png": {
-    "mtime": 1783418144.06277,
-    "ast_hash": "fd4d472d6023f73d5a60b35b5448d86f",
-    "semantic_hash": ""
-  },
-  "consumer-report-initial.png": {
-    "mtime": 1783418072.9224973,
-    "ast_hash": "35cd22c854f1e101683a8fcc6958936e",
-    "semantic_hash": ""
-  },
-  "test-01-page-loaded.png": {
-    "mtime": 1783418606.2040057,
-    "ast_hash": "77cb1017a912ae91a013bca381cd6d45",
-    "semantic_hash": ""
-  },
-  "test-02-page-ready.png": {
-    "mtime": 1783418971.9043953,
-    "ast_hash": "6eedb91a8f938c8aae74a5b723c93295",
-    "semantic_hash": ""
-  },
-  "test-03-after-upload.png": {
-    "mtime": 1783419032.156514,
-    "ast_hash": "e4077dcf037bc7747f628ae92d0363b1",
-    "semantic_hash": ""
-  },
-  "test-04-report-with-data.png": {
-    "mtime": 1783419089.3353827,
-    "ast_hash": "ebbd6f743213203bb9902ab2ea4453e8",
     "semantic_hash": ""
   },
   "static/emblem.jpg": {

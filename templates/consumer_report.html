@@ -206,7 +206,7 @@
               <input type="checkbox" class="pdf-col-toggle" data-col="total" autocomplete="off"> Total Connections
             </label>
             <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-              <input type="checkbox" class="pdf-col-toggle" data-col="budget" autocomplete="off" checked> Budget
+              <input type="checkbox" class="pdf-col-toggle" data-col="budget" autocomplete="off"> Budget
             </label>
           </div>
         </div>
@@ -404,9 +404,9 @@
                 <span id="detail-stats-badge" class="badge" style="background:rgba(0,180,216,0.15);color:var(--teal);border:1px solid rgba(0,180,216,0.3);padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">0 Connections</span>
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <button type="button" class="chip" onclick="exportDetailRecords('pdf')" style="background:var(--teal);color:white;border-color:var(--teal);cursor:pointer;font-weight:600;">&#11015; Download PDF</button>
-                <button type="button" class="chip" onclick="exportDetailRecords('xlsx')" style="cursor:pointer;font-weight:600;">&#11015; Download Excel</button>
-                <button type="button" class="chip" onclick="exportDetailRecords('csv')" style="cursor:pointer;font-weight:600;">&#11015; Download CSV</button>
+                <button type="button" id="detail-export-pdf-btn" class="chip" onclick="exportDetailRecords('pdf')" style="background:var(--teal);color:white;border-color:var(--teal);cursor:pointer;font-weight:600;">&#11015; Download PDF</button>
+                <button type="button" id="detail-export-xlsx-btn" class="chip" onclick="exportDetailRecords('xlsx')" style="cursor:pointer;font-weight:600;">&#11015; Download Excel</button>
+                <button type="button" id="detail-export-csv-btn" class="chip" onclick="exportDetailRecords('csv')" style="cursor:pointer;font-weight:600;">&#11015; Download CSV</button>
                 <button type="button" class="chip" onclick="printDetailRecords()" style="cursor:pointer;">&#128438; Print</button>
               </div>
             </div>
@@ -433,10 +433,10 @@
               <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);font-weight:500;">
                 Status:
                 <select id="detail-filter-status" onchange="renderDetailView()" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text-primary);">
-                  <option value="all">All Statuses</option>
-                  <option value="Active">Active Only</option>
+                  <option value="Active" selected>Active Only</option>
                   <option value="Closed">Closed Only</option>
                   <option value="Suspended">Suspended Only</option>
+                  <option value="all">All Statuses</option>
                 </select>
               </label>
 
@@ -577,6 +577,7 @@
   </div>
 </div>
 
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script>
   function toggleSection(id) {
     document.getElementById(id).classList.toggle('collapsed');
@@ -1481,7 +1482,7 @@
       var commercialPdfBtn = document.getElementById('commercial-pdf-download-btn');
       var privatePdfBtn = document.getElementById('private-pdf-download-btn');
       var colToggles = document.querySelectorAll('.pdf-col-toggle');
-      var defaultPdfCols = ['sr', 'sector', 'locality', 'active', 'budget'];
+      var defaultPdfCols = ['sr', 'sector', 'locality', 'active'];
 
       function getSelectedColumns() {
         var cols = [];
@@ -2212,7 +2213,7 @@
     var statSelect = document.getElementById('detail-filter-status');
     var searchInput = document.getElementById('detail-filter-search');
     if (catSelect) catSelect.value = 'all';
-    if (statSelect) statSelect.value = 'all';
+    if (statSelect) statSelect.value = 'Active';
     if (searchInput) searchInput.value = '';
     initDetailFilters();
     if (locSelect) locSelect.value = 'all';
@@ -2262,7 +2263,7 @@
 
       var cat = (document.getElementById('detail-filter-category') || {}).value || 'all';
       var loc = (document.getElementById('detail-filter-locality') || {}).value || 'all';
-      var stat = (document.getElementById('detail-filter-status') || {}).value || 'all';
+      var stat = (document.getElementById('detail-filter-status') || {}).value || 'Active';
       var q = normalizeText((document.getElementById('detail-filter-search') || {}).value);
 
       var filtered = [];
@@ -2462,13 +2463,13 @@
         }
       }
 
-      if (statSelect) statSelect.value = 'all';
+      if (statSelect) statSelect.value = 'Active';
       currentPage = 1;
       renderDetailView();
     });
   };
 
-  window.exportDetailRecords = function(fmt) {
+  window.exportDetailRecords = async function(fmt) {
     if (!currentFilteredRecords || !currentFilteredRecords.length) {
       alert('No connection records available to export.');
       return;
@@ -2477,6 +2478,7 @@
     var activeCols = getActiveColumns();
     var cat = (document.getElementById('detail-filter-category') || {}).value || 'all';
     var loc = (document.getElementById('detail-filter-locality') || {}).value || 'all';
+    var stat = (document.getElementById('detail-filter-status') || {}).value || 'Active';
 
     var title = 'Consumer Connection Details';
     if (cat === 'commercial') title = 'Commercial Connection Details';
@@ -2487,46 +2489,131 @@
       title += ' - ' + loc;
     }
 
-    var subtitle = 'Total Connections: ' + currentFilteredRecords.length.toLocaleString();
+    var subtitle = 'Status: ' + (stat === 'all' ? 'All' : stat) + ' | Total Connections: ' + currentFilteredRecords.length.toLocaleString();
+    var colLookup = {};
+    COL_DEFS.forEach(function(c) { colLookup[c.key] = c; });
+    var headers = activeCols.map(function(k) { return (colLookup[k] || {}).label || k; });
+    var safeFilename = (title.replace(/[^a-zA-Z0-9_-]/g, '_') || 'Consumer_Details');
 
-    var exportRows = currentFilteredRecords.map(function(r, idx) {
-      var obj = Object.assign({}, r);
-      obj.sr = idx + 1;
-      return obj;
-    });
+    // 1. Client-Side CSV Export (Instant, 0 payload, no Vercel limit)
+    if (fmt === 'csv') {
+      var csvHeaders = headers.map(function(h) { return '"' + String(h).replace(/"/g, '""') + '"'; });
+      var csvLines = [csvHeaders.join(',')];
+      for (var i = 0; i < currentFilteredRecords.length; i++) {
+        var r = currentFilteredRecords[i];
+        var rowVals = activeCols.map(function(k) {
+          var val = (k === 'sr') ? (i + 1) : (r[k] !== undefined && r[k] !== null ? String(r[k]) : '');
+          return '"' + val.replace(/"/g, '""') + '"';
+        });
+        csvLines.push(rowVals.join(','));
+      }
+      var blob = new Blob(["\ufeff" + csvLines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = safeFilename + '.csv';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function() { a.remove(); URL.revokeObjectURL(url); }, 600);
+      return;
+    }
 
-    var form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '{{ url_for("export_consumer_detail", fmt_type="__FMT__") }}'.replace('__FMT__', fmt);
-    form.target = '_blank';
+    // 2. Client-Side Excel Export via SheetJS (Instant, 0 payload, no Vercel limit)
+    if (fmt === 'xlsx' && window.XLSX) {
+      var aoa = [headers];
+      for (var j = 0; j < currentFilteredRecords.length; j++) {
+        var rec = currentFilteredRecords[j];
+        var rVals = activeCols.map(function(k) {
+          return (k === 'sr') ? (j + 1) : (rec[k] !== undefined && rec[k] !== null ? rec[k] : '');
+        });
+        aoa.push(rVals);
+      }
+      var ws = XLSX.utils.aoa_to_sheet(aoa);
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Connection Details');
+      XLSX.writeFile(wb, safeFilename + '.xlsx');
+      return;
+    }
 
-    var fRows = document.createElement('input');
-    fRows.type = 'hidden';
-    fRows.name = 'rows_json';
-    fRows.value = JSON.stringify(exportRows);
-    form.appendChild(fRows);
+    // 3. Server-Side PDF / Fallback Export with GZIP compression
+    var btn = document.getElementById('detail-export-' + fmt + '-btn');
+    var origText = btn ? btn.innerHTML : '';
+    if (btn) {
+      btn.innerHTML = '<span style="display:inline-block;animation:spin 0.8s linear infinite;margin-right:4px;">&#9696;</span> Generating ' + fmt.toUpperCase() + '...';
+      btn.style.pointerEvents = 'none';
+      btn.style.opacity = '0.75';
+    }
 
-    var fCols = document.createElement('input');
-    fCols.type = 'hidden';
-    fCols.name = 'detail_cols';
-    fCols.value = JSON.stringify(activeCols);
-    form.appendChild(fCols);
+    try {
+      var compactRows = currentFilteredRecords.map(function(r, idx) {
+        return activeCols.map(function(k) {
+          return (k === 'sr') ? (idx + 1) : (r[k] !== undefined && r[k] !== null ? String(r[k]) : '');
+        });
+      });
 
-    var fTitle = document.createElement('input');
-    fTitle.type = 'hidden';
-    fTitle.name = 'title';
-    fTitle.value = title;
-    form.appendChild(fTitle);
+      var payloadObj = {
+        title: title,
+        subtitle: subtitle,
+        headers: headers,
+        active_cols: activeCols,
+        rows: compactRows
+      };
 
-    var fSub = document.createElement('input');
-    fSub.type = 'hidden';
-    fSub.name = 'subtitle';
-    fSub.value = subtitle;
-    form.appendChild(fSub);
+      var jsonStr = JSON.stringify(payloadObj);
+      var reqBody = null;
 
-    document.body.appendChild(form);
-    form.submit();
-    setTimeout(function() { form.remove(); }, 1000);
+      if ('CompressionStream' in window) {
+        var jsonBlob = new Blob([jsonStr], { type: 'application/json' });
+        var cs = new CompressionStream('gzip');
+        var compStream = jsonBlob.stream().pipeThrough(cs);
+        var compBuf = await new Response(compStream).arrayBuffer();
+        var binary = '';
+        var bytes = new Uint8Array(compBuf);
+        var len = bytes.byteLength;
+        var chunkSize = 0x8000;
+        for (var ci = 0; ci < len; ci += chunkSize) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(ci, Math.min(ci + chunkSize, len)));
+        }
+        reqBody = JSON.stringify({
+          is_gzip: true,
+          compressed_data: btoa(binary),
+          title: title,
+          subtitle: subtitle
+        });
+      } else {
+        reqBody = jsonStr;
+      }
+
+      var resp = await fetch('{{ url_for("export_consumer_detail", fmt_type="__FMT__") }}'.replace('__FMT__', fmt), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: reqBody
+      });
+
+      if (!resp.ok) {
+        throw new Error('Server responded with HTTP ' + resp.status);
+      }
+
+      var resBlob = await resp.blob();
+      var dlUrl = URL.createObjectURL(resBlob);
+      var link = document.createElement('a');
+      link.href = dlUrl;
+      link.download = safeFilename + '.' + fmt;
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(function() { link.remove(); URL.revokeObjectURL(dlUrl); }, 1000);
+    } catch (err) {
+      alert('Export failed: ' + (err.message || err));
+    } finally {
+      if (btn) {
+        btn.innerHTML = origText;
+        btn.style.pointerEvents = 'auto';
+        btn.style.opacity = '1';
+      }
+    }
   };
 
   window.printDetailRecords = function() {
