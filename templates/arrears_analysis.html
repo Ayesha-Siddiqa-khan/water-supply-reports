@@ -481,8 +481,8 @@
                 data-sus-arr="{{ s.suspended_arrears }}"
                 data-cls-count="{{ s.closed_count }}"
                 data-cls-arr="{{ s.closed_arrears }}"
-                data-total-count="{{ s.total_count }}"
-                data-total-arr="{{ s.total_arrears }}"
+                data-total-count="{{ s.regular_count }}"
+                data-total-arr="{{ s.regular_arrears }}"
                 data-is-zero="{% if is_zero %}1{% else %}0{% endif %}"
                 style="{% if is_zero %}display:none;{% endif %}">
               <td style="text-align:center;">
@@ -502,8 +502,8 @@
               <td class="col-sus_arr" style="text-align:center;font-family:monospace;display:none;">{{ s.suspended_arrears_fmt }}</td>
               <td class="col-cls_count" style="text-align:center;display:none;">{{ s.closed_count|int }}</td>
               <td class="col-cls_arr" style="text-align:center;font-family:monospace;display:none;">{{ s.closed_arrears_fmt }}</td>
-              <td class="col-total_count" style="text-align:center;font-weight:600;">{{ s.total_count|int }}</td>
-              <td class="col-total_arr" style="text-align:center;font-weight:700;font-family:monospace;color:var(--danger, #ef4444);">{{ s.total_arrears_fmt }}</td>
+              <td class="col-total_count" style="text-align:center;font-weight:600;">{{ s.regular_count|int }}</td>
+              <td class="col-total_arr" style="text-align:center;font-weight:700;font-family:monospace;color:var(--danger, #ef4444);">{{ s.regular_arrears_fmt }}</td>
             </tr>
             {% else %}
             <tr>
@@ -522,8 +522,8 @@
               <td class="col-sus_arr" style="text-align:center;font-family:monospace;display:none;" id="foot-sus-arr">{{ analysis.grand_total.suspended_arrears_fmt }}</td>
               <td class="col-cls_count" style="text-align:center;display:none;" id="foot-cls-count">{{ analysis.grand_total.closed_count|int }}</td>
               <td class="col-cls_arr" style="text-align:center;font-family:monospace;display:none;" id="foot-cls-arr">{{ analysis.grand_total.closed_arrears_fmt }}</td>
-              <td class="col-total_count" style="text-align:center;" id="foot-comb-count">{{ analysis.grand_total.total_count|int }}</td>
-              <td class="col-total_arr" style="text-align:center;font-family:monospace;color:var(--danger, #ef4444);" id="foot-comb-arr">{{ analysis.grand_total.total_arrears_fmt }}</td>
+              <td class="col-total_count" style="text-align:center;" id="foot-comb-count">{{ analysis.grand_total.regular_count|int }}</td>
+              <td class="col-total_arr" style="text-align:center;font-family:monospace;color:var(--danger, #ef4444);" id="foot-comb-arr">{{ analysis.grand_total.regular_arrears_fmt }}</td>
             </tr>
           </tfoot>
         </table>
@@ -630,8 +630,14 @@
     var checkedCount = 0;
     var totalRows = rows.length;
 
-    var incClosedChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="cls_arr"]');
+    var incClosedChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="cls_arr"]') || document.querySelector('#summary-col-chips .col-chip[data-sum-col="cls_count"]');
     var incClosed = incClosedChip ? incClosedChip.classList.contains('active') : false;
+
+    var incSusChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="sus_arr"]') || document.querySelector('#summary-col-chips .col-chip[data-sum-col="sus_count"]');
+    var incSus = incSusChip ? incSusChip.classList.contains('active') : false;
+
+    var incRegChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="reg_arr"]') || document.querySelector('#summary-col-chips .col-chip[data-sum-col="reg_count"]');
+    var incReg = !incRegChip || incRegChip.classList.contains('active');
 
     var selectedLocalities = [];
 
@@ -647,8 +653,8 @@
       var clsC = parseInt(row.dataset.clsCount || '0', 10);
       var clsA = parseFloat(row.dataset.clsArr || '0');
 
-      var rowTotC = incClosed ? (regC + susC + clsC) : (regC + susC);
-      var rowTotA = incClosed ? (regA + susA + clsA) : (regA + susA);
+      var rowTotC = (incReg ? regC : 0) + (incSus ? susC : 0) + (incClosed ? clsC : 0);
+      var rowTotA = (incReg ? regA : 0) + (incSus ? susA : 0) + (incClosed ? clsA : 0);
 
       row.dataset.totalCount = rowTotC;
       row.dataset.totalArr = rowTotA;
@@ -758,6 +764,11 @@
       statTiles[2].querySelector('.stat-delta').textContent = 'Arrears: ' + formatPKR(clsArr);
       // Tile 4: Combined Arrears
       statTiles[3].querySelector('.stat-value').textContent = formatPKR(totalArr);
+      var parts = [];
+      if (incReg) parts.push('Regular');
+      if (incSus) parts.push('Suspended');
+      if (incClosed) parts.push('Closed');
+      statTiles[3].querySelector('.stat-delta').textContent = parts.length > 0 ? parts.join(' + ') : 'None';
       // Tile 5: Combined Conns
       statTiles[4].querySelector('.stat-value').textContent = totalCount.toLocaleString();
     }

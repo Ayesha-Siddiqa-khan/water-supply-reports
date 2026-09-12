@@ -22,7 +22,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "period",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "period"
     },
     {
@@ -44,7 +44,7 @@
       "_origin": "ast",
       "community": 14,
       "norm_label": "paragraphstyle",
-      "community_name": "DataFrame",
+      "community_name": "ParagraphStyle",
       "id": "paragraphstyle"
     },
     {
@@ -55,7 +55,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "bytesio",
-      "community_name": "DataFrame",
+      "community_name": "BytesIO",
       "id": "bytesio"
     },
     {
@@ -66,7 +66,7 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "decimal",
-      "community_name": "_build_new_connection_detail_report",
+      "community_name": "app.py",
       "id": "decimal"
     },
     {
@@ -99,7 +99,7 @@
       "_origin": "ast",
       "community": 38,
       "norm_label": "dataframe",
-      "community_name": "arrears_analysis.py",
+      "community_name": "DataFrame",
       "id": "arrears_analysis_py_dataframe"
     },
     {
@@ -132,7 +132,7 @@
       "_origin": "ast",
       "community": 22,
       "norm_label": "dataframe",
-      "community_name": "_render_page",
+      "community_name": "DataFrame",
       "id": "handover_py_dataframe"
     },
     {
@@ -143,7 +143,7 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "series",
-      "community_name": "_key_frame",
+      "community_name": "handover.py",
       "id": "handover_py_series"
     },
     {
@@ -827,7 +827,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "check_data_comparison.py",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "check_data_comparison"
     },
     {
@@ -838,7 +838,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "read()",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "check_data_comparison_read"
     },
     {
@@ -849,7 +849,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "main()",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "check_data_comparison_main"
     },
     {
@@ -860,7 +860,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "self-check for the data comparison page.  run:  python check_data_comparison.py",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "check_data_comparison_rationale_1"
     },
     {
@@ -1443,7 +1443,7 @@
       "_origin": "ast",
       "community": 23,
       "norm_label": "_handover_dir()",
-      "community_name": "handover.py",
+      "community_name": "load_dataset",
       "id": "handover_handover_dir"
     },
     {
@@ -1454,7 +1454,7 @@
       "_origin": "ast",
       "community": 23,
       "norm_label": "_snapshot_dir()",
-      "community_name": "handover.py",
+      "community_name": "load_dataset",
       "id": "handover_snapshot_dir"
     },
     {
@@ -1465,7 +1465,7 @@
       "_origin": "ast",
       "community": 23,
       "norm_label": "_working_csv()",
-      "community_name": "handover.py",
+      "community_name": "load_dataset",
       "id": "handover_working_csv"
     },
     {
@@ -1476,7 +1476,7 @@
       "_origin": "ast",
       "community": 23,
       "norm_label": "_working_meta()",
-      "community_name": "handover.py",
+      "community_name": "load_dataset",
       "id": "handover_working_meta"
     },
     {
@@ -1487,7 +1487,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "_txt()",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "handover_txt"
     },
     {
@@ -1498,7 +1498,7 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "_conn_key()",
-      "community_name": "_key_frame",
+      "community_name": "handover.py",
       "id": "handover_conn_key"
     },
     {
@@ -1509,7 +1509,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "_status_of()",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "handover_status_of"
     },
     {
@@ -1520,7 +1520,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "_type_of()",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "handover_type_of"
     },
     {
@@ -1531,7 +1531,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "_zone_of()",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "handover_zone_of"
     },
     {
@@ -1542,7 +1542,7 @@
       "_origin": "ast",
       "community": 23,
       "norm_label": "_to_amount()",
-      "community_name": "_numeric_amounts",
+      "community_name": "load_dataset",
       "id": "handover_to_amount"
     },
     {
@@ -1553,7 +1553,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "_pick()",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "handover_pick"
     },
     {
@@ -1586,7 +1586,7 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "_key_frame()",
-      "community_name": "_key_frame",
+      "community_name": "handover.py",
       "id": "handover_key_frame"
     },
     {
@@ -1597,7 +1597,7 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "_compose()",
-      "community_name": "_key_frame",
+      "community_name": "handover.py",
       "id": "handover_compose"
     },
     {
@@ -1608,7 +1608,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "build_handover_dataset()",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "handover_build_handover_dataset"
     },
     {
@@ -1619,7 +1619,7 @@
       "_origin": "ast",
       "community": 23,
       "norm_label": "load_dataset()",
-      "community_name": "_render_page",
+      "community_name": "load_dataset",
       "id": "handover_load_dataset"
     },
     {
@@ -1707,7 +1707,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "drop_excluded_sectors()",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "handover_drop_excluded_sectors"
     },
     {
@@ -1718,7 +1718,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "_canonical_labels()",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "handover_canonical_labels"
     },
     {
@@ -1729,7 +1729,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "canonicalise_groups()",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "handover_canonicalise_groups"
     },
     {
@@ -1751,7 +1751,7 @@
       "_origin": "ast",
       "community": 22,
       "norm_label": "build_sections()",
-      "community_name": "export_handover",
+      "community_name": "DataFrame",
       "id": "handover_build_sections"
     },
     {
@@ -1784,7 +1784,7 @@
       "_origin": "ast",
       "community": 22,
       "norm_label": "detail_rows()",
-      "community_name": "export_handover",
+      "community_name": "DataFrame",
       "id": "handover_detail_rows"
     },
     {
@@ -1795,7 +1795,7 @@
       "_origin": "ast",
       "community": 23,
       "norm_label": "_list_snapshots()",
-      "community_name": "handover.py",
+      "community_name": "load_dataset",
       "id": "handover_list_snapshots"
     },
     {
@@ -1817,7 +1817,7 @@
       "_origin": "ast",
       "community": 30,
       "norm_label": "handover()",
-      "community_name": "handover.py",
+      "community_name": "handover",
       "id": "handover_handover"
     },
     {
@@ -1828,7 +1828,7 @@
       "_origin": "ast",
       "community": 30,
       "norm_label": "_gunzip()",
-      "community_name": "handover.py",
+      "community_name": "handover",
       "id": "handover_gunzip"
     },
     {
@@ -1839,7 +1839,7 @@
       "_origin": "ast",
       "community": 30,
       "norm_label": "_read_bytes()",
-      "community_name": "handover.py",
+      "community_name": "handover",
       "id": "handover_read_bytes"
     },
     {
@@ -1850,7 +1850,7 @@
       "_origin": "ast",
       "community": 23,
       "norm_label": "handover_status()",
-      "community_name": "handover.py",
+      "community_name": "load_dataset",
       "id": "handover_handover_status"
     },
     {
@@ -1894,7 +1894,7 @@
       "_origin": "ast",
       "community": 22,
       "norm_label": "handover_print()",
-      "community_name": "export_handover",
+      "community_name": "DataFrame",
       "id": "handover_handover_print"
     },
     {
@@ -1905,7 +1905,7 @@
       "_origin": "ast",
       "community": 22,
       "norm_label": "report_date()",
-      "community_name": "export_handover",
+      "community_name": "DataFrame",
       "id": "handover_report_date"
     },
     {
@@ -1916,7 +1916,7 @@
       "_origin": "ast",
       "community": 22,
       "norm_label": "export_handover()",
-      "community_name": "export_handover",
+      "community_name": "DataFrame",
       "id": "handover_export_handover"
     },
     {
@@ -1949,7 +1949,7 @@
       "_origin": "ast",
       "community": 22,
       "norm_label": "_numeric_amounts()",
-      "community_name": "_numeric_amounts",
+      "community_name": "DataFrame",
       "id": "handover_numeric_amounts"
     },
     {
@@ -1993,7 +1993,7 @@
       "_origin": "ast",
       "community": 22,
       "norm_label": "_signature_band_height()",
-      "community_name": "export_handover",
+      "community_name": "DataFrame",
       "id": "handover_signature_band_height"
     },
     {
@@ -2059,7 +2059,7 @@
       "_origin": "ast",
       "community": 18,
       "norm_label": ".draw()",
-      "community_name": "export_handover",
+      "community_name": "NumberedCanvas",
       "id": "handover_pagemark_draw"
     },
     {
@@ -2180,7 +2180,7 @@
       "_origin": "ast",
       "community": 18,
       "norm_label": "_page_furniture()",
-      "community_name": "export_handover",
+      "community_name": "NumberedCanvas",
       "id": "handover_page_furniture"
     },
     {
@@ -2213,7 +2213,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "collapse whitespace and lower-case \u2014 used for every exact-match key.",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "handover_rationale_133"
     },
     {
@@ -2224,7 +2224,7 @@
       "_origin": "ast",
       "community": 7,
       "norm_label": "alphanumerics only, lower-cased, leading zeros removed.      connection number",
-      "community_name": "_key_frame",
+      "community_name": "handover.py",
       "id": "handover_rationale_138"
     },
     {
@@ -2235,7 +2235,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "commercial when the rate type says so \u2014 including the ``comercial``     spellin",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "handover_rationale_154"
     },
     {
@@ -2246,7 +2246,7 @@
       "_origin": "ast",
       "community": 23,
       "norm_label": "parse a money cell tolerantly.      pulls the first number out rather than del",
-      "community_name": "_numeric_amounts",
+      "community_name": "load_dataset",
       "id": "handover_rationale_170"
     },
     {
@@ -2257,7 +2257,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "first column whose normalised name matches one of *candidates*.",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "handover_rationale_194"
     },
     {
@@ -2279,7 +2279,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "join arrears onto the handover rows and add the derived columns.",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "handover_rationale_261"
     },
     {
@@ -2290,7 +2290,7 @@
       "_origin": "ast",
       "community": 23,
       "norm_label": "return (rows, meta). snapshots read their own frozen copy.",
-      "community_name": "_render_page",
+      "community_name": "load_dataset",
       "id": "handover_rationale_429"
     },
     {
@@ -2323,7 +2323,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "remove records belonging to sectors that are not real.      applied in the fra",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "handover_rationale_625"
     },
     {
@@ -2334,7 +2334,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "map visually identical labels onto one spelling.      sector and locality name",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "handover_rationale_637"
     },
     {
@@ -2345,7 +2345,7 @@
       "_origin": "ast",
       "community": 0,
       "norm_label": "collapse duplicate sector/locality spellings before anything groups on them.",
-      "community_name": "_txt",
+      "community_name": "data_comparison.py",
       "id": "handover_rationale_660"
     },
     {
@@ -2367,7 +2367,7 @@
       "_origin": "ast",
       "community": 22,
       "norm_label": "split the register into printable blocks.      ordinary sectors come first, se",
-      "community_name": "export_handover",
+      "community_name": "DataFrame",
       "id": "handover_rationale_694"
     },
     {
@@ -2400,7 +2400,7 @@
       "_origin": "ast",
       "community": 30,
       "norm_label": "transparently decompress a gzipped upload.      the browser compresses both fi",
-      "community_name": "handover.py",
+      "community_name": "handover",
       "id": "handover_rationale_992"
     },
     {
@@ -2411,7 +2411,7 @@
       "_origin": "ast",
       "community": 30,
       "norm_label": "read an uploaded csv/xlsx as text so connection numbers keep leading zeros.",
-      "community_name": "handover.py",
+      "community_name": "handover",
       "id": "handover_rationale_1007"
     },
     {
@@ -2422,7 +2422,7 @@
       "_origin": "ast",
       "community": 23,
       "norm_label": "whether this instance still holds the working register.      serverless instan",
-      "community_name": "handover.py",
+      "community_name": "load_dataset",
       "id": "handover_rationale_1018"
     },
     {
@@ -2433,7 +2433,7 @@
       "_origin": "ast",
       "community": 22,
       "norm_label": "the one date the register carries.      a finalised record is dated when it wa",
-      "community_name": "export_handover",
+      "community_name": "DataFrame",
       "id": "handover_rationale_1168"
     },
     {
@@ -2466,7 +2466,7 @@
       "_origin": "ast",
       "community": 22,
       "norm_label": "write money columns to excel as numbers, not \"13,040\" text, so the     arrears",
-      "community_name": "_numeric_amounts",
+      "community_name": "DataFrame",
       "id": "handover_rationale_1562"
     },
     {
@@ -2598,7 +2598,7 @@
       "_origin": "ast",
       "community": 18,
       "norm_label": "page-begin callback.      runs before the frame lays its flowables down, which",
-      "community_name": "export_handover",
+      "community_name": "NumberedCanvas",
       "id": "handover_rationale_1912"
     },
     {
@@ -2895,7 +2895,7 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "errorhandler",
-      "community_name": "index",
+      "community_name": "consumer_report",
       "id": "errorhandler"
     },
     {
@@ -2906,7 +2906,7 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "request_entity_too_large()",
-      "community_name": "index",
+      "community_name": "consumer_report",
       "id": "app_request_entity_too_large"
     },
     {
@@ -2917,7 +2917,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "_normalize_sector_locality()",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "match_staff_assignment",
       "id": "app_normalize_sector_locality"
     },
     {
@@ -2928,7 +2928,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "get_unmatched_log()",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "DataFrame",
       "id": "app_get_unmatched_log"
     },
     {
@@ -2939,7 +2939,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "clear_unmatched_log()",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "DataFrame",
       "id": "app_clear_unmatched_log"
     },
     {
@@ -2950,7 +2950,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "_deep_normalize_sector()",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "match_staff_assignment",
       "id": "app_deep_normalize_sector"
     },
     {
@@ -2961,7 +2961,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "_keyword_set()",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "match_staff_assignment",
       "id": "app_keyword_set"
     },
     {
@@ -2972,7 +2972,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "_normalize_staff_name()",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "match_staff_assignment",
       "id": "app_normalize_staff_name"
     },
     {
@@ -2983,7 +2983,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "_levenshtein()",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "match_staff_assignment",
       "id": "app_levenshtein"
     },
     {
@@ -2994,7 +2994,7 @@
       "_origin": "ast",
       "community": 13,
       "norm_label": "_closest_staff_key()",
-      "community_name": "DataFrame",
+      "community_name": "export_six_month_pitch",
       "id": "app_closest_staff_key"
     },
     {
@@ -3005,7 +3005,7 @@
       "_origin": "ast",
       "community": 13,
       "norm_label": "fmt_staff_name()",
-      "community_name": "DataFrame",
+      "community_name": "export_six_month_pitch",
       "id": "app_fmt_staff_name"
     },
     {
@@ -3016,7 +3016,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "fmt_staff_name_html()",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "match_staff_assignment",
       "id": "app_fmt_staff_name_html"
     },
     {
@@ -3027,7 +3027,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "allowed_file()",
-      "community_name": "allowed_file",
+      "community_name": "consumer_report",
       "id": "app_allowed_file"
     },
     {
@@ -3038,7 +3038,7 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "is_ajax()",
-      "community_name": "index",
+      "community_name": "consumer_report",
       "id": "app_is_ajax"
     },
     {
@@ -3071,7 +3071,7 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "read_dataframe()",
-      "community_name": "get_db",
+      "community_name": "consumer_report",
       "id": "app_read_dataframe"
     },
     {
@@ -3093,7 +3093,7 @@
       "_origin": "ast",
       "community": 15,
       "norm_label": "read_uploaded_dataframe()",
-      "community_name": "index",
+      "community_name": "consumer_report",
       "id": "app_read_uploaded_dataframe"
     },
     {
@@ -3104,7 +3104,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "normalize_column_name()",
-      "community_name": "import_bill_list_dataframe",
+      "community_name": "DataFrame",
       "id": "app_normalize_column_name"
     },
     {
@@ -3126,7 +3126,7 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "split_sector_values()",
-      "community_name": "get_db",
+      "community_name": "consumer_report",
       "id": "app_split_sector_values"
     },
     {
@@ -3137,7 +3137,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "normalize_dataframe()",
-      "community_name": "import_bill_list_dataframe",
+      "community_name": "DataFrame",
       "id": "app_normalize_dataframe"
     },
     {
@@ -3148,7 +3148,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "_dedupe_value()",
-      "community_name": "import_bill_list_dataframe",
+      "community_name": "DataFrame",
       "id": "app_dedupe_value"
     },
     {
@@ -3159,7 +3159,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "drop_duplicate_bills()",
-      "community_name": "import_bill_list_dataframe",
+      "community_name": "DataFrame",
       "id": "app_drop_duplicate_bills"
     },
     {
@@ -3170,7 +3170,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "pick_column()",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_pick_column"
     },
     {
@@ -3181,7 +3181,7 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "fmt()",
-      "community_name": "DataFrame",
+      "community_name": "fmt",
       "id": "app_fmt"
     },
     {
@@ -3203,7 +3203,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "parse_number()",
-      "community_name": "parse_number",
+      "community_name": "DataFrame",
       "id": "app_parse_number"
     },
     {
@@ -3214,7 +3214,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "format_fiscal_month()",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_format_fiscal_month"
     },
     {
@@ -3225,7 +3225,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "format_calendar_month()",
-      "community_name": "app.py",
+      "community_name": "DataFrame",
       "id": "app_format_calendar_month"
     },
     {
@@ -3236,7 +3236,7 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "fiscal_label_to_calendar_label()",
-      "community_name": "app.py",
+      "community_name": "fmt",
       "id": "app_fiscal_label_to_calendar_label"
     },
     {
@@ -3247,7 +3247,7 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "fiscal_label_to_calendar_full_label()",
-      "community_name": "app.py",
+      "community_name": "fmt",
       "id": "app_fiscal_label_to_calendar_full_label"
     },
     {
@@ -3280,7 +3280,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "clean_cell()",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "match_staff_assignment",
       "id": "app_clean_cell"
     },
     {
@@ -3291,7 +3291,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "match_key()",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "match_staff_assignment",
       "id": "app_match_key"
     },
     {
@@ -3302,7 +3302,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "swap_day_month()",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_swap_day_month"
     },
     {
@@ -3313,7 +3313,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "parse_received_dates()",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_parse_received_dates"
     },
     {
@@ -3324,7 +3324,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "series",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "series"
     },
     {
@@ -3335,7 +3335,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "get_fiscal_window()",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_get_fiscal_window"
     },
     {
@@ -3346,7 +3346,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "build_daily_rows()",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_build_daily_rows"
     },
     {
@@ -3357,7 +3357,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "build_monthly_rows()",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_build_monthly_rows"
     },
     {
@@ -3368,7 +3368,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "build_commercial_mask()",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_build_commercial_mask"
     },
     {
@@ -3401,7 +3401,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "_private_society_locality_name()",
-      "community_name": "app.py",
+      "community_name": "DataFrame",
       "id": "app_private_society_locality_name"
     },
     {
@@ -3412,7 +3412,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "build_private_society_mask()",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_build_private_society_mask"
     },
     {
@@ -3423,7 +3423,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "build_private_society_rows()",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_build_private_society_rows"
     },
     {
@@ -3434,7 +3434,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "build_commercial_rows()",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_build_commercial_rows"
     },
     {
@@ -3445,7 +3445,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "build_commercial_month_wise_summary()",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_build_commercial_month_wise_summary"
     },
     {
@@ -3456,7 +3456,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "build_commercial_daily_income_rows()",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_build_commercial_daily_income_rows"
     },
     {
@@ -3478,7 +3478,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "get_auto_staff_override()",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "match_staff_assignment",
       "id": "app_get_auto_staff_override"
     },
     {
@@ -3489,7 +3489,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "match_staff_assignment()",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "match_staff_assignment",
       "id": "app_match_staff_assignment"
     },
     {
@@ -3500,7 +3500,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "get_staff_by_connection_rule()",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "match_staff_assignment",
       "id": "app_get_staff_by_connection_rule"
     },
     {
@@ -3511,7 +3511,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "build_daily_staff_receive_report()",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "DataFrame",
       "id": "app_build_daily_staff_receive_report"
     },
     {
@@ -3522,7 +3522,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "clean_amount_value()",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_clean_amount_value"
     },
     {
@@ -3533,7 +3533,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "parse_date_dd_mm_yyyy()",
-      "community_name": "app.py",
+      "community_name": "DataFrame",
       "id": "app_parse_date_dd_mm_yyyy"
     },
     {
@@ -3544,7 +3544,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "build_receipt_monthly_rows()",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_build_receipt_monthly_rows"
     },
     {
@@ -3555,7 +3555,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "build_income_category_summary()",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_build_income_category_summary"
     },
     {
@@ -3566,7 +3566,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "summarize_dataframe()",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_summarize_dataframe"
     },
     {
@@ -3577,7 +3577,7 @@
       "_origin": "ast",
       "community": 13,
       "norm_label": "_make_pdf_table()",
-      "community_name": "DataFrame",
+      "community_name": "export_six_month_pitch",
       "id": "app_make_pdf_table"
     },
     {
@@ -3588,7 +3588,7 @@
       "_origin": "ast",
       "community": 14,
       "norm_label": "parse_export_cols()",
-      "community_name": "DataFrame",
+      "community_name": "ParagraphStyle",
       "id": "app_parse_export_cols"
     },
     {
@@ -3599,7 +3599,7 @@
       "_origin": "ast",
       "community": 13,
       "norm_label": "_export_row_selection()",
-      "community_name": "DataFrame",
+      "community_name": "export_six_month_pitch",
       "id": "app_export_row_selection"
     },
     {
@@ -3610,7 +3610,7 @@
       "_origin": "ast",
       "community": 13,
       "norm_label": "_filter_rows_by_selection()",
-      "community_name": "DataFrame",
+      "community_name": "export_six_month_pitch",
       "id": "app_filter_rows_by_selection"
     },
     {
@@ -3632,7 +3632,7 @@
       "_origin": "ast",
       "community": 13,
       "norm_label": "_selection_has_filter()",
-      "community_name": "DataFrame",
+      "community_name": "export_six_month_pitch",
       "id": "app_selection_has_filter"
     },
     {
@@ -3654,7 +3654,7 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "_filter_card_export()",
-      "community_name": "DataFrame",
+      "community_name": "fmt",
       "id": "app_filter_card_export"
     },
     {
@@ -3665,7 +3665,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "normalise_sector()",
-      "community_name": "parse_number",
+      "community_name": "DataFrame",
       "id": "app_normalise_sector"
     },
     {
@@ -3676,7 +3676,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "merge_sector_rows()",
-      "community_name": "parse_number",
+      "community_name": "DataFrame",
       "id": "app_merge_sector_rows"
     },
     {
@@ -3687,7 +3687,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "merge_sector_list_rows()",
-      "community_name": "parse_number",
+      "community_name": "DataFrame",
       "id": "app_merge_sector_list_rows"
     },
     {
@@ -3698,7 +3698,7 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "build_connection_summary()",
-      "community_name": "DataFrame",
+      "community_name": "fmt",
       "id": "app_build_connection_summary"
     },
     {
@@ -3709,7 +3709,7 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "generate_card_pdf()",
-      "community_name": "DataFrame",
+      "community_name": "fmt",
       "id": "app_generate_card_pdf"
     },
     {
@@ -3720,7 +3720,7 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "wrap_pdf_table_cells()",
-      "community_name": "DataFrame",
+      "community_name": "fmt",
       "id": "app_wrap_pdf_table_cells"
     },
     {
@@ -3731,7 +3731,7 @@
       "_origin": "ast",
       "community": 14,
       "norm_label": "wrap_pdf_header_cells()",
-      "community_name": "DataFrame",
+      "community_name": "ParagraphStyle",
       "id": "app_wrap_pdf_header_cells"
     },
     {
@@ -3742,7 +3742,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "is_large_pdf_text()",
-      "community_name": "parse_number",
+      "community_name": "match_staff_assignment",
       "id": "app_is_large_pdf_text"
     },
     {
@@ -3753,7 +3753,7 @@
       "_origin": "ast",
       "community": 14,
       "norm_label": "_bracket_rich_text()",
-      "community_name": "DataFrame",
+      "community_name": "ParagraphStyle",
       "id": "app_bracket_rich_text"
     },
     {
@@ -3764,7 +3764,7 @@
       "_origin": "ast",
       "community": 14,
       "norm_label": "wrap_pdf_body_cells()",
-      "community_name": "DataFrame",
+      "community_name": "ParagraphStyle",
       "id": "app_wrap_pdf_body_cells"
     },
     {
@@ -3775,7 +3775,7 @@
       "_origin": "ast",
       "community": 13,
       "norm_label": "generate_commercial_pdf()",
-      "community_name": "DataFrame",
+      "community_name": "export_six_month_pitch",
       "id": "app_generate_commercial_pdf"
     },
     {
@@ -3786,7 +3786,7 @@
       "_origin": "ast",
       "community": 14,
       "norm_label": "generate_commercial_monthly_pdf()",
-      "community_name": "DataFrame",
+      "community_name": "ParagraphStyle",
       "id": "app_generate_commercial_monthly_pdf"
     },
     {
@@ -3797,7 +3797,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "generate_zone_grouped_pdf()",
-      "community_name": "DataFrame",
+      "community_name": "BytesIO",
       "id": "app_generate_zone_grouped_pdf"
     },
     {
@@ -3841,7 +3841,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "load_alias_rules()",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "match_staff_assignment",
       "id": "app_load_alias_rules"
     },
     {
@@ -3852,7 +3852,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "match_by_alias()",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "match_staff_assignment",
       "id": "app_match_by_alias"
     },
     {
@@ -3863,7 +3863,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "seed_staff_assignments_from_file()",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "match_staff_assignment",
       "id": "app_seed_staff_assignments_from_file"
     },
     {
@@ -3874,7 +3874,7 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "backfill_bill_arrears()",
-      "community_name": "parse_number",
+      "community_name": "get_db",
       "id": "app_backfill_bill_arrears"
     },
     {
@@ -3907,7 +3907,7 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "update_sector_zone()",
-      "community_name": "get_db",
+      "community_name": "consumer_report",
       "id": "app_update_sector_zone"
     },
     {
@@ -3929,7 +3929,7 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "get_assignment_conflicts()",
-      "community_name": "get_db",
+      "community_name": "consumer_report",
       "id": "app_get_assignment_conflicts"
     },
     {
@@ -3940,7 +3940,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "infer_zone()",
-      "community_name": "import_bill_list_dataframe",
+      "community_name": "DataFrame",
       "id": "app_infer_zone"
     },
     {
@@ -3951,7 +3951,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "build_bill_key()",
-      "community_name": "import_bill_list_dataframe",
+      "community_name": "DataFrame",
       "id": "app_build_bill_key"
     },
     {
@@ -3962,7 +3962,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "fast_bill_no_key()",
-      "community_name": "import_bill_list_dataframe",
+      "community_name": "DataFrame",
       "id": "app_fast_bill_no_key"
     },
     {
@@ -3973,7 +3973,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "fast_upload_number()",
-      "community_name": "import_bill_list_dataframe",
+      "community_name": "DataFrame",
       "id": "app_fast_upload_number"
     },
     {
@@ -3984,7 +3984,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "fast_upload_text()",
-      "community_name": "import_bill_list_dataframe",
+      "community_name": "DataFrame",
       "id": "app_fast_upload_text"
     },
     {
@@ -3995,7 +3995,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "sql_text()",
-      "community_name": "import_bill_list_dataframe",
+      "community_name": "DataFrame",
       "id": "app_sql_text"
     },
     {
@@ -4006,7 +4006,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "import_bill_list_dataframe()",
-      "community_name": "import_bill_list_dataframe",
+      "community_name": "DataFrame",
       "id": "app_import_bill_list_dataframe"
     },
     {
@@ -4039,7 +4039,7 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "_zone_sort_key()",
-      "community_name": "_GroupedPdfWrapper",
+      "community_name": "get_db",
       "id": "app_zone_sort_key"
     },
     {
@@ -4204,7 +4204,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "_calc_col_widths()",
-      "community_name": "_GroupedPdfWrapper",
+      "community_name": "BytesIO",
       "id": "app_calc_col_widths"
     },
     {
@@ -4215,7 +4215,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "sanitize_filename()",
-      "community_name": "get_db",
+      "community_name": "BytesIO",
       "id": "app_sanitize_filename"
     },
     {
@@ -4237,7 +4237,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "generate_zip_of_group_pdfs()",
-      "community_name": "get_db",
+      "community_name": "BytesIO",
       "id": "app_generate_zip_of_group_pdfs"
     },
     {
@@ -4248,7 +4248,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "generate_advanced_filtered_pdf()",
-      "community_name": "DataFrame",
+      "community_name": "BytesIO",
       "id": "app_generate_advanced_filtered_pdf"
     },
     {
@@ -4259,7 +4259,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "export_advanced_bills_response()",
-      "community_name": "DataFrame",
+      "community_name": "BytesIO",
       "id": "app_export_advanced_bills_response"
     },
     {
@@ -4270,7 +4270,7 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "build_unpaid_amount_summary()",
-      "community_name": "DataFrame",
+      "community_name": "get_db",
       "id": "app_build_unpaid_amount_summary"
     },
     {
@@ -4292,7 +4292,7 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "bill_list_export_rows()",
-      "community_name": "DataFrame",
+      "community_name": "fmt",
       "id": "app_bill_list_export_rows"
     },
     {
@@ -4303,7 +4303,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "_bill_list_summary_from_rows()",
-      "community_name": "parse_number",
+      "community_name": "DataFrame",
       "id": "app_bill_list_summary_from_rows"
     },
     {
@@ -4314,7 +4314,7 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "unpaid_amount_export_data()",
-      "community_name": "DataFrame",
+      "community_name": "get_db",
       "id": "app_unpaid_amount_export_data"
     },
     {
@@ -4336,7 +4336,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "_unpaid_total_from_section_rows()",
-      "community_name": "parse_number",
+      "community_name": "DataFrame",
       "id": "app_unpaid_total_from_section_rows"
     },
     {
@@ -4347,7 +4347,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "generate_unpaid_amount_pdf()",
-      "community_name": "DataFrame",
+      "community_name": "BytesIO",
       "id": "app_generate_unpaid_amount_pdf"
     },
     {
@@ -4402,7 +4402,7 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "export_table_response()",
-      "community_name": "DataFrame",
+      "community_name": "fmt",
       "id": "app_export_table_response"
     },
     {
@@ -4413,7 +4413,7 @@
       "_origin": "ast",
       "community": 13,
       "norm_label": "generate_staff_report_pdf()",
-      "community_name": "DataFrame",
+      "community_name": "export_six_month_pitch",
       "id": "app_generate_staff_report_pdf"
     },
     {
@@ -4479,7 +4479,7 @@
       "_origin": "ast",
       "community": 15,
       "norm_label": "read_and_merge_uploaded_files()",
-      "community_name": "index",
+      "community_name": "consumer_report",
       "id": "app_read_and_merge_uploaded_files"
     },
     {
@@ -4490,7 +4490,7 @@
       "_origin": "ast",
       "community": 17,
       "norm_label": "route",
-      "community_name": "DataFrame",
+      "community_name": "route",
       "id": "route"
     },
     {
@@ -4512,7 +4512,7 @@
       "_origin": "ast",
       "community": 17,
       "norm_label": "download_file()",
-      "community_name": "DataFrame",
+      "community_name": "route",
       "id": "app_download_file"
     },
     {
@@ -4523,7 +4523,7 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "daily_staff_receive()",
-      "community_name": "index",
+      "community_name": "consumer_report",
       "id": "app_daily_staff_receive"
     },
     {
@@ -4534,7 +4534,7 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "bill_list()",
-      "community_name": "get_db",
+      "community_name": "consumer_report",
       "id": "app_bill_list"
     },
     {
@@ -4545,7 +4545,7 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "export_bill_list()",
-      "community_name": "DataFrame",
+      "community_name": "fmt",
       "id": "app_export_bill_list"
     },
     {
@@ -4556,7 +4556,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "export_unpaid_amount_summary()",
-      "community_name": "DataFrame",
+      "community_name": "BytesIO",
       "id": "app_export_unpaid_amount_summary"
     },
     {
@@ -4567,7 +4567,7 @@
       "_origin": "ast",
       "community": 13,
       "norm_label": "export_unpaid_amount_section()",
-      "community_name": "DataFrame",
+      "community_name": "export_six_month_pitch",
       "id": "app_export_unpaid_amount_section"
     },
     {
@@ -4589,7 +4589,7 @@
       "_origin": "ast",
       "community": 13,
       "norm_label": "export_bill_list_staff()",
-      "community_name": "DataFrame",
+      "community_name": "export_six_month_pitch",
       "id": "app_export_bill_list_staff"
     },
     {
@@ -4622,7 +4622,7 @@
       "_origin": "ast",
       "community": 13,
       "norm_label": "export_six_month_pitch()",
-      "community_name": "DataFrame",
+      "community_name": "export_six_month_pitch",
       "id": "app_export_six_month_pitch"
     },
     {
@@ -4633,7 +4633,7 @@
       "_origin": "ast",
       "community": 13,
       "norm_label": "export_season_sector_pitch()",
-      "community_name": "DataFrame",
+      "community_name": "export_six_month_pitch",
       "id": "app_export_season_sector_pitch"
     },
     {
@@ -4644,7 +4644,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "export_advanced_bills()",
-      "community_name": "get_db",
+      "community_name": "BytesIO",
       "id": "app_export_advanced_bills"
     },
     {
@@ -4688,7 +4688,7 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "generate_summary_pdf()",
-      "community_name": "DataFrame",
+      "community_name": "fmt",
       "id": "app_generate_summary_pdf"
     },
     {
@@ -4699,7 +4699,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "generate_connection_rate_pdf()",
-      "community_name": "DataFrame",
+      "community_name": "BytesIO",
       "id": "app_generate_connection_rate_pdf"
     },
     {
@@ -4710,7 +4710,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "get_bill_income_category_summary()",
-      "community_name": "get_db",
+      "community_name": "DataFrame",
       "id": "app_get_bill_income_category_summary"
     },
     {
@@ -4721,7 +4721,7 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "bill_income_category_export_rows()",
-      "community_name": "DataFrame",
+      "community_name": "fmt",
       "id": "app_bill_income_category_export_rows"
     },
     {
@@ -4732,7 +4732,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_money()",
-      "community_name": "allowed_file",
+      "community_name": "_build_dnc_register_report",
       "id": "app_dnc_money"
     },
     {
@@ -4743,7 +4743,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_pair()",
-      "community_name": "allowed_file",
+      "community_name": "_build_dnc_register_report",
       "id": "app_dnc_pair"
     },
     {
@@ -4754,7 +4754,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_split_sector_locality()",
-      "community_name": "allowed_file",
+      "community_name": "_build_dnc_register_report",
       "id": "app_dnc_split_sector_locality"
     },
     {
@@ -4765,7 +4765,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_classification()",
-      "community_name": "allowed_file",
+      "community_name": "_build_dnc_register_report",
       "id": "app_dnc_classification"
     },
     {
@@ -4776,7 +4776,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_rate_and_classification()",
-      "community_name": "allowed_file",
+      "community_name": "_build_dnc_register_report",
       "id": "app_dnc_rate_and_classification"
     },
     {
@@ -4787,7 +4787,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_sum_rows()",
-      "community_name": "allowed_file",
+      "community_name": "_build_dnc_register_report",
       "id": "app_dnc_sum_rows"
     },
     {
@@ -4798,7 +4798,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_load_dnc_dataframe()",
-      "community_name": "allowed_file",
+      "community_name": "_build_dnc_register_report",
       "id": "app_load_dnc_dataframe"
     },
     {
@@ -4809,7 +4809,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_build_dnc_register_report()",
-      "community_name": "allowed_file",
+      "community_name": "_build_dnc_register_report",
       "id": "app_build_dnc_register_report"
     },
     {
@@ -4820,7 +4820,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_report_rows()",
-      "community_name": "allowed_file",
+      "community_name": "_build_dnc_register_report",
       "id": "app_dnc_report_rows"
     },
     {
@@ -4831,7 +4831,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "dnc_register()",
-      "community_name": "allowed_file",
+      "community_name": "_build_dnc_register_report",
       "id": "app_dnc_register"
     },
     {
@@ -4842,7 +4842,7 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "export_dnc_register()",
-      "community_name": "DataFrame",
+      "community_name": "fmt",
       "id": "app_export_dnc_register"
     },
     {
@@ -4853,7 +4853,7 @@
       "_origin": "ast",
       "community": 17,
       "norm_label": "export_summary_response()",
-      "community_name": "DataFrame",
+      "community_name": "route",
       "id": "app_export_summary_response"
     },
     {
@@ -4864,7 +4864,7 @@
       "_origin": "ast",
       "community": 17,
       "norm_label": "export_zones_summary()",
-      "community_name": "DataFrame",
+      "community_name": "route",
       "id": "app_export_zones_summary"
     },
     {
@@ -4875,7 +4875,7 @@
       "_origin": "ast",
       "community": 17,
       "norm_label": "export_sectors_summary()",
-      "community_name": "DataFrame",
+      "community_name": "route",
       "id": "app_export_sectors_summary"
     },
     {
@@ -4886,7 +4886,7 @@
       "_origin": "ast",
       "community": 17,
       "norm_label": "export_staff_summary()",
-      "community_name": "DataFrame",
+      "community_name": "route",
       "id": "app_export_staff_summary"
     },
     {
@@ -4897,7 +4897,7 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "export_bill_income_category_summary()",
-      "community_name": "DataFrame",
+      "community_name": "fmt",
       "id": "app_export_bill_income_category_summary"
     },
     {
@@ -4919,7 +4919,7 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "commercial_daily_income_export_rows()",
-      "community_name": "DataFrame",
+      "community_name": "fmt",
       "id": "app_commercial_daily_income_export_rows"
     },
     {
@@ -4930,7 +4930,7 @@
       "_origin": "ast",
       "community": 14,
       "norm_label": "daily_staff_receive_export_tables()",
-      "community_name": "DataFrame",
+      "community_name": "ParagraphStyle",
       "id": "app_daily_staff_receive_export_tables"
     },
     {
@@ -4941,7 +4941,7 @@
       "_origin": "ast",
       "community": 14,
       "norm_label": "_calc_daily_summary_col_widths()",
-      "community_name": "app.py",
+      "community_name": "ParagraphStyle",
       "id": "app_calc_daily_summary_col_widths"
     },
     {
@@ -4952,7 +4952,7 @@
       "_origin": "ast",
       "community": 14,
       "norm_label": "_calc_daily_detail_col_widths()",
-      "community_name": "app.py",
+      "community_name": "ParagraphStyle",
       "id": "app_calc_daily_detail_col_widths"
     },
     {
@@ -4963,7 +4963,7 @@
       "_origin": "ast",
       "community": 14,
       "norm_label": "generate_daily_staff_receive_pdf()",
-      "community_name": "DataFrame",
+      "community_name": "ParagraphStyle",
       "id": "app_generate_daily_staff_receive_pdf"
     },
     {
@@ -4974,7 +4974,7 @@
       "_origin": "ast",
       "community": 14,
       "norm_label": "daily_staff_receive_export_response()",
-      "community_name": "DataFrame",
+      "community_name": "ParagraphStyle",
       "id": "app_daily_staff_receive_export_response"
     },
     {
@@ -4985,7 +4985,7 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "download_card()",
-      "community_name": "DataFrame",
+      "community_name": "fmt",
       "id": "app_download_card"
     },
     {
@@ -4996,7 +4996,7 @@
       "_origin": "ast",
       "community": 14,
       "norm_label": "generate_daily_staff_receive_summary_pdf()",
-      "community_name": "DataFrame",
+      "community_name": "ParagraphStyle",
       "id": "app_generate_daily_staff_receive_summary_pdf"
     },
     {
@@ -5007,7 +5007,7 @@
       "_origin": "ast",
       "community": 17,
       "norm_label": "export_daily_staff_receive_summary_pdf()",
-      "community_name": "DataFrame",
+      "community_name": "route",
       "id": "app_export_daily_staff_receive_summary_pdf"
     },
     {
@@ -5018,7 +5018,7 @@
       "_origin": "ast",
       "community": 17,
       "norm_label": "export_daily_staff_receive()",
-      "community_name": "DataFrame",
+      "community_name": "route",
       "id": "app_export_daily_staff_receive"
     },
     {
@@ -5040,7 +5040,7 @@
       "_origin": "ast",
       "community": 15,
       "norm_label": "_load_consumer_summary_cache()",
-      "community_name": "export_consumer_report",
+      "community_name": "index",
       "id": "app_load_consumer_summary_cache"
     },
     {
@@ -5062,7 +5062,7 @@
       "_origin": "ast",
       "community": 25,
       "norm_label": "_load_consumer_rows_cache()",
-      "community_name": "export_consumer_report",
+      "community_name": "consumer_report_detail_records",
       "id": "app_load_consumer_rows_cache"
     },
     {
@@ -5106,7 +5106,7 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "_ncd_decimal()",
-      "community_name": "_build_new_connection_detail_report",
+      "community_name": "app.py",
       "id": "app_ncd_decimal"
     },
     {
@@ -5117,7 +5117,7 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "_ncd_int()",
-      "community_name": "_build_new_connection_detail_report",
+      "community_name": "app.py",
       "id": "app_ncd_int"
     },
     {
@@ -5128,7 +5128,7 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "_ncd_parse_date()",
-      "community_name": "_build_new_connection_detail_report",
+      "community_name": "app.py",
       "id": "app_ncd_parse_date"
     },
     {
@@ -5150,7 +5150,7 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "_ncd_year_from_source()",
-      "community_name": "_build_new_connection_detail_report",
+      "community_name": "app.py",
       "id": "app_ncd_year_from_source"
     },
     {
@@ -5161,7 +5161,7 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "_ncd_classification()",
-      "community_name": "_build_new_connection_detail_report",
+      "community_name": "app.py",
       "id": "app_ncd_classification"
     },
     {
@@ -5172,7 +5172,7 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "_ncd_load_file()",
-      "community_name": "_build_new_connection_detail_report",
+      "community_name": "app.py",
       "id": "app_ncd_load_file"
     },
     {
@@ -5183,7 +5183,7 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "_ncd_recalculate()",
-      "community_name": "_build_new_connection_detail_report",
+      "community_name": "app.py",
       "id": "app_ncd_recalculate"
     },
     {
@@ -5194,7 +5194,7 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "_build_new_connection_detail_report()",
-      "community_name": "_build_new_connection_detail_report",
+      "community_name": "app.py",
       "id": "app_build_new_connection_detail_report"
     },
     {
@@ -5205,7 +5205,7 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "_save_new_connection_detail_cache()",
-      "community_name": "_build_new_connection_detail_report",
+      "community_name": "app.py",
       "id": "app_save_new_connection_detail_cache"
     },
     {
@@ -5216,7 +5216,7 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "_load_new_connection_detail_cache()",
-      "community_name": "_build_new_connection_detail_report",
+      "community_name": "app.py",
       "id": "app_load_new_connection_detail_cache"
     },
     {
@@ -5227,7 +5227,7 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "_clear_new_connection_detail_cache()",
-      "community_name": "_build_new_connection_detail_report",
+      "community_name": "app.py",
       "id": "app_clear_new_connection_detail_cache"
     },
     {
@@ -5238,7 +5238,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": "_ncd_export_rows()",
-      "community_name": "DataFrame",
+      "community_name": "export_new_connection_detail",
       "id": "app_ncd_export_rows"
     },
     {
@@ -5249,7 +5249,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": "_ncd_table_pdf()",
-      "community_name": "DataFrame",
+      "community_name": "export_new_connection_detail",
       "id": "app_ncd_table_pdf"
     },
     {
@@ -5260,7 +5260,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": "_ncd_pdf_col_widths()",
-      "community_name": "DataFrame",
+      "community_name": "export_new_connection_detail",
       "id": "app_ncd_pdf_col_widths"
     },
     {
@@ -5271,7 +5271,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": "_ncd_detail_pdf()",
-      "community_name": "DataFrame",
+      "community_name": "export_new_connection_detail",
       "id": "app_ncd_detail_pdf"
     },
     {
@@ -5293,7 +5293,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": "_ncd_general_category_table()",
-      "community_name": "DataFrame",
+      "community_name": "export_new_connection_detail",
       "id": "app_ncd_general_category_table"
     },
     {
@@ -5304,7 +5304,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": "_ncd_annual_payload()",
-      "community_name": "DataFrame",
+      "community_name": "export_new_connection_detail",
       "id": "app_ncd_annual_payload"
     },
     {
@@ -5315,7 +5315,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": "_ncd_annual_pdf()",
-      "community_name": "DataFrame",
+      "community_name": "export_new_connection_detail",
       "id": "app_ncd_annual_pdf"
     },
     {
@@ -5326,7 +5326,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": "_ncd_safe_annual_pdf()",
-      "community_name": "DataFrame",
+      "community_name": "export_new_connection_detail",
       "id": "app_ncd_safe_annual_pdf"
     },
     {
@@ -5337,7 +5337,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": "_ncd_general_pdf()",
-      "community_name": "DataFrame",
+      "community_name": "export_new_connection_detail",
       "id": "app_ncd_general_pdf"
     },
     {
@@ -5348,7 +5348,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "_normalize_consumer_col()",
-      "community_name": "_is_faulty_commercial_hussain_colony",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_normalize_consumer_col"
     },
     {
@@ -5359,7 +5359,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "_resolve_consumer_columns()",
-      "community_name": "_is_faulty_commercial_hussain_colony",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_resolve_consumer_columns"
     },
     {
@@ -5370,7 +5370,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "_classify_connection_status()",
-      "community_name": "_is_faulty_commercial_hussain_colony",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_classify_connection_status"
     },
     {
@@ -5381,7 +5381,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "_canonical_consumer_sector_locality()",
-      "community_name": "build_consumer_sector_remaining_report",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_canonical_consumer_sector_locality"
     },
     {
@@ -5392,7 +5392,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "_is_extra_zain_city_13g_sector()",
-      "community_name": "build_consumer_sector_remaining_report",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_is_extra_zain_city_13g_sector"
     },
     {
@@ -5403,7 +5403,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "_is_extra_noor_mohalla_main_road_sector()",
-      "community_name": "build_consumer_sector_remaining_report",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_is_extra_noor_mohalla_main_road_sector"
     },
     {
@@ -5414,7 +5414,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "_is_faulty_empty_consumer_sector()",
-      "community_name": "build_consumer_sector_remaining_report",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_is_faulty_empty_consumer_sector"
     },
     {
@@ -5425,7 +5425,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "_is_faulty_commercial_hussain_colony()",
-      "community_name": "_is_faulty_commercial_hussain_colony",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_is_faulty_commercial_hussain_colony"
     },
     {
@@ -5447,7 +5447,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "_clean_rate_type_name()",
-      "community_name": "build_consumer_sector_remaining_report",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_clean_rate_type_name"
     },
     {
@@ -5469,7 +5469,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "_parse_consumer_csv()",
-      "community_name": "_is_faulty_commercial_hussain_colony",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_parse_consumer_csv"
     },
     {
@@ -5480,7 +5480,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "_build_consumer_sector_summary()",
-      "community_name": "build_consumer_sector_remaining_report",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_build_consumer_sector_summary"
     },
     {
@@ -5491,7 +5491,7 @@
       "_origin": "ast",
       "community": 15,
       "norm_label": "_sort_summary_rows()",
-      "community_name": "export_consumer_report",
+      "community_name": "index",
       "id": "app_sort_summary_rows"
     },
     {
@@ -5502,7 +5502,7 @@
       "_origin": "ast",
       "community": 25,
       "norm_label": "_filter_active_rows()",
-      "community_name": "consumer_report",
+      "community_name": "consumer_report_detail_records",
       "id": "app_filter_active_rows"
     },
     {
@@ -5513,7 +5513,7 @@
       "_origin": "ast",
       "community": 25,
       "norm_label": "_is_private_society_summary_row()",
-      "community_name": "export_consumer_report",
+      "community_name": "consumer_report_detail_records",
       "id": "app_is_private_society_summary_row"
     },
     {
@@ -5524,7 +5524,7 @@
       "_origin": "ast",
       "community": 25,
       "norm_label": "_split_summary_by_type()",
-      "community_name": "consumer_report",
+      "community_name": "consumer_report_detail_records",
       "id": "app_split_summary_by_type"
     },
     {
@@ -5546,7 +5546,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": "_norm_report_text()",
-      "community_name": "_build_connection_rate_report",
+      "community_name": "_build_connection_rate_report_from_summary",
       "id": "app_norm_report_text"
     },
     {
@@ -5557,7 +5557,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": "_connection_rate_category()",
-      "community_name": "_build_connection_rate_report",
+      "community_name": "_build_connection_rate_report_from_summary",
       "id": "app_connection_rate_category"
     },
     {
@@ -5568,7 +5568,7 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "_annualize_connection_rate()",
-      "community_name": "_build_connection_rate_report",
+      "community_name": "app.py",
       "id": "app_annualize_connection_rate"
     },
     {
@@ -5590,7 +5590,7 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "_connection_rate_default()",
-      "community_name": "_build_connection_rate_report",
+      "community_name": "app.py",
       "id": "app_connection_rate_default"
     },
     {
@@ -5601,7 +5601,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": "_connection_rate_description()",
-      "community_name": "_build_connection_rate_report",
+      "community_name": "_build_connection_rate_report_from_summary",
       "id": "app_connection_rate_description"
     },
     {
@@ -5612,7 +5612,7 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "_connection_report_annual_rate()",
-      "community_name": "_build_connection_rate_report",
+      "community_name": "app.py",
       "id": "app_connection_report_annual_rate"
     },
     {
@@ -5623,7 +5623,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": "_connection_rate_report_from_groups()",
-      "community_name": "_build_connection_rate_report",
+      "community_name": "_build_connection_rate_report_from_summary",
       "id": "app_connection_rate_report_from_groups"
     },
     {
@@ -5634,7 +5634,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": "_connection_rate_bucket()",
-      "community_name": "_build_connection_rate_report",
+      "community_name": "_build_connection_rate_report_from_summary",
       "id": "app_connection_rate_bucket"
     },
     {
@@ -5645,7 +5645,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "_build_connection_rate_report()",
-      "community_name": "_build_connection_rate_report",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_build_connection_rate_report"
     },
     {
@@ -5656,7 +5656,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": "_build_connection_rate_report_from_summary()",
-      "community_name": "_build_connection_rate_report",
+      "community_name": "_build_connection_rate_report_from_summary",
       "id": "app_build_connection_rate_report_from_summary"
     },
     {
@@ -5667,7 +5667,7 @@
       "_origin": "ast",
       "community": 8,
       "norm_label": "_ensure_connection_rate_report()",
-      "community_name": "_build_connection_rate_report",
+      "community_name": "consumer_report",
       "id": "app_ensure_connection_rate_report"
     },
     {
@@ -5678,7 +5678,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "_connection_rate_rows_from_payload()",
-      "community_name": "parse_number",
+      "community_name": "DataFrame",
       "id": "app_connection_rate_rows_from_payload"
     },
     {
@@ -5689,7 +5689,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "export_connection_rate_report()",
-      "community_name": "DataFrame",
+      "community_name": "BytesIO",
       "id": "app_export_connection_rate_report"
     },
     {
@@ -5700,7 +5700,7 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "new_connection_detail()",
-      "community_name": "_build_new_connection_detail_report",
+      "community_name": "app.py",
       "id": "app_new_connection_detail"
     },
     {
@@ -5722,7 +5722,7 @@
       "_origin": "ast",
       "community": 26,
       "norm_label": "export_new_connection_detail()",
-      "community_name": "DataFrame",
+      "community_name": "export_new_connection_detail",
       "id": "app_export_new_connection_detail"
     },
     {
@@ -5744,7 +5744,7 @@
       "_origin": "ast",
       "community": 15,
       "norm_label": "export_consumer_report()",
-      "community_name": "export_consumer_report",
+      "community_name": "index",
       "id": "app_export_consumer_report"
     },
     {
@@ -5755,7 +5755,7 @@
       "_origin": "ast",
       "community": 17,
       "norm_label": "export_consumer_detail()",
-      "community_name": "DataFrame",
+      "community_name": "route",
       "id": "app_export_consumer_detail"
     },
     {
@@ -5766,7 +5766,7 @@
       "_origin": "ast",
       "community": 25,
       "norm_label": "consumer_report_detail_records()",
-      "community_name": "export_consumer_report",
+      "community_name": "consumer_report_detail_records",
       "id": "app_consumer_report_detail_records"
     },
     {
@@ -5777,7 +5777,7 @@
       "_origin": "ast",
       "community": 17,
       "norm_label": "file_merger()",
-      "community_name": "app.py",
+      "community_name": "route",
       "id": "app_file_merger"
     },
     {
@@ -5788,7 +5788,7 @@
       "_origin": "ast",
       "community": 17,
       "norm_label": "file_column_matcher()",
-      "community_name": "app.py",
+      "community_name": "route",
       "id": "app_file_column_matcher"
     },
     {
@@ -5810,7 +5810,7 @@
       "_origin": "ast",
       "community": 28,
       "norm_label": "_parse_arrear_export_cols()",
-      "community_name": "app.py",
+      "community_name": "export_arrear_calculator",
       "id": "app_parse_arrear_export_cols"
     },
     {
@@ -5821,7 +5821,7 @@
       "_origin": "ast",
       "community": 28,
       "norm_label": "_build_arrear_export_rows()",
-      "community_name": "app.py",
+      "community_name": "export_arrear_calculator",
       "id": "app_build_arrear_export_rows"
     },
     {
@@ -5832,7 +5832,7 @@
       "_origin": "ast",
       "community": 28,
       "norm_label": "_sort_arrear_rows()",
-      "community_name": "app.py",
+      "community_name": "export_arrear_calculator",
       "id": "app_sort_arrear_rows"
     },
     {
@@ -5843,7 +5843,7 @@
       "_origin": "ast",
       "community": 28,
       "norm_label": "export_arrear_calculator()",
-      "community_name": "DataFrame",
+      "community_name": "export_arrear_calculator",
       "id": "app_export_arrear_calculator"
     },
     {
@@ -5854,7 +5854,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "build_consumer_sector_remaining_report()",
-      "community_name": "build_consumer_sector_remaining_report",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_build_consumer_sector_remaining_report"
     },
     {
@@ -5865,7 +5865,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "consumer_sector_remaining_report()",
-      "community_name": "consumer_report",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_consumer_sector_remaining_report"
     },
     {
@@ -5876,7 +5876,7 @@
       "_origin": "ast",
       "community": 13,
       "norm_label": "export_consumer_sector_remaining()",
-      "community_name": "DataFrame",
+      "community_name": "export_six_month_pitch",
       "id": "app_export_consumer_sector_remaining"
     },
     {
@@ -5887,7 +5887,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "aggressively normalize a sector/locality name for robust matching.",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "match_staff_assignment",
       "id": "app_rationale_173"
     },
     {
@@ -5898,7 +5898,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "extract significant keywords from a sector/locality name.",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "match_staff_assignment",
       "id": "app_rationale_259"
     },
     {
@@ -5909,7 +5909,7 @@
       "_origin": "ast",
       "community": 13,
       "norm_label": "return display name: paired staff on separate lines, else as-is.",
-      "community_name": "DataFrame",
+      "community_name": "export_six_month_pitch",
       "id": "app_rationale_316"
     },
     {
@@ -5920,7 +5920,7 @@
       "_origin": "ast",
       "community": 10,
       "norm_label": "like fmt_staff_name but returns html with <br> for display.",
-      "community_name": "build_daily_staff_receive_report",
+      "community_name": "match_staff_assignment",
       "id": "app_rationale_326"
     },
     {
@@ -5931,7 +5931,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "remove duplicate uploaded bills without collapsing different bills for one...",
-      "community_name": "import_bill_list_dataframe",
+      "community_name": "DataFrame",
       "id": "app_rationale_426"
     },
     {
@@ -5942,7 +5942,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "swap day and month of a datetime to fix excel dd-mm misinterpretation.",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_rationale_564"
     },
     {
@@ -5953,7 +5953,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "parse received dates handling mixed formats and excel dd-mm swap issues.",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_rationale_576"
     },
     {
@@ -5964,7 +5964,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "build private-society locality totals without changing existing reports.",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_rationale_769"
     },
     {
@@ -5975,7 +5975,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "build commercial sector breakdown by locality \u2014 total and month-wise.",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_rationale_819"
     },
     {
@@ -5986,7 +5986,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "build commercial month-wise summary \u2014 one row per fiscal month (july to june).",
-      "community_name": "summarize_dataframe",
+      "community_name": "DataFrame",
       "id": "app_rationale_882"
     },
     {
@@ -5997,7 +5997,7 @@
       "_origin": "ast",
       "community": 13,
       "norm_label": "read bill-list row checkbox selection from export query params.",
-      "community_name": "DataFrame",
+      "community_name": "export_six_month_pitch",
       "id": "app_rationale_1831"
     },
     {
@@ -6008,7 +6008,7 @@
       "_origin": "ast",
       "community": 13,
       "norm_label": "keep only bill-list rows selected by the page checkboxes before exporting.",
-      "community_name": "DataFrame",
+      "community_name": "export_six_month_pitch",
       "id": "app_rationale_1842"
     },
     {
@@ -6019,7 +6019,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "normalise a sector name for grouping: trim, lowercase, collapse spaces.",
-      "community_name": "parse_number",
+      "community_name": "DataFrame",
       "id": "app_rationale_1961"
     },
     {
@@ -6030,7 +6030,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "merge rows that share the same normalised sector name. for each unique sector:...",
-      "community_name": "parse_number",
+      "community_name": "DataFrame",
       "id": "app_rationale_1967"
     },
     {
@@ -6041,7 +6041,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "merge list-of-lists rows by normalised sector. keeps first locality, sums...",
-      "community_name": "parse_number",
+      "community_name": "DataFrame",
       "id": "app_rationale_2003"
     },
     {
@@ -6052,7 +6052,7 @@
       "_origin": "ast",
       "community": 12,
       "norm_label": "compute connection type collection summary from results dict.",
-      "community_name": "DataFrame",
+      "community_name": "fmt",
       "id": "app_rationale_2024"
     },
     {
@@ -6063,7 +6063,7 @@
       "_origin": "ast",
       "community": 14,
       "norm_label": "split text into normal and bracket segments for rich text rendering. returns a...",
-      "community_name": "DataFrame",
+      "community_name": "ParagraphStyle",
       "id": "app_rationale_2254"
     },
     {
@@ -6074,7 +6074,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "fast duplicate key for bill reports uploads when bill no is present.",
-      "community_name": "import_bill_list_dataframe",
+      "community_name": "DataFrame",
       "id": "app_rationale_3232"
     },
     {
@@ -6085,7 +6085,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "fast numeric parser for bill reports upload amount columns.",
-      "community_name": "import_bill_list_dataframe",
+      "community_name": "DataFrame",
       "id": "app_rationale_3245"
     },
     {
@@ -6096,7 +6096,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "fast text normalizer for bill reports upload identifier/name fields.",
-      "community_name": "import_bill_list_dataframe",
+      "community_name": "DataFrame",
       "id": "app_rationale_3260"
     },
     {
@@ -6118,7 +6118,7 @@
       "_origin": "ast",
       "community": 4,
       "norm_label": "return sort key for zone ordering: a=1, b=2, c=3, commercial=4, unknown=99.",
-      "community_name": "_GroupedPdfWrapper",
+      "community_name": "get_db",
       "id": "app_rationale_3606"
     },
     {
@@ -6184,7 +6184,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "calculate column widths proportional to content, scaled to fill page_w.",
-      "community_name": "_GroupedPdfWrapper",
+      "community_name": "BytesIO",
       "id": "app_rationale_3893"
     },
     {
@@ -6195,7 +6195,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "recalculate sector export totals from checked rows only.",
-      "community_name": "parse_number",
+      "community_name": "DataFrame",
       "id": "app_rationale_4550"
     },
     {
@@ -6206,7 +6206,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "recalculate unpaid amount totals from checked section rows only.",
-      "community_name": "parse_number",
+      "community_name": "DataFrame",
       "id": "app_rationale_4612"
     },
     {
@@ -6250,7 +6250,7 @@
       "_origin": "ast",
       "community": 16,
       "norm_label": "print-friendly consumer report rate summary with wrapped descriptions.",
-      "community_name": "DataFrame",
+      "community_name": "BytesIO",
       "id": "app_rationale_6848"
     },
     {
@@ -6261,7 +6261,7 @@
       "_origin": "ast",
       "community": 1,
       "norm_label": "build bills reports income categories from the saved bills table.",
-      "community_name": "get_db",
+      "community_name": "DataFrame",
       "id": "app_rationale_6957"
     },
     {
@@ -6272,7 +6272,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "dnc category comes from row text: commercial, private society, otherwise...",
-      "community_name": "allowed_file",
+      "community_name": "_build_dnc_register_report",
       "id": "app_rationale_7104"
     },
     {
@@ -6283,7 +6283,7 @@
       "_origin": "ast",
       "community": 14,
       "norm_label": "calculate column widths for the daily staff receive summary table.",
-      "community_name": "app.py",
+      "community_name": "ParagraphStyle",
       "id": "app_rationale_7537"
     },
     {
@@ -6305,7 +6305,7 @@
       "_origin": "ast",
       "community": 15,
       "norm_label": "load a previously saved consumer summary from disk. returns (summary, filename,...",
-      "community_name": "export_consumer_report",
+      "community_name": "index",
       "id": "app_rationale_8717"
     },
     {
@@ -6327,7 +6327,7 @@
       "_origin": "ast",
       "community": 25,
       "norm_label": "load cached consumer individual connection rows.",
-      "community_name": "export_consumer_report",
+      "community_name": "consumer_report_detail_records",
       "id": "app_rationale_8740"
     },
     {
@@ -6338,7 +6338,7 @@
       "_origin": "ast",
       "community": 3,
       "norm_label": "one shared builder for screen totals and exports.",
-      "community_name": "_build_new_connection_detail_report",
+      "community_name": "app.py",
       "id": "app_rationale_8916"
     },
     {
@@ -6349,7 +6349,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "map each canonical key to the actual csv column name that matched.",
-      "community_name": "_is_faulty_commercial_hussain_colony",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_rationale_9382"
     },
     {
@@ -6360,7 +6360,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "classify both 'status' column values and 'consumer status' into...",
-      "community_name": "_is_faulty_commercial_hussain_colony",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_rationale_9397"
     },
     {
@@ -6371,7 +6371,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "normalize known duplicate sector labels that refer to the same society.",
-      "community_name": "build_consumer_sector_remaining_report",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_rationale_9412"
     },
     {
@@ -6382,7 +6382,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "skip the extra zain city chack no 13/g block; official zain city has 50 rows.",
-      "community_name": "build_consumer_sector_remaining_report",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_rationale_9428"
     },
     {
@@ -6393,7 +6393,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "skip duplicate noor mohalla sector text generated from address wording.",
-      "community_name": "build_consumer_sector_remaining_report",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_rationale_9435"
     },
     {
@@ -6404,7 +6404,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "skip placeholder/faulty empty sectors that do not represent real connections.",
-      "community_name": "build_consumer_sector_remaining_report",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_rationale_9441"
     },
     {
@@ -6415,7 +6415,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "skip dummy/faulted commercial hussain colony records that do not represent real...",
-      "community_name": "_is_faulty_commercial_hussain_colony",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_rationale_9446"
     },
     {
@@ -6437,7 +6437,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "return only the rate type label for warnings, never a mixed/full csv row.",
-      "community_name": "build_consumer_sector_remaining_report",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_rationale_9464"
     },
     {
@@ -6459,7 +6459,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "read uploaded csv/xlsx and return (rows, errors). uses flexible column matching...",
-      "community_name": "_is_faulty_commercial_hussain_colony",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_rationale_9480"
     },
     {
@@ -6470,7 +6470,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "group rows by sector, then locality. return summary data. sector normalization...",
-      "community_name": "build_consumer_sector_remaining_report",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_rationale_9550"
     },
     {
@@ -6481,7 +6481,7 @@
       "_origin": "ast",
       "community": 15,
       "norm_label": "shared sorting for the consumer sector report (preview, pdf, csv, excel)....",
-      "community_name": "export_consumer_report",
+      "community_name": "index",
       "id": "app_rationale_9856"
     },
     {
@@ -6492,7 +6492,7 @@
       "_origin": "ast",
       "community": 25,
       "norm_label": "return a copy of `summary` with all rows having zero active connections...",
-      "community_name": "consumer_report",
+      "community_name": "consumer_report_detail_records",
       "id": "app_rationale_9887"
     },
     {
@@ -6503,7 +6503,7 @@
       "_origin": "ast",
       "community": 25,
       "norm_label": "return true for domestic private-society rows shown in their own tab.",
-      "community_name": "export_consumer_report",
+      "community_name": "consumer_report_detail_records",
       "id": "app_rationale_9934"
     },
     {
@@ -6514,7 +6514,7 @@
       "_origin": "ast",
       "community": 25,
       "norm_label": "split a summary dict into (normal, commercial, private_society). commercial...",
-      "community_name": "consumer_report",
+      "community_name": "consumer_report_detail_records",
       "id": "app_rationale_9946"
     },
     {
@@ -6536,7 +6536,7 @@
       "_origin": "ast",
       "community": 29,
       "norm_label": "fallback for already-cached consumer report data without raw upload rows.",
-      "community_name": "_build_connection_rate_report",
+      "community_name": "_build_connection_rate_report_from_summary",
       "id": "app_rationale_10286"
     },
     {
@@ -6547,7 +6547,7 @@
       "_origin": "ast",
       "community": 17,
       "norm_label": "export filtered consumer-level connection details to pdf, excel, or csv with...",
-      "community_name": "DataFrame",
+      "community_name": "route",
       "id": "app_rationale_11386"
     },
     {
@@ -6558,7 +6558,7 @@
       "_origin": "ast",
       "community": 25,
       "norm_label": "return consumer connection records for a specific sector/locality/category with...",
-      "community_name": "export_consumer_report",
+      "community_name": "consumer_report_detail_records",
       "id": "app_rationale_11626"
     },
     {
@@ -6569,7 +6569,7 @@
       "_origin": "ast",
       "community": 17,
       "norm_label": "render the file merger page with csv/excel and pdf merge sections.",
-      "community_name": "app.py",
+      "community_name": "route",
       "id": "app_rationale_11701"
     },
     {
@@ -6580,7 +6580,7 @@
       "_origin": "ast",
       "community": 17,
       "norm_label": "render the file column matcher page for matching columns between two files.",
-      "community_name": "app.py",
+      "community_name": "route",
       "id": "app_rationale_11714"
     },
     {
@@ -6591,7 +6591,7 @@
       "_origin": "ast",
       "community": 28,
       "norm_label": "parse comma-separated column keys into an ordered list. fixed column order: sr,...",
-      "community_name": "app.py",
+      "community_name": "export_arrear_calculator",
       "id": "app_rationale_11801"
     },
     {
@@ -6602,7 +6602,7 @@
       "_origin": "ast",
       "community": 28,
       "norm_label": "build export rows from summary data, selecting only requested columns.",
-      "community_name": "app.py",
+      "community_name": "export_arrear_calculator",
       "id": "app_rationale_11822"
     },
     {
@@ -6613,7 +6613,7 @@
       "_origin": "ast",
       "community": 28,
       "norm_label": "sort rows by the given status priority and order.",
-      "community_name": "app.py",
+      "community_name": "export_arrear_calculator",
       "id": "app_rationale_11856"
     },
     {
@@ -6635,7 +6635,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "build combined consumer sector + remaining amount rows. joins consumer sector...",
-      "community_name": "build_consumer_sector_remaining_report",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_rationale_12151"
     },
     {
@@ -6646,7 +6646,7 @@
       "_origin": "ast",
       "community": 6,
       "norm_label": "display the combined consumer sector remaining report. supports two upload...",
-      "community_name": "consumer_report",
+      "community_name": "consumer_sector_remaining_report",
       "id": "app_rationale_12294"
     },
     {
@@ -6657,7 +6657,7 @@
       "_origin": "ast",
       "community": 13,
       "norm_label": "export the consumer sector remaining report as csv, excel, or pdf.",
-      "community_name": "DataFrame",
+      "community_name": "export_six_month_pitch",
       "id": "app_rationale_12473"
     },
     {
@@ -16910,7 +16910,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1874",
+      "source_location": "L1876",
       "weight": 1.0,
       "source": "arrears_analysis_export_arrears_analysis",
       "target": "dataframe",
@@ -24788,7 +24788,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1811",
+      "source_location": "L1813",
       "weight": 1.0,
       "source": "arrears_analysis_export_arrears_analysis",
       "target": "arrears_analysis_classify_status",
@@ -25138,7 +25138,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1739",
+      "source_location": "L1741",
       "weight": 1.0,
       "source": "arrears_analysis_export_arrears_analysis",
       "target": "arrears_analysis_build_arrears_pdf",
@@ -25176,5 +25176,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "163ad8fbef08d6b4f575a2a688d266e5e96f4bab"
+  "built_at_commit": "e7596fc7ecc82932d231d949bd0fa06956f6d5f9"
 }

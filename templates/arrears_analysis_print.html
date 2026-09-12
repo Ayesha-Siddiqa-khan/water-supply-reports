@@ -224,13 +224,8 @@
       {% set cls_c = s.closed_count|int %}
       {% set cls_a = s.closed_arrears|float %}
 
-      {% if include_closed %}
-        {% set row_tot_c = reg_c + sus_c + cls_c %}
-        {% set row_tot_a = reg_a + sus_a + cls_a %}
-      {% else %}
-        {% set row_tot_c = reg_c + sus_c %}
-        {% set row_tot_a = reg_a + sus_a %}
-      {% endif %}
+      {% set row_tot_c = (reg_c if show_reg_c else 0) + (sus_c if show_sus_c else 0) + (cls_c if show_cls_c else 0) %}
+      {% set row_tot_a = (reg_a if show_reg_a else 0) + (sus_a if show_sus_a else 0) + (cls_a if show_cls_a else 0) %}
 
       {% set sum_reg_c.v = sum_reg_c.v + reg_c %}
       {% set sum_reg_a.v = sum_reg_a.v + reg_a %}

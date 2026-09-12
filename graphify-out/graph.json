@@ -3025,9 +3025,9 @@
       "source_file": "app.py",
       "source_location": "L338",
       "_origin": "ast",
-      "community": 8,
+      "community": 20,
       "norm_label": "allowed_file()",
-      "community_name": "consumer_report",
+      "community_name": "allowed_file",
       "id": "app_allowed_file"
     },
     {
@@ -3091,9 +3091,9 @@
       "source_file": "app.py",
       "source_location": "L367",
       "_origin": "ast",
-      "community": 8,
+      "community": 15,
       "norm_label": "read_uploaded_dataframe()",
-      "community_name": "consumer_report",
+      "community_name": "index",
       "id": "app_read_uploaded_dataframe"
     },
     {
@@ -4477,9 +4477,9 @@
       "source_file": "app.py",
       "source_location": "L5524",
       "_origin": "ast",
-      "community": 8,
+      "community": 15,
       "norm_label": "read_and_merge_uploaded_files()",
-      "community_name": "consumer_report",
+      "community_name": "index",
       "id": "app_read_and_merge_uploaded_files"
     },
     {
@@ -4732,7 +4732,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_money()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_dnc_money"
     },
     {
@@ -4743,7 +4743,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_pair()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_dnc_pair"
     },
     {
@@ -4754,7 +4754,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_split_sector_locality()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_dnc_split_sector_locality"
     },
     {
@@ -4765,7 +4765,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_classification()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_dnc_classification"
     },
     {
@@ -4776,7 +4776,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_rate_and_classification()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_dnc_rate_and_classification"
     },
     {
@@ -4787,7 +4787,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_sum_rows()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_dnc_sum_rows"
     },
     {
@@ -4798,7 +4798,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_load_dnc_dataframe()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_load_dnc_dataframe"
     },
     {
@@ -4809,7 +4809,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_build_dnc_register_report()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_build_dnc_register_report"
     },
     {
@@ -4820,7 +4820,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_report_rows()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_dnc_report_rows"
     },
     {
@@ -4831,7 +4831,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "dnc_register()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_dnc_register"
     },
     {
@@ -6272,7 +6272,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "dnc category comes from row text: commercial, private society, otherwise...",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_rationale_7104"
     },
     {
@@ -16950,7 +16950,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1874",
+      "source_location": "L1876",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "arrears_analysis_export_arrears_analysis",
@@ -24828,7 +24828,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1811",
+      "source_location": "L1813",
       "weight": 1.0,
       "confidence_score": 0.5,
       "source": "arrears_analysis_export_arrears_analysis",
@@ -25178,7 +25178,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1739",
+      "source_location": "L1741",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "arrears_analysis_export_arrears_analysis",
@@ -25216,5 +25216,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "163ad8fbef08d6b4f575a2a688d266e5e96f4bab"
+  "built_at_commit": "e7596fc7ecc82932d231d949bd0fa06956f6d5f9"
 }

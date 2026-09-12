@@ -763,8 +763,8 @@ def build_arrears_pdf(
         cls_c = item["closed_count"]
         cls_a = item["closed_arrears"]
 
-        tot_c = reg_c + sus_c + (cls_c if include_closed else 0)
-        tot_a = reg_a + sus_a + (cls_a if include_closed else 0)
+        tot_c = (reg_c if show_reg_c else 0) + (sus_c if show_sus_c else 0) + (cls_c if show_cls_c else 0)
+        tot_a = (reg_a if show_reg_a else 0) + (sus_a if show_sus_a else 0) + (cls_a if show_cls_a else 0)
 
         sum_reg_conns += reg_c
         sum_reg_arr += reg_a
@@ -1726,9 +1726,11 @@ def export_arrears_analysis(fmt_type: str):
     if show_cls_a:
         metric_export_cols.append(("Closed Arrears (PKR)", lambda s: s["closed_arrears"], sum(s["closed_arrears"] for s in analysis["locality_summaries"])))
     if show_tot_c:
-        metric_export_cols.append(("Total Connections", lambda s: s["regular_count"] + s["suspended_count"] + (s["closed_count"] if include_closed else 0), sum(s["regular_count"] + s["suspended_count"] + (s["closed_count"] if include_closed else 0) for s in analysis["locality_summaries"])))
+        calc_tot_c = lambda s: (s["regular_count"] if show_reg_c else 0) + (s["suspended_count"] if show_sus_c else 0) + (s["closed_count"] if show_cls_c else 0)
+        metric_export_cols.append(("Total Connections", calc_tot_c, sum(calc_tot_c(s) for s in analysis["locality_summaries"])))
     if show_tot_a:
-        metric_export_cols.append(("Total Arrears (PKR)", lambda s: s["regular_arrears"] + s["suspended_arrears"] + (s["closed_arrears"] if include_closed else 0), sum(s["regular_arrears"] + s["suspended_arrears"] + (s["closed_arrears"] if include_closed else 0) for s in analysis["locality_summaries"])))
+        calc_tot_a = lambda s: (s["regular_arrears"] if show_reg_a else 0) + (s["suspended_arrears"] if show_sus_a else 0) + (s["closed_arrears"] if show_cls_a else 0)
+        metric_export_cols.append(("Total Arrears (PKR)", calc_tot_a, sum(calc_tot_a(s) for s in analysis["locality_summaries"])))
 
     if not metric_export_cols:
         metric_export_cols.append(("Total Connections", lambda s: s["total_count"], sum(s["total_count"] for s in analysis["locality_summaries"])))

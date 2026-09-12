@@ -9,7 +9,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `163ad8fb`
+- Built from commit: `e7596fc7`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -34,7 +34,7 @@
 - route
 - NumberedCanvas
 - _register_table
-- _build_dnc_register_report
+- allowed_file
 - Agent Instructions
 - DataFrame
 - load_dataset
@@ -122,8 +122,8 @@ Cohesion: 0.12
 Nodes (20): _app(), _compose(), _conn_key(), _draw_ring_text(), _draw_signature_band(), _draw_star(), _draw_watermark(), _emblem_path() (+12 more)
 
 ### Community 8 - "consumer_report"
-Cohesion: 0.13
-Nodes (22): ajax_error(), ajax_ok(), allowed_file(), arrear_calculator(), bill_list(), _clear_consumer_summary_cache(), consumer_report(), daily_staff_receive() (+14 more)
+Cohesion: 0.15
+Nodes (19): ajax_error(), ajax_ok(), arrear_calculator(), bill_list(), _clear_consumer_summary_cache(), consumer_report(), daily_staff_receive(), _ensure_connection_rate_report() (+11 more)
 
 ### Community 9 - "_render_page"
 Cohesion: 0.20
@@ -150,8 +150,8 @@ Cohesion: 0.27
 Nodes (14): _bracket_rich_text(), _calc_daily_detail_col_widths(), _calc_daily_summary_col_widths(), daily_staff_receive_export_response(), daily_staff_receive_export_tables(), generate_commercial_monthly_pdf(), generate_daily_staff_receive_pdf(), generate_daily_staff_receive_summary_pdf() (+6 more)
 
 ### Community 15 - "index"
-Cohesion: 0.20
-Nodes (12): build_dashboard_results(), export_consumer_report(), index(), _load_consumer_summary_cache(), _load_dashboard_results(), _load_results_cache(), Build the All Received Bills dashboard once and reuse it for the rendered page…, Load a previously saved consumer summary from disk. Returns (summary, filename,… (+4 more)
+Cohesion: 0.16
+Nodes (14): build_dashboard_results(), export_consumer_report(), index(), _load_consumer_summary_cache(), _load_dashboard_results(), _load_results_cache(), Build the All Received Bills dashboard once and reuse it for the rendered page…, Load a previously saved consumer summary from disk. Returns (summary, filename,… (+6 more)
 
 ### Community 16 - "BytesIO"
 Cohesion: 0.20
@@ -169,9 +169,9 @@ Nodes (7): Flowable, NumberedCanvas, _page_furniture(), _PageMark, A zero-height
 Cohesion: 0.15
 Nodes (14): _column_extents(), _detail_widths(), _esc(), _index_flowables(), A detail table for the printed register.      Two corrections on top of the sh, Wrap only the long-text columns as Paragraphs.      Matches what ``wrap_pdf_bo, Longest value per column, used to size the columns and decide wrapping., Share the page across columns according to what they actually hold.      Sizin (+6 more)
 
-### Community 20 - "_build_dnc_register_report"
-Cohesion: 0.24
-Nodes (11): _build_dnc_register_report(), _dnc_classification(), _dnc_money(), _dnc_pair(), _dnc_rate_and_classification(), dnc_register(), _dnc_report_rows(), _dnc_split_sector_locality() (+3 more)
+### Community 20 - "allowed_file"
+Cohesion: 0.21
+Nodes (12): allowed_file(), _build_dnc_register_report(), _dnc_classification(), _dnc_money(), _dnc_pair(), _dnc_rate_and_classification(), dnc_register(), _dnc_report_rows() (+4 more)
 
 ### Community 21 - "Agent Instructions"
 Cohesion: 0.18
