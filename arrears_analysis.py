@@ -482,6 +482,10 @@ def build_arrears_pdf(
     selected_sector: str = "",
     category: str = "",
     include_closed: bool = False,
+    include_suspended: bool = False,
+    include_regular: bool = True,
+    include_total: bool = True,
+    sum_cols: list[str] | None = None,
     show_locality: bool = True,
     show_sector: bool = False,
     order: str = "loc_first",
@@ -669,71 +673,76 @@ def build_arrears_pdf(
         alignment=TA_CENTER,
     )
 
+    # Determine which metric columns to show
+    if sum_cols:
+        show_reg_c = "reg_count" in sum_cols
+        show_reg_a = "reg_arr" in sum_cols
+        show_sus_c = "sus_count" in sum_cols
+        show_sus_a = "sus_arr" in sum_cols
+        show_cls_c = "cls_count" in sum_cols
+        show_cls_a = "cls_arr" in sum_cols
+        show_tot_c = "total_count" in sum_cols
+        show_tot_a = "total_arr" in sum_cols
+    else:
+        show_reg_c = include_regular
+        show_reg_a = include_regular
+        show_sus_c = include_suspended
+        show_sus_a = include_suspended
+        show_cls_c = include_closed
+        show_cls_a = include_closed
+        show_tot_c = include_total
+        show_tot_a = include_total
+
+    if not any([show_reg_c, show_reg_a, show_sus_c, show_sus_a, show_cls_c, show_cls_a, show_tot_c, show_tot_a]):
+        show_tot_c = True
+        show_tot_a = True
+
+    metric_defs = []
+    if show_reg_c:
+        metric_defs.append(("reg_count", Paragraph("Regular<br/>Conns", th_center), 1.0))
+    if show_reg_a:
+        metric_defs.append(("reg_arr", Paragraph("Regular Arrears<br/>(PKR)", th_center), 1.8))
+    if show_sus_c:
+        metric_defs.append(("sus_count", Paragraph("Suspended<br/>Conns", th_center), 1.0))
+    if show_sus_a:
+        metric_defs.append(("sus_arr", Paragraph("Suspended Arrears<br/>(PKR)", th_center), 1.8))
+    if show_cls_c:
+        metric_defs.append(("cls_count", Paragraph("Closed<br/>Conns", th_center), 1.0))
+    if show_cls_a:
+        metric_defs.append(("cls_arr", Paragraph("Closed Arrears<br/>(PKR)", th_center), 1.8))
+    if show_tot_c:
+        metric_defs.append(("total_count", Paragraph("Total<br/>Conns", th_center), 1.0))
+    if show_tot_a:
+        metric_defs.append(("total_arr", Paragraph("Total Arrears<br/>(PKR)", th_center), 1.8))
+
     # Determine Header Columns and Widths (Total Width = 281 mm)
     two_name_cols = show_loc and show_sec
+    sr_w = 10 * mm
     if two_name_cols:
-        sec_w = 38 * mm
-        loc_w = 50 * mm
+        sec_w = 34 * mm
+        loc_w = 48 * mm
         name_th = (
             [Paragraph("Sector", th_left), Paragraph("Locality Name", th_left)]
             if order == "sec_first"
             else [Paragraph("Locality Name", th_left), Paragraph("Sector", th_left)]
         )
         name_widths = [sec_w, loc_w] if order == "sec_first" else [loc_w, sec_w]
-
-        if include_closed:
-            header_row = [Paragraph("Sr #", th_center)] + name_th + [
-                Paragraph("Regular<br/>Conns", th_center),
-                Paragraph("Regular Arrears<br/>(PKR)", th_center),
-                Paragraph("Suspended<br/>Conns", th_center),
-                Paragraph("Suspended Arrears<br/>(PKR)", th_center),
-                Paragraph("Closed<br/>Conns", th_center),
-                Paragraph("Closed Arrears<br/>(PKR)", th_center),
-                Paragraph("Total<br/>Conns", th_center),
-                Paragraph("Total Arrears<br/>(PKR)", th_center),
-            ]
-            c_sec_w = 30 * mm
-            c_loc_w = 48 * mm
-            c_name_widths = [c_sec_w, c_loc_w] if order == "sec_first" else [c_loc_w, c_sec_w]
-            col_widths = [9 * mm] + c_name_widths + [18 * mm, 32 * mm, 18 * mm, 32 * mm, 17 * mm, 30 * mm, 17 * mm, 30 * mm]
-        else:
-            header_row = [Paragraph("Sr #", th_center)] + name_th + [
-                Paragraph("Regular<br/>Conns", th_center),
-                Paragraph("Regular Arrears<br/>(PKR)", th_center),
-                Paragraph("Suspended<br/>Conns", th_center),
-                Paragraph("Suspended Arrears<br/>(PKR)", th_center),
-                Paragraph("Total<br/>Conns", th_center),
-                Paragraph("Total Arrears<br/>(PKR)", th_center),
-            ]
-            col_widths = [10 * mm] + name_widths + [22 * mm, 40 * mm, 22 * mm, 40 * mm, 21 * mm, 38 * mm]
+        avail_metric_w = (281 - 10 - 82) * mm
     else:
         single_name_title = "Sector Name" if show_sec else "Locality Name"
-        if include_closed:
-            header_row = [
-                Paragraph("Sr #", th_center),
-                Paragraph(single_name_title, th_left),
-                Paragraph("Regular<br/>Conns", th_center),
-                Paragraph("Regular Arrears<br/>(PKR)", th_center),
-                Paragraph("Suspended<br/>Conns", th_center),
-                Paragraph("Suspended Arrears<br/>(PKR)", th_center),
-                Paragraph("Closed<br/>Conns", th_center),
-                Paragraph("Closed Arrears<br/>(PKR)", th_center),
-                Paragraph("Total<br/>Conns", th_center),
-                Paragraph("Total Arrears<br/>(PKR)", th_center),
-            ]
-            col_widths = [11 * mm, 60 * mm, 20 * mm, 34 * mm, 20 * mm, 34 * mm, 18 * mm, 31 * mm, 20 * mm, 33 * mm]
-        else:
-            header_row = [
-                Paragraph("Sr #", th_center),
-                Paragraph(single_name_title, th_left),
-                Paragraph("Regular<br/>Conns", th_center),
-                Paragraph("Regular Arrears<br/>(PKR)", th_center),
-                Paragraph("Suspended<br/>Conns", th_center),
-                Paragraph("Suspended Arrears<br/>(PKR)", th_center),
-                Paragraph("Total<br/>Conns", th_center),
-                Paragraph("Total Arrears<br/>(PKR)", th_center),
-            ]
-            col_widths = [12 * mm, 75 * mm, 24 * mm, 43 * mm, 24 * mm, 43 * mm, 22 * mm, 38 * mm]
+        name_th = [Paragraph(single_name_title, th_left)]
+        loc_w = 60 * mm
+        name_widths = [loc_w]
+        avail_metric_w = (281 - 10 - 60) * mm
+
+    total_metric_weight = sum(m[2] for m in metric_defs)
+    if total_metric_weight > 0:
+        metric_widths = [(m[2] / total_metric_weight) * avail_metric_w for m in metric_defs]
+    else:
+        metric_widths = []
+
+    header_row = [Paragraph("Sr #", th_center)] + name_th + [m[1] for m in metric_defs]
+    col_widths = [sr_w] + name_widths + metric_widths
 
     table_data = [header_row]
 
@@ -754,12 +763,8 @@ def build_arrears_pdf(
         cls_c = item["closed_count"]
         cls_a = item["closed_arrears"]
 
-        if include_closed:
-            tot_c = reg_c + sus_c + cls_c
-            tot_a = reg_a + sus_a + cls_a
-        else:
-            tot_c = reg_c + sus_c
-            tot_a = reg_a + sus_a
+        tot_c = reg_c + sus_c + (cls_c if include_closed else 0)
+        tot_a = reg_a + sus_a + (cls_a if include_closed else 0)
 
         sum_reg_conns += reg_c
         sum_reg_arr += reg_a
@@ -789,22 +794,26 @@ def build_arrears_pdf(
             name_text = clean_sec if show_sec else clean_loc
             name_cells = [Paragraph(name_text, td_loc)]
 
-        if include_closed:
-            metric_vals = [
-                f"{reg_c:,}", f"{reg_a:,.0f}",
-                f"{sus_c:,}", f"{sus_a:,.0f}",
-                f"{cls_c:,}", f"{cls_a:,.0f}",
-                f"{tot_c:,}", f"{tot_a:,.0f}",
-            ]
-        else:
-            metric_vals = [
-                f"{reg_c:,}", f"{reg_a:,.0f}",
-                f"{sus_c:,}", f"{sus_a:,.0f}",
-                f"{tot_c:,}", f"{tot_a:,.0f}",
-            ]
+        row_metric_cells = []
+        for key, _, _ in metric_defs:
+            if key == "reg_count":
+                row_metric_cells.append(Paragraph(f"{reg_c:,}", td_center))
+            elif key == "reg_arr":
+                row_metric_cells.append(Paragraph(f"{reg_a:,.0f}", td_center))
+            elif key == "sus_count":
+                row_metric_cells.append(Paragraph(f"{sus_c:,}", td_center))
+            elif key == "sus_arr":
+                row_metric_cells.append(Paragraph(f"{sus_a:,.0f}", td_center))
+            elif key == "cls_count":
+                row_metric_cells.append(Paragraph(f"{cls_c:,}", td_center))
+            elif key == "cls_arr":
+                row_metric_cells.append(Paragraph(f"{cls_a:,.0f}", td_center))
+            elif key == "total_count":
+                row_metric_cells.append(Paragraph(f"{tot_c:,}", td_center))
+            elif key == "total_arr":
+                row_metric_cells.append(Paragraph(f"{tot_a:,.0f}", td_center))
 
-        metric_cells = [Paragraph(m, td_center) for m in metric_vals]
-        row = [Paragraph(str(idx), td_center)] + name_cells + metric_cells
+        row = [Paragraph(str(idx), td_center)] + name_cells + row_metric_cells
         table_data.append(row)
 
     # Grand Total Bottom Row (11pt bold, centered numeric/arrears columns, no PKR prefix)
@@ -813,20 +822,25 @@ def build_arrears_pdf(
     else:
         grand_name_cells = [Paragraph("GRAND TOTAL", td_gt_title)]
 
-    if include_closed:
-        grand_metrics = [
-            f"{sum_reg_conns:,}", f"{sum_reg_arr:,.0f}",
-            f"{sum_sus_conns:,}", f"{sum_sus_arr:,.0f}",
-            f"{sum_cls_conns:,}", f"{sum_cls_arr:,.0f}",
-            f"{sum_tot_conns:,}", f"{sum_tot_arr:,.0f}",
-        ]
-    else:
-        grand_metrics = [
-            f"{sum_reg_conns:,}", f"{sum_reg_arr:,.0f}",
-            f"{sum_sus_conns:,}", f"{sum_sus_arr:,.0f}",
-            f"{sum_tot_conns:,}", f"{sum_tot_arr:,.0f}",
-        ]
-    grand_metric_cells = [Paragraph(m, td_gt_center) for m in grand_metrics]
+    grand_metric_cells = []
+    for key, _, _ in metric_defs:
+        if key == "reg_count":
+            grand_metric_cells.append(Paragraph(f"{sum_reg_conns:,}", td_gt_center))
+        elif key == "reg_arr":
+            grand_metric_cells.append(Paragraph(f"{sum_reg_arr:,.0f}", td_gt_center))
+        elif key == "sus_count":
+            grand_metric_cells.append(Paragraph(f"{sum_sus_conns:,}", td_gt_center))
+        elif key == "sus_arr":
+            grand_metric_cells.append(Paragraph(f"{sum_sus_arr:,.0f}", td_gt_center))
+        elif key == "cls_count":
+            grand_metric_cells.append(Paragraph(f"{sum_cls_conns:,}", td_gt_center))
+        elif key == "cls_arr":
+            grand_metric_cells.append(Paragraph(f"{sum_cls_arr:,.0f}", td_gt_center))
+        elif key == "total_count":
+            grand_metric_cells.append(Paragraph(f"{sum_tot_conns:,}", td_gt_center))
+        elif key == "total_arr":
+            grand_metric_cells.append(Paragraph(f"{sum_tot_arr:,.0f}", td_gt_center))
+
     grand_row = [Paragraph("", td_gt_center)] + grand_name_cells + grand_metric_cells
     table_data.append(grand_row)
 
@@ -853,16 +867,11 @@ def build_arrears_pdf(
     ]
 
     # Set left alignment for name columns and center alignment for metric columns
-    if two_name_cols:
-        t_style.append(("ALIGN", (1, 1), (2, -2), "LEFT"))
-        t_style.append(("ALIGN", (3, 1), (-1, -2), "CENTER"))
-        t_style.append(("ALIGN", (1, -1), (2, -1), "LEFT"))
-        t_style.append(("ALIGN", (3, -1), (-1, -1), "CENTER"))
-    else:
-        t_style.append(("ALIGN", (1, 1), (1, -2), "LEFT"))
-        t_style.append(("ALIGN", (2, 1), (-1, -2), "CENTER"))
-        t_style.append(("ALIGN", (1, -1), (1, -1), "LEFT"))
-        t_style.append(("ALIGN", (2, -1), (-1, -1), "CENTER"))
+    num_name = 2 if two_name_cols else 1
+    t_style.append(("ALIGN", (1, 1), (num_name, -2), "LEFT"))
+    t_style.append(("ALIGN", (num_name + 1, 1), (-1, -2), "CENTER"))
+    t_style.append(("ALIGN", (1, -1), (num_name, -1), "LEFT"))
+    t_style.append(("ALIGN", (num_name + 1, -1), (-1, -1), "CENTER"))
 
     if report_mode in ("summary", "both"):
         main_table.setStyle(TableStyle(t_style))
@@ -985,8 +994,15 @@ def build_arrears_pdf(
         for item in active_summaries:
             loc_name = item["locality"]
             grp = df[df[loc_col].astype(str).str.strip() == loc_name].copy()
-            grp["_st"] = grp[stat_col].apply(classify_status)
-            valid_statuses = ["Open", "Suspended"] if not include_closed else ["Open", "Suspended", "Closed"]
+            valid_statuses = []
+            if show_reg_c or show_reg_a:
+                valid_statuses.append("Open")
+            if show_sus_c or show_sus_a:
+                valid_statuses.append("Suspended")
+            if show_cls_c or show_cls_a:
+                valid_statuses.append("Closed")
+            if not valid_statuses:
+                valid_statuses = ["Open"]
             grp_valid = grp[grp["_st"].isin(valid_statuses)]
 
             if not grp_valid.empty:
@@ -1383,6 +1399,41 @@ def arrears_analysis_print():
     inc_closed_param = request.args.get("inc_closed", "0").strip()
     include_closed = inc_closed_param in ("1", "true", "yes")
 
+    inc_suspended_param = request.args.get("inc_suspended", "").strip()
+    include_suspended = inc_suspended_param in ("1", "true", "yes") if inc_suspended_param else False
+
+    inc_regular_param = request.args.get("inc_regular", "").strip()
+    include_regular = inc_regular_param not in ("0", "false", "no") if inc_regular_param else True
+
+    inc_total_param = request.args.get("inc_total", "").strip()
+    include_total = inc_total_param not in ("0", "false", "no") if inc_total_param else True
+
+    raw_sum_cols = request.args.get("sum_cols", "").strip()
+    sum_cols = [c.strip() for c in raw_sum_cols.split(",") if c.strip()] if raw_sum_cols else None
+
+    if sum_cols:
+        show_reg_c = "reg_count" in sum_cols
+        show_reg_a = "reg_arr" in sum_cols
+        show_sus_c = "sus_count" in sum_cols
+        show_sus_a = "sus_arr" in sum_cols
+        show_cls_c = "cls_count" in sum_cols
+        show_cls_a = "cls_arr" in sum_cols
+        show_tot_c = "total_count" in sum_cols
+        show_tot_a = "total_arr" in sum_cols
+    else:
+        show_reg_c = include_regular
+        show_reg_a = include_regular
+        show_sus_c = include_suspended
+        show_sus_a = include_suspended
+        show_cls_c = include_closed
+        show_cls_a = include_closed
+        show_tot_c = include_total
+        show_tot_a = include_total
+
+    if not any([show_reg_c, show_reg_a, show_sus_c, show_sus_a, show_cls_c, show_cls_a, show_tot_c, show_tot_a]):
+        show_tot_c = True
+        show_tot_a = True
+
     inc_zero_param = request.args.get("inc_zero", "0").strip()
     include_zero = inc_zero_param in ("1", "true", "yes")
 
@@ -1457,7 +1508,15 @@ def arrears_analysis_print():
             df_work = df_work[df_work["Sector"].astype(str).str.upper() != "COMMERCIAL"].copy()
 
         df_work["_st"] = df_work[stat_col].apply(classify_status)
-        valid_statuses = ["Open", "Suspended"] if not include_closed else ["Open", "Suspended", "Closed"]
+        valid_statuses = []
+        if show_reg_c or show_reg_a:
+            valid_statuses.append("Open")
+        if show_sus_c or show_sus_a:
+            valid_statuses.append("Suspended")
+        if show_cls_c or show_cls_a:
+            valid_statuses.append("Closed")
+        if not valid_statuses:
+            valid_statuses = ["Open"]
         df_work_valid = df_work[df_work["_st"].isin(valid_statuses)]
 
         for loc_name in analysis["active_localities"]:
@@ -1483,10 +1542,21 @@ def arrears_analysis_print():
         selected_cols=selected_cols,
         detail_records=detail_records,
         include_closed=include_closed,
+        include_suspended=include_suspended,
+        include_regular=include_regular,
+        include_total=include_total,
         include_zero=include_zero,
         show_locality=show_loc,
         show_sector=show_sec,
         order=col_order,
+        show_reg_c=show_reg_c,
+        show_reg_a=show_reg_a,
+        show_sus_c=show_sus_c,
+        show_sus_a=show_sus_a,
+        show_cls_c=show_cls_c,
+        show_cls_a=show_cls_a,
+        show_tot_c=show_tot_c,
+        show_tot_a=show_tot_a,
         printed_at=datetime.now().strftime("%d/%m/%Y %H:%M"),
     )
 
@@ -1526,34 +1596,43 @@ def export_arrears_analysis(fmt_type: str):
         if raw_loc:
             req_localities = [l.strip() for l in raw_loc.split(",") if l.strip()]
 
-    if req_localities:
-        selected_localities = req_localities
-    elif req_sectors:
-        selected_localities = []
-        for sec in req_sectors:
-            selected_localities.extend(sector_locality_map.get(sec, []))
-        seen = set()
-        selected_localities = [x for x in selected_localities if not (x in seen or seen.add(x))]
-    else:
-        if category == "commercial":
-            selected_localities = [s["locality"] for s in full_res["locality_summaries"]]
-        else:
-            selected_localities = [
-                s["locality"] for s in full_res["locality_summaries"] if s["total_arrears"] > 0
-            ]
-
-    selected_sector_label = ", ".join(req_sectors) if len(req_sectors) <= 2 else f"{len(req_sectors)} Sectors"
-
-    report_mode = request.args.get("mode", "summary").strip().lower()
-    if report_mode not in ("summary", "detailed", "both"):
-        report_mode = "summary"
-
-    raw_cols_str = request.args.get("cols", "")
-    req_cols = [c.strip() for c in raw_cols_str.split(",") if c.strip()] if raw_cols_str else request.args.getlist("col")
-    selected_cols = resolve_detail_columns(df, req_cols if req_cols else None)
-
     inc_closed_param = request.args.get("inc_closed", "0").strip()
     include_closed = inc_closed_param in ("1", "true", "yes")
+
+    inc_suspended_param = request.args.get("inc_suspended", "").strip()
+    include_suspended = inc_suspended_param in ("1", "true", "yes") if inc_suspended_param else False
+
+    inc_regular_param = request.args.get("inc_regular", "").strip()
+    include_regular = inc_regular_param not in ("0", "false", "no") if inc_regular_param else True
+
+    inc_total_param = request.args.get("inc_total", "").strip()
+    include_total = inc_total_param not in ("0", "false", "no") if inc_total_param else True
+
+    raw_sum_cols = request.args.get("sum_cols", "").strip()
+    sum_cols = [c.strip() for c in raw_sum_cols.split(",") if c.strip()] if raw_sum_cols else None
+
+    if sum_cols:
+        show_reg_c = "reg_count" in sum_cols
+        show_reg_a = "reg_arr" in sum_cols
+        show_sus_c = "sus_count" in sum_cols
+        show_sus_a = "sus_arr" in sum_cols
+        show_cls_c = "cls_count" in sum_cols
+        show_cls_a = "cls_arr" in sum_cols
+        show_tot_c = "total_count" in sum_cols
+        show_tot_a = "total_arr" in sum_cols
+    else:
+        show_reg_c = include_regular
+        show_reg_a = include_regular
+        show_sus_c = include_suspended
+        show_sus_a = include_suspended
+        show_cls_c = include_closed
+        show_cls_a = include_closed
+        show_tot_c = include_total
+        show_tot_a = include_total
+
+    if not any([show_reg_c, show_reg_a, show_sus_c, show_sus_a, show_cls_c, show_cls_a, show_tot_c, show_tot_a]):
+        show_tot_c = True
+        show_tot_a = True
 
     inc_zero_param = request.args.get("inc_zero", "0").strip()
     include_zero = inc_zero_param in ("1", "true", "yes")
@@ -1632,6 +1711,29 @@ def export_arrears_analysis(fmt_type: str):
     else:
         slug = f"Arrears_Analysis_{report_mode}_{timestamp}"
 
+    # Determine metric export column definitions for CSV/Excel: (title, row_func, total_val)
+    metric_export_cols = []
+    if show_reg_c:
+        metric_export_cols.append(("Regular Connections", lambda s: s["regular_count"], sum(s["regular_count"] for s in analysis["locality_summaries"])))
+    if show_reg_a:
+        metric_export_cols.append(("Regular Arrears (PKR)", lambda s: s["regular_arrears"], sum(s["regular_arrears"] for s in analysis["locality_summaries"])))
+    if show_sus_c:
+        metric_export_cols.append(("Suspended Connections", lambda s: s["suspended_count"], sum(s["suspended_count"] for s in analysis["locality_summaries"])))
+    if show_sus_a:
+        metric_export_cols.append(("Suspended Arrears (PKR)", lambda s: s["suspended_arrears"], sum(s["suspended_arrears"] for s in analysis["locality_summaries"])))
+    if show_cls_c:
+        metric_export_cols.append(("Closed Connections", lambda s: s["closed_count"], sum(s["closed_count"] for s in analysis["locality_summaries"])))
+    if show_cls_a:
+        metric_export_cols.append(("Closed Arrears (PKR)", lambda s: s["closed_arrears"], sum(s["closed_arrears"] for s in analysis["locality_summaries"])))
+    if show_tot_c:
+        metric_export_cols.append(("Total Connections", lambda s: s["regular_count"] + s["suspended_count"] + (s["closed_count"] if include_closed else 0), sum(s["regular_count"] + s["suspended_count"] + (s["closed_count"] if include_closed else 0) for s in analysis["locality_summaries"])))
+    if show_tot_a:
+        metric_export_cols.append(("Total Arrears (PKR)", lambda s: s["regular_arrears"] + s["suspended_arrears"] + (s["closed_arrears"] if include_closed else 0), sum(s["regular_arrears"] + s["suspended_arrears"] + (s["closed_arrears"] if include_closed else 0) for s in analysis["locality_summaries"])))
+
+    if not metric_export_cols:
+        metric_export_cols.append(("Total Connections", lambda s: s["total_count"], sum(s["total_count"] for s in analysis["locality_summaries"])))
+        metric_export_cols.append(("Total Arrears (PKR)", lambda s: s["total_arrears"], sum(s["total_arrears"] for s in analysis["locality_summaries"])))
+
     # 1. PDF Export
     if fmt_type == "pdf":
         pdf_bytes = build_arrears_pdf(
@@ -1642,6 +1744,10 @@ def export_arrears_analysis(fmt_type: str):
             selected_sector=selected_sector_label,
             category=category,
             include_closed=include_closed,
+            include_suspended=include_suspended,
+            include_regular=include_regular,
+            include_total=include_total,
+            sum_cols=sum_cols,
             show_locality=show_loc,
             show_sector=show_sec,
             order=col_order,
@@ -1670,30 +1776,10 @@ def export_arrears_analysis(fmt_type: str):
         else:
             name_cols = ["Locality"]
 
-        if include_closed:
-            headers = name_cols + [
-                "Regular Connections", "Regular Arrears (PKR)",
-                "Suspended Connections", "Suspended Arrears (PKR)", "Closed Connections",
-                "Closed Arrears (PKR)", "Total Connections", "Total Arrears (PKR)",
-            ]
-        else:
-            headers = name_cols + [
-                "Regular Connections", "Regular Arrears (PKR)",
-                "Suspended Connections", "Suspended Arrears (PKR)", "Total Connections", "Total Arrears (PKR)",
-            ]
+        headers = name_cols + [m[0] for m in metric_export_cols]
         writer.writerow(headers)
 
-        sum_reg_c = sum(s["regular_count"] for s in analysis["locality_summaries"])
-        sum_reg_a = sum(s["regular_arrears"] for s in analysis["locality_summaries"])
-        sum_sus_c = sum(s["suspended_count"] for s in analysis["locality_summaries"])
-        sum_sus_a = sum(s["suspended_arrears"] for s in analysis["locality_summaries"])
-        sum_cls_c = sum(s["closed_count"] for s in analysis["locality_summaries"])
-        sum_cls_a = sum(s["closed_arrears"] for s in analysis["locality_summaries"])
-
         for s in analysis["locality_summaries"]:
-            tot_c = s["regular_count"] + s["suspended_count"] + (s["closed_count"] if include_closed else 0)
-            tot_a = s["regular_arrears"] + s["suspended_arrears"] + (s["closed_arrears"] if include_closed else 0)
-            
             if show_loc and show_sec:
                 row_names = [s["sector"], s["locality"]] if col_order == "sec_first" else [s["locality"], s["sector"]]
             elif show_sec:
@@ -1701,31 +1787,10 @@ def export_arrears_analysis(fmt_type: str):
             else:
                 row_names = [s["locality"]]
 
-            if include_closed:
-                writer.writerow(row_names + [
-                    s["regular_count"], s["regular_arrears"],
-                    s["suspended_count"], s["suspended_arrears"], s["closed_count"],
-                    s["closed_arrears"], tot_c, tot_a,
-                ])
-            else:
-                writer.writerow(row_names + [
-                    s["regular_count"], s["regular_arrears"],
-                    s["suspended_count"], s["suspended_arrears"], tot_c, tot_a,
-                ])
+            writer.writerow(row_names + [m[1](s) for m in metric_export_cols])
 
-        tot_sum_c = sum_reg_c + sum_sus_c + (sum_cls_c if include_closed else 0)
-        tot_sum_a = sum_reg_a + sum_sus_a + (sum_cls_a if include_closed else 0)
         grand_names = ["GRAND TOTAL", "-"] if (show_loc and show_sec) else ["GRAND TOTAL"]
-        if include_closed:
-            writer.writerow(grand_names + [
-                sum_reg_c, sum_reg_a, sum_sus_c, sum_sus_a,
-                sum_cls_c, sum_cls_a, tot_sum_c, tot_sum_a,
-            ])
-        else:
-            writer.writerow(grand_names + [
-                sum_reg_c, sum_reg_a, sum_sus_c, sum_sus_a,
-                tot_sum_c, tot_sum_a,
-            ])
+        writer.writerow(grand_names + [m[2] for m in metric_export_cols])
 
         # If Detailed mode requested, append detail records
         if report_mode in ("detailed", "both"):
@@ -1744,7 +1809,15 @@ def export_arrears_analysis(fmt_type: str):
                 df_work = df_work[df_work["Sector"].astype(str).str.upper() != "COMMERCIAL"].copy()
 
             df_work["_st"] = df_work[stat_col].apply(classify_status)
-            valid_statuses = ["Open", "Suspended"] if not include_closed else ["Open", "Suspended", "Closed"]
+            valid_statuses = []
+            if show_reg_c or show_reg_a:
+                valid_statuses.append("Open")
+            if show_sus_c or show_sus_a:
+                valid_statuses.append("Suspended")
+            if show_cls_c or show_cls_a:
+                valid_statuses.append("Closed")
+            if not valid_statuses:
+                valid_statuses = ["Open"]
             df_work_valid = df_work[df_work["_st"].isin(valid_statuses)]
 
             for loc_name in analysis["active_localities"]:
@@ -1763,16 +1836,7 @@ def export_arrears_analysis(fmt_type: str):
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             sum_rows = []
-            sum_reg_c = sum(s["regular_count"] for s in analysis["locality_summaries"])
-            sum_reg_a = sum(s["regular_arrears"] for s in analysis["locality_summaries"])
-            sum_sus_c = sum(s["suspended_count"] for s in analysis["locality_summaries"])
-            sum_sus_a = sum(s["suspended_arrears"] for s in analysis["locality_summaries"])
-            sum_cls_c = sum(s["closed_count"] for s in analysis["locality_summaries"])
-            sum_cls_a = sum(s["closed_arrears"] for s in analysis["locality_summaries"])
-
             for s in analysis["locality_summaries"]:
-                tot_c = s["regular_count"] + s["suspended_count"] + (s["closed_count"] if include_closed else 0)
-                tot_a = s["regular_arrears"] + s["suspended_arrears"] + (s["closed_arrears"] if include_closed else 0)
                 row_dict = {}
                 if show_loc and show_sec:
                     if col_order == "sec_first":
@@ -1786,19 +1850,10 @@ def export_arrears_analysis(fmt_type: str):
                 else:
                     row_dict["Locality"] = s["locality"]
 
-                row_dict["Regular Connections"] = s["regular_count"]
-                row_dict["Regular Arrears (PKR)"] = s["regular_arrears"]
-                row_dict["Suspended Connections"] = s["suspended_count"]
-                row_dict["Suspended Arrears (PKR)"] = s["suspended_arrears"]
-                if include_closed:
-                    row_dict["Closed Connections"] = s["closed_count"]
-                    row_dict["Closed Arrears (PKR)"] = s["closed_arrears"]
-                row_dict["Total Connections"] = tot_c
-                row_dict["Total Arrears (PKR)"] = tot_a
+                for m in metric_export_cols:
+                    row_dict[m[0]] = m[1](s)
                 sum_rows.append(row_dict)
 
-            tot_sum_c = sum_reg_c + sum_sus_c + (sum_cls_c if include_closed else 0)
-            tot_sum_a = sum_reg_a + sum_sus_a + (sum_cls_a if include_closed else 0)
             grand_row = {}
             if show_loc and show_sec:
                 if col_order == "sec_first":
@@ -1812,15 +1867,8 @@ def export_arrears_analysis(fmt_type: str):
             else:
                 grand_row["Locality"] = "GRAND TOTAL"
 
-            grand_row["Regular Connections"] = sum_reg_c
-            grand_row["Regular Arrears (PKR)"] = sum_reg_a
-            grand_row["Suspended Connections"] = sum_sus_c
-            grand_row["Suspended Arrears (PKR)"] = sum_sus_a
-            if include_closed:
-                grand_row["Closed Connections"] = sum_cls_c
-                grand_row["Closed Arrears (PKR)"] = sum_cls_a
-            grand_row["Total Connections"] = tot_sum_c
-            grand_row["Total Arrears (PKR)"] = tot_sum_a
+            for m in metric_export_cols:
+                grand_row[m[0]] = m[2]
             sum_rows.append(grand_row)
 
             pd.DataFrame(sum_rows).to_excel(writer, sheet_name="Arrears Summary", index=False)
@@ -1839,7 +1887,15 @@ def export_arrears_analysis(fmt_type: str):
                     df_work = df_work[df_work["Sector"].astype(str).str.upper() != "COMMERCIAL"].copy()
 
                 df_work["_st"] = df_work[stat_col].apply(classify_status)
-                valid_statuses = ["Open", "Suspended"] if not include_closed else ["Open", "Suspended", "Closed"]
+                valid_statuses = []
+                if show_reg_c or show_reg_a:
+                    valid_statuses.append("Open")
+                if show_sus_c or show_sus_a:
+                    valid_statuses.append("Suspended")
+                if show_cls_c or show_cls_a:
+                    valid_statuses.append("Closed")
+                if not valid_statuses:
+                    valid_statuses = ["Open"]
                 df_work_valid = df_work[df_work["_st"].isin(valid_statuses)]
 
                 for loc_name in analysis["active_localities"]:

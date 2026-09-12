@@ -205,16 +205,14 @@
         {% else %}
           <th class="left">Locality Name</th>
         {% endif %}
-        <th class="center">Regular<br>Conns</th>
-        <th class="center">Regular Arrears<br>(PKR)</th>
-        <th class="center">Suspended<br>Conns</th>
-        <th class="center">Suspended Arrears<br>(PKR)</th>
-        {% if include_closed %}
-        <th class="center">Closed<br>Conns</th>
-        <th class="center">Closed Arrears<br>(PKR)</th>
-        {% endif %}
-        <th class="center">Total<br>Conns</th>
-        <th class="center">Total Arrears<br>(PKR)</th>
+        {% if show_reg_c %}<th class="center">Regular<br>Conns</th>{% endif %}
+        {% if show_reg_a %}<th class="center">Regular Arrears<br>(PKR)</th>{% endif %}
+        {% if show_sus_c %}<th class="center">Suspended<br>Conns</th>{% endif %}
+        {% if show_sus_a %}<th class="center">Suspended Arrears<br>(PKR)</th>{% endif %}
+        {% if show_cls_c %}<th class="center">Closed<br>Conns</th>{% endif %}
+        {% if show_cls_a %}<th class="center">Closed Arrears<br>(PKR)</th>{% endif %}
+        {% if show_tot_c %}<th class="center">Total<br>Conns</th>{% endif %}
+        {% if show_tot_a %}<th class="center">Total Arrears<br>(PKR)</th>{% endif %}
       </tr>
     </thead>
     <tbody>
@@ -258,16 +256,14 @@
         {% else %}
           <td class="left"><strong>{{ s.locality }}</strong></td>
         {% endif %}
-        <td class="center">{{ "{:,}".format(reg_c) }}</td>
-        <td class="center" style="font-family:monospace;">{{ "{:,.0f}".format(reg_a) }}</td>
-        <td class="center">{{ "{:,}".format(sus_c) }}</td>
-        <td class="center" style="font-family:monospace;">{{ "{:,.0f}".format(sus_a) }}</td>
-        {% if include_closed %}
-        <td class="center">{{ "{:,}".format(cls_c) }}</td>
-        <td class="center" style="font-family:monospace;">{{ "{:,.0f}".format(cls_a) }}</td>
-        {% endif %}
-        <td class="center" style="font-weight:600;">{{ "{:,}".format(row_tot_c) }}</td>
-        <td class="center" style="font-family:monospace;font-weight:600;">{{ "{:,.0f}".format(row_tot_a) }}</td>
+        {% if show_reg_c %}<td class="center">{{ "{:,}".format(reg_c) }}</td>{% endif %}
+        {% if show_reg_a %}<td class="center" style="font-family:monospace;">{{ "{:,.0f}".format(reg_a) }}</td>{% endif %}
+        {% if show_sus_c %}<td class="center">{{ "{:,}".format(sus_c) }}</td>{% endif %}
+        {% if show_sus_a %}<td class="center" style="font-family:monospace;">{{ "{:,.0f}".format(sus_a) }}</td>{% endif %}
+        {% if show_cls_c %}<td class="center">{{ "{:,}".format(cls_c) }}</td>{% endif %}
+        {% if show_cls_a %}<td class="center" style="font-family:monospace;">{{ "{:,.0f}".format(cls_a) }}</td>{% endif %}
+        {% if show_tot_c %}<td class="center" style="font-weight:600;">{{ "{:,}".format(row_tot_c) }}</td>{% endif %}
+        {% if show_tot_a %}<td class="center" style="font-family:monospace;font-weight:600;">{{ "{:,.0f}".format(row_tot_a) }}</td>{% endif %}
       </tr>
       {% endfor %}
     </tbody>
@@ -280,16 +276,14 @@
         {% else %}
           <td class="left">GRAND TOTAL</td>
         {% endif %}
-        <td class="center">{{ "{:,}".format(sum_reg_c.v) }}</td>
-        <td class="center" style="font-family:monospace;">{{ "{:,.0f}".format(sum_reg_a.v) }}</td>
-        <td class="center">{{ "{:,}".format(sum_sus_c.v) }}</td>
-        <td class="center" style="font-family:monospace;">{{ "{:,.0f}".format(sum_sus_a.v) }}</td>
-        {% if include_closed %}
-        <td class="center">{{ "{:,}".format(sum_cls_c.v) }}</td>
-        <td class="center" style="font-family:monospace;">{{ "{:,.0f}".format(sum_cls_a.v) }}</td>
-        {% endif %}
-        <td class="center">{{ "{:,}".format(sum_tot_c.v) }}</td>
-        <td class="center" style="font-family:monospace;">{{ "{:,.0f}".format(sum_tot_a.v) }}</td>
+        {% if show_reg_c %}<td class="center">{{ "{:,}".format(sum_reg_c.v) }}</td>{% endif %}
+        {% if show_reg_a %}<td class="center" style="font-family:monospace;">{{ "{:,.0f}".format(sum_reg_a.v) }}</td>{% endif %}
+        {% if show_sus_c %}<td class="center">{{ "{:,}".format(sum_sus_c.v) }}</td>{% endif %}
+        {% if show_sus_a %}<td class="center" style="font-family:monospace;">{{ "{:,.0f}".format(sum_sus_a.v) }}</td>{% endif %}
+        {% if show_cls_c %}<td class="center">{{ "{:,}".format(sum_cls_c.v) }}</td>{% endif %}
+        {% if show_cls_a %}<td class="center" style="font-family:monospace;">{{ "{:,.0f}".format(sum_cls_a.v) }}</td>{% endif %}
+        {% if show_tot_c %}<td class="center">{{ "{:,}".format(sum_tot_c.v) }}</td>{% endif %}
+        {% if show_tot_a %}<td class="center" style="font-family:monospace;">{{ "{:,.0f}".format(sum_tot_a.v) }}</td>{% endif %}
       </tr>
     </tfoot>
   </table>
@@ -305,9 +299,10 @@
       <div class="locality-header">
         <span>📍 {{ s.locality }} &mdash; <span style="font-weight:600;">Sector: {{ s.sector }}</span></span>
         <span style="font-size:10pt;">
-          Regular: <strong>{{ s.regular_count }}</strong> ({{ s.regular_arrears_fmt }}) &middot;
-          Suspended: <strong>{{ s.suspended_count }}</strong> ({{ s.suspended_arrears_fmt }}) &middot;
-          Total: <strong>{{ s.total_arrears_fmt }}</strong>
+          {% if show_reg_c or show_reg_a %}Regular: <strong>{{ s.regular_count }}</strong> ({{ s.regular_arrears_fmt }}){% endif %}
+          {% if show_sus_c or show_sus_a %}{% if show_reg_c or show_reg_a %} &middot; {% endif %}Suspended: <strong>{{ s.suspended_count }}</strong> ({{ s.suspended_arrears_fmt }}){% endif %}
+          {% if show_cls_c or show_cls_a %}{% if show_reg_c or show_reg_a or show_sus_c or show_sus_a %} &middot; {% endif %}Closed: <strong>{{ s.closed_count }}</strong> ({{ s.closed_arrears_fmt }}){% endif %}
+          {% if show_tot_c or show_tot_a %} &middot; Total: <strong>{{ s.total_arrears_fmt }}</strong>{% endif %}
         </span>
       </div>
 

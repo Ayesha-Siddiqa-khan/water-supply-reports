@@ -224,8 +224,8 @@
               <span class="col-chip active" data-sum-col="sector" onclick="toggleSummaryTableCol(this, 'sector')">🏢 Sector</span>
               <span class="col-chip active" data-sum-col="reg_count" onclick="toggleSummaryTableCol(this, 'reg_count')">Regular Conns</span>
               <span class="col-chip active" data-sum-col="reg_arr" onclick="toggleSummaryTableCol(this, 'reg_arr')">Regular Arrears</span>
-              <span class="col-chip active" data-sum-col="sus_count" onclick="toggleSummaryTableCol(this, 'sus_count')">Suspended Conns</span>
-              <span class="col-chip active" data-sum-col="sus_arr" onclick="toggleSummaryTableCol(this, 'sus_arr')">Suspended Arrears</span>
+              <span class="col-chip" data-sum-col="sus_count" onclick="toggleSummaryTableCol(this, 'sus_count')">Suspended Conns</span>
+              <span class="col-chip" data-sum-col="sus_arr" onclick="toggleSummaryTableCol(this, 'sus_arr')">Suspended Arrears</span>
               <span class="col-chip" data-sum-col="cls_count" onclick="toggleSummaryTableCol(this, 'cls_count')">Closed Conns</span>
               <span class="col-chip" data-sum-col="cls_arr" onclick="toggleSummaryTableCol(this, 'cls_arr')">Closed Arrears</span>
               <span class="col-chip active" data-sum-col="total_count" onclick="toggleSummaryTableCol(this, 'total_count')">Combined Conns</span>
@@ -447,10 +447,10 @@
               <th class="sortable-th col-reg_arr" style="text-align:center;cursor:pointer;" onclick="sortTableByCol('reg_arr')" title="Click to sort by Regular Arrears">
                 Regular Arrears (PKR) <span class="th-sort-arrow" id="sort-arrow-reg_arr">⬍</span>
               </th>
-              <th class="sortable-th col-sus_count" style="text-align:center;cursor:pointer;" onclick="sortTableByCol('sus_count')" title="Click to sort by Suspended Connections">
+              <th class="sortable-th col-sus_count" style="text-align:center;cursor:pointer;display:none;" onclick="sortTableByCol('sus_count')" title="Click to sort by Suspended Connections">
                 Suspended Conns <span class="th-sort-arrow" id="sort-arrow-sus_count">⬍</span>
               </th>
-              <th class="sortable-th col-sus_arr" style="text-align:center;cursor:pointer;" onclick="sortTableByCol('sus_arr')" title="Click to sort by Suspended Arrears">
+              <th class="sortable-th col-sus_arr" style="text-align:center;cursor:pointer;display:none;" onclick="sortTableByCol('sus_arr')" title="Click to sort by Suspended Arrears">
                 Suspended Arrears (PKR) <span class="th-sort-arrow" id="sort-arrow-sus_arr">⬍</span>
               </th>
               <th class="sortable-th col-cls_count" style="text-align:center;cursor:pointer;display:none;" onclick="sortTableByCol('cls_count')" title="Click to sort by Closed Connections">
@@ -498,8 +498,8 @@
               <td class="col-sector"><span class="chip" style="font-size:10px;padding:2px 6px;">{{ s.sector }}</span></td>
               <td class="col-reg_count" style="text-align:center;">{{ s.regular_count|int }}</td>
               <td class="col-reg_arr" style="text-align:center;font-family:monospace;">{{ s.regular_arrears_fmt }}</td>
-              <td class="col-sus_count" style="text-align:center;">{{ s.suspended_count|int }}</td>
-              <td class="col-sus_arr" style="text-align:center;font-family:monospace;">{{ s.suspended_arrears_fmt }}</td>
+              <td class="col-sus_count" style="text-align:center;display:none;">{{ s.suspended_count|int }}</td>
+              <td class="col-sus_arr" style="text-align:center;font-family:monospace;display:none;">{{ s.suspended_arrears_fmt }}</td>
               <td class="col-cls_count" style="text-align:center;display:none;">{{ s.closed_count|int }}</td>
               <td class="col-cls_arr" style="text-align:center;font-family:monospace;display:none;">{{ s.closed_arrears_fmt }}</td>
               <td class="col-total_count" style="text-align:center;font-weight:600;">{{ s.total_count|int }}</td>
@@ -518,8 +518,8 @@
               <td colspan="4" style="text-align:right;" id="foot-label-cell">SELECTED GRAND TOTAL:</td>
               <td class="col-reg_count" style="text-align:center;" id="foot-reg-count">{{ analysis.grand_total.regular_count|int }}</td>
               <td class="col-reg_arr" style="text-align:center;font-family:monospace;" id="foot-reg-arr">{{ analysis.grand_total.regular_arrears_fmt }}</td>
-              <td class="col-sus_count" style="text-align:center;" id="foot-sus-count">{{ analysis.grand_total.suspended_count|int }}</td>
-              <td class="col-sus_arr" style="text-align:center;font-family:monospace;" id="foot-sus-arr">{{ analysis.grand_total.suspended_arrears_fmt }}</td>
+              <td class="col-sus_count" style="text-align:center;display:none;" id="foot-sus-count">{{ analysis.grand_total.suspended_count|int }}</td>
+              <td class="col-sus_arr" style="text-align:center;font-family:monospace;display:none;" id="foot-sus-arr">{{ analysis.grand_total.suspended_arrears_fmt }}</td>
               <td class="col-cls_count" style="text-align:center;display:none;" id="foot-cls-count">{{ analysis.grand_total.closed_count|int }}</td>
               <td class="col-cls_arr" style="text-align:center;font-family:monospace;display:none;" id="foot-cls-arr">{{ analysis.grand_total.closed_arrears_fmt }}</td>
               <td class="col-total_count" style="text-align:center;" id="foot-comb-count">{{ analysis.grand_total.total_count|int }}</td>
@@ -1736,7 +1736,6 @@
 
     var sortVal = currentSortCol ? (currentSortCol === 'total_arr' && currentSortDir === 'desc' ? 'arrears_desc' : (currentSortCol === 'total_arr' && currentSortDir === 'asc' ? 'arrears_asc' : 'arrears_desc')) : 'arrears_desc';
 
-    // Multi-sector parameters
     var selSectors = getSelectedSectors();
     var secParam = '';
     if (selSectors.length > 0) {
@@ -1749,13 +1748,33 @@
     var showSec = isSecColVisible();
     var colParams = '&show_loc=' + (showLoc ? '1' : '0') + '&show_sec=' + (showSec ? '1' : '0') + '&order=' + encodeURIComponent(currentColOrder);
 
-    var incClosedChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="cls_arr"]');
+    var incClosedChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="cls_arr"]') || document.querySelector('#summary-col-chips .col-chip[data-sum-col="cls_count"]');
     var incClosed = incClosedChip ? incClosedChip.classList.contains('active') : false;
     var incClosedParam = '&inc_closed=' + (incClosed ? '1' : '0');
+
+    var incSusChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="sus_count"]') || document.querySelector('#summary-col-chips .col-chip[data-sum-col="sus_arr"]');
+    var incSus = (incSusChip && incSusChip.classList.contains('active'));
+    var incSusParam = '&inc_suspended=' + (incSus ? '1' : '0');
+
+    var incRegChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="reg_count"]') || document.querySelector('#summary-col-chips .col-chip[data-sum-col="reg_arr"]');
+    var incReg = (!incRegChip || incRegChip.classList.contains('active'));
+    var incRegParam = '&inc_regular=' + (incReg ? '1' : '0');
+
+    var incTotChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="total_count"]') || document.querySelector('#summary-col-chips .col-chip[data-sum-col="total_arr"]');
+    var incTot = (!incTotChip || incTotChip.classList.contains('active'));
+    var incTotParam = '&inc_total=' + (incTot ? '1' : '0');
+
+    var activeSumCols = [];
+    document.querySelectorAll('#summary-col-chips .col-chip.active').forEach(function(c) {
+      if (c.dataset.sumCol) activeSumCols.push(c.dataset.sumCol);
+    });
+    var sumColsParam = '&sum_cols=' + encodeURIComponent(activeSumCols.join(','));
 
     var chkShowZero = document.getElementById('chk-show-zero');
     var showZero = chkShowZero ? chkShowZero.checked : false;
     var incZeroParam = '&inc_zero=' + (showZero ? '1' : '0');
+
+    var filterParams = incClosedParam + incSusParam + incRegParam + incTotParam + sumColsParam + incZeroParam + colParams + locStr;
 
     var printBtn = document.getElementById('print-report-btn');
     var pdfBtn = document.getElementById('pdf-export-btn');
@@ -1763,10 +1782,10 @@
     var csvBtn = document.getElementById('csv-export-btn');
 
     var domCatParam = '&category=domestic';
-    if (printBtn) printBtn.href = "{{ url_for('arrears_analysis.arrears_analysis_print') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + domCatParam + secParam + incClosedParam + incZeroParam + colParams + locStr;
-    if (pdfBtn) pdfBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='pdf') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + domCatParam + secParam + incClosedParam + incZeroParam + colParams + locStr;
-    if (xlsxBtn) xlsxBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='xlsx') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + domCatParam + secParam + incClosedParam + incZeroParam + colParams + locStr;
-    if (csvBtn) csvBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='csv') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + domCatParam + secParam + incClosedParam + incZeroParam + colParams + locStr;
+    if (printBtn) printBtn.href = "{{ url_for('arrears_analysis.arrears_analysis_print') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + domCatParam + secParam + filterParams;
+    if (pdfBtn) pdfBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='pdf') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + domCatParam + secParam + filterParams;
+    if (xlsxBtn) xlsxBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='xlsx') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + domCatParam + secParam + filterParams;
+    if (csvBtn) csvBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='csv') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + domCatParam + secParam + filterParams;
 
     // Commercial Dedicated Export Links
     var commPrintBtn = document.getElementById('comm-print-btn');
@@ -1775,10 +1794,10 @@
     var commCsvBtn = document.getElementById('comm-csv-export-btn');
     var commSecParam = '&category=commercial&sector=' + encodeURIComponent('COMMERCIAL');
 
-    if (commPrintBtn) commPrintBtn.href = "{{ url_for('arrears_analysis.arrears_analysis_print') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + commSecParam + incClosedParam + incZeroParam + colParams + locStr;
-    if (commPdfBtn) commPdfBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='pdf') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + commSecParam + incClosedParam + incZeroParam + colParams + locStr;
-    if (commXlsxBtn) commXlsxBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='xlsx') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + commSecParam + incClosedParam + incZeroParam + colParams + locStr;
-    if (commCsvBtn) commCsvBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='csv') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + commSecParam + incClosedParam + incZeroParam + colParams + locStr;
+    if (commPrintBtn) commPrintBtn.href = "{{ url_for('arrears_analysis.arrears_analysis_print') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + commSecParam + filterParams;
+    if (commPdfBtn) commPdfBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='pdf') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + commSecParam + filterParams;
+    if (commXlsxBtn) commXlsxBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='xlsx') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + commSecParam + filterParams;
+    if (commCsvBtn) commCsvBtn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='csv') }}?mode=" + modeVal + "&sort=" + sortVal + "&cols=" + encodeURIComponent(colsVal) + commSecParam + filterParams;
   }
 
   function onToggleShowZero(checked) {
