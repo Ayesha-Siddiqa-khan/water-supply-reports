@@ -141,67 +141,74 @@
                   style="padding:8px 20px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--bg);color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
             Private Societies {% if private_summary %}<span style="font-size:11px;font-weight:400;opacity:.7;">({{ private_summary.sector_count }})</span>{% endif %}
           </button>
+          <button type="button" class="sub-tab-btn" data-tab="detail"
+                  onclick="switchTab('detail')"
+                  style="padding:8px 20px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--bg);color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
+            Connection Details <span id="detail-tab-count-badge" style="font-size:11px;font-weight:400;opacity:.7;">{% if total_rows %}({{ "{:,}".format(total_rows) }}){% endif %}</span>
+          </button>
         </div>
 
         <!-- ================================================================
              SORT CONTROLS & COLUMN VISIBILITY — shared across both tabs.
              PDF download links are updated by JS to include tab= param.
              ================================================================ -->
-        <!-- Sort controls for PDF export -->
-        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);">
-          <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">PDF Sort Settings:</span>
-          <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);">
-            Status Priority:
-            <select id="sort-priority" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text-primary);">
-              <option value="active_first" selected>Active First</option>
-              <option value="closed_first">Closed First</option>
-            </select>
-          </label>
-          <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);">
-            Sort Order:
-            <select id="sort-order" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text-primary);">
-              <option value="desc" selected>Highest to Lowest</option>
-              <option value="asc">Lowest to Highest</option>
-            </select>
-          </label>
-          <!-- Download PDF: always generates the NORMAL (non-commercial) PDF -->
-          <a id="pdf-download-btn" class="chip" href="{{ url_for('export_consumer_report', fmt_type='pdf', priority='active_first', order='desc') }}">&#11015; Download PDF</a>
-          <!-- Download Commercial PDF: always generates the COMMERCIAL-only PDF -->
-          <a id="commercial-pdf-download-btn" class="chip" style="background:var(--teal);color:white;border-color:var(--teal);" href="{{ url_for('export_consumer_report', fmt_type='commercial-pdf', priority='active_first', order='desc') }}">&#11015; Download Commercial PDF</a>
-          <!-- Download Private Societies PDF: same selected rows/columns/sort rules as the other tabs. -->
-          <a id="private-pdf-download-btn" class="chip" style="background:var(--teal);color:white;border-color:var(--teal);" href="{{ url_for('export_consumer_report', fmt_type='private-pdf', priority='active_first', order='desc') }}">&#11015; Download Private PDF</a>
-        </div>
+        <div id="summary-export-settings-wrap">
+          <!-- Sort controls for PDF export -->
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);">
+            <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">PDF Sort Settings:</span>
+            <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);">
+              Status Priority:
+              <select id="sort-priority" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text-primary);">
+                <option value="active_first" selected>Active First</option>
+                <option value="closed_first">Closed First</option>
+              </select>
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);">
+              Sort Order:
+              <select id="sort-order" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text-primary);">
+                <option value="desc" selected>Highest to Lowest</option>
+                <option value="asc">Lowest to Highest</option>
+              </select>
+            </label>
+            <!-- Download PDF: always generates the NORMAL (non-commercial) PDF -->
+            <a id="pdf-download-btn" class="chip" href="{{ url_for('export_consumer_report', fmt_type='pdf', priority='active_first', order='desc') }}">&#11015; Download PDF</a>
+            <!-- Download Commercial PDF: always generates the COMMERCIAL-only PDF -->
+            <a id="commercial-pdf-download-btn" class="chip" style="background:var(--teal);color:white;border-color:var(--teal);" href="{{ url_for('export_consumer_report', fmt_type='commercial-pdf', priority='active_first', order='desc') }}">&#11015; Download Commercial PDF</a>
+            <!-- Download Private Societies PDF: same selected rows/columns/sort rules as the other tabs. -->
+            <a id="private-pdf-download-btn" class="chip" style="background:var(--teal);color:white;border-color:var(--teal);" href="{{ url_for('export_consumer_report', fmt_type='private-pdf', priority='active_first', order='desc') }}">&#11015; Download Private PDF</a>
+          </div>
 
-        <!-- PDF Column Visibility — choose which columns appear in the PDF -->
-        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);">
-          <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">PDF Columns:</span>
-          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="sr" autocomplete="off" checked> SR
-          </label>
-          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="sector" autocomplete="off" checked> Sector
-          </label>
-          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="locality" autocomplete="off" checked> Locality
-          </label>
-          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="rate" autocomplete="off"> Rate
-          </label>
-          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="closed" autocomplete="off"> Closed
-          </label>
-          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="suspended" autocomplete="off"> Suspended
-          </label>
-          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="active" autocomplete="off" checked> Active
-          </label>
-          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="total" autocomplete="off"> Total Connections
-          </label>
-          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
-            <input type="checkbox" class="pdf-col-toggle" data-col="budget" autocomplete="off" checked> Budget
-          </label>
+          <!-- PDF Column Visibility — choose which columns appear in the PDF -->
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);">
+            <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">PDF Columns:</span>
+            <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+              <input type="checkbox" class="pdf-col-toggle" data-col="sr" autocomplete="off" checked> SR
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+              <input type="checkbox" class="pdf-col-toggle" data-col="sector" autocomplete="off" checked> Sector
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+              <input type="checkbox" class="pdf-col-toggle" data-col="locality" autocomplete="off" checked> Locality
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+              <input type="checkbox" class="pdf-col-toggle" data-col="rate" autocomplete="off"> Rate
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+              <input type="checkbox" class="pdf-col-toggle" data-col="closed" autocomplete="off"> Closed
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+              <input type="checkbox" class="pdf-col-toggle" data-col="suspended" autocomplete="off"> Suspended
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+              <input type="checkbox" class="pdf-col-toggle" data-col="active" autocomplete="off" checked> Active
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+              <input type="checkbox" class="pdf-col-toggle" data-col="total" autocomplete="off"> Total Connections
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
+              <input type="checkbox" class="pdf-col-toggle" data-col="budget" autocomplete="off" checked> Budget
+            </label>
+          </div>
         </div>
 
         <!-- ================================================================
@@ -231,7 +238,10 @@
                 <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-suspended="{{ row.suspended|default(0) }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}" data-budget-rate="{{ ((row.budget|default(0)|float) / (row.active|int)) if (row.active|int) else 0 }}" data-rate="{{ row.rate|default(0) }}" data-sector="{{ row.sector }}" data-locality="{{ row.locality }}">
                   <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="normal" data-serial="{{ row.serial }}" checked></td>
                   <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
-                  <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
+                  <td style="text-align:left;font-weight:500;">
+                    {{ row.sector }}
+                    <button type="button" class="chip" onclick="openDetailDrilldown('domestic', '', '{{ row.sector|escape }}')" style="padding:1px 6px;font-size:10px;margin-left:6px;cursor:pointer;border-radius:10px;background:rgba(0,180,216,0.1);color:var(--teal);border:1px solid rgba(0,180,216,0.25);" title="View individual connections for this sector">&#128065; Details</button>
+                  </td>
                   <td style="text-align:left;">{{ row.locality }}</td>
                   <td style="text-align:center;font-weight:500;color:var(--text-primary);">{{ "{:,.0f}".format(row.rate|default(0)) }}</td>
                   <td style="text-align:center;color:var(--coral);">{{ row.closed }}</td>
@@ -289,7 +299,10 @@
                   <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="commercial" data-serial="{{ row.serial }}" checked></td>
                   <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
                   <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
-                  <td style="text-align:left;">{{ row.locality }}</td>
+                  <td style="text-align:left;">
+                    {{ row.locality }}
+                    <button type="button" class="chip" onclick="openDetailDrilldown('commercial', '{{ row.locality|escape }}', '{{ row.sector|escape }}')" style="padding:1px 6px;font-size:10px;margin-left:6px;cursor:pointer;border-radius:10px;background:rgba(0,180,216,0.1);color:var(--teal);border:1px solid rgba(0,180,216,0.25);" title="View individual connections for {{ row.locality }}">&#128065; Details</button>
+                  </td>
                   <td style="text-align:center;font-weight:500;color:var(--text-primary);">{{ "{:,.0f}".format(row.rate|default(0)) }}</td>
                   <td style="text-align:center;color:var(--coral);">{{ row.closed }}</td>
                   <td style="text-align:center;color:var(--amber);">{{ row.suspended|default(0) }}</td>
@@ -344,7 +357,10 @@
                 <tr data-serial="{{ row.serial }}" data-closed="{{ row.closed }}" data-suspended="{{ row.suspended|default(0) }}" data-active="{{ row.active }}" data-total="{{ row.total }}" data-budget="{{ row.budget|default(0) }}" data-rate="{{ row.rate|default(0) }}" data-sector="{{ row.sector }}" data-locality="{{ row.locality }}">
                   <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="private" data-serial="{{ row.serial }}" checked></td>
                   <td style="text-align:center;color:var(--text-muted)">{{ row.serial }}</td>
-                  <td style="text-align:left;font-weight:500;">{{ row.sector }}</td>
+                  <td style="text-align:left;font-weight:500;">
+                    {{ row.sector }}
+                    <button type="button" class="chip" onclick="openDetailDrilldown('private', '', '{{ row.sector|escape }}')" style="padding:1px 6px;font-size:10px;margin-left:6px;cursor:pointer;border-radius:10px;background:rgba(0,180,216,0.1);color:var(--teal);border:1px solid rgba(0,180,216,0.25);" title="View individual connections for this society">&#128065; Details</button>
+                  </td>
                   <td style="text-align:left;">{{ row.locality }}</td>
                   <td style="text-align:center;font-weight:500;color:var(--text-primary);">{{ "{:,.0f}".format(row.rate|default(0)) }}</td>
                   <td style="text-align:center;color:var(--coral);">{{ row.closed }}</td>
@@ -370,6 +386,123 @@
             No active private-society connections found for this report.
           </div>
           {% endif %}
+        </div>
+
+        <!-- ================================================================
+             TAB PANEL: CONNECTION DETAILS (Drilldown / Consumer Level)
+             Allows drilling down into any Sector / Locality / Category
+             (e.g. Commercial SCHOOL, Domestic, Private Societies) to inspect
+             all individual consumer connection records, filter by status or
+             search, select customizable columns, and export to PDF, Excel, or CSV.
+             ================================================================ -->
+        <div id="tab-panel-detail" class="tab-panel" style="display:none;">
+          <!-- Filter & Control Panel -->
+          <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px;padding:16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;border-bottom:1px solid var(--border);padding-bottom:12px;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:15px;font-weight:700;color:var(--text-primary);">Consumer Connection Details</span>
+                <span id="detail-stats-badge" class="badge" style="background:rgba(0,180,216,0.15);color:var(--teal);border:1px solid rgba(0,180,216,0.3);padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">0 Connections</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <button type="button" class="chip" onclick="exportDetailRecords('pdf')" style="background:var(--teal);color:white;border-color:var(--teal);cursor:pointer;font-weight:600;">&#11015; Download PDF</button>
+                <button type="button" class="chip" onclick="exportDetailRecords('xlsx')" style="cursor:pointer;font-weight:600;">&#11015; Download Excel</button>
+                <button type="button" class="chip" onclick="exportDetailRecords('csv')" style="cursor:pointer;font-weight:600;">&#11015; Download CSV</button>
+                <button type="button" class="chip" onclick="printDetailRecords()" style="cursor:pointer;">&#128438; Print</button>
+              </div>
+            </div>
+
+            <!-- Filters Row -->
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);font-weight:500;">
+                Category:
+                <select id="detail-filter-category" onchange="onDetailCategoryChange()" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text-primary);font-weight:600;">
+                  <option value="all">All Categories</option>
+                  <option value="commercial">Commercial</option>
+                  <option value="domestic">Domestic</option>
+                  <option value="private">Private Societies</option>
+                </select>
+              </label>
+
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);font-weight:500;">
+                Locality / Sector:
+                <select id="detail-filter-locality" onchange="renderDetailView()" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text-primary);min-width:180px;max-width:320px;">
+                  <option value="all">All Localities / Sectors</option>
+                </select>
+              </label>
+
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);font-weight:500;">
+                Status:
+                <select id="detail-filter-status" onchange="renderDetailView()" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text-primary);">
+                  <option value="all">All Statuses</option>
+                  <option value="Active">Active Only</option>
+                  <option value="Closed">Closed Only</option>
+                  <option value="Suspended">Suspended Only</option>
+                </select>
+              </label>
+
+              <div style="flex:1;min-width:200px;">
+                <input type="text" id="detail-filter-search" oninput="renderDetailView()" placeholder="🔍 Search by name, father name, mobile, connection #, address..." style="width:100%;padding:6px 12px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text-primary);">
+              </div>
+
+              <button type="button" class="chip" onclick="resetDetailFilters()" style="padding:5px 12px;font-size:11.5px;color:var(--text-muted);cursor:pointer;">Reset</button>
+            </div>
+
+            <!-- Column Visibility Toggles -->
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:10px;border-top:1px dashed var(--border);">
+              <span style="font-size:11.5px;font-weight:600;color:var(--text-secondary);">Visible Columns:</span>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="sr" checked onchange="toggleDetailColumn()"> SR #</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="consumer_name" checked onchange="toggleDetailColumn()"> Consumer Name</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="father_name" checked onchange="toggleDetailColumn()"> F/H Name</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="mobile" checked onchange="toggleDetailColumn()"> Mobile</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="sector" checked onchange="toggleDetailColumn()"> Sector</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="locality" checked onchange="toggleDetailColumn()"> Locality</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="address" checked onchange="toggleDetailColumn()"> Address</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="order_number" onchange="toggleDetailColumn()"> Order/Reg No</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="rate_type" checked onchange="toggleDetailColumn()"> Rate Type</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="connection" checked onchange="toggleDetailColumn()"> Connection No.</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="old_connection" onchange="toggleDetailColumn()"> Old Connection No.</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="status" checked onchange="toggleDetailColumn()"> Status</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="consumer_status" onchange="toggleDetailColumn()"> Consumer Status</label>
+
+              <span style="margin-left:auto;display:inline-flex;gap:6px;">
+                <button type="button" class="chip" onclick="selectAllDetailColumns(true)" style="padding:2px 8px;font-size:10.5px;cursor:pointer;">Select All</button>
+                <button type="button" class="chip" onclick="resetDefaultDetailColumns()" style="padding:2px 8px;font-size:10.5px;cursor:pointer;">Default</button>
+              </span>
+            </div>
+          </div>
+
+          <!-- Table View Container -->
+          <div class="table-wrapper" style="overflow-x:auto;">
+            <table class="data-table" id="detail-connection-table">
+              <thead id="detail-table-head">
+                <!-- Built dynamically by JS based on visible columns -->
+              </thead>
+              <tbody id="detail-table-body">
+                <tr><td colspan="12" style="text-align:center;padding:30px;color:var(--text-muted);">Loading connection details...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Bar -->
+          <div id="detail-pagination-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:14px;padding:10px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);">
+            <div style="font-size:12px;color:var(--text-muted);">
+              Showing <span id="detail-page-start" style="font-weight:600;color:var(--text-primary);">0</span> to <span id="detail-page-end" style="font-weight:600;color:var(--text-primary);">0</span> of <span id="detail-total-records" style="font-weight:600;color:var(--teal);">0</span> connections
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <label style="font-size:12px;color:var(--text-muted);">Rows per page:
+                <select id="detail-rows-per-page" onchange="changeDetailRowsPerPage()" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text-primary);">
+                  <option value="50">50</option>
+                  <option value="100" selected>100</option>
+                  <option value="250">250</option>
+                  <option value="500">500</option>
+                  <option value="all">All</option>
+                </select>
+              </label>
+              <button type="button" class="chip" id="detail-prev-page-btn" onclick="prevDetailPage()" style="padding:4px 10px;cursor:pointer;">&laquo; Prev</button>
+              <span id="detail-page-indicator" style="font-size:12px;font-weight:600;color:var(--text-primary);min-width:60px;text-align:center;">1 / 1</span>
+              <button type="button" class="chip" id="detail-next-page-btn" onclick="nextDetailPage()" style="padding:4px 10px;cursor:pointer;">Next &raquo;</button>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -603,6 +736,21 @@
       var normalized = (sector || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
       // Empty is a faulty placeholder sector, not a real consumer sector.
       return normalized === 'empty';
+    }
+
+    function isFaultyCommercialHussainColony(sector, locality) {
+      var sNorm = (sector || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      var lNorm = (locality || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      if (sNorm.indexOf('commercial') !== -1 && sNorm.indexOf('hussain colony') !== -1) {
+        return true;
+      }
+      if (sNorm.indexOf('commercial') !== -1) {
+        return lNorm.indexOf('hussain colony') !== -1 && (String(locality || '').indexOf(',') === -1);
+      }
+      if (lNorm.indexOf('commercial') !== -1 && sNorm.indexOf('hussain colony') !== -1) {
+        return true;
+      }
+      return false;
     }
 
     function addRateAlias(lookup, alias, target) {
@@ -878,6 +1026,7 @@
       var sectorMap = {};
       var totalRows = 0;
       var connectionRateCounts = {};
+      var rawDetailRecords = [];
 
       for (var i = 1; i < lines.length; i++) {
         var fields = parseCSVLine(lines[i]);
@@ -887,7 +1036,7 @@
 
         var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
         var locality = (fields[colMap.locality] || '').trim() || 'Unspecified';
-        if (isFaultyEmptyConsumerSector(sector) || isExtraZainCity13GSector(sector) || isExtraNoorMohallaMainRoadSector(sector)) continue;
+        if (isFaultyEmptyConsumerSector(sector) || isExtraZainCity13GSector(sector) || isExtraNoorMohallaMainRoadSector(sector) || isFaultyCommercialHussainColony(sector, locality)) continue;
         var canonicalPlace = canonicalConsumerSectorLocality(sector, locality);
         sector = canonicalPlace.sector || 'Unspecified';
         locality = canonicalPlace.locality || 'Unspecified';
@@ -946,6 +1095,27 @@
         if (status === 'Active' && annualRate) sectorMap[normKey].annual_rate = annualRate;
 
         totalRows++;
+
+        var isCommRow = sector.toUpperCase().indexOf('COMMERCIAL') === 0 || locality.toUpperCase().indexOf('COMMERCIAL') === 0;
+        var isPrivRow = isPrivateSocietySummaryRow({ sector: sector, locality: locality, rate: annualRate });
+        var catRow = isCommRow ? 'commercial' : (isPrivRow ? 'private' : 'domestic');
+
+        rawDetailRecords.push({
+          sr: rawDetailRecords.length + 1,
+          consumer_name: (colMap.consumer_name !== undefined ? (fields[colMap.consumer_name] || '').trim() : ''),
+          father_name: (colMap.father_name !== undefined ? (fields[colMap.father_name] || '').trim() : ''),
+          mobile: (colMap.mobile !== undefined ? (fields[colMap.mobile] || '').trim() : ''),
+          sector: sector,
+          locality: locality,
+          address: (colMap.address !== undefined ? (fields[colMap.address] || '').trim() : ''),
+          order_number: (colMap.order_number !== undefined ? (fields[colMap.order_number] || '').trim() : ''),
+          rate_type: rateType,
+          connection: (colMap.connection !== undefined ? (fields[colMap.connection] || '').trim() : ''),
+          old_connection: (colMap.old_connection !== undefined ? (fields[colMap.old_connection] || '').trim() : ''),
+          status: status,
+          consumer_status: (colMap.consumer_status !== undefined ? (fields[colMap.consumer_status] || '').trim() : ''),
+          category: catRow
+        });
       }
 
       // ================================================================
@@ -1033,7 +1203,7 @@
 
         var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
         var locality = (fields[colMap.locality] || '').trim() || 'Unspecified';
-        if (isFaultyEmptyConsumerSector(sector) || isExtraZainCity13GSector(sector) || isExtraNoorMohallaMainRoadSector(sector)) continue;
+        if (isFaultyEmptyConsumerSector(sector) || isExtraZainCity13GSector(sector) || isExtraNoorMohallaMainRoadSector(sector) || isFaultyCommercialHussainColony(sector, locality)) continue;
         var canonicalPlace = canonicalConsumerSectorLocality(sector, locality);
         sector = canonicalPlace.sector || 'Unspecified';
         locality = canonicalPlace.locality || 'Unspecified';
@@ -1141,6 +1311,15 @@
         localStorage.setItem('consumer_report_private', JSON.stringify(privatePayload));
         localStorage.setItem('consumer_connection_rate_report', JSON.stringify(connectionRateReport));
       } catch(e) {}
+
+      if (window.storeConsumerRowsInDB) {
+        window.storeConsumerRowsInDB(rawDetailRecords).catch(function() {});
+      }
+      var countBadge = document.getElementById('detail-tab-count-badge');
+      if (countBadge) countBadge.textContent = '(' + rawDetailRecords.length.toLocaleString() + ')';
+      if (window.initDetailFilters) {
+        window.initDetailFilters();
+      }
 
       // Send the FULL (unsplit) summary to server for caching.
       // Also include commercial_detailed_rows (locality-level) so the server
@@ -1263,10 +1442,23 @@
         });
         var activePanel = document.getElementById('tab-panel-' + tab);
         if (activePanel) activePanel.style.display = '';
-        // Re-sort the newly active tab's preview to match the export sort.
-        applyPreviewSort(tab);
-        // Recompute grand total for the newly active tab
-        recomputeGrandTotalForTab(tab);
+
+        // Toggle summary PDF settings bar (hide in Connection Details view)
+        var summarySettingsWrap = document.getElementById('summary-export-settings-wrap');
+        if (summarySettingsWrap) {
+          summarySettingsWrap.style.display = (tab === 'detail') ? 'none' : '';
+        }
+
+        if (tab === 'detail') {
+          if (window.renderDetailView) {
+            window.renderDetailView();
+          }
+        } else {
+          // Re-sort the newly active tab's preview to match the export sort.
+          applyPreviewSort(tab);
+          // Recompute grand total for the newly active tab
+          recomputeGrandTotalForTab(tab);
+        }
       };
 
       // Initialize tab button styles on load
@@ -1416,6 +1608,37 @@
       syncServerSummaryToStorage('consumer_report_summary', SERVER_NORMAL_SUMMARY);
       syncServerSummaryToStorage('consumer_report_commercial', SERVER_COMMERCIAL_SUMMARY);
       syncServerSummaryToStorage('consumer_report_private', SERVER_PRIVATE_SUMMARY);
+
+      function sanitizeStoredSummary(key) {
+        try {
+          var raw = localStorage.getItem(key);
+          if (!raw) return;
+          var data = JSON.parse(raw);
+          if (!data) return;
+          var changed = false;
+          if (Array.isArray(data.summary_rows)) {
+            var origLen = data.summary_rows.length;
+            data.summary_rows = data.summary_rows.filter(function(r) {
+              return !isFaultyCommercialHussainColony(r.sector, r.locality);
+            });
+            if (data.summary_rows.length !== origLen) changed = true;
+          }
+          if (Array.isArray(data.commercial_detailed_rows)) {
+            var origCdrLen = data.commercial_detailed_rows.length;
+            data.commercial_detailed_rows = data.commercial_detailed_rows.filter(function(r) {
+              return !isFaultyCommercialHussainColony(r.sector, r.locality);
+            });
+            if (data.commercial_detailed_rows.length !== origCdrLen) changed = true;
+          }
+          if (changed) {
+            localStorage.setItem(key, JSON.stringify(data));
+          }
+        } catch(e) {}
+      }
+      sanitizeStoredSummary('consumer_report_summary');
+      sanitizeStoredSummary('consumer_report_commercial');
+      sanitizeStoredSummary('consumer_report_private');
+
       try { summaryDataNormal = JSON.parse(localStorage.getItem('consumer_report_summary')); } catch(e) {}
       try { summaryDataCommercial = JSON.parse(localStorage.getItem('consumer_report_commercial')); } catch(e) {}
       try { summaryDataPrivate = JSON.parse(localStorage.getItem('consumer_report_private')); } catch(e) {}
@@ -1427,6 +1650,7 @@
         checkboxes.forEach(function(cb) {
           if (cb.checked) {
             var tr = cb.closest('tr');
+            if (isFaultyCommercialHussainColony(tr.getAttribute('data-sector'), tr.getAttribute('data-locality'))) return;
             if ((parseInt(tr.getAttribute('data-active')) || 0) <= 0) return;
             gtClosed += parseInt(tr.getAttribute('data-closed')) || 0;
             gtSuspended += parseInt(tr.getAttribute('data-suspended')) || 0;
@@ -1463,6 +1687,7 @@
         table.querySelectorAll('tbody tr:not(.grand-total-row)').forEach(function(tr) {
           var cb = tr.querySelector('.row-checkbox');
           if (!cb || !cb.checked) return;
+          if (isFaultyCommercialHussainColony(tr.getAttribute('data-sector'), tr.getAttribute('data-locality'))) return;
           if ((parseInt(tr.getAttribute('data-active')) || 0) <= 0) return;
           selectedRows.push({
             serial: selectedRows.length + 1,
@@ -1799,5 +2024,572 @@
 
     recalcConnectionRateTable();
   })();
+</script>
+
+<script>
+/* ==========================================================================
+   CONSUMER CONNECTION DETAILS (Drilldown, Filtering, Column Selection & Export)
+   ========================================================================== */
+(function() {
+  var DB_NAME = 'water_supply_consumer_db';
+  var DB_VERSION = 1;
+  var STORE_NAME = 'consumer_rows';
+
+  var allConsumerRecords = null;
+  var currentFilteredRecords = [];
+  var currentPage = 1;
+  var rowsPerPage = 100;
+
+  var COL_DEFS = [
+    { key: 'sr', label: 'SR #', default: true, width: '55px', align: 'center' },
+    { key: 'consumer_name', label: 'Consumer Name', default: true, width: '180px', align: 'left' },
+    { key: 'father_name', label: 'F/H Name', default: true, width: '160px', align: 'left' },
+    { key: 'mobile', label: 'Mobile', default: true, width: '120px', align: 'center' },
+    { key: 'sector', label: 'Sector', default: true, width: '160px', align: 'left' },
+    { key: 'locality', label: 'Locality', default: true, width: '160px', align: 'left' },
+    { key: 'address', label: 'Address', default: true, width: '220px', align: 'left' },
+    { key: 'order_number', label: 'Order / Reg No', default: false, width: '110px', align: 'center' },
+    { key: 'rate_type', label: 'Rate Type', default: true, width: '170px', align: 'left' },
+    { key: 'connection', label: 'Connection No.', default: true, width: '120px', align: 'center' },
+    { key: 'old_connection', label: 'Old Conn. No.', default: false, width: '110px', align: 'center' },
+    { key: 'status', label: 'Status', default: true, width: '90px', align: 'center' },
+    { key: 'consumer_status', label: 'Consumer Status', default: false, width: '110px', align: 'center' }
+  ];
+
+  function openConsumerDB() {
+    return new Promise(function(resolve) {
+      if (!window.indexedDB) { resolve(null); return; }
+      try {
+        var req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = function(e) {
+          var db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+          }
+        };
+        req.onsuccess = function(e) { resolve(e.target.result); };
+        req.onerror = function() { resolve(null); };
+      } catch(err) {
+        resolve(null);
+      }
+    });
+  }
+
+  window.storeConsumerRowsInDB = function(rows) {
+    return openConsumerDB().then(function(db) {
+      if (!db) return;
+      return new Promise(function(resolve) {
+        try {
+          var tx = db.transaction(STORE_NAME, 'readwrite');
+          var store = tx.objectStore(STORE_NAME);
+          store.clear();
+          for (var i = 0; i < rows.length; i++) {
+            store.add(rows[i]);
+          }
+          tx.oncomplete = function() { resolve(); };
+          tx.onerror = function() { resolve(); };
+        } catch(e) { resolve(); }
+      });
+    });
+  };
+
+  function getConsumerRowsFromDB() {
+    return openConsumerDB().then(function(db) {
+      if (!db) return [];
+      return new Promise(function(resolve) {
+        try {
+          var tx = db.transaction(STORE_NAME, 'readonly');
+          var store = tx.objectStore(STORE_NAME);
+          var req = store.getAll();
+          req.onsuccess = function() { resolve(req.result || []); };
+          req.onerror = function() { resolve([]); };
+        } catch(e) { resolve([]); }
+      });
+    });
+  }
+
+  function normalizeText(txt) {
+    return (txt || '').toString().trim().toLowerCase();
+  }
+
+  function ensureRecordsLoaded() {
+    if (allConsumerRecords && allConsumerRecords.length) {
+      return Promise.resolve(allConsumerRecords);
+    }
+    return getConsumerRowsFromDB().then(function(dbRows) {
+      if (dbRows && dbRows.length) {
+        allConsumerRecords = dbRows;
+        var countBadge = document.getElementById('detail-tab-count-badge');
+        if (countBadge) countBadge.textContent = '(' + allConsumerRecords.length.toLocaleString() + ')';
+        return allConsumerRecords;
+      }
+      var statusBadge = document.getElementById('detail-stats-badge');
+      if (statusBadge) statusBadge.textContent = 'Loading records from server...';
+      return fetch('{{ url_for("consumer_report_detail_records") }}')
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data && data.rows && data.rows.length) {
+            allConsumerRecords = data.rows.map(function(r, idx) {
+              var s = (r.sector || '').trim();
+              var l = (r.locality || '').trim();
+              var isComm = s.toUpperCase().indexOf('COMMERCIAL') === 0 || l.toUpperCase().indexOf('COMMERCIAL') === 0;
+              var isPriv = (s + ' ' + l).toUpperCase().indexOf('PRIVATE') !== -1;
+              var cat = isComm ? 'commercial' : (isPriv ? 'private' : 'domestic');
+              return {
+                sr: idx + 1,
+                consumer_name: r.consumer_name || '',
+                father_name: r.father_name || '',
+                mobile: r.mobile_number || r.mobile || '',
+                sector: s,
+                locality: l,
+                address: r.address || '',
+                order_number: r.order_number || '',
+                rate_type: r.rate_type || '',
+                connection: r.connection || '',
+                old_connection: r.old_connection || '',
+                status: r.connection_status || r.status || 'Active',
+                consumer_status: r.consumer_status || '',
+                category: cat
+              };
+            });
+            window.storeConsumerRowsInDB(allConsumerRecords).catch(function() {});
+            var countBadge = document.getElementById('detail-tab-count-badge');
+            if (countBadge) countBadge.textContent = '(' + allConsumerRecords.length.toLocaleString() + ')';
+            return allConsumerRecords;
+          }
+          return [];
+        }).catch(function(err) {
+          console.error('Error fetching detail records:', err);
+          return [];
+        });
+    });
+  }
+
+  window.initDetailFilters = function() {
+    if (!allConsumerRecords) return;
+    var catSelect = document.getElementById('detail-filter-category');
+    var locSelect = document.getElementById('detail-filter-locality');
+    if (!locSelect) return;
+
+    var selectedCat = catSelect ? catSelect.value : 'all';
+    var prevVal = locSelect.value;
+
+    var locMap = {};
+    for (var i = 0; i < allConsumerRecords.length; i++) {
+      var r = allConsumerRecords[i];
+      if (selectedCat !== 'all' && r.category !== selectedCat) continue;
+      var locKey = (r.locality || '').trim();
+      var secKey = (r.sector || '').trim();
+      if (selectedCat === 'commercial') {
+        if (locKey) locMap[locKey] = (locMap[locKey] || 0) + 1;
+      } else {
+        if (secKey) locMap[secKey] = (locMap[secKey] || 0) + 1;
+      }
+    }
+
+    var sortedKeys = Object.keys(locMap).sort();
+    locSelect.innerHTML = '<option value="all">All Localities / Sectors (' + sortedKeys.length + ')</option>';
+    sortedKeys.forEach(function(name) {
+      var opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name + ' (' + locMap[name] + ')';
+      locSelect.appendChild(opt);
+    });
+
+    if (prevVal && locMap[prevVal]) {
+      locSelect.value = prevVal;
+    }
+  };
+
+  window.onDetailCategoryChange = function() {
+    initDetailFilters();
+    renderDetailView();
+  };
+
+  window.resetDetailFilters = function() {
+    var catSelect = document.getElementById('detail-filter-category');
+    var locSelect = document.getElementById('detail-filter-locality');
+    var statSelect = document.getElementById('detail-filter-status');
+    var searchInput = document.getElementById('detail-filter-search');
+    if (catSelect) catSelect.value = 'all';
+    if (statSelect) statSelect.value = 'all';
+    if (searchInput) searchInput.value = '';
+    initDetailFilters();
+    if (locSelect) locSelect.value = 'all';
+    currentPage = 1;
+    renderDetailView();
+  };
+
+  function getActiveColumns() {
+    var cols = [];
+    document.querySelectorAll('.detail-col-toggle').forEach(function(cb) {
+      if (cb.checked) cols.push(cb.getAttribute('data-col'));
+    });
+    if (!cols.length) cols = ['sr', 'consumer_name', 'locality', 'connection', 'status'];
+    return cols;
+  }
+
+  window.toggleDetailColumn = function() {
+    renderTableHeadAndBody();
+  };
+
+  window.selectAllDetailColumns = function(checked) {
+    document.querySelectorAll('.detail-col-toggle').forEach(function(cb) {
+      cb.checked = checked;
+    });
+    renderTableHeadAndBody();
+  };
+
+  window.resetDefaultDetailColumns = function() {
+    var defMap = {};
+    COL_DEFS.forEach(function(d) { defMap[d.key] = d.default; });
+    document.querySelectorAll('.detail-col-toggle').forEach(function(cb) {
+      var k = cb.getAttribute('data-col');
+      cb.checked = !!defMap[k];
+    });
+    renderTableHeadAndBody();
+  };
+
+  window.renderDetailView = function() {
+    ensureRecordsLoaded().then(function(records) {
+      if (!records || !records.length) {
+        var tbody = document.getElementById('detail-table-body');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--text-muted);">No connection records available. Please upload a CSV file first.</td></tr>';
+        var badge = document.getElementById('detail-stats-badge');
+        if (badge) badge.textContent = '0 Connections';
+        return;
+      }
+
+      var cat = (document.getElementById('detail-filter-category') || {}).value || 'all';
+      var loc = (document.getElementById('detail-filter-locality') || {}).value || 'all';
+      var stat = (document.getElementById('detail-filter-status') || {}).value || 'all';
+      var q = normalizeText((document.getElementById('detail-filter-search') || {}).value);
+
+      var filtered = [];
+      var activeCount = 0, closedCount = 0, suspendedCount = 0;
+
+      for (var i = 0; i < records.length; i++) {
+        var r = records[i];
+        if (cat !== 'all' && r.category !== cat) continue;
+
+        if (loc !== 'all') {
+          var rLoc = (r.locality || '').toLowerCase();
+          var rSec = (r.sector || '').toLowerCase();
+          var target = loc.toLowerCase();
+          if (rLoc !== target && rSec !== target && rLoc.indexOf(target) === -1 && rSec.indexOf(target) === -1) {
+            continue;
+          }
+        }
+
+        if (stat !== 'all') {
+          if (normalizeText(r.status) !== normalizeText(stat)) continue;
+        }
+
+        if (q) {
+          var haystack = (r.consumer_name + ' ' + r.father_name + ' ' + r.mobile + ' ' + r.connection + ' ' + r.old_connection + ' ' + r.address + ' ' + r.sector + ' ' + r.locality).toLowerCase();
+          if (haystack.indexOf(q) === -1) continue;
+        }
+
+        filtered.push(r);
+        var s = (r.status || 'Active').toLowerCase();
+        if (s === 'closed') closedCount++;
+        else if (s === 'suspended') suspendedCount++;
+        else activeCount++;
+      }
+
+      currentFilteredRecords = filtered;
+      var badge = document.getElementById('detail-stats-badge');
+      if (badge) {
+        badge.textContent = filtered.length.toLocaleString() + ' Connections (Active: ' + activeCount.toLocaleString() + ', Closed: ' + closedCount.toLocaleString() + (suspendedCount > 0 ? ', Suspended: ' + suspendedCount.toLocaleString() : '') + ')';
+      }
+
+      var totalRecordsEl = document.getElementById('detail-total-records');
+      if (totalRecordsEl) totalRecordsEl.textContent = filtered.length.toLocaleString();
+
+      var maxPages = Math.ceil(filtered.length / rowsPerPage) || 1;
+      if (currentPage > maxPages) currentPage = maxPages;
+      if (currentPage < 1) currentPage = 1;
+
+      renderTableHeadAndBody();
+    });
+  };
+
+  function renderTableHeadAndBody() {
+    var activeCols = getActiveColumns();
+    var thead = document.getElementById('detail-table-head');
+    var tbody = document.getElementById('detail-table-body');
+    if (!thead || !tbody) return;
+
+    var colLookup = {};
+    COL_DEFS.forEach(function(c) { colLookup[c.key] = c; });
+
+    var headHtml = '<tr>';
+    activeCols.forEach(function(colKey) {
+      var def = colLookup[colKey] || { label: colKey, width: 'auto', align: 'left' };
+      headHtml += '<th style="text-align:' + def.align + ';width:' + def.width + ';">' + def.label + '</th>';
+    });
+    headHtml += '</tr>';
+    thead.innerHTML = headHtml;
+
+    var total = currentFilteredRecords.length;
+    if (total === 0) {
+      tbody.innerHTML = '<tr><td colspan="' + activeCols.length + '" style="text-align:center;padding:26px;color:var(--text-muted);font-size:13px;">No matching connections found. Try resetting filters or changing search criteria.</td></tr>';
+      updatePaginationControls(0, 0, 0, 1, 1);
+      return;
+    }
+
+    var startIdx = (currentPage - 1) * rowsPerPage;
+    var endIdx = Math.min(startIdx + rowsPerPage, total);
+    var pageRows = currentFilteredRecords.slice(startIdx, endIdx);
+
+    var bodyHtml = '';
+    for (var i = 0; i < pageRows.length; i++) {
+      var row = pageRows[i];
+      var displaySr = startIdx + i + 1;
+      bodyHtml += '<tr>';
+      activeCols.forEach(function(colKey) {
+        var def = colLookup[colKey] || { align: 'left' };
+        var val = (colKey === 'sr') ? displaySr : (row[colKey] || '');
+        if (colKey === 'status') {
+          var s = String(val).trim().toLowerCase();
+          var badgeStyle = 'padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;display:inline-block;';
+          if (s === 'active') {
+            badgeStyle += 'background:rgba(0,180,216,0.15);color:var(--teal);border:1px solid rgba(0,180,216,0.3);';
+          } else if (s === 'closed') {
+            badgeStyle += 'background:rgba(255,107,107,0.15);color:var(--coral);border:1px solid rgba(255,107,107,0.3);';
+          } else {
+            badgeStyle += 'background:rgba(245,166,35,0.15);color:var(--amber);border:1px solid rgba(245,166,35,0.3);';
+          }
+          bodyHtml += '<td style="text-align:center;"><span style="' + badgeStyle + '">' + (val || 'Active') + '</span></td>';
+        } else if (colKey === 'consumer_name') {
+          bodyHtml += '<td style="text-align:left;font-weight:600;color:var(--text-primary);">' + escapeHtml(val) + '</td>';
+        } else if (colKey === 'connection' || colKey === 'old_connection') {
+          bodyHtml += '<td style="text-align:center;font-family:monospace;font-weight:500;">' + escapeHtml(val) + '</td>';
+        } else {
+          bodyHtml += '<td style="text-align:' + def.align + ';">' + escapeHtml(val) + '</td>';
+        }
+      });
+      bodyHtml += '</tr>';
+    }
+    tbody.innerHTML = bodyHtml;
+
+    var maxPages = Math.ceil(total / rowsPerPage) || 1;
+    updatePaginationControls(startIdx + 1, endIdx, total, currentPage, maxPages);
+  }
+
+  function updatePaginationControls(start, end, total, page, maxPages) {
+    var pStart = document.getElementById('detail-page-start');
+    var pEnd = document.getElementById('detail-page-end');
+    var pInd = document.getElementById('detail-page-indicator');
+    var prevBtn = document.getElementById('detail-prev-page-btn');
+    var nextBtn = document.getElementById('detail-next-page-btn');
+    if (pStart) pStart.textContent = start;
+    if (pEnd) pEnd.textContent = end;
+    if (pInd) pInd.textContent = page + ' / ' + maxPages;
+    if (prevBtn) {
+      prevBtn.disabled = page <= 1;
+      prevBtn.style.opacity = page <= 1 ? '0.4' : '1';
+      prevBtn.style.pointerEvents = page <= 1 ? 'none' : 'auto';
+    }
+    if (nextBtn) {
+      nextBtn.disabled = page >= maxPages;
+      nextBtn.style.opacity = page >= maxPages ? '0.4' : '1';
+      nextBtn.style.pointerEvents = page >= maxPages ? 'none' : 'auto';
+    }
+  }
+
+  window.changeDetailRowsPerPage = function() {
+    var val = (document.getElementById('detail-rows-per-page') || {}).value || '100';
+    rowsPerPage = val === 'all' ? 9999999 : (parseInt(val, 10) || 100);
+    currentPage = 1;
+    renderTableHeadAndBody();
+  };
+
+  window.prevDetailPage = function() {
+    if (currentPage > 1) {
+      currentPage--;
+      renderTableHeadAndBody();
+    }
+  };
+
+  window.nextDetailPage = function() {
+    var maxPages = Math.ceil(currentFilteredRecords.length / rowsPerPage) || 1;
+    if (currentPage < maxPages) {
+      currentPage++;
+      renderTableHeadAndBody();
+    }
+  };
+
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  window.openDetailDrilldown = function(category, locality, sector) {
+    switchTab('detail');
+    ensureRecordsLoaded().then(function() {
+      var catSelect = document.getElementById('detail-filter-category');
+      var locSelect = document.getElementById('detail-filter-locality');
+      var statSelect = document.getElementById('detail-filter-status');
+      var searchInput = document.getElementById('detail-filter-search');
+
+      if (catSelect && category) catSelect.value = category;
+      initDetailFilters();
+
+      if (locality && locSelect) {
+        var matched = false;
+        for (var i = 0; i < locSelect.options.length; i++) {
+          if (locSelect.options[i].value.toLowerCase() === locality.toLowerCase()) {
+            locSelect.selectedIndex = i;
+            matched = true;
+            break;
+          }
+        }
+        if (!matched && searchInput) {
+          searchInput.value = locality;
+        }
+      } else if (sector && locSelect) {
+        var matched = false;
+        for (var i = 0; i < locSelect.options.length; i++) {
+          if (locSelect.options[i].value.toLowerCase() === sector.toLowerCase()) {
+            locSelect.selectedIndex = i;
+            matched = true;
+            break;
+          }
+        }
+        if (!matched && searchInput) {
+          searchInput.value = sector;
+        }
+      }
+
+      if (statSelect) statSelect.value = 'all';
+      currentPage = 1;
+      renderDetailView();
+    });
+  };
+
+  window.exportDetailRecords = function(fmt) {
+    if (!currentFilteredRecords || !currentFilteredRecords.length) {
+      alert('No connection records available to export.');
+      return;
+    }
+
+    var activeCols = getActiveColumns();
+    var cat = (document.getElementById('detail-filter-category') || {}).value || 'all';
+    var loc = (document.getElementById('detail-filter-locality') || {}).value || 'all';
+
+    var title = 'Consumer Connection Details';
+    if (cat === 'commercial') title = 'Commercial Connection Details';
+    else if (cat === 'domestic') title = 'Domestic Connection Details';
+    else if (cat === 'private') title = 'Private Societies Connection Details';
+
+    if (loc && loc !== 'all') {
+      title += ' - ' + loc;
+    }
+
+    var subtitle = 'Total Connections: ' + currentFilteredRecords.length.toLocaleString();
+
+    var exportRows = currentFilteredRecords.map(function(r, idx) {
+      var obj = Object.assign({}, r);
+      obj.sr = idx + 1;
+      return obj;
+    });
+
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ url_for("export_consumer_detail", fmt_type="__FMT__") }}'.replace('__FMT__', fmt);
+    form.target = '_blank';
+
+    var fRows = document.createElement('input');
+    fRows.type = 'hidden';
+    fRows.name = 'rows_json';
+    fRows.value = JSON.stringify(exportRows);
+    form.appendChild(fRows);
+
+    var fCols = document.createElement('input');
+    fCols.type = 'hidden';
+    fCols.name = 'detail_cols';
+    fCols.value = JSON.stringify(activeCols);
+    form.appendChild(fCols);
+
+    var fTitle = document.createElement('input');
+    fTitle.type = 'hidden';
+    fTitle.name = 'title';
+    fTitle.value = title;
+    form.appendChild(fTitle);
+
+    var fSub = document.createElement('input');
+    fSub.type = 'hidden';
+    fSub.name = 'subtitle';
+    fSub.value = subtitle;
+    form.appendChild(fSub);
+
+    document.body.appendChild(form);
+    form.submit();
+    setTimeout(function() { form.remove(); }, 1000);
+  };
+
+  window.printDetailRecords = function() {
+    if (!currentFilteredRecords || !currentFilteredRecords.length) {
+      alert('No connection records available to print.');
+      return;
+    }
+    var activeCols = getActiveColumns();
+    var colLookup = {};
+    COL_DEFS.forEach(function(c) { colLookup[c.key] = c; });
+
+    var win = window.open('', '_blank');
+    var title = 'Consumer Connection Details';
+    var loc = (document.getElementById('detail-filter-locality') || {}).value || 'all';
+    if (loc && loc !== 'all') title += ' - ' + loc;
+
+    var html = '<!DOCTYPE html><html><head><title>' + escapeHtml(title) + '</title>' +
+      '<style>' +
+      'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 20px; font-size: 11px; }' +
+      'h2 { margin: 0 0 4px 0; text-align: center; }' +
+      'p.meta { margin: 0 0 16px 0; text-align: center; color: #555; font-size: 10px; }' +
+      'table { width: 100%; border-collapse: collapse; margin-top: 8px; }' +
+      'th, td { border: 1px solid #ccc; padding: 4px 6px; }' +
+      'th { background: #f0f4f8; font-weight: 700; text-align: center; }' +
+      '@media print { @page { size: landscape; margin: 8mm; } }' +
+      '</style></head><body>' +
+      '<h2>' + escapeHtml(title) + '</h2>' +
+      '<p class="meta">Total Connections: ' + currentFilteredRecords.length.toLocaleString() + ' | Generated: ' + new Date().toLocaleString() + '</p>' +
+      '<table><thead><tr>';
+
+    activeCols.forEach(function(k) {
+      var def = colLookup[k] || { label: k, align: 'left' };
+      html += '<th style="text-align:' + def.align + ';">' + escapeHtml(def.label) + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+
+    for (var i = 0; i < currentFilteredRecords.length; i++) {
+      var r = currentFilteredRecords[i];
+      html += '<tr>';
+      activeCols.forEach(function(k) {
+        var def = colLookup[k] || { align: 'left' };
+        var val = (k === 'sr') ? (i + 1) : (r[k] || '');
+        html += '<td style="text-align:' + def.align + ';">' + escapeHtml(val) + '</td>';
+      });
+      html += '</tr>';
+    }
+    html += '</tbody></table></body></html>';
+
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(function() { win.print(); }, 250);
+  };
+
+  // Pre-load records on page load so detail is ready immediately
+  document.addEventListener('DOMContentLoaded', function() {
+    ensureRecordsLoaded().then(function() {
+      initDetailFilters();
+      if (document.getElementById('tab-panel-detail') && document.getElementById('tab-panel-detail').style.display !== 'none') {
+        renderDetailView();
+      }
+    });
+  });
+})();
 </script>
 {% endblock %}

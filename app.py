@@ -24,6 +24,7 @@ from flask import (
     send_from_directory,
     session,
     url_for,
+    jsonify,
 )
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
@@ -70,6 +71,7 @@ DNC_REGISTER_CACHE = os.path.join(UPLOAD_FOLDER, "dnc_register_cache.csv")
 # Persistent cache for the Consumer Sector Report summary so it survives across
 # serverless function invocations on Vercel (global state is not kept between requests)
 CONSUMER_REPORT_CACHE = os.path.join(UPLOAD_FOLDER, "consumer_report_cache.json")
+CONSUMER_ROWS_CACHE = os.path.join(UPLOAD_FOLDER, "consumer_rows_cache.json.gz")
 NEW_CONNECTION_DETAIL_CACHE = os.path.join(UPLOAD_FOLDER, "new_connection_detail_cache.json")
 BILL_LIST_DB = os.path.join(BASE_DIR, "bill_list.sqlite3")
 SEED_ASSIGNMENTS_JSON = resource_path("seed", "staff_assignments.json")
@@ -8723,10 +8725,39 @@ def _load_consumer_summary_cache() -> tuple[dict | None, str | None, int]:
     return None, None, 0
 
 
+def _save_consumer_rows_cache(rows: list[dict], filename: str = "") -> None:
+    """Persist consumer individual connection rows (compressed gzip) for drilldown."""
+    try:
+        import gzip
+        os.makedirs(os.path.dirname(CONSUMER_ROWS_CACHE), exist_ok=True)
+        with gzip.open(CONSUMER_ROWS_CACHE, "wt", encoding="utf-8") as f:
+            json.dump({"filename": filename, "rows": rows}, f)
+    except Exception:
+        pass
+
+
+def _load_consumer_rows_cache() -> list[dict]:
+    """Load cached consumer individual connection rows."""
+    try:
+        import gzip
+        if os.path.exists(CONSUMER_ROWS_CACHE):
+            with gzip.open(CONSUMER_ROWS_CACHE, "rt", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict) and "rows" in data:
+                    return data["rows"]
+                elif isinstance(data, list):
+                    return data
+    except Exception:
+        pass
+    return []
+
+
 def _clear_consumer_summary_cache() -> None:
     try:
         if os.path.exists(CONSUMER_REPORT_CACHE):
             os.remove(CONSUMER_REPORT_CACHE)
+        if os.path.exists(CONSUMER_ROWS_CACHE):
+            os.remove(CONSUMER_ROWS_CACHE)
     except Exception:
         pass
 
@@ -9411,6 +9442,19 @@ def _is_faulty_empty_consumer_sector(sector: str) -> bool:
     return _normalize_consumer_col(sector) == "empty"
 
 
+def _is_faulty_commercial_hussain_colony(sector: str, locality: str = "") -> bool:
+    """Skip dummy/faulted Commercial Hussain Colony records that do not represent real connections."""
+    s = _normalize_consumer_col(sector)
+    l = _normalize_consumer_col(locality)
+    if "hussain colony" in s and "commercial" in s:
+        return True
+    if "commercial" in s:
+        return "hussain colony" in l and ("," not in str(locality or ""))
+    if "commercial" in l and "hussain colony" in s:
+        return True
+    return False
+
+
 def _normalize_rate_title(value: str) -> str:
     """Canonical key for rate matching; tolerates case/spacing drift without changing display text."""
     return " ".join(str(value or "").strip().split()).upper()
@@ -9470,6 +9514,9 @@ def _parse_consumer_csv(file_storage) -> tuple[list[dict], list[str]]:
         # they do not become fake sectors or unmatched "Rate Type" warnings.
         if _normalize_consumer_col(_get(row, "sector", "")) == "sector" or \
                 _normalize_consumer_col(_get(row, "rate_type", "")) == "rate type":
+            continue
+
+        if _is_faulty_commercial_hussain_colony(_get(row, "sector", ""), _get(row, "locality", "")):
             continue
 
         # The export has two status columns. Explicit Closed/Suspended in
@@ -9602,6 +9649,7 @@ def _build_consumer_sector_summary(rows: list[dict]) -> dict:
             _is_faulty_empty_consumer_sector(sector_raw)
             or _is_extra_zain_city_13g_sector(sector_raw)
             or _is_extra_noor_mohalla_main_road_sector(sector_raw)
+            or _is_faulty_commercial_hussain_colony(sector_raw, locality_raw)
         ):
             continue
         sector_raw, locality_raw = _canonical_consumer_sector_locality(sector_raw, locality_raw)
@@ -9848,7 +9896,11 @@ def _filter_active_rows(summary: dict) -> dict:
     out = dict(summary)
 
     def _keep(rows):
-        return [r for r in (rows or []) if (r.get("active") or 0) > 0]
+        return [
+            r for r in (rows or [])
+            if (r.get("active") or 0) > 0
+            and not _is_faulty_commercial_hussain_colony(r.get("sector", ""), r.get("locality", ""))
+        ]
 
     out["summary_rows"] = _keep(summary.get("summary_rows", []))
     out["commercial_detailed_rows"] = _keep(summary.get("commercial_detailed_rows", []))
@@ -10209,7 +10261,12 @@ def _build_connection_rate_report(rows: list[dict]) -> dict:
             continue
         sector = row.get("sector", "")
         locality = row.get("locality", "")
-        if _is_faulty_empty_consumer_sector(sector) or _is_extra_zain_city_13g_sector(sector) or _is_extra_noor_mohalla_main_road_sector(sector):
+        if (
+            _is_faulty_empty_consumer_sector(sector)
+            or _is_extra_zain_city_13g_sector(sector)
+            or _is_extra_noor_mohalla_main_road_sector(sector)
+            or _is_faulty_commercial_hussain_colony(sector, locality)
+        ):
             continue
         sector, locality = _canonical_consumer_sector_locality(sector, locality)
         clean_row = dict(row, sector=sector, locality=locality)
@@ -10229,6 +10286,8 @@ def _build_connection_rate_report_from_summary(summary: dict) -> dict:
     """Fallback for already-cached Consumer Report data without raw upload rows."""
     groups: dict[tuple[str, str, int], dict] = {}
     for row in summary.get("summary_rows", []):
+        if _is_faulty_commercial_hussain_colony(row.get("sector", ""), row.get("locality", "")):
+            continue
         active = int(row.get("active") or 0)
         if active <= 0:
             continue
@@ -10593,6 +10652,7 @@ def consumer_report():
             summary = _filter_active_rows(summary)
             _last_consumer_summary = summary
             _save_consumer_summary_cache(summary, _consumer_report_filename, len(rows))
+            _save_consumer_rows_cache(rows)
             msg = f"File uploaded. Found {summary['total_connections']:,} connections across {summary['sector_count']} sectors."
             if is_ajax():
                 return ajax_ok(message=msg, redirect_url=url_for("consumer_report"))
@@ -10744,7 +10804,11 @@ def export_consumer_report(fmt_type: str):
     # STEP 2 — Active > 0 filter.
     # A row is excluded when it has zero active connections.
     # -----------------------------------------------------------------------
-    filtered_rows = [r for r in base_rows if (r.get("active") or 0) > 0]
+    filtered_rows = [
+        r for r in base_rows
+        if (r.get("active") or 0) > 0
+        and not _is_faulty_commercial_hussain_colony(r.get("sector", ""), r.get("locality", ""))
+    ]
 
     # -----------------------------------------------------------------------
     # STEP 3 — Shared sorting logic (used by preview, PDF, CSV, and Excel).
@@ -11317,6 +11381,273 @@ def export_consumer_report(fmt_type: str):
     return redirect(url_for("consumer_report"))
 
 
+@app.route("/consumer-report/export-detail/<fmt_type>", methods=["POST"])
+def export_consumer_detail(fmt_type: str):
+    """Export filtered consumer-level connection details to PDF, Excel, or CSV."""
+    raw_rows = request.form.get("rows_json") or ""
+    raw_cols = request.form.get("detail_cols") or ""
+    title = (request.form.get("title") or "Consumer Connection Detail").strip()
+    subtitle = (request.form.get("subtitle") or "").strip()
+
+    try:
+        rows = json.loads(raw_rows) if raw_rows else []
+    except Exception:
+        rows = []
+
+    if not rows:
+        flash("No connection detail rows to export.")
+        return redirect(url_for("consumer_report"))
+
+    COL_LABELS = {
+        "sr": "SR #",
+        "consumer_name": "Consumer Name",
+        "father_name": "F/H Name",
+        "mobile": "Mobile",
+        "sector": "Sector",
+        "locality": "Locality",
+        "address": "Address",
+        "order_number": "Order / Reg No",
+        "rate_type": "Rate Type",
+        "connection": "Connection No.",
+        "old_connection": "Old Connection No.",
+        "connection_date": "Connection Date",
+        "status": "Status",
+        "consumer_status": "Consumer Status",
+    }
+
+    if raw_cols:
+        try:
+            cols = json.loads(raw_cols) if raw_cols.startswith("[") else [c.strip() for c in raw_cols.split(",") if c.strip()]
+        except Exception:
+            cols = [c.strip() for c in raw_cols.split(",") if c.strip()]
+    else:
+        cols = ["sr", "consumer_name", "father_name", "mobile", "sector", "locality", "address", "connection", "rate_type", "status"]
+
+    active_cols = [c for c in cols if c in COL_LABELS]
+    if not active_cols:
+        active_cols = ["sr", "consumer_name", "father_name", "mobile", "locality", "address", "connection", "status"]
+
+    headers = [COL_LABELS[c] for c in active_cols]
+    table_rows = []
+    for i, r in enumerate(rows, 1):
+        row_vals = []
+        for c in active_cols:
+            if c == "sr":
+                row_vals.append(str(r.get("sr") or i))
+            else:
+                row_vals.append(str(r.get(c) or ""))
+        table_rows.append(row_vals)
+
+    safe_title = secure_filename(title.replace(" ", "_")) or "Consumer_Detail"
+
+    if fmt_type == "csv":
+        out = io.StringIO()
+        writer = csv.writer(out)
+        writer.writerow(headers)
+        for r in table_rows:
+            writer.writerow(r)
+        return Response(out.getvalue(), mimetype="text/csv",
+                        headers={"Content-Disposition": f"attachment; filename={safe_title}.csv"})
+
+    if fmt_type == "xlsx":
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            pd.DataFrame(table_rows, columns=headers).to_excel(writer, sheet_name="Consumer Details", index=False)
+        buf.seek(0)
+        return Response(buf.getvalue(),
+                        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        headers={"Content-Disposition": f"attachment; filename={safe_title}.xlsx"})
+
+    if fmt_type == "pdf":
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib import colors
+        from reportlab.lib.units import mm
+        from xml.sax.saxutils import escape
+
+        # Choose page orientation: landscape if > 6 columns, else portrait
+        is_landscape = len(active_cols) > 6
+        page_size = landscape(A4) if is_landscape else A4
+        page_w, page_h = page_size
+        left_m = 8 * mm
+        right_m = 8 * mm
+        top_m = 10 * mm
+        bottom_m = 10 * mm
+        usable_w = page_w - left_m - right_m
+
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=page_size, leftMargin=left_m, rightMargin=right_m, topMargin=top_m, bottomMargin=bottom_m)
+        styles = getSampleStyleSheet()
+
+        title_style = ParagraphStyle(
+            "DetailTitle",
+            parent=styles["Heading1"],
+            fontName="Helvetica-Bold",
+            fontSize=13,
+            textColor=colors.HexColor("#0f172a"),
+            alignment=1,
+            spaceAfter=3,
+        )
+        subtitle_style = ParagraphStyle(
+            "DetailSubTitle",
+            parent=styles["Normal"],
+            fontName="Helvetica",
+            fontSize=8.5,
+            textColor=colors.HexColor("#475569"),
+            alignment=1,
+            spaceAfter=7,
+        )
+        head_style = ParagraphStyle(
+            "DetailHead",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=7.5,
+            textColor=colors.white,
+            alignment=1,
+        )
+        cell_style = ParagraphStyle(
+            "DetailCell",
+            parent=styles["Normal"],
+            fontName="Helvetica",
+            fontSize=7,
+            leading=8.5,
+            textColor=colors.HexColor("#1e293b"),
+            alignment=0,
+        )
+        cell_center_style = ParagraphStyle(
+            "DetailCellCenter",
+            parent=cell_style,
+            alignment=1,
+        )
+
+        elements = [
+            Paragraph(escape(title), title_style),
+        ]
+        if subtitle:
+            elements.append(Paragraph(escape(subtitle), subtitle_style))
+        else:
+            elements.append(Paragraph(f"Total Connections: {len(table_rows):,}", subtitle_style))
+
+        WEIGHTS = {
+            "sr": 8,
+            "consumer_name": 30,
+            "father_name": 26,
+            "mobile": 20,
+            "sector": 25,
+            "locality": 26,
+            "address": 35,
+            "order_number": 16,
+            "rate_type": 28,
+            "connection": 18,
+            "old_connection": 16,
+            "connection_date": 16,
+            "status": 15,
+            "consumer_status": 15,
+        }
+        total_w = sum(WEIGHTS.get(c, 20) for c in active_cols)
+        col_widths = [usable_w * (WEIGHTS.get(c, 20) / total_w) for c in active_cols]
+
+        pdf_table_data = [[Paragraph(escape(h), head_style) for h in headers]]
+        for row in table_rows:
+            row_cells = []
+            for c_idx, val in enumerate(row):
+                col_name = active_cols[c_idx]
+                st = cell_center_style if col_name in ("sr", "mobile", "connection", "old_connection", "connection_date", "status", "order_number") else cell_style
+                row_cells.append(Paragraph(escape(val), st))
+            pdf_table_data.append(row_cells)
+
+        t = Table(pdf_table_data, colWidths=col_widths, repeatRows=1, hAlign="CENTER")
+        style_cmds = [
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e293b")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#94a3b8")),
+            ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 2.5),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 2.5),
+        ]
+        for r_idx in range(1, len(pdf_table_data)):
+            bg = colors.HexColor("#f8fafc") if r_idx % 2 == 0 else colors.white
+            style_cmds.append(("BACKGROUND", (0, r_idx), (-1, r_idx), bg))
+
+        t.setStyle(TableStyle(style_cmds))
+        elements.append(t)
+        doc.build(elements)
+        return Response(buf.getvalue(), mimetype="application/pdf",
+                        headers={"Content-Disposition": f"attachment; filename={safe_title}.pdf"})
+
+    flash("Unknown export format.")
+    return redirect(url_for("consumer_report"))
+
+
+@app.route("/consumer-report/detail-records", methods=["GET", "POST"])
+def consumer_report_detail_records():
+    """Return consumer connection records for a specific sector/locality/category with filtering."""
+    category = (request.args.get("category") or request.form.get("category") or "").strip().lower()
+    sector = (request.args.get("sector") or request.form.get("sector") or "").strip()
+    locality = (request.args.get("locality") or request.form.get("locality") or "").strip()
+    status_filter = (request.args.get("status") or request.form.get("status") or "").strip()
+    search = (request.args.get("q") or request.form.get("q") or "").strip().lower()
+
+    rows = _load_consumer_rows_cache()
+    if not rows and _consumer_report_data:
+        rows = _consumer_report_data
+
+    if not rows:
+        return jsonify({"success": True, "count": 0, "rows": []})
+
+    filtered = []
+    sr = 1
+    for r in rows:
+        r_sec = r.get("sector", "")
+        r_loc = r.get("locality", "")
+        r_stat = r.get("connection_status", "Active")
+
+        if _is_faulty_commercial_hussain_colony(r_sec, r_loc):
+            continue
+
+        # Category filter: domestic, commercial, private
+        if category:
+            is_comm = r_sec.upper().startswith("COMMERCIAL") or r_loc.upper().startswith("COMMERCIAL")
+            is_priv = _is_private_society_summary_row(r)
+            if category == "commercial" and not is_comm:
+                continue
+            elif category in ("private", "private_societies", "private-societies") and not is_priv:
+                continue
+            elif category == "domestic" and (is_comm or is_priv):
+                continue
+
+        # Locality filter
+        if locality and locality != "All":
+            if locality.lower() != r_loc.lower() and locality.lower() not in r_loc.lower():
+                continue
+
+        # Sector filter
+        if sector and sector != "All":
+            if sector.lower() != r_sec.lower() and sector.lower() not in r_sec.lower():
+                continue
+
+        # Status filter
+        if status_filter and status_filter.lower() != "all":
+            if r_stat.lower() != status_filter.lower():
+                continue
+
+        # Text search
+        if search:
+            combined = f"{r.get('consumer_name','')} {r.get('father_name','')} {r.get('mobile','')} {r.get('connection','')} {r.get('address','')} {r_sec} {r_loc}".lower()
+            if search not in combined:
+                continue
+
+        rec = dict(r)
+        rec["sr"] = sr
+        filtered.append(rec)
+        sr += 1
+
+    return jsonify({"success": True, "count": len(filtered), "rows": filtered})
+
+
+
 # ---------------------------------------------------------------------------
 # File Merger Route
 # ---------------------------------------------------------------------------
@@ -11811,6 +12142,7 @@ def build_consumer_sector_remaining_report(year: int, season: str) -> list[dict]
             _is_faulty_empty_consumer_sector(sector_name)
             or _is_extra_zain_city_13g_sector(sector_name)
             or _is_extra_noor_mohalla_main_road_sector(sector_name)
+            or _is_faulty_commercial_hussain_colony(sector_name, (row.get("locality") or "").strip())
         ):
             continue
         sector_name, locality_name = _canonical_consumer_sector_locality(

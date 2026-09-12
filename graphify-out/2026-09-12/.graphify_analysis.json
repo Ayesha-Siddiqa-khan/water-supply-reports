@@ -411,6 +411,8 @@
       "check_data_comparison_rationale_1",
       "check_data_comparison_read",
       "handover_build_handover_dataset",
+      "handover_canonical_labels",
+      "handover_canonicalise_groups",
       "handover_compose",
       "handover_conn_key",
       "handover_drop_excluded_sectors",
@@ -423,6 +425,8 @@
       "handover_rationale_194",
       "handover_rationale_261",
       "handover_rationale_625",
+      "handover_rationale_637",
+      "handover_rationale_660",
       "handover_status_of",
       "handover_txt",
       "handover_type_of",
@@ -434,15 +438,12 @@
       "handover_build_sector_summary",
       "handover_col_key",
       "handover_detail_columns",
-      "handover_detail_rows",
-      "handover_export_handover",
       "handover_filter_label",
       "handover_finalize",
       "handover_handover_print",
       "handover_handover_snapshot",
       "handover_is_commercial",
       "handover_py_dataframe",
-      "handover_rationale_1168",
       "handover_rationale_500",
       "handover_rationale_600",
       "handover_rationale_675",
@@ -454,9 +455,7 @@
       "handover_read_watermark_config",
       "handover_render_page",
       "handover_report_context",
-      "handover_report_date",
       "handover_selected_columns",
-      "handover_signature_band_height",
       "handover_summarise_block"
     ],
     "11": [
@@ -505,26 +504,20 @@
       "app_rationale_9472"
     ],
     "13": [
-      "handover",
       "handover_app",
-      "handover_draw_signature_band",
       "handover_gunzip",
       "handover_handover",
       "handover_handover_dir",
       "handover_handover_status",
       "handover_list_snapshots",
       "handover_load_dataset",
-      "handover_rationale_1",
       "handover_rationale_1007",
       "handover_rationale_1018",
-      "handover_rationale_1433",
-      "handover_rationale_1662",
       "handover_rationale_429",
       "handover_rationale_68",
       "handover_rationale_992",
       "handover_read_bytes",
       "handover_snapshot_dir",
-      "handover_summary_page",
       "handover_working_csv",
       "handover_working_meta"
     ],
@@ -577,13 +570,19 @@
       "handover_wrap_rows"
     ],
     "17": [
+      "handover",
       "handover_draw_ring_text",
+      "handover_draw_signature_band",
       "handover_draw_star",
       "handover_draw_watermark",
       "handover_emblem_path",
+      "handover_rationale_1",
+      "handover_rationale_1433",
+      "handover_rationale_1662",
       "handover_rationale_1819",
       "handover_rationale_1828",
-      "handover_rationale_1870"
+      "handover_rationale_1870",
+      "handover_summary_page"
     ],
     "18": [
       "agents",
@@ -637,9 +636,14 @@
       "app_split_summary_by_type"
     ],
     "22": [
+      "handover_detail_rows",
+      "handover_export_handover",
       "handover_numeric_amounts",
+      "handover_rationale_1168",
       "handover_rationale_1562",
       "handover_rationale_170",
+      "handover_report_date",
+      "handover_signature_band_height",
       "handover_to_amount"
     ],
     "23": [
@@ -727,12 +731,6 @@
     ],
     "44": [
       "water_suppy_report_instruction_md_codeblock_2"
-    ],
-    "45": [
-      "handover_canonical_labels",
-      "handover_canonicalise_groups",
-      "handover_rationale_637",
-      "handover_rationale_660"
     ]
   },
   "cohesion": {
@@ -745,20 +743,20 @@
     "6": 0.0928030303030303,
     "7": 0.10804597701149425,
     "8": 0.1402116402116402,
-    "9": 0.12380952380952381,
-    "10": 0.14039408866995073,
+    "9": 0.10333333333333333,
+    "10": 0.17028985507246377,
     "11": 0.13852813852813853,
     "12": 0.14619883040935672,
-    "13": 0.15584415584415584,
+    "13": 0.16666666666666666,
     "14": 0.15384615384615385,
     "15": 0.16483516483516483,
     "16": 0.15384615384615385,
-    "17": 0.2857142857142857,
+    "17": 0.19230769230769232,
     "18": 0.18181818181818182,
     "19": 0.23636363636363636,
     "20": 0.43636363636363634,
     "21": 0.2,
-    "22": 0.5,
+    "22": 0.2222222222222222,
     "23": 0.2857142857142857,
     "24": 0.4,
     "25": 0.6666666666666666,
@@ -780,8 +778,7 @@
     "41": 1.0,
     "42": 1.0,
     "43": 1.0,
-    "44": 1.0,
-    "45": 0.5
+    "44": 1.0
   },
   "gods": [
     {
@@ -892,41 +889,8 @@
       "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
     }
   ],
-  "questions": [
-    {
-      "type": "bridge_node",
-      "question": "Why does `classify()` connect `data_comparison.py` to `_txt`, `canonicalise_groups`, `audit_engine.py`?",
-      "why": "High betweenness centrality (0.093) - this node is a cross-community bridge."
-    },
-    {
-      "type": "bridge_node",
-      "question": "Why does `parse_register()` connect `audit_engine.py` to `data_comparison.py`?",
-      "why": "High betweenness centrality (0.087) - this node is a cross-community bridge."
-    },
-    {
-      "type": "bridge_node",
-      "question": "Why does `_GroupedPdfWrapper` connect `_GroupedPdfWrapper` to `app.py`?",
-      "why": "High betweenness centrality (0.027) - this node is a cross-community bridge."
-    },
-    {
-      "type": "verify_inferred",
-      "question": "Are the 8 inferred relationships involving `ParagraphStyle` (e.g. with `build_arrears_pdf()` and `_report_pdf()`) actually correct?",
-      "why": "`ParagraphStyle` has 8 INFERRED edges - model-reasoned connections that need verification."
-    },
-    {
-      "type": "isolated_nodes",
-      "question": "What connects `Ponytail - Lazy Senior Dev Mode`, `Project Overview`, `Graph Status` to the rest of the system?",
-      "why": "170 weakly-connected nodes found - possible documentation gaps or missing edges."
-    },
-    {
-      "type": "low_cohesion",
-      "question": "Should `BytesIO` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.07039573820395738 - nodes in this community are weakly interconnected."
-    },
-    {
-      "type": "low_cohesion",
-      "question": "Should `DataFrame` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.08503401360544217 - nodes in this community are weakly interconnected."
-    }
-  ]
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
 }

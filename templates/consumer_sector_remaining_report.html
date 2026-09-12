@@ -347,12 +347,14 @@
       return { sector: sectorText, locality: localityText };
     }
 
-    function isSkippedConsumerSector(sector) {
+    function isSkippedConsumerSector(sector, locality) {
       var normalized = (sector || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
       var compact = normalized.replace(/\s+/g, '');
+      var lNorm = (locality || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
       return normalized === 'empty'
         || (compact.indexOf('zaincity') !== -1 && normalized.indexOf('13') !== -1 && normalized.indexOf('private') === -1)
-        || normalized === 'noor mohala millad chowk main road';
+        || normalized === 'noor mohala millad chowk main road'
+        || (normalized.indexOf('commercial') !== -1 && lNorm.indexOf('hussain colony') !== -1 && (String(locality || '').indexOf(',') === -1));
     }
 
     fileInput.addEventListener('change', function() {
@@ -393,7 +395,7 @@
             var fields = parseCSVLine(lines[i]);
             var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
             var locality = colMap.locality !== undefined ? (fields[colMap.locality] || '').trim() : '';
-            if (isSkippedConsumerSector(sector)) continue;
+            if (isSkippedConsumerSector(sector, locality)) continue;
             var canonicalPlace = canonicalConsumerSectorLocality(sector, locality);
             sector = canonicalPlace.sector || 'Unspecified';
             locality = canonicalPlace.locality || '';
@@ -433,7 +435,7 @@
             var fields = parseCSVLine(lines[i]);
             var sector = (fields[colMap.sector] || '').trim() || 'Unspecified';
             var locality = colMap.locality !== undefined ? (fields[colMap.locality] || '').trim() : sector;
-            if (isSkippedConsumerSector(sector)) continue;
+            if (isSkippedConsumerSector(sector, locality)) continue;
             var canonicalPlace = canonicalConsumerSectorLocality(sector, locality);
             sector = canonicalPlace.sector || 'Unspecified';
             locality = canonicalPlace.locality || sector;
