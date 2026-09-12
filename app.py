@@ -11535,19 +11535,21 @@ def export_consumer_detail(fmt_type: str):
             "DetailTitle",
             parent=styles["Heading1"],
             fontName="Helvetica-Bold",
-            fontSize=13,
-            textColor=colors.HexColor("#0f172a"),
+            fontSize=14,
+            leading=17,
+            textColor=colors.black,
             alignment=1,
-            spaceAfter=3,
+            spaceAfter=2 * mm,
         )
         subtitle_style = ParagraphStyle(
             "DetailSubTitle",
             parent=styles["Normal"],
             fontName="Helvetica",
             fontSize=8.5,
-            textColor=colors.HexColor("#475569"),
+            leading=11,
+            textColor=colors.black,
             alignment=1,
-            spaceAfter=7,
+            spaceAfter=4 * mm,
         )
 
         elements = [
@@ -11558,58 +11560,146 @@ def export_consumer_detail(fmt_type: str):
         else:
             elements.append(Paragraph(f"Total Connections: {len(table_rows):,}", subtitle_style))
 
-        WEIGHTS = {
-            "sr": 8, "sr #": 8,
-            "consumer_name": 30, "consumer name": 30,
-            "father_name": 26, "f/h name": 26,
-            "mobile": 20,
-            "sector": 25,
-            "locality": 26,
-            "address": 35,
-            "order_number": 16, "order / reg no": 16,
-            "rate_type": 28,
-            "connection": 18, "connection no.": 18,
-            "old_connection": 16, "old connection no.": 16,
-            "connection_date": 16,
-            "status": 15,
-            "consumer_status": 15,
+        # Dynamic flexible column width allocation:
+        # Compact fixed-format fields (SR, Mobile, Connection, Status) stay tight and efficient.
+        # Locality and Sector get the lion's share of surplus width.
+        BASE_WIDTH_MM = {
+            "sr": 8.5, "sr #": 8.5,
+            "status": 11.5,
+            "mobile": 18.5,
+            "connection": 19.0, "connection no.": 19.0,
+            "old_connection": 17.0, "old connection no.": 17.0,
+            "order_number": 15.0, "order / reg no": 15.0,
+            "connection_date": 16.0,
+            "consumer_status": 16.0,
+            "rate_type": 23.0,
+            "father_name": 25.0, "f/h name": 25.0,
+            "consumer_name": 30.0, "consumer name": 30.0,
+            "address": 30.0,
+            "sector": 36.0,
+            "locality": 40.0,
         }
-        active_keys = active_cols if active_cols else [str(h).lower() for h in headers]
-        total_w = sum(WEIGHTS.get(str(c).lower(), 20) for c in active_keys) or 1
-        col_widths = [usable_w * (WEIGHTS.get(str(c).lower(), 20) / total_w) for c in active_keys]
 
-        # Use plain strings in Table for fast generation & minimal memory overhead
-        pdf_table_data = [[str(h or "") for h in headers]]
+        EXPANSION_WEIGHTS = {
+            "sr": 0, "sr #": 0,
+            "status": 0,
+            "mobile": 0,
+            "connection": 0, "connection no.": 0,
+            "old_connection": 0, "old connection no.": 0,
+            "order_number": 0, "order / reg no": 0,
+            "connection_date": 0,
+            "consumer_status": 0,
+            "rate_type": 4,
+            "father_name": 5, "f/h name": 5,
+            "consumer_name": 8, "consumer name": 8,
+            "address": 18,
+            "sector": 45,
+            "locality": 55,
+        }
+
+        active_keys = [str(c).lower().strip() for c in (active_cols if active_cols else headers)]
+        usable_w_mm = usable_w / mm
+        total_base_mm = sum(BASE_WIDTH_MM.get(k, 25.0) for k in active_keys)
+
+        if usable_w_mm >= total_base_mm:
+            surplus_mm = usable_w_mm - total_base_mm
+            total_exp = sum(EXPANSION_WEIGHTS.get(k, 10) for k in active_keys)
+            col_widths_mm = []
+            for k in active_keys:
+                base_w = BASE_WIDTH_MM.get(k, 25.0)
+                if total_exp > 0:
+                    extra = surplus_mm * (EXPANSION_WEIGHTS.get(k, 10) / total_exp)
+                else:
+                    extra = surplus_mm / max(len(active_keys), 1)
+                col_widths_mm.append(base_w + extra)
+        else:
+            scale = usable_w_mm / max(total_base_mm, 1.0)
+            col_widths_mm = [BASE_WIDTH_MM.get(k, 25.0) * scale for k in active_keys]
+
+        col_widths = [w * mm for w in col_widths_mm]
+
+        # Determine column alignments
+        center_keys = {
+            "sr", "sr #", "mobile", "connection", "connection no.",
+            "old_connection", "old connection no.", "connection_date",
+            "status", "order_number", "order / reg no"
+        }
+        col_is_center = [k in center_keys for k in active_keys]
+
+        header_center_style = ParagraphStyle(
+            "DetailHCenter",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=7.0,
+            leading=8.5,
+            textColor=colors.black,
+            alignment=1,
+        )
+        header_left_style = ParagraphStyle(
+            "DetailHLeft",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=7.0,
+            leading=8.5,
+            textColor=colors.black,
+            alignment=0,
+        )
+        cell_center_style = ParagraphStyle(
+            "DetailCCenter",
+            parent=styles["Normal"],
+            fontName="Helvetica",
+            fontSize=6.5,
+            leading=8.0,
+            textColor=colors.black,
+            alignment=1,
+        )
+        cell_left_style = ParagraphStyle(
+            "DetailCLeft",
+            parent=styles["Normal"],
+            fontName="Helvetica",
+            fontSize=6.5,
+            leading=8.0,
+            textColor=colors.black,
+            alignment=0,
+        )
+
+        pdf_table_data = []
+        # Header row with Paragraph wrapping
+        header_cells = []
+        for i, h in enumerate(headers):
+            h_style = header_center_style if (i < len(col_is_center) and col_is_center[i]) else header_left_style
+            header_cells.append(Paragraph(escape(str(h or "")), h_style))
+        pdf_table_data.append(header_cells)
+
+        # Data rows with Paragraph wrapping so long texts wrap cleanly and never bleed into adjacent columns
         for row in table_rows:
-            pdf_table_data.append([str(c or "") for c in row])
+            row_cells = []
+            for i, val in enumerate(row):
+                c_style = cell_center_style if (i < len(col_is_center) and col_is_center[i]) else cell_left_style
+                row_cells.append(Paragraph(escape(str(val or "")), c_style))
+            pdf_table_data.append(row_cells)
 
         t = Table(pdf_table_data, colWidths=col_widths, repeatRows=1, hAlign="CENTER")
         style_cmds = [
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e293b")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, 0), 7.5),
-            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
+            ("LINEABOVE", (0, 0), (-1, 0), 1.2, colors.black),
+            ("LINEBELOW", (0, 0), (-1, 0), 1.2, colors.black),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#94a3b8")),
-            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-            ("FONTSIZE", (0, 1), (-1, -1), 6.5),
-            ("TOPPADDING", (0, 0), (-1, -1), 2),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-            ("LEFTPADDING", (0, 0), (-1, -1), 2),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+            ("BOX", (0, 0), (-1, -1), 0.8, colors.black),
+            ("TOPPADDING", (0, 0), (-1, 0), 3.5),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 3.5),
+            ("TOPPADDING", (0, 1), (-1, -1), 2.2),
+            ("BOTTOMPADDING", (0, 1), (-1, -1), 2.2),
+            ("LEFTPADDING", (0, 0), (-1, -1), 3),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
         ]
-        # Set column alignments
-        for c_idx, c_key in enumerate(active_keys):
-            ck = str(c_key).lower()
-            if ck in ("sr", "sr #", "mobile", "connection", "connection no.", "old_connection", "old connection no.", "connection_date", "status", "order_number", "order / reg no"):
-                style_cmds.append(("ALIGN", (c_idx, 1), (c_idx, -1), "CENTER"))
-            else:
-                style_cmds.append(("ALIGN", (c_idx, 1), (c_idx, -1), "LEFT"))
 
         for r_idx in range(1, len(pdf_table_data)):
             if r_idx % 2 == 0:
                 style_cmds.append(("BACKGROUND", (0, r_idx), (-1, r_idx), colors.HexColor("#f8fafc")))
+            else:
+                style_cmds.append(("BACKGROUND", (0, r_idx), (-1, r_idx), colors.white))
 
         t.setStyle(TableStyle(style_cmds))
         elements.append(t)
