@@ -5,9 +5,9 @@
     "semantic_hash": "cfd50f683607b459ffbcc79be6054c1b"
   },
   "arrears_analysis.py": {
-    "mtime": 1789211219.1773367,
-    "ast_hash": "aeacfde2825ceb0ef02aea2a3d8db7c9",
-    "semantic_hash": "aeacfde2825ceb0ef02aea2a3d8db7c9"
+    "mtime": 1789217585.957165,
+    "ast_hash": "ced69e11311b14481102f1a656059aa6",
+    "semantic_hash": ""
   },
   "audit_engine.py": {
     "mtime": 1784996935.517019,
@@ -115,13 +115,13 @@
     "semantic_hash": ""
   },
   "templates/arrears_analysis.html": {
-    "mtime": 1789148046.546486,
-    "ast_hash": "df484c75d29316e551a3e04e84cdb957",
+    "mtime": 1789217752.416143,
+    "ast_hash": "39dcc918b183e2a2012de36f399ac116",
     "semantic_hash": ""
   },
   "templates/arrears_analysis_print.html": {
-    "mtime": 1789138148.8126352,
-    "ast_hash": "997e3ca21ece48eebb94ed5129662ed3",
+    "mtime": 1789211244.9276588,
+    "ast_hash": "981f5e531fb177c5f370f801b1785d19",
     "semantic_hash": ""
   },
   "templates/arrear_calculator.html": {
@@ -140,8 +140,8 @@
     "semantic_hash": ""
   },
   "templates/consumer_report.html": {
-    "mtime": 1789205346.0313141,
-    "ast_hash": "da2f272eec80ae816bc75b9c2118a8ed",
+    "mtime": 1789209274.3286953,
+    "ast_hash": "6c322aa7cf60571590ec3bffc0d7e4e1",
     "semantic_hash": ""
   },
   "templates/consumer_sector_remaining_report.html": {

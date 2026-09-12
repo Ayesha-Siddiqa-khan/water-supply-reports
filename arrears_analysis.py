@@ -693,6 +693,21 @@ def build_arrears_pdf(
         show_tot_c = include_total
         show_tot_a = include_total
 
+    # Count how many distinct categories are active (Regular, Suspended, Closed)
+    active_categories_count = sum([
+        bool(show_reg_c or show_reg_a),
+        bool(show_sus_c or show_sus_a),
+        bool(show_cls_c or show_cls_a),
+    ])
+
+    # If only 1 category (or none) is active, duplicate Total columns must NOT be shown
+    if active_categories_count <= 1:
+        show_tot_c = False
+        show_tot_a = False
+    elif not sum_cols:
+        show_tot_c = include_total
+        show_tot_a = include_total
+
     if not any([show_reg_c, show_reg_a, show_sus_c, show_sus_a, show_cls_c, show_cls_a, show_tot_c, show_tot_a]):
         show_tot_c = True
         show_tot_a = True
@@ -719,21 +734,31 @@ def build_arrears_pdf(
     two_name_cols = show_loc and show_sec
     sr_w = 10 * mm
     if two_name_cols:
-        sec_w = 34 * mm
-        loc_w = 48 * mm
+        if len(metric_defs) <= 2:
+            sec_w = 46 * mm
+            loc_w = 95 * mm
+            avail_metric_w = (281 - 10 - 46 - 95) * mm
+        elif len(metric_defs) <= 4:
+            sec_w = 38 * mm
+            loc_w = 65 * mm
+            avail_metric_w = (281 - 10 - 38 - 65) * mm
+        else:
+            sec_w = 34 * mm
+            loc_w = 48 * mm
+            avail_metric_w = (281 - 10 - 82) * mm
+
         name_th = (
             [Paragraph("Sector", th_left), Paragraph("Locality Name", th_left)]
             if order == "sec_first"
             else [Paragraph("Locality Name", th_left), Paragraph("Sector", th_left)]
         )
         name_widths = [sec_w, loc_w] if order == "sec_first" else [loc_w, sec_w]
-        avail_metric_w = (281 - 10 - 82) * mm
     else:
         single_name_title = "Sector Name" if show_sec else "Locality Name"
         name_th = [Paragraph(single_name_title, th_left)]
-        loc_w = 60 * mm
+        loc_w = 90 * mm if len(metric_defs) <= 2 else 60 * mm
         name_widths = [loc_w]
-        avail_metric_w = (281 - 10 - 60) * mm
+        avail_metric_w = (281 - 10 - (loc_w / mm)) * mm
 
     total_metric_weight = sum(m[2] for m in metric_defs)
     if total_metric_weight > 0:
@@ -779,10 +804,14 @@ def build_arrears_pdf(
         raw_sec = str(item.get("sector") or "-").strip()
 
         # Clean truncation / safe formatting so long names never bleed
-        max_loc_len = 34 if two_name_cols else 42
-        clean_loc = (raw_loc[:max_loc_len] + "...") if len(raw_loc) > (max_loc_len + 2) else raw_loc
+        if two_name_cols:
+            max_loc_len = 50 if len(metric_defs) <= 2 else (40 if len(metric_defs) <= 4 else 34)
+            max_sec_len = 35 if len(metric_defs) <= 2 else (30 if len(metric_defs) <= 4 else 26)
+        else:
+            max_loc_len = 60
+            max_sec_len = 50
 
-        max_sec_len = 26 if two_name_cols else 42
+        clean_loc = (raw_loc[:max_loc_len] + "...") if len(raw_loc) > (max_loc_len + 2) else raw_loc
         clean_sec = (raw_sec[:max_sec_len] + "...") if len(raw_sec) > (max_sec_len + 2) else raw_sec
 
         if two_name_cols:
@@ -1430,6 +1459,21 @@ def arrears_analysis_print():
         show_tot_c = include_total
         show_tot_a = include_total
 
+    # Count how many distinct categories are active (Regular, Suspended, Closed)
+    active_categories_count = sum([
+        bool(show_reg_c or show_reg_a),
+        bool(show_sus_c or show_sus_a),
+        bool(show_cls_c or show_cls_a),
+    ])
+
+    # If only 1 category (or none) is active, duplicate Total columns must NOT be shown
+    if active_categories_count <= 1:
+        show_tot_c = False
+        show_tot_a = False
+    elif not sum_cols:
+        show_tot_c = include_total
+        show_tot_a = include_total
+
     if not any([show_reg_c, show_reg_a, show_sus_c, show_sus_a, show_cls_c, show_cls_a, show_tot_c, show_tot_a]):
         show_tot_c = True
         show_tot_a = True
@@ -1627,6 +1671,21 @@ def export_arrears_analysis(fmt_type: str):
         show_sus_a = include_suspended
         show_cls_c = include_closed
         show_cls_a = include_closed
+        show_tot_c = include_total
+        show_tot_a = include_total
+
+    # Count how many distinct categories are active (Regular, Suspended, Closed)
+    active_categories_count = sum([
+        bool(show_reg_c or show_reg_a),
+        bool(show_sus_c or show_sus_a),
+        bool(show_cls_c or show_cls_a),
+    ])
+
+    # If only 1 category (or none) is active, duplicate Total columns must NOT be shown
+    if active_categories_count <= 1:
+        show_tot_c = False
+        show_tot_a = False
+    elif not sum_cols:
         show_tot_c = include_total
         show_tot_a = include_total
 

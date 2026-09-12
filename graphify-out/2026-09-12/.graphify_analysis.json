@@ -921,8 +921,41 @@
       "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
     }
   ],
-  "tokens": {
-    "input": 0,
-    "output": 0
-  }
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `classify()` connect `data_comparison.py` to `audit_engine.py`?",
+      "why": "High betweenness centrality (0.092) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `parse_register()` connect `audit_engine.py` to `data_comparison.py`?",
+      "why": "High betweenness centrality (0.086) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `_GroupedPdfWrapper` connect `_GroupedPdfWrapper` to `app.py`?",
+      "why": "High betweenness centrality (0.027) - this node is a cross-community bridge."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 7 inferred relationships involving `ParagraphStyle` (e.g. with `_report_pdf()` and `export_handover()`) actually correct?",
+      "why": "`ParagraphStyle` has 7 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `Ponytail - Lazy Senior Dev Mode`, `Project Overview`, `Graph Status` to the rest of the system?",
+      "why": "170 weakly-connected nodes found - possible documentation gaps or missing edges."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `data_comparison.py` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.06144393241167435 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `DataFrame` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.0633879781420765 - nodes in this community are weakly interconnected."
+    }
+  ]
 }

@@ -3027,7 +3027,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "allowed_file()",
-      "community_name": "consumer_report",
+      "community_name": "allowed_file",
       "id": "app_allowed_file"
     },
     {
@@ -3093,7 +3093,7 @@
       "_origin": "ast",
       "community": 15,
       "norm_label": "read_uploaded_dataframe()",
-      "community_name": "consumer_report",
+      "community_name": "index",
       "id": "app_read_uploaded_dataframe"
     },
     {
@@ -4479,7 +4479,7 @@
       "_origin": "ast",
       "community": 15,
       "norm_label": "read_and_merge_uploaded_files()",
-      "community_name": "consumer_report",
+      "community_name": "index",
       "id": "app_read_and_merge_uploaded_files"
     },
     {
@@ -4732,7 +4732,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_money()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_dnc_money"
     },
     {
@@ -4743,7 +4743,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_pair()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_dnc_pair"
     },
     {
@@ -4754,7 +4754,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_split_sector_locality()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_dnc_split_sector_locality"
     },
     {
@@ -4765,7 +4765,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_classification()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_dnc_classification"
     },
     {
@@ -4776,7 +4776,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_rate_and_classification()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_dnc_rate_and_classification"
     },
     {
@@ -4787,7 +4787,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_sum_rows()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_dnc_sum_rows"
     },
     {
@@ -4798,7 +4798,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_load_dnc_dataframe()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_load_dnc_dataframe"
     },
     {
@@ -4809,7 +4809,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_build_dnc_register_report()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_build_dnc_register_report"
     },
     {
@@ -4820,7 +4820,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "_dnc_report_rows()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_dnc_report_rows"
     },
     {
@@ -4831,7 +4831,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "dnc_register()",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_dnc_register"
     },
     {
@@ -6272,7 +6272,7 @@
       "_origin": "ast",
       "community": 20,
       "norm_label": "dnc category comes from row text: commercial, private society, otherwise...",
-      "community_name": "_build_dnc_register_report",
+      "community_name": "allowed_file",
       "id": "app_rationale_7104"
     },
     {
@@ -6666,9 +6666,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "arrears_analysis",
       "community": 2,
-      "norm_label": "arrears_analysis.py"
+      "norm_label": "arrears_analysis.py",
+      "id": "arrears_analysis",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "_app()",
@@ -6676,9 +6677,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L54",
       "_origin": "ast",
-      "id": "arrears_analysis_app",
       "community": 2,
-      "norm_label": "_app()"
+      "norm_label": "_app()",
+      "id": "arrears_analysis_app",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "_arrears_dir()",
@@ -6686,9 +6688,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L59",
       "_origin": "ast",
-      "id": "arrears_analysis_arrears_dir",
       "community": 2,
-      "norm_label": "_arrears_dir()"
+      "norm_label": "_arrears_dir()",
+      "id": "arrears_analysis_arrears_dir",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "_working_csv()",
@@ -6696,9 +6699,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L65",
       "_origin": "ast",
-      "id": "arrears_analysis_working_csv",
       "community": 2,
-      "norm_label": "_working_csv()"
+      "norm_label": "_working_csv()",
+      "id": "arrears_analysis_working_csv",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "_working_meta()",
@@ -6706,9 +6710,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L69",
       "_origin": "ast",
-      "id": "arrears_analysis_working_meta",
       "community": 2,
-      "norm_label": "_working_meta()"
+      "norm_label": "_working_meta()",
+      "id": "arrears_analysis_working_meta",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "_handover_working_csv()",
@@ -6716,9 +6721,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L73",
       "_origin": "ast",
-      "id": "arrears_analysis_handover_working_csv",
       "community": 2,
-      "norm_label": "_handover_working_csv()"
+      "norm_label": "_handover_working_csv()",
+      "id": "arrears_analysis_handover_working_csv",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "parse_amount()",
@@ -6726,9 +6732,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L77",
       "_origin": "ast",
-      "id": "arrears_analysis_parse_amount",
       "community": 2,
-      "norm_label": "parse_amount()"
+      "norm_label": "parse_amount()",
+      "id": "arrears_analysis_parse_amount",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "format_pkr()",
@@ -6736,9 +6743,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L90",
       "_origin": "ast",
-      "id": "arrears_analysis_format_pkr",
       "community": 2,
-      "norm_label": "format_pkr()"
+      "norm_label": "format_pkr()",
+      "id": "arrears_analysis_format_pkr",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "classify_status()",
@@ -6746,9 +6754,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L95",
       "_origin": "ast",
-      "id": "arrears_analysis_classify_status",
       "community": 2,
-      "norm_label": "classify_status()"
+      "norm_label": "classify_status()",
+      "id": "arrears_analysis_classify_status",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "_detect_column()",
@@ -6756,9 +6765,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L115",
       "_origin": "ast",
-      "id": "arrears_analysis_detect_column",
       "community": 2,
-      "norm_label": "_detect_column()"
+      "norm_label": "_detect_column()",
+      "id": "arrears_analysis_detect_column",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "inspect_dataframe_columns()",
@@ -6766,9 +6776,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L126",
       "_origin": "ast",
-      "id": "arrears_analysis_inspect_dataframe_columns",
       "community": 2,
-      "norm_label": "inspect_dataframe_columns()"
+      "norm_label": "inspect_dataframe_columns()",
+      "id": "arrears_analysis_inspect_dataframe_columns",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "load_working_dataset()",
@@ -6776,9 +6787,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L142",
       "_origin": "ast",
-      "id": "arrears_analysis_load_working_dataset",
       "community": 2,
-      "norm_label": "load_working_dataset()"
+      "norm_label": "load_working_dataset()",
+      "id": "arrears_analysis_load_working_dataset",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "compute_arrears_analysis()",
@@ -6786,9 +6798,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L202",
       "_origin": "ast",
-      "id": "arrears_analysis_compute_arrears_analysis",
       "community": 2,
-      "norm_label": "compute_arrears_analysis()"
+      "norm_label": "compute_arrears_analysis()",
+      "id": "arrears_analysis_compute_arrears_analysis",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "get_detail_columns()",
@@ -6796,9 +6809,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L386",
       "_origin": "ast",
-      "id": "arrears_analysis_get_detail_columns",
       "community": 2,
-      "norm_label": "get_detail_columns()"
+      "norm_label": "get_detail_columns()",
+      "id": "arrears_analysis_get_detail_columns",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "resolve_detail_columns()",
@@ -6806,9 +6820,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L418",
       "_origin": "ast",
-      "id": "arrears_analysis_resolve_detail_columns",
       "community": 2,
-      "norm_label": "resolve_detail_columns()"
+      "norm_label": "resolve_detail_columns()",
+      "id": "arrears_analysis_resolve_detail_columns",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "NumberedCanvas",
@@ -6816,9 +6831,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L442",
       "_origin": "ast",
-      "id": "arrears_analysis_numberedcanvas",
       "community": 2,
-      "norm_label": "numberedcanvas"
+      "norm_label": "numberedcanvas",
+      "id": "arrears_analysis_numberedcanvas",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": ".__init__()",
@@ -6826,9 +6842,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L445",
       "_origin": "ast",
-      "id": "arrears_analysis_numberedcanvas_init",
       "community": 2,
-      "norm_label": ".__init__()"
+      "norm_label": ".__init__()",
+      "id": "arrears_analysis_numberedcanvas_init",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": ".showPage()",
@@ -6836,9 +6853,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L449",
       "_origin": "ast",
-      "id": "arrears_analysis_numberedcanvas_showpage",
       "community": 2,
-      "norm_label": ".showpage()"
+      "norm_label": ".showpage()",
+      "id": "arrears_analysis_numberedcanvas_showpage",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": ".save()",
@@ -6846,9 +6864,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L453",
       "_origin": "ast",
-      "id": "arrears_analysis_numberedcanvas_save",
       "community": 2,
-      "norm_label": ".save()"
+      "norm_label": ".save()",
+      "id": "arrears_analysis_numberedcanvas_save",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "._draw_page_number()",
@@ -6856,9 +6875,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L461",
       "_origin": "ast",
-      "id": "arrears_analysis_numberedcanvas_draw_page_number",
       "community": 2,
-      "norm_label": "._draw_page_number()"
+      "norm_label": "._draw_page_number()",
+      "id": "arrears_analysis_numberedcanvas_draw_page_number",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "is_zero_summary()",
@@ -6866,9 +6886,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L470",
       "_origin": "ast",
-      "id": "arrears_analysis_is_zero_summary",
       "community": 2,
-      "norm_label": "is_zero_summary()"
+      "norm_label": "is_zero_summary()",
+      "id": "arrears_analysis_is_zero_summary",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "build_arrears_pdf()",
@@ -6876,9 +6897,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L477",
       "_origin": "ast",
-      "id": "arrears_analysis_build_arrears_pdf",
       "community": 2,
-      "norm_label": "build_arrears_pdf()"
+      "norm_label": "build_arrears_pdf()",
+      "id": "arrears_analysis_build_arrears_pdf",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "arrears_analysis()",
@@ -6886,9 +6908,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1066",
       "_origin": "ast",
-      "id": "arrears_analysis_arrears_analysis",
       "community": 2,
-      "norm_label": "arrears_analysis()"
+      "norm_label": "arrears_analysis()",
+      "id": "arrears_analysis_arrears_analysis",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "arrears_analysis_print()",
@@ -6896,9 +6919,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1365",
       "_origin": "ast",
-      "id": "arrears_analysis_arrears_analysis_print",
       "community": 2,
-      "norm_label": "arrears_analysis_print()"
+      "norm_label": "arrears_analysis_print()",
+      "id": "arrears_analysis_arrears_analysis_print",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "export_arrears_analysis()",
@@ -6906,9 +6930,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1565",
       "_origin": "ast",
-      "id": "arrears_analysis_export_arrears_analysis",
       "community": 2,
-      "norm_label": "export_arrears_analysis()"
+      "norm_label": "export_arrears_analysis()",
+      "id": "arrears_analysis_export_arrears_analysis",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "Arrears Analysis Blueprint ========================== Independent module providi",
@@ -6916,9 +6941,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_1",
       "community": 2,
-      "norm_label": "arrears analysis blueprint ========================== independent module providi"
+      "norm_label": "arrears analysis blueprint ========================== independent module providi",
+      "id": "arrears_analysis_rationale_1",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "Safely parse currency / arrears numbers from CSV string or number.",
@@ -6926,9 +6952,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L78",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_78",
       "community": 2,
-      "norm_label": "safely parse currency / arrears numbers from csv string or number."
+      "norm_label": "safely parse currency / arrears numbers from csv string or number.",
+      "id": "arrears_analysis_rationale_78",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "Format numeric value with commas (no currency prefix in table cells).",
@@ -6936,9 +6963,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L91",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_91",
       "community": 2,
-      "norm_label": "format numeric value with commas (no currency prefix in table cells)."
+      "norm_label": "format numeric value with commas (no currency prefix in table cells).",
+      "id": "arrears_analysis_rationale_91",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "Classify connection status strictly according to report requirements:     - Open",
@@ -6946,9 +6974,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L96",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_96",
       "community": 2,
-      "norm_label": "classify connection status strictly according to report requirements:     - open"
+      "norm_label": "classify connection status strictly according to report requirements:     - open",
+      "id": "arrears_analysis_rationale_96",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "Find matching column name case-insensitively from candidates.",
@@ -6956,9 +6985,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L116",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_116",
       "community": 2,
-      "norm_label": "find matching column name case-insensitively from candidates."
+      "norm_label": "find matching column name case-insensitively from candidates.",
+      "id": "arrears_analysis_rationale_116",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "Detect key domain columns in the uploaded dataframe.",
@@ -6966,9 +6996,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L127",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_127",
       "community": 2,
-      "norm_label": "detect key domain columns in the uploaded dataframe."
+      "norm_label": "detect key domain columns in the uploaded dataframe.",
+      "id": "arrears_analysis_rationale_127",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "Load cached working dataset or fallback to handover dataset if available.",
@@ -6976,9 +7007,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L143",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_143",
       "community": 2,
-      "norm_label": "load cached working dataset or fallback to handover dataset if available."
+      "norm_label": "load cached working dataset or fallback to handover dataset if available.",
+      "id": "arrears_analysis_rationale_143",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "Perform locality-wise arrears aggregation.     Strict logic:       - Only Open (",
@@ -6986,9 +7018,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L209",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_209",
       "community": 2,
-      "norm_label": "perform locality-wise arrears aggregation.     strict logic:       - only open ("
+      "norm_label": "perform locality-wise arrears aggregation.     strict logic:       - only open (",
+      "id": "arrears_analysis_rationale_209",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "Determine all available displayable columns in the dataframe, ordered logically.",
@@ -6996,9 +7029,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L387",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_387",
       "community": 2,
-      "norm_label": "determine all available displayable columns in the dataframe, ordered logically."
+      "norm_label": "determine all available displayable columns in the dataframe, ordered logically.",
+      "id": "arrears_analysis_rationale_387",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "Resolve which columns to show in the detailed table.",
@@ -7006,9 +7040,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L419",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_419",
       "community": 2,
-      "norm_label": "resolve which columns to show in the detailed table."
+      "norm_label": "resolve which columns to show in the detailed table.",
+      "id": "arrears_analysis_rationale_419",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "ReportLab canvas that calculates and writes 'Page X of Y' on save.",
@@ -7016,9 +7051,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L443",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_443",
       "community": 2,
-      "norm_label": "reportlab canvas that calculates and writes 'page x of y' on save."
+      "norm_label": "reportlab canvas that calculates and writes 'page x of y' on save.",
+      "id": "arrears_analysis_rationale_443",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "Returns True if all visible connection count and arrears fields are zero.",
@@ -7026,9 +7062,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L471",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_471",
       "community": 2,
-      "norm_label": "returns true if all visible connection count and arrears fields are zero."
+      "norm_label": "returns true if all visible connection count and arrears fields are zero.",
+      "id": "arrears_analysis_rationale_471",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "Generate a clean consolidated landscape A4 PDF report with custom sector/localit",
@@ -7036,9 +7073,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L494",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_494",
       "community": 2,
-      "norm_label": "generate a clean consolidated landscape a4 pdf report with custom sector/localit"
+      "norm_label": "generate a clean consolidated landscape a4 pdf report with custom sector/localit",
+      "id": "arrears_analysis_rationale_494",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "Printable sheet styled for A4 landscape.",
@@ -7046,9 +7084,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1366",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_1366",
       "community": 2,
-      "norm_label": "printable sheet styled for a4 landscape."
+      "norm_label": "printable sheet styled for a4 landscape.",
+      "id": "arrears_analysis_rationale_1366",
+      "community_name": "arrears_analysis.py"
     },
     {
       "label": "Export the report as PDF, Excel (XLSX), or CSV.",
@@ -7056,9 +7095,10 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1566",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_1566",
       "community": 2,
-      "norm_label": "export the report as pdf, excel (xlsx), or csv."
+      "norm_label": "export the report as pdf, excel (xlsx), or csv.",
+      "id": "arrears_analysis_rationale_1566",
+      "community_name": "arrears_analysis.py"
     }
   ],
   "links": [
@@ -7998,9 +8038,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L14",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "datetime",
-      "confidence_score": 1.0
+      "target": "datetime"
     },
     {
       "relation": "imports_from",
@@ -8031,9 +8071,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L477",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_build_arrears_pdf",
-      "target": "any",
-      "confidence_score": 1.0
+      "target": "any"
     },
     {
       "relation": "references",
@@ -8042,9 +8082,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L95",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_classify_status",
-      "target": "any",
-      "confidence_score": 1.0
+      "target": "any"
     },
     {
       "relation": "references",
@@ -8053,9 +8093,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L202",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_compute_arrears_analysis",
-      "target": "any",
-      "confidence_score": 1.0
+      "target": "any"
     },
     {
       "relation": "references",
@@ -8064,9 +8104,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L470",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_is_zero_summary",
-      "target": "any",
-      "confidence_score": 1.0
+      "target": "any"
     },
     {
       "relation": "references",
@@ -8075,9 +8115,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L142",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_load_working_dataset",
-      "target": "any",
-      "confidence_score": 1.0
+      "target": "any"
     },
     {
       "relation": "references",
@@ -8086,9 +8126,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L77",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_parse_amount",
-      "target": "any",
-      "confidence_score": 1.0
+      "target": "any"
     },
     {
       "relation": "references",
@@ -16879,9 +16919,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L477",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_build_arrears_pdf",
-      "target": "dataframe",
-      "confidence_score": 1.0
+      "target": "dataframe"
     },
     {
       "relation": "references",
@@ -16890,9 +16930,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L202",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_compute_arrears_analysis",
-      "target": "dataframe",
-      "confidence_score": 1.0
+      "target": "dataframe"
     },
     {
       "relation": "references",
@@ -16901,9 +16941,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L115",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_detect_column",
-      "target": "dataframe",
-      "confidence_score": 1.0
+      "target": "dataframe"
     },
     {
       "relation": "calls",
@@ -16912,9 +16952,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1876",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_export_arrears_analysis",
-      "target": "dataframe",
-      "confidence_score": 1.0
+      "target": "dataframe"
     },
     {
       "relation": "references",
@@ -16923,9 +16963,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L386",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_get_detail_columns",
-      "target": "dataframe",
-      "confidence_score": 1.0
+      "target": "dataframe"
     },
     {
       "relation": "references",
@@ -16934,9 +16974,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L126",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_inspect_dataframe_columns",
-      "target": "dataframe",
-      "confidence_score": 1.0
+      "target": "dataframe"
     },
     {
       "relation": "references",
@@ -16945,9 +16985,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L142",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_load_working_dataset",
-      "target": "dataframe",
-      "confidence_score": 1.0
+      "target": "dataframe"
     },
     {
       "relation": "references",
@@ -16956,9 +16996,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L418",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_resolve_detail_columns",
-      "target": "dataframe",
-      "confidence_score": 1.0
+      "target": "dataframe"
     },
     {
       "relation": "calls",
@@ -24339,9 +24379,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L54",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_app",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_app"
     },
     {
       "relation": "contains",
@@ -24349,9 +24389,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1066",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_arrears_analysis",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_arrears_analysis"
     },
     {
       "relation": "contains",
@@ -24359,9 +24399,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1365",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_arrears_analysis_print",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_arrears_analysis_print"
     },
     {
       "relation": "contains",
@@ -24369,9 +24409,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L59",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_arrears_dir",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_arrears_dir"
     },
     {
       "relation": "contains",
@@ -24379,9 +24419,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L477",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_build_arrears_pdf",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_build_arrears_pdf"
     },
     {
       "relation": "contains",
@@ -24389,9 +24429,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L95",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_classify_status",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_classify_status"
     },
     {
       "relation": "contains",
@@ -24399,9 +24439,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L202",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_compute_arrears_analysis",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_compute_arrears_analysis"
     },
     {
       "relation": "contains",
@@ -24409,9 +24449,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L115",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_detect_column",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_detect_column"
     },
     {
       "relation": "contains",
@@ -24419,9 +24459,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1565",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_export_arrears_analysis",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_export_arrears_analysis"
     },
     {
       "relation": "contains",
@@ -24429,9 +24469,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L90",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_format_pkr",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_format_pkr"
     },
     {
       "relation": "contains",
@@ -24439,9 +24479,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L386",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_get_detail_columns",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_get_detail_columns"
     },
     {
       "relation": "contains",
@@ -24449,9 +24489,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L73",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_handover_working_csv",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_handover_working_csv"
     },
     {
       "relation": "contains",
@@ -24459,9 +24499,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L126",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_inspect_dataframe_columns",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_inspect_dataframe_columns"
     },
     {
       "relation": "contains",
@@ -24469,9 +24509,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L470",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_is_zero_summary",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_is_zero_summary"
     },
     {
       "relation": "contains",
@@ -24479,9 +24519,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L142",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_load_working_dataset",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_load_working_dataset"
     },
     {
       "relation": "contains",
@@ -24489,9 +24529,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L442",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_numberedcanvas",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_numberedcanvas"
     },
     {
       "relation": "contains",
@@ -24499,9 +24539,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L77",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_parse_amount",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_parse_amount"
     },
     {
       "relation": "contains",
@@ -24509,9 +24549,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L418",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_resolve_detail_columns",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_resolve_detail_columns"
     },
     {
       "relation": "contains",
@@ -24519,9 +24559,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L65",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_working_csv",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_working_csv"
     },
     {
       "relation": "contains",
@@ -24529,9 +24569,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L69",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis",
-      "target": "arrears_analysis_working_meta",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_working_meta"
     },
     {
       "relation": "rationale_for",
@@ -24539,9 +24579,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_rationale_1",
-      "target": "arrears_analysis",
-      "confidence_score": 1.0
+      "target": "arrears_analysis"
     },
     {
       "relation": "calls",
@@ -24550,9 +24590,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1067",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_arrears_analysis",
-      "target": "arrears_analysis_app",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_app"
     },
     {
       "relation": "calls",
@@ -24561,9 +24601,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L60",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_arrears_dir",
-      "target": "arrears_analysis_app",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_app"
     },
     {
       "relation": "calls",
@@ -24572,9 +24612,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L74",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_handover_working_csv",
-      "target": "arrears_analysis_app",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_app"
     },
     {
       "relation": "calls",
@@ -24583,9 +24623,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L66",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_working_csv",
-      "target": "arrears_analysis_arrears_dir",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_arrears_dir"
     },
     {
       "relation": "calls",
@@ -24594,9 +24634,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L70",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_working_meta",
-      "target": "arrears_analysis_arrears_dir",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_arrears_dir"
     },
     {
       "relation": "calls",
@@ -24605,9 +24645,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1103",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_arrears_analysis",
-      "target": "arrears_analysis_working_csv",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_working_csv"
     },
     {
       "relation": "calls",
@@ -24616,9 +24656,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L144",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_load_working_dataset",
-      "target": "arrears_analysis_working_csv",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_working_csv"
     },
     {
       "relation": "calls",
@@ -24627,9 +24667,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1110",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_arrears_analysis",
-      "target": "arrears_analysis_working_meta",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_working_meta"
     },
     {
       "relation": "calls",
@@ -24638,9 +24678,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L145",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_load_working_dataset",
-      "target": "arrears_analysis_working_meta",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_working_meta"
     },
     {
       "relation": "calls",
@@ -24649,9 +24689,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1131",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_arrears_analysis",
-      "target": "arrears_analysis_handover_working_csv",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_handover_working_csv"
     },
     {
       "relation": "calls",
@@ -24660,9 +24700,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L158",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_load_working_dataset",
-      "target": "arrears_analysis_handover_working_csv",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_handover_working_csv"
     },
     {
       "relation": "calls",
@@ -24671,9 +24711,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1334",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_arrears_analysis",
-      "target": "arrears_analysis_parse_amount",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_parse_amount"
     },
     {
       "relation": "calls",
@@ -24682,9 +24722,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1530",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_arrears_analysis_print",
-      "target": "arrears_analysis_parse_amount",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_parse_amount"
     },
     {
       "relation": "calls",
@@ -24693,9 +24733,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1021",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_build_arrears_pdf",
-      "target": "arrears_analysis_parse_amount",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_parse_amount"
     },
     {
       "relation": "indirect_call",
@@ -24704,9 +24744,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L233",
       "weight": 1.0,
+      "confidence_score": 0.5,
       "source": "arrears_analysis_compute_arrears_analysis",
-      "target": "arrears_analysis_parse_amount",
-      "confidence_score": 0.5
+      "target": "arrears_analysis_parse_amount"
     },
     {
       "relation": "rationale_for",
@@ -24714,9 +24754,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L78",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_rationale_78",
-      "target": "arrears_analysis_parse_amount",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_parse_amount"
     },
     {
       "relation": "calls",
@@ -24725,9 +24765,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1279",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_arrears_analysis",
-      "target": "arrears_analysis_format_pkr",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_format_pkr"
     },
     {
       "relation": "calls",
@@ -24736,9 +24776,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L320",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_compute_arrears_analysis",
-      "target": "arrears_analysis_format_pkr",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_format_pkr"
     },
     {
       "relation": "rationale_for",
@@ -24746,9 +24786,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L91",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_rationale_91",
-      "target": "arrears_analysis_format_pkr",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_format_pkr"
     },
     {
       "relation": "indirect_call",
@@ -24757,9 +24797,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1300",
       "weight": 1.0,
+      "confidence_score": 0.5,
       "source": "arrears_analysis_arrears_analysis",
-      "target": "arrears_analysis_classify_status",
-      "confidence_score": 0.5
+      "target": "arrears_analysis_classify_status"
     },
     {
       "relation": "indirect_call",
@@ -24768,9 +24808,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1510",
       "weight": 1.0,
+      "confidence_score": 0.5,
       "source": "arrears_analysis_arrears_analysis_print",
-      "target": "arrears_analysis_classify_status",
-      "confidence_score": 0.5
+      "target": "arrears_analysis_classify_status"
     },
     {
       "relation": "indirect_call",
@@ -24779,9 +24819,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L232",
       "weight": 1.0,
+      "confidence_score": 0.5,
       "source": "arrears_analysis_compute_arrears_analysis",
-      "target": "arrears_analysis_classify_status",
-      "confidence_score": 0.5
+      "target": "arrears_analysis_classify_status"
     },
     {
       "relation": "indirect_call",
@@ -24790,9 +24830,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1813",
       "weight": 1.0,
+      "confidence_score": 0.5,
       "source": "arrears_analysis_export_arrears_analysis",
-      "target": "arrears_analysis_classify_status",
-      "confidence_score": 0.5
+      "target": "arrears_analysis_classify_status"
     },
     {
       "relation": "rationale_for",
@@ -24800,9 +24840,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L96",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_rationale_96",
-      "target": "arrears_analysis_classify_status",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_classify_status"
     },
     {
       "relation": "calls",
@@ -24811,9 +24851,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L129",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_inspect_dataframe_columns",
-      "target": "arrears_analysis_detect_column",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_detect_column"
     },
     {
       "relation": "rationale_for",
@@ -24821,9 +24861,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L116",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_rationale_116",
-      "target": "arrears_analysis_detect_column",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_detect_column"
     },
     {
       "relation": "calls",
@@ -24832,9 +24872,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L215",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_compute_arrears_analysis",
-      "target": "arrears_analysis_inspect_dataframe_columns",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_inspect_dataframe_columns"
     },
     {
       "relation": "rationale_for",
@@ -24842,9 +24882,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L127",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_rationale_127",
-      "target": "arrears_analysis_inspect_dataframe_columns",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_inspect_dataframe_columns"
     },
     {
       "relation": "calls",
@@ -24853,9 +24893,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1182",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_arrears_analysis",
-      "target": "arrears_analysis_load_working_dataset",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_load_working_dataset"
     },
     {
       "relation": "calls",
@@ -24864,9 +24904,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1367",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_arrears_analysis_print",
-      "target": "arrears_analysis_load_working_dataset",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_load_working_dataset"
     },
     {
       "relation": "calls",
@@ -24875,9 +24915,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1567",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_export_arrears_analysis",
-      "target": "arrears_analysis_load_working_dataset",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_load_working_dataset"
     },
     {
       "relation": "rationale_for",
@@ -24885,9 +24925,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L143",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_rationale_143",
-      "target": "arrears_analysis_load_working_dataset",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_load_working_dataset"
     },
     {
       "relation": "calls",
@@ -24896,9 +24936,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1226",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_arrears_analysis",
-      "target": "arrears_analysis_compute_arrears_analysis",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_compute_arrears_analysis"
     },
     {
       "relation": "calls",
@@ -24907,9 +24947,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1389",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_arrears_analysis_print",
-      "target": "arrears_analysis_compute_arrears_analysis",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_compute_arrears_analysis"
     },
     {
       "relation": "calls",
@@ -24918,9 +24958,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1589",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_export_arrears_analysis",
-      "target": "arrears_analysis_compute_arrears_analysis",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_compute_arrears_analysis"
     },
     {
       "relation": "rationale_for",
@@ -24928,9 +24968,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L209",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_rationale_209",
-      "target": "arrears_analysis_compute_arrears_analysis",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_compute_arrears_analysis"
     },
     {
       "relation": "calls",
@@ -24939,9 +24979,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1259",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_arrears_analysis",
-      "target": "arrears_analysis_get_detail_columns",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_get_detail_columns"
     },
     {
       "relation": "rationale_for",
@@ -24949,9 +24989,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L387",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_rationale_387",
-      "target": "arrears_analysis_get_detail_columns",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_get_detail_columns"
     },
     {
       "relation": "calls",
@@ -24960,9 +25000,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L420",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_resolve_detail_columns",
-      "target": "arrears_analysis_get_detail_columns",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_get_detail_columns"
     },
     {
       "relation": "calls",
@@ -24971,9 +25011,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1265",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_arrears_analysis",
-      "target": "arrears_analysis_resolve_detail_columns",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_resolve_detail_columns"
     },
     {
       "relation": "calls",
@@ -24982,9 +25022,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1479",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_arrears_analysis_print",
-      "target": "arrears_analysis_resolve_detail_columns",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_resolve_detail_columns"
     },
     {
       "relation": "calls",
@@ -24993,9 +25033,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1679",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_export_arrears_analysis",
-      "target": "arrears_analysis_resolve_detail_columns",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_resolve_detail_columns"
     },
     {
       "relation": "rationale_for",
@@ -25003,9 +25043,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L419",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_rationale_419",
-      "target": "arrears_analysis_resolve_detail_columns",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_resolve_detail_columns"
     },
     {
       "relation": "indirect_call",
@@ -25014,9 +25054,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1057",
       "weight": 1.0,
+      "confidence_score": 0.5,
       "source": "arrears_analysis_build_arrears_pdf",
-      "target": "arrears_analysis_numberedcanvas",
-      "confidence_score": 0.5
+      "target": "arrears_analysis_numberedcanvas"
     },
     {
       "relation": "method",
@@ -25024,9 +25064,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L461",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_numberedcanvas",
-      "target": "arrears_analysis_numberedcanvas_draw_page_number",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_numberedcanvas_draw_page_number"
     },
     {
       "relation": "method",
@@ -25034,9 +25074,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L445",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_numberedcanvas",
-      "target": "arrears_analysis_numberedcanvas_init",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_numberedcanvas_init"
     },
     {
       "relation": "method",
@@ -25044,9 +25084,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L453",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_numberedcanvas",
-      "target": "arrears_analysis_numberedcanvas_save",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_numberedcanvas_save"
     },
     {
       "relation": "method",
@@ -25054,9 +25094,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L449",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_numberedcanvas",
-      "target": "arrears_analysis_numberedcanvas_showpage",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_numberedcanvas_showpage"
     },
     {
       "relation": "rationale_for",
@@ -25064,9 +25104,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L443",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_rationale_443",
-      "target": "arrears_analysis_numberedcanvas",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_numberedcanvas"
     },
     {
       "relation": "calls",
@@ -25075,9 +25115,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L458",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_numberedcanvas_save",
-      "target": "arrears_analysis_numberedcanvas_showpage",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_numberedcanvas_showpage"
     },
     {
       "relation": "calls",
@@ -25086,9 +25126,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L457",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_numberedcanvas_save",
-      "target": "arrears_analysis_numberedcanvas_draw_page_number",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_numberedcanvas_draw_page_number"
     },
     {
       "relation": "calls",
@@ -25097,9 +25137,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1451",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_arrears_analysis_print",
-      "target": "arrears_analysis_is_zero_summary",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_is_zero_summary"
     },
     {
       "relation": "calls",
@@ -25108,9 +25148,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L588",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_build_arrears_pdf",
-      "target": "arrears_analysis_is_zero_summary",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_is_zero_summary"
     },
     {
       "relation": "calls",
@@ -25119,9 +25159,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1651",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_export_arrears_analysis",
-      "target": "arrears_analysis_is_zero_summary",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_is_zero_summary"
     },
     {
       "relation": "rationale_for",
@@ -25129,9 +25169,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L471",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_rationale_471",
-      "target": "arrears_analysis_is_zero_summary",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_is_zero_summary"
     },
     {
       "relation": "calls",
@@ -25140,9 +25180,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1741",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_export_arrears_analysis",
-      "target": "arrears_analysis_build_arrears_pdf",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_build_arrears_pdf"
     },
     {
       "relation": "rationale_for",
@@ -25150,9 +25190,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L494",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_rationale_494",
-      "target": "arrears_analysis_build_arrears_pdf",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_build_arrears_pdf"
     },
     {
       "relation": "rationale_for",
@@ -25160,9 +25200,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1366",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_rationale_1366",
-      "target": "arrears_analysis_arrears_analysis_print",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_arrears_analysis_print"
     },
     {
       "relation": "rationale_for",
@@ -25170,9 +25210,9 @@
       "source_file": "arrears_analysis.py",
       "source_location": "L1566",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "arrears_analysis_rationale_1566",
-      "target": "arrears_analysis_export_arrears_analysis",
-      "confidence_score": 1.0
+      "target": "arrears_analysis_export_arrears_analysis"
     }
   ],
   "hyperedges": [],

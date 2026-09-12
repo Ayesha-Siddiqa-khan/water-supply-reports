@@ -212,24 +212,46 @@
 
           <!-- 3. SUMMARY TABLE COLUMNS (SHOW / HIDE) -->
           <div class="col-select-area" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border-bright, rgba(255,255,255,0.08));">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
-              <div class="col-select-label" style="margin:0;">SUMMARY TABLE COLUMNS (SHOW / HIDE)</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="col-select-label" style="margin:0;">SUMMARY TABLE COLUMNS (SHOW / HIDE)</div>
+                <span style="font-size:11px;color:var(--text-muted);">(Click any column to toggle. Total Conns/Arrears auto-display when 2+ categories are active)</span>
+              </div>
               <div class="column-actions">
                 <button type="button" class="mini-btn" onclick="toggleAllSummaryCols(true)">Show All</button>
                 <button type="button" class="mini-btn" onclick="resetDefaultSummaryCols()">Reset Default</button>
               </div>
             </div>
-            <div class="col-chips" id="summary-col-chips">
-              <span class="col-chip active" data-sum-col="locality" onclick="toggleSummaryTableCol(this, 'locality')">📍 Locality</span>
-              <span class="col-chip active" data-sum-col="sector" onclick="toggleSummaryTableCol(this, 'sector')">🏢 Sector</span>
-              <span class="col-chip active" data-sum-col="reg_count" onclick="toggleSummaryTableCol(this, 'reg_count')">Regular Conns</span>
-              <span class="col-chip active" data-sum-col="reg_arr" onclick="toggleSummaryTableCol(this, 'reg_arr')">Regular Arrears</span>
-              <span class="col-chip" data-sum-col="sus_count" onclick="toggleSummaryTableCol(this, 'sus_count')">Suspended Conns</span>
-              <span class="col-chip" data-sum-col="sus_arr" onclick="toggleSummaryTableCol(this, 'sus_arr')">Suspended Arrears</span>
-              <span class="col-chip" data-sum-col="cls_count" onclick="toggleSummaryTableCol(this, 'cls_count')">Closed Conns</span>
-              <span class="col-chip" data-sum-col="cls_arr" onclick="toggleSummaryTableCol(this, 'cls_arr')">Closed Arrears</span>
-              <span class="col-chip active" data-sum-col="total_count" onclick="toggleSummaryTableCol(this, 'total_count')">Combined Conns</span>
-              <span class="col-chip active" data-sum-col="total_arr" onclick="toggleSummaryTableCol(this, 'total_arr')">Combined Total Arrears</span>
+            <div class="col-chips" id="summary-col-chips" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;">
+              <!-- Location Dimensions -->
+              <span class="col-chip active" data-sum-col="locality" onclick="toggleSummaryTableCol(this, 'locality')" title="Toggle Locality Name column">📍 Locality</span>
+              <span class="col-chip active" data-sum-col="sector" onclick="toggleSummaryTableCol(this, 'sector')" title="Toggle Sector column">🏢 Sector</span>
+
+              <!-- Divider -->
+              <span style="display:inline-block;width:1px;height:18px;background:var(--border-bright, rgba(255,255,255,0.15));margin:0 4px;"></span>
+
+              <!-- Regular Category -->
+              <span class="col-chip active" data-sum-col="reg_count" onclick="toggleSummaryTableCol(this, 'reg_count')" title="Toggle Regular Connections count">Regular Conns</span>
+              <span class="col-chip active" data-sum-col="reg_arr" onclick="toggleSummaryTableCol(this, 'reg_arr')" title="Toggle Regular Arrears amount">Regular Arrears</span>
+
+              <!-- Divider -->
+              <span style="display:inline-block;width:1px;height:18px;background:var(--border-bright, rgba(255,255,255,0.15));margin:0 4px;"></span>
+
+              <!-- Suspended Category -->
+              <span class="col-chip" data-sum-col="sus_count" onclick="toggleSummaryTableCol(this, 'sus_count')" title="Toggle Suspended Connections count">Suspended Conns</span>
+              <span class="col-chip" data-sum-col="sus_arr" onclick="toggleSummaryTableCol(this, 'sus_arr')" title="Toggle Suspended Arrears amount">Suspended Arrears</span>
+
+              <!-- Divider -->
+              <span style="display:inline-block;width:1px;height:18px;background:var(--border-bright, rgba(255,255,255,0.15));margin:0 4px;"></span>
+
+              <!-- Closed Category -->
+              <span class="col-chip" data-sum-col="cls_count" onclick="toggleSummaryTableCol(this, 'cls_count')" title="Toggle Closed Connections count">Closed Conns</span>
+              <span class="col-chip" data-sum-col="cls_arr" onclick="toggleSummaryTableCol(this, 'cls_arr')" title="Toggle Closed Arrears amount">Closed Arrears</span>
+
+              <!-- Combined Totals (Auto-managed when 2+ categories active) -->
+              <span id="comb-chips-divider" style="display:none;width:1px;height:18px;background:var(--border-bright, rgba(255,255,255,0.15));margin:0 4px;"></span>
+              <span class="col-chip" data-sum-col="total_count" onclick="toggleSummaryTableCol(this, 'total_count')" style="display:none;background:rgba(56,189,248,0.12);border-color:rgba(56,189,248,0.3);color:#38bdf8;" title="Total Connections sum across active categories">Total Conns</span>
+              <span class="col-chip" data-sum-col="total_arr" onclick="toggleSummaryTableCol(this, 'total_arr')" style="display:none;background:rgba(56,189,248,0.12);border-color:rgba(56,189,248,0.3);color:#38bdf8;" title="Total Arrears sum across active categories">Total Arrears</span>
             </div>
           </div>
 
@@ -459,11 +481,11 @@
               <th class="sortable-th col-cls_arr" style="text-align:center;cursor:pointer;display:none;" onclick="sortTableByCol('cls_arr')" title="Click to sort by Closed Arrears">
                 Closed Arrears (PKR) <span class="th-sort-arrow" id="sort-arrow-cls_arr">⬍</span>
               </th>
-              <th class="sortable-th col-total_count" style="text-align:center;cursor:pointer;" onclick="sortTableByCol('total_count')" title="Click to sort by Combined Connections">
-                Combined Conns <span class="th-sort-arrow" id="sort-arrow-total_count">⬍</span>
+              <th class="sortable-th col-total_count" style="text-align:center;cursor:pointer;display:none;" onclick="sortTableByCol('total_count')" title="Click to sort by Total Connections">
+                Total Conns <span class="th-sort-arrow" id="sort-arrow-total_count">⬍</span>
               </th>
-              <th class="sortable-th col-total_arr" style="text-align:center;cursor:pointer;" onclick="sortTableByCol('total_arr')" title="Click to sort by Combined Total Arrears">
-                Combined Total Arrears (PKR) <span class="th-sort-arrow" id="sort-arrow-total_arr">⬍</span>
+              <th class="sortable-th col-total_arr" style="text-align:center;cursor:pointer;display:none;" onclick="sortTableByCol('total_arr')" title="Click to sort by Total Arrears">
+                Total Arrears (PKR) <span class="th-sort-arrow" id="sort-arrow-total_arr">⬍</span>
               </th>
             </tr>
           </thead>
@@ -502,8 +524,8 @@
               <td class="col-sus_arr" style="text-align:center;font-family:monospace;display:none;">{{ s.suspended_arrears_fmt }}</td>
               <td class="col-cls_count" style="text-align:center;display:none;">{{ s.closed_count|int }}</td>
               <td class="col-cls_arr" style="text-align:center;font-family:monospace;display:none;">{{ s.closed_arrears_fmt }}</td>
-              <td class="col-total_count" style="text-align:center;font-weight:600;">{{ s.regular_count|int }}</td>
-              <td class="col-total_arr" style="text-align:center;font-weight:700;font-family:monospace;color:var(--danger, #ef4444);">{{ s.regular_arrears_fmt }}</td>
+              <td class="col-total_count" style="text-align:center;font-weight:600;display:none;">{{ s.regular_count|int }}</td>
+              <td class="col-total_arr" style="text-align:center;font-weight:700;font-family:monospace;color:var(--danger, #ef4444);display:none;">{{ s.regular_arrears_fmt }}</td>
             </tr>
             {% else %}
             <tr>
@@ -522,8 +544,8 @@
               <td class="col-sus_arr" style="text-align:center;font-family:monospace;display:none;" id="foot-sus-arr">{{ analysis.grand_total.suspended_arrears_fmt }}</td>
               <td class="col-cls_count" style="text-align:center;display:none;" id="foot-cls-count">{{ analysis.grand_total.closed_count|int }}</td>
               <td class="col-cls_arr" style="text-align:center;font-family:monospace;display:none;" id="foot-cls-arr">{{ analysis.grand_total.closed_arrears_fmt }}</td>
-              <td class="col-total_count" style="text-align:center;" id="foot-comb-count">{{ analysis.grand_total.regular_count|int }}</td>
-              <td class="col-total_arr" style="text-align:center;font-family:monospace;color:var(--danger, #ef4444);" id="foot-comb-arr">{{ analysis.grand_total.regular_arrears_fmt }}</td>
+              <td class="col-total_count" style="text-align:center;display:none;" id="foot-comb-count">{{ analysis.grand_total.regular_count|int }}</td>
+              <td class="col-total_arr" style="text-align:center;font-family:monospace;color:var(--danger, #ef4444);display:none;" id="foot-comb-arr">{{ analysis.grand_total.regular_arrears_fmt }}</td>
             </tr>
           </tfoot>
         </table>
@@ -1585,6 +1607,54 @@
     recalculateTotals();
   }
 
+  // Helper to dynamically show/hide Combined Total columns based on active categories
+  function updateCombinedColumnsVisibility() {
+    var regCountChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="reg_count"]');
+    var regArrChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="reg_arr"]');
+    var susCountChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="sus_count"]');
+    var susArrChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="sus_arr"]');
+    var clsCountChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="cls_count"]');
+    var clsArrChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="cls_arr"]');
+
+    var hasReg = (regCountChip && regCountChip.classList.contains('active')) || (regArrChip && regArrChip.classList.contains('active'));
+    var hasSus = (susCountChip && susCountChip.classList.contains('active')) || (susArrChip && susArrChip.classList.contains('active'));
+    var hasCls = (clsCountChip && clsCountChip.classList.contains('active')) || (clsArrChip && clsArrChip.classList.contains('active'));
+
+    var activeCatCount = (hasReg ? 1 : 0) + (hasSus ? 1 : 0) + (hasCls ? 1 : 0);
+
+    var totCChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="total_count"]');
+    var totAChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="total_arr"]');
+    var combDivider = document.getElementById('comb-chips-divider');
+
+    if (activeCatCount > 1) {
+      if (combDivider) combDivider.style.display = 'inline-block';
+      if (totCChip) {
+        totCChip.style.display = '';
+        totCChip.classList.add('active');
+      }
+      if (totAChip) {
+        totAChip.style.display = '';
+        totAChip.classList.add('active');
+      }
+      document.querySelectorAll('.col-total_count, .col-total_arr').forEach(function(el) {
+        el.style.display = '';
+      });
+    } else {
+      if (combDivider) combDivider.style.display = 'none';
+      if (totCChip) {
+        totCChip.style.display = 'none';
+        totCChip.classList.remove('active');
+      }
+      if (totAChip) {
+        totAChip.style.display = 'none';
+        totAChip.classList.remove('active');
+      }
+      document.querySelectorAll('.col-total_count, .col-total_arr').forEach(function(el) {
+        el.style.display = 'none';
+      });
+    }
+  }
+
   // Summary Table Column Toggles (Show / Hide)
   function toggleSummaryTableCol(chip, colKey) {
     if (colKey === 'locality') {
@@ -1615,10 +1685,15 @@
     document.querySelectorAll('.col-' + colKey).forEach(function(el) {
       el.style.display = isVisible ? '' : 'none';
     });
-    adjustFooterColspan();
-    if (colKey === 'cls_count' || colKey === 'cls_arr') {
-      recalculateTotals();
+
+    // Auto-update combined columns when categories are toggled
+    if (colKey !== 'total_count' && colKey !== 'total_arr') {
+      updateCombinedColumnsVisibility();
     }
+
+    adjustFooterColspan();
+    recalculateTotals();
+    syncExportLinks();
   }
 
   function toggleAllSummaryCols(showAll) {
@@ -1627,6 +1702,7 @@
       var colKey = chip.dataset.sumCol;
       if (showAll) {
         chip.classList.add('active');
+        chip.style.display = '';
         document.querySelectorAll('.col-' + colKey).forEach(function(el) { el.style.display = ''; });
         if (colKey === 'locality') { var c = document.getElementById('chk-show-loc'); if (c) c.checked = true; }
         if (colKey === 'sector') { var c = document.getElementById('chk-show-sec'); if (c) c.checked = true; }
@@ -1637,27 +1713,41 @@
         if (colKey === 'sector') { var c = document.getElementById('chk-show-sec'); if (c) c.checked = false; }
       }
     });
+
+    var combDivider = document.getElementById('comb-chips-divider');
+    if (combDivider) combDivider.style.display = showAll ? 'inline-block' : 'none';
+
+    if (showAll) {
+      updateCombinedColumnsVisibility();
+    }
     adjustFooterColspan();
     recalculateTotals();
+    syncExportLinks();
   }
 
   function resetDefaultSummaryCols() {
     var chips = document.querySelectorAll('#summary-col-chips .col-chip');
     chips.forEach(function(chip) {
       var colKey = chip.dataset.sumCol;
-      var isDefaultActive = (colKey !== 'cls_count' && colKey !== 'cls_arr');
+      var isDefaultActive = (colKey === 'locality' || colKey === 'sector' || colKey === 'reg_count' || colKey === 'reg_arr');
       if (isDefaultActive) {
         chip.classList.add('active');
+        chip.style.display = '';
         document.querySelectorAll('.col-' + colKey).forEach(function(el) { el.style.display = ''; });
         if (colKey === 'locality') { var c = document.getElementById('chk-show-loc'); if (c) c.checked = true; }
         if (colKey === 'sector') { var c = document.getElementById('chk-show-sec'); if (c) c.checked = true; }
       } else {
         chip.classList.remove('active');
+        if (colKey === 'total_count' || colKey === 'total_arr') chip.style.display = 'none';
         document.querySelectorAll('.col-' + colKey).forEach(function(el) { el.style.display = 'none'; });
       }
     });
+    var combDivider = document.getElementById('comb-chips-divider');
+    if (combDivider) combDivider.style.display = 'none';
+
     adjustFooterColspan();
     recalculateTotals();
+    syncExportLinks();
   }
 
   function adjustFooterColspan() {
@@ -1772,7 +1862,7 @@
     var incRegParam = '&inc_regular=' + (incReg ? '1' : '0');
 
     var incTotChip = document.querySelector('#summary-col-chips .col-chip[data-sum-col="total_count"]') || document.querySelector('#summary-col-chips .col-chip[data-sum-col="total_arr"]');
-    var incTot = (!incTotChip || incTotChip.classList.contains('active'));
+    var incTot = (incTotChip && incTotChip.classList.contains('active'));
     var incTotParam = '&inc_total=' + (incTot ? '1' : '0');
 
     var activeSumCols = [];
@@ -1821,6 +1911,20 @@
     selectCommercialOnly();
   }
 
+  function bindExportButtonsHover() {
+    var btnIds = [
+      'print-report-btn', 'pdf-export-btn', 'xlsx-export-btn', 'csv-export-btn',
+      'comm-print-btn', 'comm-pdf-export-btn', 'comm-xlsx-export-btn', 'comm-csv-export-btn'
+    ];
+    btnIds.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('mouseenter', function() { syncExportLinks(); });
+        el.addEventListener('click', function() { syncExportLinks(); });
+      }
+    });
+  }
+
   // Initial sort & live totals execution on page load
   document.addEventListener('DOMContentLoaded', function() {
     var form = document.getElementById('aa-filter-form');
@@ -1861,6 +1965,9 @@
     var urlParams = new URLSearchParams(window.location.search);
     var initCat = urlParams.get('category') || '{{ category|default("domestic") }}' || 'domestic';
     setFilterCategory(initCat);
+
+    updateCombinedColumnsVisibility();
+    bindExportButtonsHover();
 
     var selSectors = getSelectedSectors();
     var selLocs = getSelectedLocalities();
