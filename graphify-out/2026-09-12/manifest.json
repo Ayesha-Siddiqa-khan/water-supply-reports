@@ -1,7 +1,7 @@
 {
   "app.py": {
-    "mtime": 1789218764.6414728,
-    "ast_hash": "5dbf06f69c53891b0feb24004f8028e5",
+    "mtime": 1789219246.4227924,
+    "ast_hash": "fd3c4e41fcdff195e2afa3e5527f7f2c",
     "semantic_hash": ""
   },
   "arrears_analysis.py": {
@@ -140,8 +140,8 @@
     "semantic_hash": ""
   },
   "templates/consumer_report.html": {
-    "mtime": 1789209274.3286953,
-    "ast_hash": "6c322aa7cf60571590ec3bffc0d7e4e1",
+    "mtime": 1789219271.8072236,
+    "ast_hash": "da9f0526dfee8d33a7f1fd3619629a6c",
     "semantic_hash": ""
   },
   "templates/consumer_sector_remaining_report.html": {

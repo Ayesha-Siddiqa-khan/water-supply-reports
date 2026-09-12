@@ -1,7 +1,7 @@
 # Graph Report - water suppy report  (2026-09-12)
 
 ## Corpus Check
-- 36 files · ~146,085 words
+- 36 files · ~146,322 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `c404f871`
+- Built from commit: `0e3fc3bc`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -34,7 +34,7 @@
 - _normalize_staff_name
 - bill_list_sector_seasonly_export_rows
 - NumberedCanvas
-- _register_table
+- main
 - bill_list_zone_export_rows
 - build_daily_staff_receive_report
 - DataFrame
@@ -42,9 +42,9 @@
 - upload-progress.js
 - export_consumer_report
 - normalize_sector_key
+- _build_new_connection_detail_report
 - _build_connection_rate_report
 - vercel.json
-- main
 - Water Supply Report Application
 - pdf-lib (CDN library)
 - SheetJS (CDN library)
@@ -96,8 +96,8 @@ Cohesion: 0.11
 Nodes (38): Any, _app(), arrears_analysis(), arrears_analysis_print(), _arrears_dir(), build_arrears_pdf(), classify_status(), compute_arrears_analysis() (+30 more)
 
 ### Community 3 - "app.py"
-Cohesion: 0.10
-Nodes (33): allowed_file(), _build_dnc_register_report(), _build_new_connection_detail_report(), _clear_new_connection_detail_cache(), _dnc_classification(), _dnc_money(), _dnc_pair(), _dnc_rate_and_classification() (+25 more)
+Cohesion: 0.13
+Nodes (18): _build_dnc_register_report(), _dnc_classification(), _dnc_money(), _dnc_pair(), _dnc_rate_and_classification(), dnc_register(), _dnc_report_rows(), _dnc_split_sector_locality() (+10 more)
 
 ### Community 4 - "get_db"
 Cohesion: 0.21
@@ -120,8 +120,8 @@ Cohesion: 0.17
 Nodes (13): _clear_consumer_summary_cache(), consumer_report(), _ensure_connection_rate_report(), _filter_active_rows(), _load_rates_csv(), Load rate data from the provided rates CSV or bundled rates.json. RATE SOURCE…, Persist the consumer summary to disk so it survives serverless cold starts.…, Persist consumer individual connection rows (compressed gzip) for drilldown. (+5 more)
 
 ### Community 9 - "_render_page"
-Cohesion: 0.22
-Nodes (13): col_key(), detail_columns(), filter_label(), _finalize(), handover_snapshot(), All available detail columns, with the default register set pre-ticked., Watermark text and on/off state, read from the request. ``wmset`` plays the…, Signature fields and placement, read from the request. ``sigset`` marks a form… (+5 more)
+Cohesion: 0.17
+Nodes (16): apply_filters(), col_key(), detail_columns(), filter_label(), _finalize(), handover_snapshot(), _pick(), First column whose normalised name matches one of *candidates*. (+8 more)
 
 ### Community 10 - "match_staff_assignment"
 Cohesion: 0.24
@@ -136,16 +136,16 @@ Cohesion: 0.05
 Nodes (94): bill_income_category_export_rows(), bill_list_export_rows(), _bracket_rich_text(), _build_arrear_export_rows(), build_connection_summary(), build_unpaid_amount_summary(), _calc_daily_detail_col_widths(), _calc_daily_summary_col_widths() (+86 more)
 
 ### Community 13 - "classify"
-Cohesion: 0.14
-Nodes (21): main(), Self-check for the Data Comparison page. Run: python check_data_comparison.py…, read(), classify(), _key(), Connection Number reduced to a comparable form. Leading zeros are KEPT. The…, Reduce an export to the fields this page compares. A connection counts as…, build_handover_dataset() (+13 more)
+Cohesion: 0.12
+Nodes (23): main(), Self-check for the Data Comparison page. Run: python check_data_comparison.py…, read(), classify(), _key(), Connection Number reduced to a comparable form. Leading zeros are KEPT. The…, Reduce an export to the fields this page compares. A connection counts as…, build_handover_dataset() (+15 more)
 
 ### Community 14 - "parse_number"
 Cohesion: 0.15
 Nodes (14): backfill_bill_arrears(), _bill_list_summary_from_rows(), _connection_rate_rows_from_payload(), is_large_pdf_text(), merge_sector_list_rows(), merge_sector_rows(), normalise_sector(), parse_number() (+6 more)
 
 ### Community 15 - "index"
-Cohesion: 0.19
-Nodes (16): ajax_error(), ajax_ok(), arrear_calculator(), build_dashboard_results(), daily_staff_receive(), index(), is_ajax(), _load_dashboard_results() (+8 more)
+Cohesion: 0.22
+Nodes (14): ajax_error(), ajax_ok(), arrear_calculator(), build_dashboard_results(), daily_staff_receive(), index(), is_ajax(), _load_dashboard_results() (+6 more)
 
 ### Community 16 - "_normalize_staff_name"
 Cohesion: 0.40
@@ -159,9 +159,9 @@ Nodes (5): bill_list_sector_seasonly_export_rows(), _get_season_bill_ids(), Retu
 Cohesion: 0.16
 Nodes (7): Flowable, NumberedCanvas, _page_furniture(), _PageMark, A zero-height marker that reports the page it lands on. Placed at the head of a…, Canvas that stamps "Page X of Y" once the total is known. ReportLab streams…, Page-begin callback. Runs before the frame lays its flowables down, which is…
 
-### Community 19 - "_register_table"
-Cohesion: 0.15
-Nodes (14): _column_extents(), _detail_widths(), _esc(), _index_flowables(), A detail table for the printed register. Two corrections on top of the shared…, Wrap only the long-text columns as Paragraphs. Matches what…, Longest value per column, used to size the columns and decide wrapping., Share the page across columns according to what they actually hold. Sizing off… (+6 more)
+### Community 19 - "main"
+Cohesion: 0.13
+Nodes (17): main(), Self-check for the Handover Register join, filters, and snapshot lock. Run:…, read(), _column_extents(), _detail_widths(), _esc(), _index_flowables(), A detail table for the printed register. Two corrections on top of the shared… (+9 more)
 
 ### Community 20 - "bill_list_zone_export_rows"
 Cohesion: 0.50
@@ -187,6 +187,10 @@ Nodes (10): bindUploadForms(), createOverlay(), getUploadFileLabel(), handleUplo
 Cohesion: 0.18
 Nodes (11): consumer_report_detail_records(), export_consumer_report(), _is_private_society_summary_row(), _load_consumer_rows_cache(), _load_consumer_summary_cache(), Return consumer connection records for a specific sector/locality/category with…, Load a previously saved consumer summary from disk. Returns (summary, filename,…, Load cached consumer individual connection rows. (+3 more)
 
+### Community 27 - "_build_new_connection_detail_report"
+Cohesion: 0.17
+Nodes (17): allowed_file(), _build_new_connection_detail_report(), _clear_new_connection_detail_cache(), _load_new_connection_detail_cache(), _ncd_classification(), _ncd_decimal(), _ncd_int(), _ncd_load_file() (+9 more)
+
 ### Community 29 - "_build_connection_rate_report"
 Cohesion: 0.18
 Nodes (16): _add_rate_alias(), _annualize_connection_rate(), _build_connection_rate_report(), _build_connection_rate_report_from_summary(), _connection_rate_bucket(), _connection_rate_category(), _connection_rate_default(), _connection_rate_description() (+8 more)
@@ -194,10 +198,6 @@ Nodes (16): _add_rate_alias(), _annualize_connection_rate(), _build_connection_r
 ### Community 31 - "vercel.json"
 Cohesion: 0.40
 Nodes (4): maxDuration, functions, app.py, $schema
-
-### Community 32 - "main"
-Cohesion: 0.25
-Nodes (8): main(), Self-check for the Handover Register join, filters, and snapshot lock. Run:…, read(), apply_filters(), _pick(), Parse a money cell tolerantly. Pulls the first number out rather than deleting…, First column whose normalised name matches one of *candidates*., _to_amount()
 
 ### Community 33 - "Water Supply Report Application"
 Cohesion: 0.50
@@ -211,7 +211,7 @@ Nodes (4): Water Supply Report Application, Python Libraries (numpy, pandas, ope
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `classify()` connect `classify` to `data_comparison.py`, `main`, `audit_engine.py`?**
+- **Why does `classify()` connect `classify` to `data_comparison.py`, `_render_page`, `audit_engine.py`?**
   _High betweenness centrality (0.097) - this node is a cross-community bridge._
 - **Why does `parse_register()` connect `audit_engine.py` to `classify`?**
   _High betweenness centrality (0.090) - this node is a cross-community bridge._

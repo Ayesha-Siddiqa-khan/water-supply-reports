@@ -11450,6 +11450,7 @@ def export_consumer_detail(fmt_type: str):
             "connection_date": "Connection Date",
             "status": "Status",
             "consumer_status": "Consumer Status",
+            "remarks": "Remarks (Kaifiyat)",
         }
 
         if raw_cols:
@@ -11485,6 +11486,7 @@ def export_consumer_detail(fmt_type: str):
             "sector": "Sector", "locality": "Locality", "address": "Address", "order_number": "Order / Reg No",
             "rate_type": "Rate Type", "connection": "Connection No.", "old_connection": "Old Connection No.",
             "connection_date": "Connection Date", "status": "Status", "consumer_status": "Consumer Status",
+            "remarks": "Remarks (Kaifiyat)",
         }
         headers = [COL_LABELS.get(c, c.replace("_", " ").title()) for c in active_cols]
 
@@ -11578,6 +11580,7 @@ def export_consumer_detail(fmt_type: str):
             "address": 30.0,
             "sector": 36.0,
             "locality": 40.0,
+            "remarks": 28.0, "remarks (kaifiyat)": 28.0, "remarks (کیفیت)": 28.0,
         }
 
         EXPANSION_WEIGHTS = {
@@ -11595,6 +11598,7 @@ def export_consumer_detail(fmt_type: str):
             "address": 18,
             "sector": 45,
             "locality": 55,
+            "remarks": 20, "remarks (kaifiyat)": 20, "remarks (کیفیت)": 20,
         }
 
         active_keys = [str(c).lower().strip() for c in (active_cols if active_cols else headers)]

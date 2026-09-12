@@ -463,6 +463,7 @@
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="old_connection" onchange="toggleDetailColumn()"> Old Connection No.</label>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="status" checked onchange="toggleDetailColumn()"> Status</label>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="consumer_status" onchange="toggleDetailColumn()"> Consumer Status</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="remarks" onchange="toggleDetailColumn()"> Remarks (کیفیت)</label>
 
               <span style="margin-left:auto;display:inline-flex;gap:6px;">
                 <button type="button" class="chip" onclick="selectAllDetailColumns(true)" style="padding:2px 8px;font-size:10.5px;cursor:pointer;">Select All</button>
@@ -607,6 +608,7 @@
       old_connection:['old connection no.','old connection no','old connection number','old connection'],
       connection_status: ['status','connection status','conn status'],
       consumer_status:   ['consumer status'],
+      remarks:           ['remarks','remark','kaifiyat','kaifyat','کیفیت','note','notes','comments','comment'],
       action:        ['action','actions']
     };
 
@@ -1115,6 +1117,7 @@
           old_connection: (colMap.old_connection !== undefined ? (fields[colMap.old_connection] || '').trim() : ''),
           status: status,
           consumer_status: (colMap.consumer_status !== undefined ? (fields[colMap.consumer_status] || '').trim() : ''),
+          remarks: (colMap.remarks !== undefined ? (fields[colMap.remarks] || '').trim() : ''),
           category: catRow
         });
       }
@@ -2054,7 +2057,8 @@
     { key: 'connection', label: 'Connection No.', default: true, width: '115px', align: 'center' },
     { key: 'old_connection', label: 'Old Conn. No.', default: false, width: '110px', align: 'center' },
     { key: 'status', label: 'Status', default: true, width: '75px', align: 'center' },
-    { key: 'consumer_status', label: 'Consumer Status', default: false, width: '110px', align: 'center' }
+    { key: 'consumer_status', label: 'Consumer Status', default: false, width: '110px', align: 'center' },
+    { key: 'remarks', label: 'Remarks (کیفیت)', default: false, width: '160px', align: 'left' }
   ];
 
   function openConsumerDB() {
@@ -2150,6 +2154,7 @@
                 old_connection: r.old_connection || '',
                 status: r.connection_status || r.status || 'Active',
                 consumer_status: r.consumer_status || '',
+                remarks: r.remarks || '',
                 category: cat
               };
             });
@@ -2366,6 +2371,8 @@
           bodyHtml += '<td style="text-align:left;font-weight:600;color:var(--text-primary);">' + escapeHtml(val) + '</td>';
         } else if (colKey === 'connection' || colKey === 'old_connection') {
           bodyHtml += '<td style="text-align:center;font-family:monospace;font-weight:500;">' + escapeHtml(val) + '</td>';
+        } else if (colKey === 'remarks') {
+          bodyHtml += '<td style="text-align:left;padding:2px 4px;"><input type="text" class="detail-remarks-input" data-sr="' + displaySr + '" data-conn="' + escapeHtml(row.connection || '') + '" value="' + escapeHtml(val) + '" placeholder="کیفیت / Remarks..." onchange="onRemarkChange(this)" style="width:100%;min-width:130px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:rgba(255,255,255,0.05);color:var(--text-primary);"></td>';
         } else {
           bodyHtml += '<td style="text-align:' + def.align + ';">' + escapeHtml(val) + '</td>';
         }
@@ -2377,6 +2384,31 @@
     var maxPages = Math.ceil(total / rowsPerPage) || 1;
     updatePaginationControls(startIdx + 1, endIdx, total, currentPage, maxPages);
   }
+
+  window.onRemarkChange = function(inputEl) {
+    var val = inputEl.value;
+    var conn = inputEl.getAttribute('data-conn');
+    var sr = parseInt(inputEl.getAttribute('data-sr'), 10);
+    if (currentFilteredRecords) {
+      for (var i = 0; i < currentFilteredRecords.length; i++) {
+        var r = currentFilteredRecords[i];
+        if ((conn && r.connection === conn) || r.sr === sr) {
+          r.remarks = val;
+          break;
+        }
+      }
+    }
+    if (allConsumerRecords) {
+      for (var j = 0; j < allConsumerRecords.length; j++) {
+        var rec = allConsumerRecords[j];
+        if ((conn && rec.connection === conn) || rec.sr === sr) {
+          rec.remarks = val;
+          break;
+        }
+      }
+      window.storeConsumerRowsInDB(allConsumerRecords).catch(function() {});
+    }
+  };
 
   function updatePaginationControls(start, end, total, page, maxPages) {
     var pStart = document.getElementById('detail-page-start');
