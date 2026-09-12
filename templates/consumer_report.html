@@ -454,11 +454,11 @@
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="consumer_name" checked onchange="toggleDetailColumn()"> Consumer Name</label>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="father_name" checked onchange="toggleDetailColumn()"> F/H Name</label>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="mobile" checked onchange="toggleDetailColumn()"> Mobile</label>
-              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="sector" checked onchange="toggleDetailColumn()"> Sector</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="sector" onchange="toggleDetailColumn()"> Sector</label>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="locality" checked onchange="toggleDetailColumn()"> Locality</label>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="address" checked onchange="toggleDetailColumn()"> Address</label>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="order_number" onchange="toggleDetailColumn()"> Order/Reg No</label>
-              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="rate_type" checked onchange="toggleDetailColumn()"> Rate Type</label>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="rate_type" onchange="toggleDetailColumn()"> Rate Type</label>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="connection" checked onchange="toggleDetailColumn()"> Connection No.</label>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="old_connection" onchange="toggleDetailColumn()"> Old Connection No.</label>
               <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-muted);cursor:pointer;"><input type="checkbox" class="detail-col-toggle" data-col="status" checked onchange="toggleDetailColumn()"> Status</label>
@@ -2049,11 +2049,11 @@
     { key: 'consumer_name', label: 'Consumer Name', default: true, width: '175px', align: 'left' },
     { key: 'father_name', label: 'F/H Name', default: true, width: '150px', align: 'left' },
     { key: 'mobile', label: 'Mobile', default: true, width: '110px', align: 'center' },
-    { key: 'sector', label: 'Sector', default: true, width: '180px', align: 'left' },
+    { key: 'sector', label: 'Sector', default: false, width: '180px', align: 'left' },
     { key: 'locality', label: 'Locality', default: true, width: '220px', align: 'left' },
     { key: 'address', label: 'Address', default: true, width: '220px', align: 'left' },
     { key: 'order_number', label: 'Order / Reg No', default: false, width: '110px', align: 'center' },
-    { key: 'rate_type', label: 'Rate Type', default: true, width: '150px', align: 'left' },
+    { key: 'rate_type', label: 'Rate Type', default: false, width: '150px', align: 'left' },
     { key: 'connection', label: 'Connection No.', default: true, width: '115px', align: 'center' },
     { key: 'old_connection', label: 'Old Conn. No.', default: false, width: '110px', align: 'center' },
     { key: 'status', label: 'Status', default: true, width: '75px', align: 'center' },
@@ -2231,7 +2231,7 @@
     document.querySelectorAll('.detail-col-toggle').forEach(function(cb) {
       if (cb.checked) cols.push(cb.getAttribute('data-col'));
     });
-    if (!cols.length) cols = ['sr', 'consumer_name', 'locality', 'connection', 'status'];
+    if (!cols.length) cols = ['sr', 'consumer_name', 'father_name', 'mobile', 'locality', 'address', 'connection', 'status'];
     return cols;
   }
 

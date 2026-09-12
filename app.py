@@ -11459,7 +11459,7 @@ def export_consumer_detail(fmt_type: str):
             except Exception:
                 cols = [c.strip() for c in raw_cols.split(",") if c.strip()]
         else:
-            cols = ["sr", "consumer_name", "father_name", "mobile", "sector", "locality", "address", "connection", "rate_type", "status"]
+            cols = ["sr", "consumer_name", "father_name", "mobile", "locality", "address", "connection", "status"]
 
         active_cols = [c for c in cols if c in COL_LABELS]
         if not active_cols:
