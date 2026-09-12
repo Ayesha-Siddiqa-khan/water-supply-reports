@@ -1732,13 +1732,13 @@ def summarize_dataframe(df: pd.DataFrame) -> dict:
 # PDF generation
 # ---------------------------------------------------------------------------
 
-# Global PDF palette: dark, simple colours for ordinary black-and-white printers.
+# Global PDF palette: clean, crisp black-and-white / grayscale for printer-friendly output.
 ACCENT = colors.black
 ACCENT2 = colors.black
-HEADER_BG = colors.HexColor("#222222")
-HEADER_FG = colors.white
-ALT_ROW = colors.HexColor("#f2f2f2")
-BORDER_CLR = colors.black
+HEADER_BG = colors.HexColor("#f1f5f9")
+HEADER_FG = colors.black
+ALT_ROW = colors.HexColor("#f8fafc")
+BORDER_CLR = colors.HexColor("#94a3b8")
 
 
 def _make_pdf_table(
@@ -1756,13 +1756,15 @@ def _make_pdf_table(
         ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, 0), header_font_size),
+        ("LINEABOVE", (0, 0), (-1, 0), 1.2, colors.black),
+        ("LINEBELOW", (0, 0), (-1, 0), 1.2, colors.black),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
         ("FONTSIZE", (0, 1), (-1, -1), body_font_size),
         ("TEXTCOLOR", (0, 1), (-1, -1), colors.black),
-        ("GRID", (0, 0), (-1, -1), 0.75, BORDER_CLR),
-        ("BOX", (0, 0), (-1, -1), 0.9, BORDER_CLR),
+        ("GRID", (0, 0), (-1, -1), 0.5, BORDER_CLR),
+        ("BOX", (0, 0), (-1, -1), 0.8, colors.black),
         ("TOPPADDING", (0, 0), (-1, -1), cell_padding),
         ("BOTTOMPADDING", (0, 0), (-1, -1), cell_padding),
         ("LEFTPADDING", (0, 0), (-1, -1), max(3, cell_padding - 2)),
@@ -1777,15 +1779,19 @@ def _make_pdf_table(
         last = len(data_rows) - 1
         style.add("FONTNAME", (0, last), (-1, last), "Helvetica-Bold")
         style.add("FONTSIZE", (0, last), (-1, last), body_font_size)
-        style.add("BACKGROUND", (0, last), (-1, last), colors.HexColor("#e6e6e6"))
+        style.add("BACKGROUND", (0, last), (-1, last), colors.HexColor("#f1f5f9"))
+        style.add("LINEABOVE", (0, last), (-1, last), 1.2, colors.black)
+        style.add("LINEBELOW", (0, last), (-1, last), 1.2, colors.black)
 
     for idx, row in enumerate(data_rows[1:], start=1):
         row_text = " ".join(str(cell) for cell in row)
         if " Total" in row_text or "Grand Total" in row_text:
             style.add("FONTNAME", (0, idx), (-1, idx), "Helvetica-Bold")
             style.add("FONTSIZE", (0, idx), (-1, idx), body_font_size)
-            style.add("BACKGROUND", (0, idx), (-1, idx), colors.HexColor("#e6e6e6"))
+            style.add("BACKGROUND", (0, idx), (-1, idx), colors.HexColor("#f1f5f9"))
             style.add("TEXTCOLOR", (0, idx), (-1, idx), colors.black)
+            style.add("LINEABOVE", (0, idx), (-1, idx), 1.2, colors.black)
+            style.add("LINEBELOW", (0, idx), (-1, idx), 1.2, colors.black)
             style.add("BOTTOMPADDING", (0, idx), (-1, idx), cell_padding + 6)
 
     # full-width banner rows (e.g. a sector heading before that sector's block)
@@ -9069,9 +9075,12 @@ def _ncd_table_pdf(title: str, headers: list[str], rows: list[list], footer_rows
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
         ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
-        ("GRID", (0, 0), (-1, -1), 0.75, colors.black),
+        ("LINEABOVE", (0, 0), (-1, 0), 1.2, colors.black),
+        ("LINEBELOW", (0, 0), (-1, 0), 1.2, colors.black),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#94a3b8")),
+        ("BOX", (0, 0), (-1, -1), 0.8, colors.black),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f1eb")]),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
         ("LEFTPADDING", (0, 0), (-1, -1), 2),
         ("RIGHTPADDING", (0, 0), (-1, -1), 2),
     ]))
@@ -9083,9 +9092,14 @@ def _ncd_table_pdf(title: str, headers: list[str], rows: list[list], footer_rows
         summary_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
             ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
-            ("GRID", (0, 0), (-1, -1), 0.55, colors.HexColor("#6aa8a0")),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#f5f1eb")]),
-            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#d8f0df")),
+            ("LINEABOVE", (0, 0), (-1, 0), 1.2, colors.black),
+            ("LINEBELOW", (0, 0), (-1, 0), 1.2, colors.black),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#94a3b8")),
+            ("BOX", (0, 0), (-1, -1), 0.8, colors.black),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#f8fafc")]),
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#f1f5f9")),
+            ("LINEABOVE", (0, -1), (-1, -1), 1.2, colors.black),
+            ("LINEBELOW", (0, -1), (-1, -1), 1.2, colors.black),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
             ("FONTSIZE", (0, 0), (-1, -1), 9),
@@ -9145,10 +9159,13 @@ def _ncd_detail_pdf(title: str, headers: list[str], rows: list[list], source_row
         table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
             ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
-            ("GRID", (0, 0), (-1, -1), 0.55, colors.HexColor("#6aa8a0")),
+            ("LINEABOVE", (0, 0), (-1, 0), 1.2, colors.black),
+            ("LINEBELOW", (0, 0), (-1, 0), 1.2, colors.black),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#94a3b8")),
+            ("BOX", (0, 0), (-1, -1), 0.8, colors.black),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f1eb")]),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
             ("LEFTPADDING", (0, 0), (-1, -1), 3),
             ("RIGHTPADDING", (0, 0), (-1, -1), 3),
             ("TOPPADDING", (0, 0), (-1, -1), 3),
@@ -9162,8 +9179,13 @@ def _ncd_detail_pdf(title: str, headers: list[str], rows: list[list], source_row
         summary_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
             ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
-            ("GRID", (0, 0), (-1, -1), 0.55, colors.HexColor("#6aa8a0")),
-            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#d8f0df")),
+            ("LINEABOVE", (0, 0), (-1, 0), 1.2, colors.black),
+            ("LINEBELOW", (0, 0), (-1, 0), 1.2, colors.black),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#94a3b8")),
+            ("BOX", (0, 0), (-1, -1), 0.8, colors.black),
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#f1f5f9")),
+            ("LINEABOVE", (0, -1), (-1, -1), 1.2, colors.black),
+            ("LINEBELOW", (0, -1), (-1, -1), 1.2, colors.black),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
@@ -9281,17 +9303,22 @@ def _ncd_annual_pdf(report: dict, payload: dict | None = None) -> bytes:
     tbl.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
         ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
-        ("GRID", (0, 0), (-1, -1), 0.75, colors.black),
+        ("LINEABOVE", (0, 0), (-1, 0), 1.2, colors.black),
+        ("LINEBELOW", (0, 0), (-1, 0), 1.2, colors.black),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#94a3b8")),
+        ("BOX", (0, 0), (-1, -1), 0.8, colors.black),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f1eb")]),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 10),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
         ("RIGHTPADDING", (0, 0), (-1, -1), 8),
         ("TOPPADDING", (0, 0), (-1, -1), 7),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#d8f0df")),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#f1f5f9")),
+        ("LINEABOVE", (0, -1), (-1, -1), 1.2, colors.black),
+        ("LINEBELOW", (0, -1), (-1, -1), 1.2, colors.black),
         ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
     ]))
     elements.append(tbl)
@@ -10885,20 +10912,17 @@ def export_consumer_report(fmt_type: str):
     # and a bold Grand Total row at the bottom. No sector subtotal rows.
     # -----------------------------------------------------------------------
     if fmt_type == "pdf":
-        # -- Colour palette (light, print-friendly) --
-        PDF_HEADER_BG = colors.HexColor("#222222")
-        PDF_HEADER_FG = colors.white
-        PDF_ALT_ROW = colors.HexColor("#f2f2f2")
+        # -- Colour palette (Clean B&W, print-friendly) --
+        PDF_HEADER_BG = colors.HexColor("#f1f5f9")
+        PDF_HEADER_FG = colors.black
+        PDF_ALT_ROW = colors.HexColor("#f8fafc")
         PDF_WHITE_ROW = colors.white
-        PDF_GRAND_BG = colors.HexColor("#e6e6e6")
+        PDF_GRAND_BG = colors.HexColor("#f1f5f9")
         PDF_GRAND_FG = colors.black
-        # Darker grid lines keep the printed PDF visibly table-shaped.
-        PDF_GRID = colors.black
+        PDF_GRID = colors.HexColor("#94a3b8")
         PDF_BODY_FG = colors.black
 
         # -- Page setup: A4 portrait with tighter side margins --
-        # Fix: Domestic/Consumer PDF uses the real printable width so the table
-        # feels wider while still staying inside the A4 page.
         page_w, page_h = A4
         top_m = 14 * mm
         bottom_m = 12 * mm
@@ -10922,17 +10946,9 @@ def export_consumer_report(fmt_type: str):
         report_title_style = ParagraphStyle(
             "ConsumerReportTitle",
             parent=styles["Heading1"],
-            fontSize=18,
+            fontSize=16,
+            leading=20,
             fontName="Helvetica-Bold",
-            textColor=PDF_HEADER_FG,
-            alignment=1,
-            spaceAfter=2 * mm,
-        )
-        report_subtitle_style = ParagraphStyle(
-            "ConsumerReportSubtitle",
-            parent=styles["Normal"],
-            fontSize=10,
-            fontName="Helvetica",
             textColor=colors.black,
             alignment=1,
             spaceAfter=3 * mm,
@@ -10941,6 +10957,7 @@ def export_consumer_report(fmt_type: str):
             "ConsumerReportMeta",
             parent=styles["Normal"],
             fontSize=9,
+            leading=12,
             fontName="Helvetica",
             textColor=colors.black,
             alignment=1,
@@ -10978,17 +10995,12 @@ def export_consumer_report(fmt_type: str):
         elements = []
 
         # -- Report heading block --
-        elements.append(Paragraph("Consumer Sector Report", report_title_style))
-        elements.append(Paragraph(
-            "Sector-Based Connection Summary — Active &amp; Closed Status",
-            report_subtitle_style,
-        ))
+        elements.append(Paragraph("Sector-Based Connection Summary", report_title_style))
 
         # -- Shared filtered dataset is already domestic + Active>0 + sorted --
         non_commercial_rows = final_sorted
 
-        # -- Metadata: only Sectors, Localities, Total Connections + Generated by AI --
-        # Count non-commercial rows for metadata
+        # -- Metadata: only Sectors, Localities, Total Connections --
         non_commercial_count = len(non_commercial_rows)
         non_commercial_sectors = len(set(r["sector"] for r in non_commercial_rows))
         non_commercial_closed = sum(r["closed"] for r in non_commercial_rows)
@@ -11001,7 +11013,6 @@ def export_consumer_report(fmt_type: str):
         meta_parts.append(f"<b>Sectors:</b> {non_commercial_sectors}")
         meta_parts.append(f"<b>Localities:</b> {non_commercial_count}")
         meta_parts.append(f"<b>Total Connections:</b> {non_commercial_total:,}")
-        meta_parts.append("<b>Generated by AI</b>")
         elements.append(Paragraph(" &nbsp;&nbsp;|&nbsp;&nbsp; ".join(meta_parts), meta_style))
 
         # -- Build table data with Paragraph wrapping for Sector/Locality --
@@ -11058,10 +11069,6 @@ def export_consumer_report(fmt_type: str):
         row_types.append("grand_total")
 
         # -- Column widths (mm) — dynamic based on selected columns --
-        # Available width: 180mm (A4 with 15mm margins on each side)
-        # Distribute extra space proportionally to flexible columns
-        # Fix: use the full A4 printable width without overflow. Text columns
-        # get most of the room for wrapping; numeric columns stay compact.
         consumer_col_weights = {
             "sr": 11,
             "sector": 50,
@@ -11086,16 +11093,17 @@ def export_consumer_report(fmt_type: str):
         style_cmds = [
             # Header row styling
             ("BACKGROUND", (0, 0), (-1, 0), PDF_HEADER_BG),
+            ("LINEABOVE", (0, 0), (-1, 0), 1.2, colors.black),
+            ("LINEBELOW", (0, 0), (-1, 0), 1.2, colors.black),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            # Grid lines (subtle light teal)
-            ("GRID", (0, 0), (-1, -1), 0.75, PDF_GRID),
-            ("BOX", (0, 0), (-1, -1), 0.9, PDF_GRID),
-            # Padding for all cells
-            # More padding gives wrapped text breathing room and avoids a tight grid.
-            ("TOPPADDING", (0, 0), (-1, -1), 5),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-            ("LEFTPADDING", (0, 0), (-1, -1), 5),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            ("GRID", (0, 0), (-1, -1), 0.5, PDF_GRID),
+            ("BOX", (0, 0), (-1, -1), 0.8, colors.black),
+            ("TOPPADDING", (0, 0), (-1, 0), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 5),
+            ("TOPPADDING", (0, 1), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 1), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
         ]
 
         # -- Alternate row backgrounds for data rows only --
@@ -11109,8 +11117,8 @@ def export_consumer_report(fmt_type: str):
         # -- Grand Total row styling --
         grand_idx = len(table_data) - 1
         style_cmds.append(("BACKGROUND", (0, grand_idx), (-1, grand_idx), PDF_GRAND_BG))
-        style_cmds.append(("LINEABOVE", (0, grand_idx), (-1, grand_idx), 1.2, PDF_GRAND_FG))
-        style_cmds.append(("LINEBELOW", (0, grand_idx), (-1, grand_idx), 1.2, PDF_GRAND_FG))
+        style_cmds.append(("LINEABOVE", (0, grand_idx), (-1, grand_idx), 1.2, colors.black))
+        style_cmds.append(("LINEBELOW", (0, grand_idx), (-1, grand_idx), 1.2, colors.black))
 
         t.setStyle(TableStyle(style_cmds))
         elements.append(t)
@@ -11147,15 +11155,14 @@ def export_consumer_report(fmt_type: str):
         commercial_sectors = set(r["sector"] for r in commercial_rows)
         commercial_localities = len(commercial_rows)
 
-        # -- Colour palette (same as main PDF for consistency) --
-        PDF_HEADER_BG = colors.HexColor("#222222")
-        PDF_HEADER_FG = colors.white
-        PDF_ALT_ROW = colors.HexColor("#f2f2f2")
+        # -- Colour palette (Clean B&W, print-friendly) --
+        PDF_HEADER_BG = colors.HexColor("#f1f5f9")
+        PDF_HEADER_FG = colors.black
+        PDF_ALT_ROW = colors.HexColor("#f8fafc")
         PDF_WHITE_ROW = colors.white
-        PDF_GRAND_BG = colors.HexColor("#e6e6e6")
+        PDF_GRAND_BG = colors.HexColor("#f1f5f9")
         PDF_GRAND_FG = colors.black
-        # Darker grid lines keep the printed PDF visibly table-shaped.
-        PDF_GRID = colors.black
+        PDF_GRID = colors.HexColor("#94a3b8")
         PDF_BODY_FG = colors.black
 
         # -- Page setup: A4 portrait (match Consumer PDF margins) --
@@ -11182,17 +11189,9 @@ def export_consumer_report(fmt_type: str):
         commercial_title_style = ParagraphStyle(
             "CommercialReportTitle",
             parent=styles["Heading1"],
-            fontSize=18,
+            fontSize=16,
+            leading=20,
             fontName="Helvetica-Bold",
-            textColor=PDF_HEADER_FG,
-            alignment=1,
-            spaceAfter=2 * mm,
-        )
-        commercial_subtitle_style = ParagraphStyle(
-            "CommercialReportSubtitle",
-            parent=styles["Normal"],
-            fontSize=10,
-            fontName="Helvetica",
             textColor=colors.black,
             alignment=1,
             spaceAfter=3 * mm,
@@ -11201,6 +11200,7 @@ def export_consumer_report(fmt_type: str):
             "CommercialReportMeta",
             parent=styles["Normal"],
             fontSize=9,
+            leading=12,
             fontName="Helvetica",
             textColor=colors.black,
             alignment=1,
@@ -11238,17 +11238,14 @@ def export_consumer_report(fmt_type: str):
         elements = []
 
         # -- Report heading block --
-        report_title = "Private Societies Report" if fmt_type == "private-pdf" else "Commercial Sector Report"
-        report_subtitle = "PRIVATE SOCIETY Connections &mdash; Active &amp; Closed Status" if fmt_type == "private-pdf" else "COMMERCIAL Connections &mdash; Active &amp; Closed Status"
+        report_title = "Private Society Connection Summary" if fmt_type == "private-pdf" else "Commercial Connection Summary"
         elements.append(Paragraph(report_title, commercial_title_style))
-        elements.append(Paragraph(report_subtitle, commercial_subtitle_style))
 
-        # -- Metadata: Sectors, Localities, Total Connections + Generated by AI --
+        # -- Metadata: only Sectors, Localities, Total Connections --
         meta_parts = []
         meta_parts.append(f"<b>Sectors:</b> {len(commercial_sectors)}")
         meta_parts.append(f"<b>Localities:</b> {commercial_localities}")
         meta_parts.append(f"<b>Total Connections:</b> {commercial_total:,}")
-        meta_parts.append("<b>Generated by AI</b>")
         elements.append(Paragraph(" &nbsp;&nbsp;|&nbsp;&nbsp; ".join(meta_parts), commercial_meta_style))
 
         # -- Build table data with Paragraph wrapping for Sector/Locality --
@@ -11326,14 +11323,17 @@ def export_consumer_report(fmt_type: str):
         # -- Build table style commands --
         style_cmds = [
             ("BACKGROUND", (0, 0), (-1, 0), PDF_HEADER_BG),
+            ("LINEABOVE", (0, 0), (-1, 0), 1.2, colors.black),
+            ("LINEBELOW", (0, 0), (-1, 0), 1.2, colors.black),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("GRID", (0, 0), (-1, -1), 0.75, PDF_GRID),
-            ("BOX", (0, 0), (-1, -1), 0.9, PDF_GRID),
-            # More padding gives wrapped text breathing room and avoids a tight grid.
-            ("TOPPADDING", (0, 0), (-1, -1), 5),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-            ("LEFTPADDING", (0, 0), (-1, -1), 5),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            ("GRID", (0, 0), (-1, -1), 0.5, PDF_GRID),
+            ("BOX", (0, 0), (-1, -1), 0.8, colors.black),
+            ("TOPPADDING", (0, 0), (-1, 0), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 5),
+            ("TOPPADDING", (0, 1), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 1), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
         ]
 
         # Alternate row backgrounds
@@ -11347,8 +11347,8 @@ def export_consumer_report(fmt_type: str):
         # Grand Total row styling
         grand_idx = len(table_data) - 1
         style_cmds.append(("BACKGROUND", (0, grand_idx), (-1, grand_idx), PDF_GRAND_BG))
-        style_cmds.append(("LINEABOVE", (0, grand_idx), (-1, grand_idx), 1.2, PDF_GRAND_FG))
-        style_cmds.append(("LINEBELOW", (0, grand_idx), (-1, grand_idx), 1.2, PDF_GRAND_FG))
+        style_cmds.append(("LINEABOVE", (0, grand_idx), (-1, grand_idx), 1.2, colors.black))
+        style_cmds.append(("LINEBELOW", (0, grand_idx), (-1, grand_idx), 1.2, colors.black))
 
         t.setStyle(TableStyle(style_cmds))
         elements.append(t)
