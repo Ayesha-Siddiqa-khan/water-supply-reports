@@ -1,16 +1,16 @@
 # Graph Report - water suppy report  (2026-09-12)
 
 ## Corpus Check
-- 36 files · ~146,510 words
+- 36 files · ~146,796 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 633 nodes · 1623 edges · 47 communities (39 shown, 8 thin omitted)
-- Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 52 edges (avg confidence: 0.62)
+- 633 nodes · 1625 edges · 47 communities (39 shown, 8 thin omitted)
+- Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 53 edges (avg confidence: 0.62)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `3f28875f`
+- Built from commit: `470b839a`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -22,23 +22,23 @@
 - get_db
 - audit_engine.py
 - consumer_sector_remaining_report
-- build_handover_dataset
+- handover.py
 - consumer_report
 - _render_page
 - match_staff_assignment
 - _GroupedPdfWrapper
 - BytesIO
 - classify
-- parse_number
+- build_daily_staff_receive_report
 - index
 - _normalize_staff_name
 - bill_list_sector_seasonly_export_rows
 - NumberedCanvas
-- main
+- _register_table
 - bill_list_zone_export_rows
-- build_daily_staff_receive_report
+- main
 - DataFrame
-- handover.py
+- handover
 - upload-progress.js
 - export_consumer_report
 - normalize_sector_key
@@ -110,17 +110,17 @@ Nodes (32): _blank_totals(), build_audit_report(), classify_negative(), conn_sor
 Cohesion: 0.13
 Nodes (25): build_consumer_sector_remaining_report(), _build_consumer_sector_summary(), _canonical_consumer_sector_locality(), _classify_connection_status(), _clean_rate_type_name(), consumer_sector_remaining_report(), _is_extra_noor_mohalla_main_road_sector(), _is_extra_zain_city_13g_sector() (+17 more)
 
-### Community 7 - "build_handover_dataset"
-Cohesion: 0.25
-Nodes (9): build_handover_dataset(), _compose(), _conn_key(), _key_frame(), Series, Alphanumerics only, lower-cased, leading zeros removed. Connection numbers are…, Parse a money cell tolerantly. Pulls the first number out rather than deleting…, Join arrears onto the handover rows and add the derived columns. (+1 more)
+### Community 7 - "handover.py"
+Cohesion: 0.13
+Nodes (18): _compose(), _conn_key(), _draw_ring_text(), _draw_signature_band(), _draw_star(), _draw_watermark(), _emblem_path(), _key_frame() (+10 more)
 
 ### Community 8 - "consumer_report"
 Cohesion: 0.17
 Nodes (13): _clear_consumer_summary_cache(), consumer_report(), _ensure_connection_rate_report(), _filter_active_rows(), _load_rates_csv(), Load rate data from the provided rates CSV or bundled rates.json. RATE SOURCE…, Persist the consumer summary to disk so it survives serverless cold starts.…, Persist consumer individual connection rows (compressed gzip) for drilldown. (+5 more)
 
 ### Community 9 - "_render_page"
-Cohesion: 0.17
-Nodes (16): apply_filters(), col_key(), detail_columns(), filter_label(), _finalize(), handover_snapshot(), _pick(), First column whose normalised name matches one of *candidates*. (+8 more)
+Cohesion: 0.22
+Nodes (13): col_key(), detail_columns(), filter_label(), _finalize(), handover_snapshot(), All available detail columns, with the default register set pre-ticked., Watermark text and on/off state, read from the request. ``wmset`` plays the…, Signature fields and placement, read from the request. ``sigset`` marks a form… (+5 more)
 
 ### Community 10 - "match_staff_assignment"
 Cohesion: 0.24
@@ -136,11 +136,11 @@ Nodes (94): bill_income_category_export_rows(), bill_list_export_rows(), _bracke
 
 ### Community 13 - "classify"
 Cohesion: 0.14
-Nodes (19): main(), Self-check for the Data Comparison page. Run: python check_data_comparison.py…, read(), classify(), _key(), Connection Number reduced to a comparable form. Leading zeros are KEPT. The…, Reduce an export to the fields this page compares. A connection counts as…, _canonical_labels() (+11 more)
+Nodes (21): main(), Self-check for the Data Comparison page. Run: python check_data_comparison.py…, read(), classify(), _key(), Connection Number reduced to a comparable form. Leading zeros are KEPT. The…, Reduce an export to the fields this page compares. A connection counts as…, build_handover_dataset() (+13 more)
 
-### Community 14 - "parse_number"
-Cohesion: 0.15
-Nodes (14): backfill_bill_arrears(), _bill_list_summary_from_rows(), _connection_rate_rows_from_payload(), is_large_pdf_text(), merge_sector_list_rows(), merge_sector_rows(), normalise_sector(), parse_number() (+6 more)
+### Community 14 - "build_daily_staff_receive_report"
+Cohesion: 0.12
+Nodes (19): backfill_bill_arrears(), _bill_list_summary_from_rows(), build_daily_staff_receive_report(), clear_unmatched_log(), _connection_rate_rows_from_payload(), get_unmatched_log(), infer_zone(), is_large_pdf_text() (+11 more)
 
 ### Community 15 - "index"
 Cohesion: 0.19
@@ -158,25 +158,25 @@ Nodes (5): bill_list_sector_seasonly_export_rows(), _get_season_bill_ids(), Retu
 Cohesion: 0.16
 Nodes (7): Flowable, NumberedCanvas, _page_furniture(), _PageMark, A zero-height marker that reports the page it lands on. Placed at the head of a…, Canvas that stamps "Page X of Y" once the total is known. ReportLab streams…, Page-begin callback. Runs before the frame lays its flowables down, which is…
 
-### Community 19 - "main"
-Cohesion: 0.13
-Nodes (17): main(), Self-check for the Handover Register join, filters, and snapshot lock. Run:…, read(), _column_extents(), _detail_widths(), _esc(), _index_flowables(), A detail table for the printed register. Two corrections on top of the shared… (+9 more)
+### Community 19 - "_register_table"
+Cohesion: 0.15
+Nodes (14): _column_extents(), _detail_widths(), _esc(), _index_flowables(), A detail table for the printed register. Two corrections on top of the shared…, Wrap only the long-text columns as Paragraphs. Matches what…, Longest value per column, used to size the columns and decide wrapping., Share the page across columns according to what they actually hold. Sizing off… (+6 more)
 
 ### Community 20 - "bill_list_zone_export_rows"
 Cohesion: 0.50
 Nodes (5): bill_list_zone_export_rows(), export_bill_list_zone(), export_zone_report_response(), get_zone_summary_data(), zone_sort_expr()
 
-### Community 21 - "build_daily_staff_receive_report"
-Cohesion: 0.40
-Nodes (5): build_daily_staff_receive_report(), clear_unmatched_log(), get_unmatched_log(), infer_zone(), load_staff_assignment_rows()
+### Community 21 - "main"
+Cohesion: 0.25
+Nodes (8): main(), Self-check for the Handover Register join, filters, and snapshot lock. Run:…, read(), apply_filters(), _pick(), Parse a money cell tolerantly. Pulls the first number out rather than deleting…, First column whose normalised name matches one of *candidates*., _to_amount()
 
 ### Community 22 - "DataFrame"
-Cohesion: 0.19
-Nodes (18): build_sections(), build_sector_summary(), detail_rows(), export_handover(), handover_print(), is_commercial(), _numeric_amounts(), DataFrame (+10 more)
+Cohesion: 0.21
+Nodes (17): build_sections(), build_sector_summary(), detail_rows(), export_handover(), handover_print(), is_commercial(), _numeric_amounts(), DataFrame (+9 more)
 
-### Community 23 - "handover.py"
-Cohesion: 0.12
-Nodes (28): _app(), _draw_ring_text(), _draw_signature_band(), _draw_star(), _draw_watermark(), _emblem_path(), _gunzip(), handover() (+20 more)
+### Community 23 - "handover"
+Cohesion: 0.17
+Nodes (16): _app(), _gunzip(), handover(), _handover_dir(), handover_status(), _list_snapshots(), load_dataset(), Read an uploaded CSV/XLSX as text so connection numbers keep leading zeros. (+8 more)
 
 ### Community 24 - "upload-progress.js"
 Cohesion: 0.44
@@ -206,7 +206,7 @@ Nodes (4): Water Supply Report Application, Python Libraries (numpy, pandas, ope
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `classify()` connect `classify` to `data_comparison.py`, `_render_page`, `audit_engine.py`?**
+- **Why does `classify()` connect `classify` to `data_comparison.py`, `main`, `audit_engine.py`?**
   _High betweenness centrality (0.097) - this node is a cross-community bridge._
 - **Why does `parse_register()` connect `audit_engine.py` to `classify`?**
   _High betweenness centrality (0.090) - this node is a cross-community bridge._

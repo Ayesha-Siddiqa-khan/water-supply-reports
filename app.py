@@ -11472,6 +11472,8 @@ def export_consumer_detail(fmt_type: str):
             for c in active_cols:
                 if c == "sr":
                     row_vals.append(str(r.get("sr") or i))
+                elif c in ("consumer_status", "consumer status"):
+                    row_vals.append("")  # Blank survey column for manual handwritten notes
                 else:
                     row_vals.append(str(r.get(c) or ""))
             table_rows.append(row_vals)
@@ -11489,6 +11491,16 @@ def export_consumer_detail(fmt_type: str):
             "remarks": "Remarks (Kaifiyat)",
         }
         headers = [COL_LABELS.get(c, c.replace("_", " ").title()) for c in active_cols]
+
+    active_keys = [str(c).lower().strip() for c in (active_cols if active_cols else headers)]
+
+    # Ensure Consumer Status cells are strictly empty across all export formats (PDF, CSV, Excel)
+    cs_indices = [idx for idx, k in enumerate(active_keys) if k in ("consumer_status", "consumer status")]
+    if cs_indices:
+        for r in table_rows:
+            for ci in cs_indices:
+                if ci < len(r):
+                    r[ci] = ""
 
     safe_title = secure_filename(title.replace(" ", "_")) or "Consumer_Detail"
 
@@ -11519,14 +11531,14 @@ def export_consumer_detail(fmt_type: str):
         from reportlab.lib.units import mm
         from xml.sax.saxutils import escape
 
-        # Choose page orientation: landscape if > 6 columns, else portrait
-        is_landscape = len(headers) > 6
+        # Choose page orientation: landscape for connection details tables
+        is_landscape = len(headers) >= 5
         page_size = landscape(A4) if is_landscape else A4
         page_w, page_h = page_size
-        left_m = 8 * mm
-        right_m = 8 * mm
-        top_m = 10 * mm
-        bottom_m = 10 * mm
+        left_m = 6 * mm
+        right_m = 6 * mm
+        top_m = 8 * mm
+        bottom_m = 8 * mm
         usable_w = page_w - left_m - right_m
 
         buf = io.BytesIO()
@@ -11547,8 +11559,8 @@ def export_consumer_detail(fmt_type: str):
             "DetailSubTitle",
             parent=styles["Normal"],
             fontName="Helvetica",
-            fontSize=8.5,
-            leading=11,
+            fontSize=10.0,
+            leading=13.0,
             textColor=colors.black,
             alignment=1,
             spaceAfter=4 * mm,
@@ -11562,25 +11574,24 @@ def export_consumer_detail(fmt_type: str):
         else:
             elements.append(Paragraph(f"Total Connections: {len(table_rows):,}", subtitle_style))
 
-        # Dynamic flexible column width allocation:
-        # Compact fixed-format fields (SR, Mobile, Connection, Status) stay tight and efficient.
-        # Locality and Sector get the lion's share of surplus width.
+        # Base column widths in mm designed for minimum 10pt font.
+        # Consumer Status is sized wide (35mm) so the title fits on one line and surveyor has room to write.
         BASE_WIDTH_MM = {
-            "sr": 8.5, "sr #": 8.5,
-            "status": 11.5,
-            "mobile": 18.5,
-            "connection": 19.0, "connection no.": 19.0,
-            "old_connection": 17.0, "old connection no.": 17.0,
-            "order_number": 15.0, "order / reg no": 15.0,
-            "connection_date": 16.0,
-            "consumer_status": 16.0,
-            "rate_type": 23.0,
-            "father_name": 25.0, "f/h name": 25.0,
-            "consumer_name": 30.0, "consumer name": 30.0,
-            "address": 30.0,
+            "sr": 10.0, "sr #": 10.0,
+            "status": 17.0,
+            "mobile": 24.0,
+            "connection": 23.0, "connection no.": 23.0,
+            "old_connection": 22.0, "old connection no.": 22.0,
+            "order_number": 20.0, "order / reg no": 20.0,
+            "connection_date": 23.0,
+            "rate_type": 26.0,
+            "father_name": 32.0, "f/h name": 32.0,
+            "consumer_name": 36.0, "consumer name": 36.0,
+            "address": 35.0,
             "sector": 36.0,
-            "locality": 40.0,
-            "remarks": 28.0, "remarks (kaifiyat)": 28.0, "remarks (کیفیت)": 28.0,
+            "locality": 36.0,
+            "consumer_status": 35.0, "consumer status": 35.0,
+            "remarks": 32.0, "remarks (kaifiyat)": 32.0, "remarks (کیفیت)": 32.0,
         }
 
         EXPANSION_WEIGHTS = {
@@ -11591,17 +11602,16 @@ def export_consumer_detail(fmt_type: str):
             "old_connection": 0, "old connection no.": 0,
             "order_number": 0, "order / reg no": 0,
             "connection_date": 0,
-            "consumer_status": 0,
+            "consumer_status": 10, "consumer status": 10,
             "rate_type": 4,
-            "father_name": 5, "f/h name": 5,
-            "consumer_name": 8, "consumer name": 8,
+            "father_name": 8, "f/h name": 8,
+            "consumer_name": 12, "consumer name": 12,
             "address": 18,
-            "sector": 45,
-            "locality": 55,
-            "remarks": 20, "remarks (kaifiyat)": 20, "remarks (کیفیت)": 20,
+            "sector": 25,
+            "locality": 30,
+            "remarks": 12, "remarks (kaifiyat)": 12, "remarks (کیفیت)": 12,
         }
 
-        active_keys = [str(c).lower().strip() for c in (active_cols if active_cols else headers)]
         usable_w_mm = usable_w / mm
         total_base_mm = sum(BASE_WIDTH_MM.get(k, 25.0) for k in active_keys)
 
@@ -11626,16 +11636,17 @@ def export_consumer_detail(fmt_type: str):
         center_keys = {
             "sr", "sr #", "mobile", "connection", "connection no.",
             "old_connection", "old connection no.", "connection_date",
-            "status", "order_number", "order / reg no"
+            "status", "order_number", "order / reg no", "consumer_status", "consumer status"
         }
         col_is_center = [k in center_keys for k in active_keys]
 
+        # Font size strictly >= 10pt for readability as required
         header_center_style = ParagraphStyle(
             "DetailHCenter",
             parent=styles["Normal"],
             fontName="Helvetica-Bold",
-            fontSize=7.0,
-            leading=8.5,
+            fontSize=10.0,
+            leading=12.0,
             textColor=colors.black,
             alignment=1,
         )
@@ -11643,8 +11654,8 @@ def export_consumer_detail(fmt_type: str):
             "DetailHLeft",
             parent=styles["Normal"],
             fontName="Helvetica-Bold",
-            fontSize=7.0,
-            leading=8.5,
+            fontSize=10.0,
+            leading=12.0,
             textColor=colors.black,
             alignment=0,
         )
@@ -11652,8 +11663,8 @@ def export_consumer_detail(fmt_type: str):
             "DetailCCenter",
             parent=styles["Normal"],
             fontName="Helvetica",
-            fontSize=6.5,
-            leading=8.0,
+            fontSize=10.0,
+            leading=12.5,
             textColor=colors.black,
             alignment=1,
         )
@@ -11661,8 +11672,8 @@ def export_consumer_detail(fmt_type: str):
             "DetailCLeft",
             parent=styles["Normal"],
             fontName="Helvetica",
-            fontSize=6.5,
-            leading=8.0,
+            fontSize=10.0,
+            leading=12.5,
             textColor=colors.black,
             alignment=0,
         )
@@ -11675,10 +11686,13 @@ def export_consumer_detail(fmt_type: str):
             header_cells.append(Paragraph(escape(str(h or "")), h_style))
         pdf_table_data.append(header_cells)
 
-        # Data rows with Paragraph wrapping so long texts wrap cleanly and never bleed into adjacent columns
+        # Data rows with Paragraph wrapping so long texts wrap cleanly and font size stays 10pt
         for row in table_rows:
             row_cells = []
             for i, val in enumerate(row):
+                k = active_keys[i] if i < len(active_keys) else ""
+                if k in ("consumer_status", "consumer status"):
+                    val = ""  # Strictly blank for manual handwritten entry
                 c_style = cell_center_style if (i < len(col_is_center) and col_is_center[i]) else cell_left_style
                 row_cells.append(Paragraph(escape(str(val or "")), c_style))
             pdf_table_data.append(row_cells)
@@ -11691,12 +11705,12 @@ def export_consumer_detail(fmt_type: str):
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#94a3b8")),
             ("BOX", (0, 0), (-1, -1), 0.8, colors.black),
-            ("TOPPADDING", (0, 0), (-1, 0), 3.5),
-            ("BOTTOMPADDING", (0, 0), (-1, 0), 3.5),
-            ("TOPPADDING", (0, 1), (-1, -1), 2.2),
-            ("BOTTOMPADDING", (0, 1), (-1, -1), 2.2),
-            ("LEFTPADDING", (0, 0), (-1, -1), 3),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+            ("TOPPADDING", (0, 0), (-1, 0), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 4),
+            ("TOPPADDING", (0, 1), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 1), (-1, -1), 3),
+            ("LEFTPADDING", (0, 0), (-1, -1), 2.5),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 2.5),
         ]
 
         for r_idx in range(1, len(pdf_table_data)):

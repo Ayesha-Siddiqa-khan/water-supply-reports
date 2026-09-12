@@ -2057,7 +2057,7 @@
     { key: 'connection', label: 'Connection No.', default: true, width: '115px', align: 'center' },
     { key: 'old_connection', label: 'Old Conn. No.', default: false, width: '110px', align: 'center' },
     { key: 'status', label: 'Status', default: true, width: '75px', align: 'center' },
-    { key: 'consumer_status', label: 'Consumer Status', default: false, width: '110px', align: 'center' },
+    { key: 'consumer_status', label: 'Consumer Status', default: false, width: '160px', align: 'center' },
     { key: 'remarks', label: 'Remarks (کیفیت)', default: false, width: '160px', align: 'left' }
   ];
 
@@ -2367,6 +2367,8 @@
             badgeStyle += 'background:rgba(245,166,35,0.15);color:var(--amber);border:1px solid rgba(245,166,35,0.3);';
           }
           bodyHtml += '<td style="text-align:center;"><span style="' + badgeStyle + '">' + (val || 'Active') + '</span></td>';
+        } else if (colKey === 'consumer_status') {
+          bodyHtml += '<td style="text-align:center;color:var(--text-muted);">&nbsp;</td>';
         } else if (colKey === 'consumer_name') {
           bodyHtml += '<td style="text-align:left;font-weight:600;color:var(--text-primary);">' + escapeHtml(val) + '</td>';
         } else if (colKey === 'connection' || colKey === 'old_connection') {
@@ -2534,6 +2536,7 @@
       for (var i = 0; i < currentFilteredRecords.length; i++) {
         var r = currentFilteredRecords[i];
         var rowVals = activeCols.map(function(k) {
+          if (k === 'consumer_status') return '""';
           var val = (k === 'sr') ? (i + 1) : (r[k] !== undefined && r[k] !== null ? String(r[k]) : '');
           return '"' + val.replace(/"/g, '""') + '"';
         });
@@ -2556,6 +2559,7 @@
       for (var j = 0; j < currentFilteredRecords.length; j++) {
         var rec = currentFilteredRecords[j];
         var rVals = activeCols.map(function(k) {
+          if (k === 'consumer_status') return '';
           return (k === 'sr') ? (j + 1) : (rec[k] !== undefined && rec[k] !== null ? rec[k] : '');
         });
         aoa.push(rVals);
@@ -2579,6 +2583,7 @@
     try {
       var compactRows = currentFilteredRecords.map(function(r, idx) {
         return activeCols.map(function(k) {
+          if (k === 'consumer_status') return '';
           return (k === 'sr') ? (idx + 1) : (r[k] !== undefined && r[k] !== null ? String(r[k]) : '');
         });
       });
@@ -2667,8 +2672,8 @@
       'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 20px; font-size: 11px; }' +
       'h2 { margin: 0 0 4px 0; text-align: center; }' +
       'p.meta { margin: 0 0 16px 0; text-align: center; color: #555; font-size: 10px; }' +
-      'table { width: 100%; border-collapse: collapse; margin-top: 8px; }' +
-      'th, td { border: 1px solid #ccc; padding: 4px 6px; }' +
+      'table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 11px; }' +
+      'th, td { border: 1px solid #888; padding: 5px 6px; }' +
       'th { background: #f0f4f8; font-weight: 700; text-align: center; }' +
       '@media print { @page { size: landscape; margin: 8mm; } }' +
       '</style></head><body>' +
@@ -2687,7 +2692,7 @@
       html += '<tr>';
       activeCols.forEach(function(k) {
         var def = colLookup[k] || { align: 'left' };
-        var val = (k === 'sr') ? (i + 1) : (r[k] || '');
+        var val = (k === 'sr') ? (i + 1) : (k === 'consumer_status' ? '' : (r[k] || ''));
         html += '<td style="text-align:' + def.align + ';">' + escapeHtml(val) + '</td>';
       });
       html += '</tr>';

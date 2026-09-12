@@ -1,16 +1,16 @@
 # Graph Report - water suppy report  (2026-09-12)
 
 ## Corpus Check
-- 36 files · ~146,796 words
+- 36 files · ~146,937 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 633 nodes · 1625 edges · 47 communities (39 shown, 8 thin omitted)
+- 633 nodes · 1625 edges · 48 communities (40 shown, 8 thin omitted)
 - Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 53 edges (avg confidence: 0.62)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `470b839a`
+- Built from commit: `bd555cab`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -22,14 +22,14 @@
 - get_db
 - audit_engine.py
 - consumer_sector_remaining_report
-- handover.py
+- _key_frame
 - consumer_report
 - _render_page
 - match_staff_assignment
 - _GroupedPdfWrapper
 - BytesIO
 - classify
-- build_daily_staff_receive_report
+- parse_number
 - index
 - _normalize_staff_name
 - bill_list_sector_seasonly_export_rows
@@ -38,10 +38,11 @@
 - bill_list_zone_export_rows
 - main
 - DataFrame
-- handover
+- handover.py
 - upload-progress.js
 - export_consumer_report
 - normalize_sector_key
+- build_daily_staff_receive_report
 - _build_connection_rate_report
 - vercel.json
 - Water Supply Report Application
@@ -80,7 +81,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (47 total, 8 thin omitted)
+## Communities (48 total, 8 thin omitted)
 
 ### Community 0 - "data_comparison.py"
 Cohesion: 0.10
@@ -110,9 +111,9 @@ Nodes (32): _blank_totals(), build_audit_report(), classify_negative(), conn_sor
 Cohesion: 0.13
 Nodes (25): build_consumer_sector_remaining_report(), _build_consumer_sector_summary(), _canonical_consumer_sector_locality(), _classify_connection_status(), _clean_rate_type_name(), consumer_sector_remaining_report(), _is_extra_noor_mohalla_main_road_sector(), _is_extra_zain_city_13g_sector() (+17 more)
 
-### Community 7 - "handover.py"
-Cohesion: 0.13
-Nodes (18): _compose(), _conn_key(), _draw_ring_text(), _draw_signature_band(), _draw_star(), _draw_watermark(), _emblem_path(), _key_frame() (+10 more)
+### Community 7 - "_key_frame"
+Cohesion: 0.40
+Nodes (5): _compose(), _conn_key(), _key_frame(), Series, Alphanumerics only, lower-cased, leading zeros removed. Connection numbers are…
 
 ### Community 8 - "consumer_report"
 Cohesion: 0.17
@@ -138,9 +139,9 @@ Nodes (94): bill_income_category_export_rows(), bill_list_export_rows(), _bracke
 Cohesion: 0.14
 Nodes (21): main(), Self-check for the Data Comparison page. Run: python check_data_comparison.py…, read(), classify(), _key(), Connection Number reduced to a comparable form. Leading zeros are KEPT. The…, Reduce an export to the fields this page compares. A connection counts as…, build_handover_dataset() (+13 more)
 
-### Community 14 - "build_daily_staff_receive_report"
-Cohesion: 0.12
-Nodes (19): backfill_bill_arrears(), _bill_list_summary_from_rows(), build_daily_staff_receive_report(), clear_unmatched_log(), _connection_rate_rows_from_payload(), get_unmatched_log(), infer_zone(), is_large_pdf_text() (+11 more)
+### Community 14 - "parse_number"
+Cohesion: 0.15
+Nodes (14): backfill_bill_arrears(), _bill_list_summary_from_rows(), _connection_rate_rows_from_payload(), is_large_pdf_text(), merge_sector_list_rows(), merge_sector_rows(), normalise_sector(), parse_number() (+6 more)
 
 ### Community 15 - "index"
 Cohesion: 0.19
@@ -171,12 +172,12 @@ Cohesion: 0.25
 Nodes (8): main(), Self-check for the Handover Register join, filters, and snapshot lock. Run:…, read(), apply_filters(), _pick(), Parse a money cell tolerantly. Pulls the first number out rather than deleting…, First column whose normalised name matches one of *candidates*., _to_amount()
 
 ### Community 22 - "DataFrame"
-Cohesion: 0.21
-Nodes (17): build_sections(), build_sector_summary(), detail_rows(), export_handover(), handover_print(), is_commercial(), _numeric_amounts(), DataFrame (+9 more)
+Cohesion: 0.19
+Nodes (18): build_sections(), build_sector_summary(), detail_rows(), export_handover(), handover_print(), is_commercial(), _numeric_amounts(), DataFrame (+10 more)
 
-### Community 23 - "handover"
-Cohesion: 0.17
-Nodes (16): _app(), _gunzip(), handover(), _handover_dir(), handover_status(), _list_snapshots(), load_dataset(), Read an uploaded CSV/XLSX as text so connection numbers keep leading zeros. (+8 more)
+### Community 23 - "handover.py"
+Cohesion: 0.12
+Nodes (28): _app(), _draw_ring_text(), _draw_signature_band(), _draw_star(), _draw_watermark(), _emblem_path(), _gunzip(), handover() (+20 more)
 
 ### Community 24 - "upload-progress.js"
 Cohesion: 0.44
@@ -185,6 +186,10 @@ Nodes (10): bindUploadForms(), createOverlay(), getUploadFileLabel(), handleUplo
 ### Community 25 - "export_consumer_report"
 Cohesion: 0.18
 Nodes (11): consumer_report_detail_records(), export_consumer_report(), _is_private_society_summary_row(), _load_consumer_rows_cache(), _load_consumer_summary_cache(), Return consumer connection records for a specific sector/locality/category with…, Load a previously saved consumer summary from disk. Returns (summary, filename,…, Load cached consumer individual connection rows. (+3 more)
+
+### Community 27 - "build_daily_staff_receive_report"
+Cohesion: 0.40
+Nodes (5): build_daily_staff_receive_report(), clear_unmatched_log(), get_unmatched_log(), infer_zone(), load_staff_assignment_rows()
 
 ### Community 29 - "_build_connection_rate_report"
 Cohesion: 0.18

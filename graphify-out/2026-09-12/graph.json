@@ -76,7 +76,7 @@
       "source_location": "L164",
       "_origin": "ast",
       "id": "app_get_unmatched_log",
-      "community": 21,
+      "community": 14,
       "community_name": "build_daily_staff_receive_report",
       "norm_label": "get_unmatched_log()"
     },
@@ -87,7 +87,7 @@
       "source_location": "L168",
       "_origin": "ast",
       "id": "app_clear_unmatched_log",
-      "community": 21,
+      "community": 14,
       "community_name": "build_daily_staff_receive_report",
       "norm_label": "clear_unmatched_log()"
     },
@@ -352,7 +352,7 @@
       "_origin": "ast",
       "id": "app_parse_number",
       "community": 14,
-      "community_name": "parse_number",
+      "community_name": "build_daily_staff_receive_report",
       "norm_label": "parse_number()"
     },
     {
@@ -626,7 +626,7 @@
       "source_location": "L971",
       "_origin": "ast",
       "id": "app_load_staff_assignment_rows",
-      "community": 21,
+      "community": 14,
       "community_name": "build_daily_staff_receive_report",
       "norm_label": "load_staff_assignment_rows()"
     },
@@ -670,7 +670,7 @@
       "source_location": "L1224",
       "_origin": "ast",
       "id": "app_build_daily_staff_receive_report",
-      "community": 21,
+      "community": 14,
       "community_name": "build_daily_staff_receive_report",
       "norm_label": "build_daily_staff_receive_report()"
     },
@@ -825,7 +825,7 @@
       "_origin": "ast",
       "id": "app_normalise_sector",
       "community": 14,
-      "community_name": "parse_number",
+      "community_name": "build_daily_staff_receive_report",
       "norm_label": "normalise_sector()"
     },
     {
@@ -836,7 +836,7 @@
       "_origin": "ast",
       "id": "app_merge_sector_rows",
       "community": 14,
-      "community_name": "parse_number",
+      "community_name": "build_daily_staff_receive_report",
       "norm_label": "merge_sector_rows()"
     },
     {
@@ -847,7 +847,7 @@
       "_origin": "ast",
       "id": "app_merge_sector_list_rows",
       "community": 14,
-      "community_name": "parse_number",
+      "community_name": "build_daily_staff_receive_report",
       "norm_label": "merge_sector_list_rows()"
     },
     {
@@ -902,7 +902,7 @@
       "_origin": "ast",
       "id": "app_is_large_pdf_text",
       "community": 14,
-      "community_name": "parse_number",
+      "community_name": "build_daily_staff_receive_report",
       "norm_label": "is_large_pdf_text()"
     },
     {
@@ -1045,7 +1045,7 @@
       "_origin": "ast",
       "id": "app_backfill_bill_arrears",
       "community": 14,
-      "community_name": "parse_number",
+      "community_name": "build_daily_staff_receive_report",
       "norm_label": "backfill_bill_arrears()"
     },
     {
@@ -1110,7 +1110,7 @@
       "source_location": "L3209",
       "_origin": "ast",
       "id": "app_infer_zone",
-      "community": 21,
+      "community": 14,
       "community_name": "build_daily_staff_receive_report",
       "norm_label": "infer_zone()"
     },
@@ -1485,7 +1485,7 @@
       "_origin": "ast",
       "id": "app_bill_list_summary_from_rows",
       "community": 14,
-      "community_name": "parse_number",
+      "community_name": "build_daily_staff_receive_report",
       "norm_label": "_bill_list_summary_from_rows()"
     },
     {
@@ -1518,7 +1518,7 @@
       "_origin": "ast",
       "id": "app_unpaid_total_from_section_rows",
       "community": 14,
-      "community_name": "parse_number",
+      "community_name": "build_daily_staff_receive_report",
       "norm_label": "_unpaid_total_from_section_rows()"
     },
     {
@@ -2882,7 +2882,7 @@
       "_origin": "ast",
       "id": "app_connection_rate_rows_from_payload",
       "community": 14,
-      "community_name": "parse_number",
+      "community_name": "build_daily_staff_receive_report",
       "norm_label": "_connection_rate_rows_from_payload()"
     },
     {
@@ -3223,7 +3223,7 @@
       "_origin": "ast",
       "id": "app_rationale_1967",
       "community": 14,
-      "community_name": "parse_number",
+      "community_name": "build_daily_staff_receive_report",
       "norm_label": "normalise a sector name for grouping: trim, lowercase, collapse spaces."
     },
     {
@@ -3234,7 +3234,7 @@
       "_origin": "ast",
       "id": "app_rationale_1973",
       "community": 14,
-      "community_name": "parse_number",
+      "community_name": "build_daily_staff_receive_report",
       "norm_label": "merge rows that share the same normalised sector name. for each unique sector:..."
     },
     {
@@ -3245,7 +3245,7 @@
       "_origin": "ast",
       "id": "app_rationale_2009",
       "community": 14,
-      "community_name": "parse_number",
+      "community_name": "build_daily_staff_receive_report",
       "norm_label": "merge list-of-lists rows by normalised sector. keeps first locality, sums..."
     },
     {
@@ -3399,7 +3399,7 @@
       "_origin": "ast",
       "id": "app_rationale_4556",
       "community": 14,
-      "community_name": "parse_number",
+      "community_name": "build_daily_staff_receive_report",
       "norm_label": "recalculate sector export totals from checked rows only."
     },
     {
@@ -3410,7 +3410,7 @@
       "_origin": "ast",
       "id": "app_rationale_4618",
       "community": 14,
-      "community_name": "parse_number",
+      "community_name": "build_daily_staff_receive_report",
       "norm_label": "recalculate unpaid amount totals from checked section rows only."
     },
     {
@@ -4077,7 +4077,7 @@
       "label": "NumberedCanvas",
       "file_type": "code",
       "source_file": "arrears_analysis.py",
-      "source_location": "L442",
+      "source_location": "L455",
       "_origin": "ast",
       "id": "arrears_analysis_numberedcanvas",
       "community": 2,
@@ -4088,7 +4088,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "arrears_analysis.py",
-      "source_location": "L445",
+      "source_location": "L458",
       "_origin": "ast",
       "id": "arrears_analysis_numberedcanvas_init",
       "community": 2,
@@ -4099,7 +4099,7 @@
       "label": ".showPage()",
       "file_type": "code",
       "source_file": "arrears_analysis.py",
-      "source_location": "L449",
+      "source_location": "L462",
       "_origin": "ast",
       "id": "arrears_analysis_numberedcanvas_showpage",
       "community": 2,
@@ -4110,7 +4110,7 @@
       "label": ".save()",
       "file_type": "code",
       "source_file": "arrears_analysis.py",
-      "source_location": "L453",
+      "source_location": "L466",
       "_origin": "ast",
       "id": "arrears_analysis_numberedcanvas_save",
       "community": 2,
@@ -4121,7 +4121,7 @@
       "label": "._draw_page_number()",
       "file_type": "code",
       "source_file": "arrears_analysis.py",
-      "source_location": "L461",
+      "source_location": "L474",
       "_origin": "ast",
       "id": "arrears_analysis_numberedcanvas_draw_page_number",
       "community": 2,
@@ -4132,7 +4132,7 @@
       "label": "is_zero_summary()",
       "file_type": "code",
       "source_file": "arrears_analysis.py",
-      "source_location": "L470",
+      "source_location": "L483",
       "_origin": "ast",
       "id": "arrears_analysis_is_zero_summary",
       "community": 2,
@@ -4143,7 +4143,7 @@
       "label": "build_arrears_pdf()",
       "file_type": "code",
       "source_file": "arrears_analysis.py",
-      "source_location": "L477",
+      "source_location": "L490",
       "_origin": "ast",
       "id": "arrears_analysis_build_arrears_pdf",
       "community": 2,
@@ -4165,7 +4165,7 @@
       "label": "arrears_analysis()",
       "file_type": "code",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1095",
+      "source_location": "L1149",
       "_origin": "ast",
       "id": "arrears_analysis_arrears_analysis",
       "community": 2,
@@ -4176,7 +4176,7 @@
       "label": "arrears_analysis_print()",
       "file_type": "code",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1394",
+      "source_location": "L1448",
       "_origin": "ast",
       "id": "arrears_analysis_arrears_analysis_print",
       "community": 2,
@@ -4187,7 +4187,7 @@
       "label": "export_arrears_analysis()",
       "file_type": "code",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1609",
+      "source_location": "L1668",
       "_origin": "ast",
       "id": "arrears_analysis_export_arrears_analysis",
       "community": 2,
@@ -4308,9 +4308,9 @@
       "label": "ReportLab canvas that calculates and writes 'Page X of Y' on save.",
       "file_type": "rationale",
       "source_file": "arrears_analysis.py",
-      "source_location": "L443",
+      "source_location": "L456",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_443",
+      "id": "arrears_analysis_rationale_456",
       "community": 2,
       "community_name": "arrears_analysis.py",
       "norm_label": "reportlab canvas that calculates and writes 'page x of y' on save."
@@ -4319,9 +4319,9 @@
       "label": "Returns True if all visible connection count and arrears fields are zero.",
       "file_type": "rationale",
       "source_file": "arrears_analysis.py",
-      "source_location": "L471",
+      "source_location": "L484",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_471",
+      "id": "arrears_analysis_rationale_484",
       "community": 2,
       "community_name": "arrears_analysis.py",
       "norm_label": "returns true if all visible connection count and arrears fields are zero."
@@ -4330,9 +4330,9 @@
       "label": "Generate a clean consolidated landscape A4 PDF report with custom\u2026",
       "file_type": "rationale",
       "source_file": "arrears_analysis.py",
-      "source_location": "L494",
+      "source_location": "L507",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_494",
+      "id": "arrears_analysis_rationale_507",
       "community": 2,
       "community_name": "arrears_analysis.py",
       "norm_label": "generate a clean consolidated landscape a4 pdf report with custom..."
@@ -4341,9 +4341,9 @@
       "label": "Printable sheet styled for A4 landscape.",
       "file_type": "rationale",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1395",
+      "source_location": "L1449",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_1395",
+      "id": "arrears_analysis_rationale_1449",
       "community": 2,
       "community_name": "arrears_analysis.py",
       "norm_label": "printable sheet styled for a4 landscape."
@@ -4352,9 +4352,9 @@
       "label": "Export the report as PDF, Excel (XLSX), or CSV.",
       "file_type": "rationale",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1610",
+      "source_location": "L1669",
       "_origin": "ast",
-      "id": "arrears_analysis_rationale_1610",
+      "id": "arrears_analysis_rationale_1669",
       "community": 2,
       "community_name": "arrears_analysis.py",
       "norm_label": "export the report as pdf, excel (xlsx), or csv."
@@ -4806,7 +4806,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "check_handover",
-      "community": 19,
+      "community": 21,
       "community_name": "main",
       "norm_label": "check_handover.py"
     },
@@ -4817,7 +4817,7 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "check_handover_read",
-      "community": 19,
+      "community": 21,
       "community_name": "main",
       "norm_label": "read()"
     },
@@ -4828,7 +4828,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "check_handover_main",
-      "community": 19,
+      "community": 21,
       "community_name": "main",
       "norm_label": "main()"
     },
@@ -4839,7 +4839,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "check_handover_rationale_1",
-      "community": 19,
+      "community": 21,
       "community_name": "main",
       "norm_label": "self-check for the handover register join, filters, and snapshot lock. run:..."
     },
@@ -5367,7 +5367,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "handover",
-      "community": 23,
+      "community": 7,
       "community_name": "handover.py",
       "norm_label": "handover.py"
     },
@@ -5379,7 +5379,7 @@
       "_origin": "ast",
       "id": "handover_app",
       "community": 23,
-      "community_name": "handover.py",
+      "community_name": "handover",
       "norm_label": "_app()"
     },
     {
@@ -5390,7 +5390,7 @@
       "_origin": "ast",
       "id": "handover_handover_dir",
       "community": 23,
-      "community_name": "handover.py",
+      "community_name": "handover",
       "norm_label": "_handover_dir()"
     },
     {
@@ -5401,7 +5401,7 @@
       "_origin": "ast",
       "id": "handover_snapshot_dir",
       "community": 23,
-      "community_name": "handover.py",
+      "community_name": "handover",
       "norm_label": "_snapshot_dir()"
     },
     {
@@ -5412,7 +5412,7 @@
       "_origin": "ast",
       "id": "handover_working_csv",
       "community": 23,
-      "community_name": "handover.py",
+      "community_name": "handover",
       "norm_label": "_working_csv()"
     },
     {
@@ -5423,7 +5423,7 @@
       "_origin": "ast",
       "id": "handover_working_meta",
       "community": 23,
-      "community_name": "handover.py",
+      "community_name": "handover",
       "norm_label": "_working_meta()"
     },
     {
@@ -5445,7 +5445,7 @@
       "_origin": "ast",
       "id": "handover_conn_key",
       "community": 7,
-      "community_name": "build_handover_dataset",
+      "community_name": "handover.py",
       "norm_label": "_conn_key()"
     },
     {
@@ -5488,8 +5488,8 @@
       "source_location": "L169",
       "_origin": "ast",
       "id": "handover_to_amount",
-      "community": 7,
-      "community_name": "build_handover_dataset",
+      "community": 21,
+      "community_name": "main",
       "norm_label": "_to_amount()"
     },
     {
@@ -5499,8 +5499,8 @@
       "source_location": "L193",
       "_origin": "ast",
       "id": "handover_pick",
-      "community": 9,
-      "community_name": "_render_page",
+      "community": 21,
+      "community_name": "main",
       "norm_label": "_pick()"
     },
     {
@@ -5511,7 +5511,7 @@
       "_origin": "ast",
       "id": "handover_esc",
       "community": 19,
-      "community_name": "main",
+      "community_name": "_register_table",
       "norm_label": "_esc()"
     },
     {
@@ -5533,7 +5533,7 @@
       "_origin": "ast",
       "id": "handover_key_frame",
       "community": 7,
-      "community_name": "build_handover_dataset",
+      "community_name": "handover.py",
       "norm_label": "_key_frame()"
     },
     {
@@ -5555,7 +5555,7 @@
       "_origin": "ast",
       "id": "handover_compose",
       "community": 7,
-      "community_name": "build_handover_dataset",
+      "community_name": "handover.py",
       "norm_label": "_compose()"
     },
     {
@@ -5566,7 +5566,7 @@
       "_origin": "ast",
       "id": "handover_py_series",
       "community": 7,
-      "community_name": "build_handover_dataset",
+      "community_name": "handover.py",
       "norm_label": "series"
     },
     {
@@ -5576,8 +5576,8 @@
       "source_location": "L260",
       "_origin": "ast",
       "id": "handover_build_handover_dataset",
-      "community": 7,
-      "community_name": "build_handover_dataset",
+      "community": 13,
+      "community_name": "classify",
       "norm_label": "build_handover_dataset()"
     },
     {
@@ -5588,7 +5588,7 @@
       "_origin": "ast",
       "id": "handover_load_dataset",
       "community": 23,
-      "community_name": "handover.py",
+      "community_name": "handover",
       "norm_label": "load_dataset()"
     },
     {
@@ -5609,8 +5609,8 @@
       "source_location": "L470",
       "_origin": "ast",
       "id": "handover_apply_filters",
-      "community": 9,
-      "community_name": "_render_page",
+      "community": 21,
+      "community_name": "main",
       "norm_label": "apply_filters()"
     },
     {
@@ -5764,7 +5764,7 @@
       "_origin": "ast",
       "id": "handover_list_snapshots",
       "community": 23,
-      "community_name": "handover.py",
+      "community_name": "handover",
       "norm_label": "_list_snapshots()"
     },
     {
@@ -5797,7 +5797,7 @@
       "_origin": "ast",
       "id": "handover_handover",
       "community": 23,
-      "community_name": "handover.py",
+      "community_name": "handover",
       "norm_label": "handover()"
     },
     {
@@ -5808,7 +5808,7 @@
       "_origin": "ast",
       "id": "handover_gunzip",
       "community": 23,
-      "community_name": "handover.py",
+      "community_name": "handover",
       "norm_label": "_gunzip()"
     },
     {
@@ -5819,7 +5819,7 @@
       "_origin": "ast",
       "id": "handover_read_bytes",
       "community": 23,
-      "community_name": "handover.py",
+      "community_name": "handover",
       "norm_label": "_read_bytes()"
     },
     {
@@ -5830,7 +5830,7 @@
       "_origin": "ast",
       "id": "handover_handover_status",
       "community": 23,
-      "community_name": "handover.py",
+      "community_name": "handover",
       "norm_label": "handover_status()"
     },
     {
@@ -5906,7 +5906,7 @@
       "source_location": "L1431",
       "_origin": "ast",
       "id": "handover_summary_page",
-      "community": 23,
+      "community": 7,
       "community_name": "handover.py",
       "norm_label": "_summary_page()"
     },
@@ -5918,7 +5918,7 @@
       "_origin": "ast",
       "id": "handover_register_table",
       "community": 19,
-      "community_name": "main",
+      "community_name": "_register_table",
       "norm_label": "_register_table()"
     },
     {
@@ -5940,7 +5940,7 @@
       "_origin": "ast",
       "id": "handover_wrap_rows",
       "community": 19,
-      "community_name": "main",
+      "community_name": "_register_table",
       "norm_label": "_wrap_rows()"
     },
     {
@@ -5951,7 +5951,7 @@
       "_origin": "ast",
       "id": "handover_column_extents",
       "community": 19,
-      "community_name": "main",
+      "community_name": "_register_table",
       "norm_label": "_column_extents()"
     },
     {
@@ -5962,7 +5962,7 @@
       "_origin": "ast",
       "id": "handover_detail_widths",
       "community": 19,
-      "community_name": "main",
+      "community_name": "_register_table",
       "norm_label": "_detail_widths()"
     },
     {
@@ -5972,8 +5972,8 @@
       "source_location": "L1627",
       "_origin": "ast",
       "id": "handover_signature_band_height",
-      "community": 22,
-      "community_name": "DataFrame",
+      "community": 7,
+      "community_name": "handover.py",
       "norm_label": "_signature_band_height()"
     },
     {
@@ -5984,7 +5984,7 @@
       "_origin": "ast",
       "id": "handover_signature_flowable",
       "community": 19,
-      "community_name": "main",
+      "community_name": "_register_table",
       "norm_label": "_signature_flowable()"
     },
     {
@@ -5994,7 +5994,7 @@
       "source_location": "L1661",
       "_origin": "ast",
       "id": "handover_draw_signature_band",
-      "community": 23,
+      "community": 7,
       "community_name": "handover.py",
       "norm_label": "_draw_signature_band()"
     },
@@ -6061,7 +6061,7 @@
       "_origin": "ast",
       "id": "handover_index_flowables",
       "community": 19,
-      "community_name": "main",
+      "community_name": "_register_table",
       "norm_label": "_index_flowables()"
     },
     {
@@ -6126,7 +6126,7 @@
       "source_location": "L1818",
       "_origin": "ast",
       "id": "handover_emblem_path",
-      "community": 23,
+      "community": 7,
       "community_name": "handover.py",
       "norm_label": "_emblem_path()"
     },
@@ -6137,7 +6137,7 @@
       "source_location": "L1827",
       "_origin": "ast",
       "id": "handover_draw_ring_text",
-      "community": 23,
+      "community": 7,
       "community_name": "handover.py",
       "norm_label": "_draw_ring_text()"
     },
@@ -6148,7 +6148,7 @@
       "source_location": "L1858",
       "_origin": "ast",
       "id": "handover_draw_star",
-      "community": 23,
+      "community": 7,
       "community_name": "handover.py",
       "norm_label": "_draw_star()"
     },
@@ -6159,7 +6159,7 @@
       "source_location": "L1869",
       "_origin": "ast",
       "id": "handover_draw_watermark",
-      "community": 23,
+      "community": 7,
       "community_name": "handover.py",
       "norm_label": "_draw_watermark()"
     },
@@ -6181,7 +6181,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "handover_rationale_1",
-      "community": 23,
+      "community": 7,
       "community_name": "handover.py",
       "norm_label": "handover register \u2014 independent feature module. builds a printable employee..."
     },
@@ -6193,7 +6193,7 @@
       "_origin": "ast",
       "id": "handover_rationale_68",
       "community": 23,
-      "community_name": "handover.py",
+      "community_name": "handover",
       "norm_label": "the app module that is already loaded. ``python app.py`` (the .bat launcher and..."
     },
     {
@@ -6215,7 +6215,7 @@
       "_origin": "ast",
       "id": "handover_rationale_138",
       "community": 7,
-      "community_name": "build_handover_dataset",
+      "community_name": "handover.py",
       "norm_label": "alphanumerics only, lower-cased, leading zeros removed. connection numbers are..."
     },
     {
@@ -6236,8 +6236,8 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "handover_rationale_170",
-      "community": 7,
-      "community_name": "build_handover_dataset",
+      "community": 21,
+      "community_name": "main",
       "norm_label": "parse a money cell tolerantly. pulls the first number out rather than deleting..."
     },
     {
@@ -6247,8 +6247,8 @@
       "source_location": "L194",
       "_origin": "ast",
       "id": "handover_rationale_194",
-      "community": 9,
-      "community_name": "_render_page",
+      "community": 21,
+      "community_name": "main",
       "norm_label": "first column whose normalised name matches one of *candidates*."
     },
     {
@@ -6259,7 +6259,7 @@
       "_origin": "ast",
       "id": "handover_rationale_209",
       "community": 19,
-      "community_name": "main",
+      "community_name": "_register_table",
       "norm_label": "escape a data value for reportlab's mini-markup parser. paragraph text is..."
     },
     {
@@ -6269,8 +6269,8 @@
       "source_location": "L261",
       "_origin": "ast",
       "id": "handover_rationale_261",
-      "community": 7,
-      "community_name": "build_handover_dataset",
+      "community": 13,
+      "community_name": "classify",
       "norm_label": "join arrears onto the handover rows and add the derived columns."
     },
     {
@@ -6281,7 +6281,7 @@
       "_origin": "ast",
       "id": "handover_rationale_429",
       "community": 23,
-      "community_name": "handover.py",
+      "community_name": "handover",
       "norm_label": "return (rows, meta). snapshots read their own frozen copy."
     },
     {
@@ -6391,7 +6391,7 @@
       "_origin": "ast",
       "id": "handover_rationale_992",
       "community": 23,
-      "community_name": "handover.py",
+      "community_name": "handover",
       "norm_label": "transparently decompress a gzipped upload. the browser compresses both files..."
     },
     {
@@ -6402,7 +6402,7 @@
       "_origin": "ast",
       "id": "handover_rationale_1007",
       "community": 23,
-      "community_name": "handover.py",
+      "community_name": "handover",
       "norm_label": "read an uploaded csv/xlsx as text so connection numbers keep leading zeros."
     },
     {
@@ -6413,7 +6413,7 @@
       "_origin": "ast",
       "id": "handover_rationale_1018",
       "community": 23,
-      "community_name": "handover.py",
+      "community_name": "handover",
       "norm_label": "whether this instance still holds the working register. serverless instances..."
     },
     {
@@ -6434,7 +6434,7 @@
       "source_location": "L1433",
       "_origin": "ast",
       "id": "handover_rationale_1433",
-      "community": 23,
+      "community": 7,
       "community_name": "handover.py",
       "norm_label": "the first page: a domestic report and a commercial report, side by side in..."
     },
@@ -6446,7 +6446,7 @@
       "_origin": "ast",
       "id": "handover_rationale_1488",
       "community": 19,
-      "community_name": "main",
+      "community_name": "_register_table",
       "norm_label": "a detail table for the printed register. two corrections on top of the shared..."
     },
     {
@@ -6468,7 +6468,7 @@
       "_origin": "ast",
       "id": "handover_rationale_1571",
       "community": 19,
-      "community_name": "main",
+      "community_name": "_register_table",
       "norm_label": "wrap only the long-text columns as paragraphs. matches what..."
     },
     {
@@ -6479,7 +6479,7 @@
       "_origin": "ast",
       "id": "handover_rationale_1592",
       "community": 19,
-      "community_name": "main",
+      "community_name": "_register_table",
       "norm_label": "longest value per column, used to size the columns and decide wrapping."
     },
     {
@@ -6490,7 +6490,7 @@
       "_origin": "ast",
       "id": "handover_rationale_1603",
       "community": 19,
-      "community_name": "main",
+      "community_name": "_register_table",
       "norm_label": "share the page across columns according to what they actually hold. sizing off..."
     },
     {
@@ -6501,7 +6501,7 @@
       "_origin": "ast",
       "id": "handover_rationale_1634",
       "community": 19,
-      "community_name": "main",
+      "community_name": "_register_table",
       "norm_label": "signature strip as a flowable, for placement after the last block."
     },
     {
@@ -6511,7 +6511,7 @@
       "source_location": "L1662",
       "_origin": "ast",
       "id": "handover_rationale_1662",
-      "community": 23,
+      "community": 7,
       "community_name": "handover.py",
       "norm_label": "signature strip drawn as page furniture, for 'every page'."
     },
@@ -6534,7 +6534,7 @@
       "_origin": "ast",
       "id": "handover_rationale_1717",
       "community": 19,
-      "community_name": "main",
+      "community_name": "_register_table",
       "norm_label": "the table of contents: sector name on the left, page on the right. ``offset``..."
     },
     {
@@ -6555,7 +6555,7 @@
       "source_location": "L1819",
       "_origin": "ast",
       "id": "handover_rationale_1819",
-      "community": 23,
+      "community": 7,
       "community_name": "handover.py",
       "norm_label": "the municipal emblem shipped in static/, or none if it is absent."
     },
@@ -6566,7 +6566,7 @@
       "source_location": "L1828",
       "_origin": "ast",
       "id": "handover_rationale_1828",
-      "community": 23,
+      "community": 7,
       "community_name": "handover.py",
       "norm_label": "set text right around the circle, evenly spaced with no gap. the legend is..."
     },
@@ -6577,7 +6577,7 @@
       "source_location": "L1870",
       "_origin": "ast",
       "id": "handover_rationale_1870",
-      "community": 23,
+      "community": 7,
       "community_name": "handover.py",
       "norm_label": "a round official stamp, faint, centred, behind the page content."
     },
@@ -10350,7 +10350,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "arrears_analysis.py",
-      "source_location": "L1111",
+      "source_location": "L1165",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis",
@@ -10518,7 +10518,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "arrears_analysis.py",
-      "source_location": "L1099",
+      "source_location": "L1153",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis",
@@ -10614,7 +10614,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "arrears_analysis.py",
-      "source_location": "L1098",
+      "source_location": "L1152",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis",
@@ -14128,7 +14128,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "arrears_analysis.py",
-      "source_location": "L506",
+      "source_location": "L532",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_build_arrears_pdf",
@@ -19543,7 +19543,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1095",
+      "source_location": "L1149",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis",
@@ -19554,7 +19554,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1394",
+      "source_location": "L1448",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis",
@@ -19576,7 +19576,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L477",
+      "source_location": "L490",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis",
@@ -19620,7 +19620,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1609",
+      "source_location": "L1668",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis",
@@ -19675,7 +19675,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L470",
+      "source_location": "L483",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis",
@@ -19697,7 +19697,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L442",
+      "source_location": "L455",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis",
@@ -19764,7 +19764,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1096",
+      "source_location": "L1150",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis",
@@ -19824,7 +19824,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1132",
+      "source_location": "L1186",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis",
@@ -19848,7 +19848,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1139",
+      "source_location": "L1193",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis",
@@ -19872,7 +19872,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1160",
+      "source_location": "L1214",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis",
@@ -19896,7 +19896,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1363",
+      "source_location": "L1417",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis",
@@ -19908,7 +19908,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1574",
+      "source_location": "L1633",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis_print",
@@ -19920,7 +19920,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1050",
+      "source_location": "L1091",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_build_arrears_pdf",
@@ -19967,7 +19967,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L477",
+      "source_location": "L490",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_build_arrears_pdf",
@@ -20003,7 +20003,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L470",
+      "source_location": "L483",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_is_zero_summary",
@@ -20027,7 +20027,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1308",
+      "source_location": "L1362",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis",
@@ -20062,7 +20062,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1329",
+      "source_location": "L1383",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis",
@@ -20074,10 +20074,22 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1554",
+      "source_location": "L1613",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis_print",
+      "target": "arrears_analysis_classify_status",
+      "confidence_score": 0.5
+    },
+    {
+      "relation": "indirect_call",
+      "context": "argument",
+      "confidence": "INFERRED",
+      "source_file": "arrears_analysis.py",
+      "source_location": "L517",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "arrears_analysis_build_arrears_pdf",
       "target": "arrears_analysis_classify_status",
       "confidence_score": 0.5
     },
@@ -20098,7 +20110,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1872",
+      "source_location": "L1938",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_export_arrears_analysis",
@@ -20156,7 +20168,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L477",
+      "source_location": "L490",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_build_arrears_pdf",
@@ -20180,7 +20192,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1935",
+      "source_location": "L2001",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_export_arrears_analysis",
@@ -20240,6 +20252,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
+      "source_location": "L508",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "arrears_analysis_build_arrears_pdf",
+      "target": "arrears_analysis_inspect_dataframe_columns",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "arrears_analysis.py",
       "source_location": "L215",
       "weight": 1.0,
       "_origin": "ast",
@@ -20263,7 +20287,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1211",
+      "source_location": "L1265",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis",
@@ -20275,7 +20299,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1396",
+      "source_location": "L1450",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis_print",
@@ -20287,7 +20311,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1611",
+      "source_location": "L1670",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_export_arrears_analysis",
@@ -20310,7 +20334,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1255",
+      "source_location": "L1309",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis",
@@ -20322,7 +20346,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1418",
+      "source_location": "L1472",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis_print",
@@ -20334,7 +20358,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1633",
+      "source_location": "L1692",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_export_arrears_analysis",
@@ -20357,7 +20381,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1288",
+      "source_location": "L1342",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis",
@@ -20392,7 +20416,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1294",
+      "source_location": "L1348",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis",
@@ -20404,7 +20428,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1523",
+      "source_location": "L1582",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis_print",
@@ -20416,7 +20440,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1738",
+      "source_location": "L1804",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_export_arrears_analysis",
@@ -20449,7 +20473,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L461",
+      "source_location": "L474",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_numberedcanvas",
@@ -20460,7 +20484,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L445",
+      "source_location": "L458",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_numberedcanvas",
@@ -20471,7 +20495,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L453",
+      "source_location": "L466",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_numberedcanvas",
@@ -20482,7 +20506,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L449",
+      "source_location": "L462",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_numberedcanvas",
@@ -20493,10 +20517,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L443",
+      "source_location": "L456",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "arrears_analysis_rationale_443",
+      "source": "arrears_analysis_rationale_456",
       "target": "arrears_analysis_numberedcanvas",
       "confidence_score": 1.0
     },
@@ -20505,7 +20529,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L458",
+      "source_location": "L471",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_numberedcanvas_save",
@@ -20517,7 +20541,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L457",
+      "source_location": "L470",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_numberedcanvas_save",
@@ -20529,7 +20553,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1495",
+      "source_location": "L1549",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_arrears_analysis_print",
@@ -20541,7 +20565,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L588",
+      "source_location": "L617",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_build_arrears_pdf",
@@ -20553,7 +20577,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1710",
+      "source_location": "L1769",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_export_arrears_analysis",
@@ -20564,10 +20588,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L471",
+      "source_location": "L484",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "arrears_analysis_rationale_471",
+      "source": "arrears_analysis_rationale_484",
       "target": "arrears_analysis_is_zero_summary",
       "confidence_score": 1.0
     },
@@ -20576,7 +20600,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1800",
+      "source_location": "L1866",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arrears_analysis_export_arrears_analysis",
@@ -20587,10 +20611,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L494",
+      "source_location": "L507",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "arrears_analysis_rationale_494",
+      "source": "arrears_analysis_rationale_507",
       "target": "arrears_analysis_build_arrears_pdf",
       "confidence_score": 1.0
     },
@@ -20598,7 +20622,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1094",
+      "source_location": "L1148",
       "weight": 1.0,
       "context": "decorator",
       "_origin": "ast",
@@ -20610,7 +20634,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1393",
+      "source_location": "L1447",
       "weight": 1.0,
       "context": "decorator",
       "_origin": "ast",
@@ -20622,7 +20646,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1608",
+      "source_location": "L1667",
       "weight": 1.0,
       "context": "decorator",
       "_origin": "ast",
@@ -20634,10 +20658,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1395",
+      "source_location": "L1449",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "arrears_analysis_rationale_1395",
+      "source": "arrears_analysis_rationale_1449",
       "target": "arrears_analysis_arrears_analysis_print",
       "confidence_score": 1.0
     },
@@ -20645,10 +20669,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "arrears_analysis.py",
-      "source_location": "L1610",
+      "source_location": "L1669",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "arrears_analysis_rationale_1610",
+      "source": "arrears_analysis_rationale_1669",
       "target": "arrears_analysis_export_arrears_analysis",
       "confidence_score": 1.0
     },
@@ -25869,5 +25893,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "3f28875fdc9cad20c276ed8698a59279f37a25c6"
+  "built_at_commit": "470b839a3ee8d59a446385ef58a38e4e4ec0db4d"
 }
