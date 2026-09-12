@@ -418,8 +418,8 @@ DEFAULT_DETAIL_COLS = [
 def resolve_detail_columns(df: pd.DataFrame, requested_cols: list[str] | None = None) -> list[str]:
     """Resolve which columns to show in the detailed table."""
     all_cols = get_detail_columns(df)
+    col_lower = {c.strip().lower(): c for c in all_cols}
     if not requested_cols:
-        col_lower = {c.strip().lower(): c for c in all_cols}
         resolved = []
         for def_col in DEFAULT_DETAIL_COLS:
             dl = def_col.strip().lower()
@@ -431,8 +431,21 @@ def resolve_detail_columns(df: pd.DataFrame, requested_cols: list[str] | None = 
                         resolved.append(actual)
                         break
         return resolved if resolved else all_cols[:8]
-    # Filter requested to existing
-    return [c for c in requested_cols if c in all_cols]
+
+    resolved = []
+    for rc in requested_cols:
+        rcl = rc.strip().lower()
+        if rc in all_cols:
+            resolved.append(rc)
+        elif rcl in col_lower:
+            resolved.append(col_lower[rcl])
+        else:
+            for actual in all_cols:
+                al = actual.lower()
+                if (rcl in al or al in rcl) and actual not in resolved:
+                    resolved.append(actual)
+                    break
+    return resolved if resolved else (all_cols[:8] if all_cols else requested_cols)
 
 
 # ---------------------------------------------------------------------------
@@ -492,6 +505,19 @@ def build_arrears_pdf(
     include_zero: bool = False,
 ) -> bytes:
     """Generate a clean consolidated landscape A4 PDF report with custom sector/locality columns and order."""
+    detected = analysis.get("detected_columns") or inspect_dataframe_columns(df)
+    loc_col = detected.get("locality") or "Locality"
+    sec_col = detected.get("sector") or "Sector"
+    stat_col = detected.get("status") or "Status"
+    arr_col = detected.get("arrears") or "Total Arrears"
+
+    df = df.copy()
+    if "_st" not in df.columns:
+        if stat_col in df.columns:
+            df["_st"] = df[stat_col].apply(classify_status)
+        else:
+            df["_st"] = "Open"
+
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf,
@@ -534,10 +560,13 @@ def build_arrears_pdf(
     # 1. Heading: Domestic vs Commercial vs Specific Sector
     cat_lower = (category or "").strip().lower()
     if cat_lower == "commercial":
-        df = df[df['Sector'].astype(str).str.upper() == 'COMMERCIAL'].copy()
-        df = df[~df['Locality'].astype(str).str.upper().str.contains('COLONY', na=False)].copy()
+        if sec_col in df.columns:
+            df = df[df[sec_col].astype(str).str.upper() == 'COMMERCIAL'].copy()
+        if loc_col in df.columns:
+            df = df[~df[loc_col].astype(str).str.upper().str.contains('COLONY', na=False)].copy()
     elif cat_lower == "domestic":
-        df = df[df['Sector'].astype(str).str.upper() != 'COMMERCIAL'].copy()
+        if sec_col in df.columns:
+            df = df[df[sec_col].astype(str).str.upper() != 'COMMERCIAL'].copy()
 
     if len(analysis.get("locality_summaries", [])) == 1:
         single_loc = analysis["locality_summaries"][0]["locality"]
@@ -908,14 +937,6 @@ def build_arrears_pdf(
 
     # Detailed rows if requested (mode is detailed or both)
     if report_mode in ("detailed", "both"):
-        detected = analysis["detected_columns"]
-        loc_col = detected["locality"] or "Locality"
-        stat_col = detected["status"] or "Status"
-        name_col = detected["consumer_name"] or "Consumer Name"
-        mob_col = detected["mobile"] or "Mobile"
-        conn_col = detected["connection_no"] or "Connection Number"
-        arr_col = detected["arrears"] or "Total Arrears"
-
         # Styles for Detailed Report (Clean B&W, minimum 10pt font as required)
         th_center_det = ParagraphStyle(
             "THCenterDet",
@@ -1020,6 +1041,25 @@ def build_arrears_pdf(
             else:
                 header_cells.append(Paragraph(f"<b>{col_name}</b>", th_center_det))
 
+        def _resolve_val(r: pd.Series, col_k: str) -> str:
+            if col_k in r.index and pd.notna(r[col_k]):
+                v = str(r[col_k]).strip()
+                if v and v != "nan":
+                    return v
+            ck = col_k.strip().lower()
+            if "name" in ck and detected.get("consumer_name") in r.index:
+                return str(r[detected["consumer_name"]]).strip()
+            if "mobile" in ck and detected.get("mobile") in r.index:
+                return str(r[detected["mobile"]]).strip()
+            if ("conn" in ck or "number" in ck) and detected.get("connection_no") in r.index:
+                return str(r[detected["connection_no"]]).strip()
+            if "status" in ck and detected.get("status") in r.index:
+                return str(r[detected["status"]]).strip()
+            if "arrear" in ck and detected.get("arrears") in r.index:
+                return str(r[detected["arrears"]]).strip()
+            return ""
+
+        detail_tables_count = 0
         for item in active_summaries:
             loc_name = item["locality"]
             grp = df[df[loc_col].astype(str).str.strip() == loc_name].copy()
@@ -1035,6 +1075,7 @@ def build_arrears_pdf(
             grp_valid = grp[grp["_st"].isin(valid_statuses)]
 
             if not grp_valid.empty:
+                detail_tables_count += 1
                 story.append(Spacer(1, 4 * mm))
                 header_html = f"<b>{loc_name}</b> &nbsp;&nbsp;<font color='#475569' size='9'>(Sector: {item.get('sector', '')})</font>"
                 story.append(Paragraph(header_html, loc_header_style))
@@ -1045,7 +1086,7 @@ def build_arrears_pdf(
                 for idx, (_, r) in enumerate(grp_valid.iterrows(), 1):
                     row_cells = [Paragraph(str(idx), td_center_det)]
                     for c in active_detail_cols:
-                        val = str(r.get(c, "")).strip()
+                        val = _resolve_val(r, c)
                         if "arrear" in c.lower():
                             amt = parse_amount(val)
                             loc_tot_arr += amt
@@ -1082,6 +1123,19 @@ def build_arrears_pdf(
                     ])
                 )
                 story.append(det_table)
+
+        if report_mode == "detailed" and detail_tables_count == 0:
+            no_data_style = ParagraphStyle(
+                "AANoData",
+                parent=styles["Normal"],
+                fontName="Helvetica-Bold",
+                fontSize=11,
+                leading=14,
+                textColor=colors.HexColor("#64748b"),
+                alignment=TA_CENTER,
+                spaceBefore=20,
+            )
+            story.append(Paragraph("No consumer records found for the selected filter.", no_data_style))
 
     doc.build(story, canvasmaker=NumberedCanvas)
     return buf.getvalue()
@@ -1518,6 +1572,11 @@ def arrears_analysis_print():
     if report_mode not in ("summary", "detailed", "both"):
         report_mode = "summary"
 
+    all_loc_param = request.args.get("all_loc", "0").strip()
+    if report_mode in ("detailed", "both") and category == "domestic" and not req_localities and not req_sectors and all_loc_param != "1":
+        if len(selected_localities) > 3:
+            selected_localities = selected_localities[:3]
+
     raw_cols_str = request.args.get("cols", "")
     req_cols = [c.strip() for c in raw_cols_str.split(",") if c.strip()] if raw_cols_str else request.args.getlist("col")
     selected_cols = resolve_detail_columns(df, req_cols if req_cols else None)
@@ -1732,6 +1791,13 @@ def export_arrears_analysis(fmt_type: str):
     report_mode = request.args.get("mode", "summary").strip().lower()
     if report_mode not in ("summary", "detailed", "both"):
         report_mode = "summary"
+
+    # For Detailed / Both mode without explicit locality or sector filter in domestic:
+    # Mirror the UI default (top 3 localities) to prevent serverless timeout / 600-page overload
+    all_loc_param = request.args.get("all_loc", "0").strip()
+    if report_mode in ("detailed", "both") and category == "domestic" and not req_localities and not req_sectors and all_loc_param != "1":
+        if len(selected_localities) > 3:
+            selected_localities = selected_localities[:3]
 
     raw_cols_str = request.args.get("cols", "")
     req_cols = [c.strip() for c in raw_cols_str.split(",") if c.strip()] if raw_cols_str else request.args.getlist("col")

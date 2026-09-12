@@ -809,6 +809,7 @@
     }
 
     // Update export URLs
+    window.currentSelectedLocalities = selectedLocalities;
     syncExportLinks(selectedLocalities);
   }
 
@@ -1810,6 +1811,9 @@
   }
 
   function syncExportLinks(selectedLocalities) {
+    if ((!selectedLocalities || selectedLocalities.length === 0) && window.currentSelectedLocalities && window.currentSelectedLocalities.length > 0) {
+      selectedLocalities = window.currentSelectedLocalities;
+    }
     var mode = document.querySelector('input[name="mode"]:checked');
     var modeVal = mode ? mode.value : 'summary';
     var colsInput = document.getElementById('selected-cols-input');
