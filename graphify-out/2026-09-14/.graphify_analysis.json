@@ -888,41 +888,8 @@
       "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
     }
   ],
-  "questions": [
-    {
-      "type": "bridge_node",
-      "question": "Why does `classify()` connect `data_comparison.py` to `build_handover_dataset`, `audit_engine.py`?",
-      "why": "High betweenness centrality (0.097) - this node is a cross-community bridge."
-    },
-    {
-      "type": "bridge_node",
-      "question": "Why does `parse_register()` connect `audit_engine.py` to `data_comparison.py`?",
-      "why": "High betweenness centrality (0.090) - this node is a cross-community bridge."
-    },
-    {
-      "type": "verify_inferred",
-      "question": "Are the 8 inferred relationships involving `ParagraphStyle` (e.g. with `build_arrears_pdf()` and `_report_pdf()`) actually correct?",
-      "why": "`ParagraphStyle` has 8 INFERRED edges - model-reasoned connections that need verification."
-    },
-    {
-      "type": "isolated_nodes",
-      "question": "What connects `Sector-wise auditor for the DNS Register connection CSVs. Pure logic, no Flask.…`, `4,800' -> 4800.0, '' -> 0.0, garbage -> None.`, `4,800 / 2,400' -> (4800.0, 2400.0). Demand / collection in one cell.` to the rest of the system?",
-      "why": "159 weakly-connected nodes found - possible documentation gaps or missing edges."
-    },
-    {
-      "type": "low_cohesion",
-      "question": "Should `BytesIO` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.05541368743615935 - nodes in this community are weakly interconnected."
-    },
-    {
-      "type": "low_cohesion",
-      "question": "Should `DataFrame` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.08418367346938775 - nodes in this community are weakly interconnected."
-    },
-    {
-      "type": "low_cohesion",
-      "question": "Should `data_comparison.py` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.08244680851063829 - nodes in this community are weakly interconnected."
-    }
-  ]
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
 }
