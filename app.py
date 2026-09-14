@@ -3442,6 +3442,7 @@ def get_filtered_bills(
     sector: str | None = None,
     zone: str | None = None,
     staff_id: int | None = None,
+    sort_amount: str = "",
 ):
     init_bill_list_db()
     with get_db() as conn:
@@ -3511,7 +3512,12 @@ def get_filtered_bills(
             params.append(staff_id)
             params.append(staff_id)
 
-        base_query += " ORDER BY b.zone, b.sector, b.locality, b.bill_no"
+        if sort_amount == "desc":
+            base_query += " ORDER BY outstanding_amount DESC, b.total_bill DESC, b.zone, b.sector, b.locality, b.bill_no"
+        elif sort_amount == "asc":
+            base_query += " ORDER BY outstanding_amount ASC, b.total_bill ASC, b.zone, b.sector, b.locality, b.bill_no"
+        else:
+            base_query += " ORDER BY b.zone, b.sector, b.locality, b.bill_no"
 
         rows = conn.execute(base_query, params).fetchall()
 
@@ -3551,6 +3557,10 @@ def get_filtered_bills(
             "status": row["status"] or "",
             "consumer_mobile": consumer_mobile,
         })
+    if sort_amount == "desc":
+        bills.sort(key=lambda b: (b["outstanding_amount"], b["total_bill"]), reverse=True)
+    elif sort_amount == "asc":
+        bills.sort(key=lambda b: (b["outstanding_amount"], b["total_bill"]))
     return bills
 
 
@@ -3619,7 +3629,7 @@ def _zone_sort_key(zone_name: str) -> tuple:
     return (rank, n)
 
 
-def group_bills(bills: list[dict], group_by: str) -> list[tuple]:
+def group_bills(bills: list[dict], group_by: str, sort_amount: str = "") -> list[tuple]:
     """Group bills by sector/zone/staff.
 
     Returns:
@@ -3634,14 +3644,30 @@ def group_bills(bills: list[dict], group_by: str) -> list[tuple]:
             k = bill.get("sector") or "Unknown Sector"
             groups.setdefault(k, []).append(bill)
         keys = sorted(groups.keys(), key=lambda k: (k == "Unknown Sector", k.lower()))
-        return [(k, groups[k]) for k in keys]
+        out = []
+        for k in keys:
+            b_list = groups[k]
+            if sort_amount == "desc":
+                b_list.sort(key=lambda b: (b.get("outstanding_amount", 0), b.get("total_bill", 0)), reverse=True)
+            elif sort_amount == "asc":
+                b_list.sort(key=lambda b: (b.get("outstanding_amount", 0), b.get("total_bill", 0)))
+            out.append((k, b_list))
+        return out
     if group_by == "zone":
         groups = {}
         for bill in bills:
             k = bill.get("zone") or "Unknown Zone"
             groups.setdefault(k, []).append(bill)
         keys = sorted(groups.keys(), key=lambda k: (_zone_sort_key(k)[0] if k != "Unknown Zone" else 99, k.lower()))
-        return [(k, groups[k]) for k in keys]
+        out = []
+        for k in keys:
+            b_list = groups[k]
+            if sort_amount == "desc":
+                b_list.sort(key=lambda b: (b.get("outstanding_amount", 0), b.get("total_bill", 0)), reverse=True)
+            elif sort_amount == "asc":
+                b_list.sort(key=lambda b: (b.get("outstanding_amount", 0), b.get("total_bill", 0)))
+            out.append((k, b_list))
+        return out
     if group_by == "staff":
         bills = map_bills_to_staff(bills)
         zone_groups: dict[str, dict[str, list]] = {}
@@ -3653,8 +3679,17 @@ def group_bills(bills: list[dict], group_by: str) -> list[tuple]:
         out = []
         for z in z_keys:
             for sn in sorted(zone_groups[z].keys(), key=str.lower):
-                out.append((z, sn, zone_groups[z][sn]))
+                b_list = zone_groups[z][sn]
+                if sort_amount == "desc":
+                    b_list.sort(key=lambda b: (b.get("outstanding_amount", 0), b.get("total_bill", 0)), reverse=True)
+                elif sort_amount == "asc":
+                    b_list.sort(key=lambda b: (b.get("outstanding_amount", 0), b.get("total_bill", 0)))
+                out.append((z, sn, b_list))
         return out
+    if sort_amount == "desc":
+        bills.sort(key=lambda b: (b.get("outstanding_amount", 0), b.get("total_bill", 0)), reverse=True)
+    elif sort_amount == "asc":
+        bills.sort(key=lambda b: (b.get("outstanding_amount", 0), b.get("total_bill", 0)))
     return [("All Bills", bills)]
 
 
@@ -4219,7 +4254,7 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
     )
 
 
-def export_advanced_bills_response(fmt_type: str, bills: list[dict], filters_applied: str, show_summary: bool = True, cols_param: str = None, group_by: str = "normal"):
+def export_advanced_bills_response(fmt_type: str, bills: list[dict], filters_applied: str, show_summary: bool = True, cols_param: str = None, group_by: str = "normal", sort_amount: str = ""):
     if not bills:
         flash("No bills match the selected filters.")
         return redirect(url_for("bill_list"))
@@ -4266,7 +4301,7 @@ def export_advanced_bills_response(fmt_type: str, bills: list[dict], filters_app
 
     if fmt_type == "pdf":
         if group_by in ("sector", "zone", "staff"):
-            groups = group_bills(bills, group_by)
+            groups = group_bills(bills, group_by, sort_amount=sort_amount)
             pdf_bytes = generate_grouped_advanced_pdf(group_by, groups, filters_applied, cols_param=cols_param)
         else:
             pdf_bytes = generate_advanced_filtered_pdf(bills, filters_applied, show_summary=show_summary, cols_param=cols_param)
@@ -6768,6 +6803,7 @@ def export_advanced_bills(fmt_type: str):
     show_summary = request.args.get("show_summary", "0") == "1"
     cols_param = request.args.get("cols")
     group_by = request.args.get("group_by", "normal")
+    sort_amount = request.args.get("sort_amount") or request.args.get("sort_by") or ""
 
     bills = get_filtered_bills(
         outstanding_amount=outstanding_amount,
@@ -6776,6 +6812,7 @@ def export_advanced_bills(fmt_type: str):
         sector=sector,
         zone=zone,
         staff_id=staff_id,
+        sort_amount=sort_amount,
     )
 
     staff_name = None
@@ -6796,6 +6833,10 @@ def export_advanced_bills(fmt_type: str):
         filters_list.append(f"Zone: {zone}")
     if staff_name:
         filters_list.append(f"Staff: {staff_name}")
+    if sort_amount == "desc":
+        filters_list.append("Sort: Highest to Lowest")
+    elif sort_amount == "asc":
+        filters_list.append("Sort: Lowest to Highest")
 
     filters_applied = ", ".join(filters_list) if filters_list else "None"
 
@@ -6806,7 +6847,7 @@ def export_advanced_bills(fmt_type: str):
         if group_by not in ("sector", "zone", "staff"):
             flash("ZIP export is available for Sector-wise, Zone-wise, and Staff-wise reports only.")
             return redirect(url_for("bill_list"))
-        groups = group_bills(bills, group_by)
+        groups = group_bills(bills, group_by, sort_amount=sort_amount)
         if not groups:
             flash("No bills match the selected filters for ZIP export.")
             return redirect(url_for("bill_list"))
@@ -6823,10 +6864,12 @@ def export_advanced_bills(fmt_type: str):
             zip_parts.append(f"Zone_{zone}")
         if staff_name:
             zip_parts.append(f"Staff_{staff_name.replace(' ', '_')}")
+        if sort_amount:
+            zip_parts.append(f"Sort_{sort_amount.upper()}")
         zip_filename = sanitize_filename("_".join(zip_parts)) + ".zip"
         return Response(zip_buf.getvalue(), mimetype="application/zip", headers={"Content-Disposition": f"attachment; filename={zip_filename}"})
 
-    return export_advanced_bills_response(fmt_type, bills, filters_applied, show_summary=show_summary, cols_param=cols_param, group_by=group_by)
+    return export_advanced_bills_response(fmt_type, bills, filters_applied, show_summary=show_summary, cols_param=cols_param, group_by=group_by, sort_amount=sort_amount)
 
 
 # ---------------------------------------------------------------------------

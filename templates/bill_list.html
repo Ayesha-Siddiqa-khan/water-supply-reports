@@ -201,6 +201,14 @@
               </div>
             </div>
           </label>
+          <label class="field">
+            <span>Sort by Amount</span>
+            <select class="filter-select" id="filter-sort-amount">
+              <option value="">Default Order</option>
+              <option value="desc">Highest to Lowest</option>
+              <option value="asc">Lowest to Highest</option>
+            </select>
+          </label>
         </div>
         <label class="check-field" style="margin-bottom:12px;">
           <input type="checkbox" id="show-summary-pdf" />
@@ -1267,6 +1275,7 @@
   const filterSector = document.getElementById('filter-sector');
   const filterZone = document.getElementById('filter-zone');
   const filterStaff = document.getElementById('filter-staff');
+  const filterSortAmount = document.getElementById('filter-sort-amount');
   const advancedExportPdf = document.getElementById('advanced-export-pdf');
   const advancedExportCsv = document.getElementById('advanced-export-csv');
   const advancedExportXlsx = document.getElementById('advanced-export-xlsx');
@@ -1280,6 +1289,7 @@
     if (filterSector && filterSector.value) params.set('sector', filterSector.value);
     if (filterZone && filterZone.value) params.set('zone', filterZone.value);
     if (filterStaff && filterStaff.value) params.set('staff_id', filterStaff.value);
+    if (filterSortAmount && filterSortAmount.value) params.set('sort_amount', filterSortAmount.value);
     const query = params.toString();
     return query ? '?' + query : '';
   }
@@ -1291,6 +1301,8 @@
     if (filterSector && filterSector.value) parts.push('Sector: ' + filterSector.value);
     if (filterZone && filterZone.value) parts.push('Zone: ' + filterZone.value);
     if (filterStaff && filterStaff.value) parts.push('Staff: ' + filterStaff.options[filterStaff.selectedIndex].text);
+    if (filterSortAmount && filterSortAmount.value === 'desc') parts.push('Sort: Highest to Lowest');
+    else if (filterSortAmount && filterSortAmount.value === 'asc') parts.push('Sort: Lowest to Highest');
     if (advancedFilterSummary) advancedFilterSummary.textContent = parts.length ? 'Active filters: ' + parts.join(', ') : '';
   }
 
@@ -1520,6 +1532,7 @@
   if (filterSector) filterSector.addEventListener('change', onAdvancedFilterChange);
   if (filterZone) filterZone.addEventListener('change', onAdvancedFilterChange);
   if (filterStaff) filterStaff.addEventListener('change', onAdvancedFilterChange);
+  if (filterSortAmount) filterSortAmount.addEventListener('change', onAdvancedFilterChange);
   onAdvancedFilterChange();
   if (showSummaryCheckbox) showSummaryCheckbox.addEventListener('change', refreshAllExportLinks);
   if (seasonSelect) seasonSelect.addEventListener('change', refreshAllExportLinks);
