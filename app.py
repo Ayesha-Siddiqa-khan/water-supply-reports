@@ -3850,11 +3850,7 @@ class _GroupedPdfWrapper:
             self.elements.append(PageBreak())
         self._group_count += 1
 
-        if zone != self._zone_label:
-            self._write_heading(f"Zone: {zone}")
-            self._zone_label = zone
-
-        self._write_staff_heading(staff_name, group_bills)
+        self._write_staff_heading(zone, staff_name, group_bills)
         self._write_summary(group_bills)
         self._add_detail_table(group_bills)
 
@@ -3864,22 +3860,20 @@ class _GroupedPdfWrapper:
     def _write_heading(self, text):
         self.elements.append(Paragraph(text, self.group_heading_style))
 
-    def _write_staff_heading(self, staff_name, bills):
+    def _write_staff_heading(self, zone, staff_name, bills):
         display = fmt_staff_name(staff_name).replace("\n", " / ")
-        self.elements.append(Paragraph(f"Staff: {display}", self.group_heading_style))
-
-        zones = sorted(set(b["zone"] for b in bills if b.get("zone")), key=lambda z: (_zone_sort_key(z)[0], z.lower()))
-        if not zones:
-            zones = ["Unknown"]
-        zone_prefix = "Zones" if len(zones) > 1 else "Zone"
-        self.elements.append(Paragraph(f"<b>{zone_prefix}:</b> {', '.join(zones)}", self.group_sub_style))
+        if not zone:
+            zones = sorted(set(b["zone"] for b in bills if b.get("zone")), key=lambda z: (_zone_sort_key(z)[0], z.lower()))
+            zone = ", ".join(zones) if zones else ""
+        if zone:
+            heading_text = f"Zone: {zone} &nbsp;—&nbsp; Staff: {display}"
+        else:
+            heading_text = f"Staff: {display}"
+        self.elements.append(Paragraph(heading_text, self.group_heading_style))
 
         sectors = sorted(set(b["sector"] for b in bills if b.get("sector")))
-        ctx_parts = []
         if sectors:
-            ctx_parts.append(f"<b>Sectors:</b> {', '.join(sectors)}")
-        if ctx_parts:
-            self.elements.append(Paragraph(" &nbsp;|&nbsp; ".join(ctx_parts), self.group_sub_style))
+            self.elements.append(Paragraph(f"<b>Sectors:</b> {', '.join(sectors)}", self.group_sub_style))
 
     def _write_summary(self, bills):
         total_b = len(bills)
@@ -3954,15 +3948,15 @@ def _calc_col_widths(headers, page_w, n):
     fixed_widths_mm = {
         "Sr": 9,
         "Bill No": 18,
-        "Reference No": 18,
-        "Connection No": 22,
+        "Reference No": 20,
+        "Connection No": 24,
         "Mobile No": 25,
         "Zone": 16,
-        "Total Bill": 20,
+        "Total Bill": 21,
         "Arrears": 20,
-        "Amount Received": 20,
-        "Outstanding": 20,
-        "Status": 15,
+        "Amount Received": 24,
+        "Outstanding": 26,
+        "Status": 16,
     }
     flex_weights = {
         "Locality": 0.50,
@@ -3992,16 +3986,16 @@ def _calc_col_widths(headers, page_w, n):
     prop = {
         "Sr": 3.5,
         "Bill No": 7,
-        "Reference No": 7,
-        "Connection No": 8,
+        "Reference No": 8,
+        "Connection No": 9,
         "Consumer Name": 18,
         "Sector": 10,
         "Locality": 24,
         "Zone": 6,
         "Total Bill": 8,
         "Arrears": 8,
-        "Amount Received": 8,
-        "Outstanding": 8,
+        "Amount Received": 9,
+        "Outstanding": 10,
         "Status": 6,
         "Mobile No": 9,
     }
