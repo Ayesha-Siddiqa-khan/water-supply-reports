@@ -4,12 +4,12 @@
 - cluster-only mode — file stats not available
 
 ## Summary
-- 628 nodes · 1570 edges · 48 communities (35 shown, 13 thin omitted)
+- 628 nodes · 1570 edges · 47 communities (34 shown, 13 thin omitted)
 - Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 52 edges (avg confidence: 0.61)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `ca0faadb`
+- Built from commit: `edae4620`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -26,7 +26,7 @@
 - build_daily_staff_receive_report
 - parse_number
 - handover.py
-- _build_new_connection_detail_report
+- allowed_file
 - consumer_report
 - main
 - handover
@@ -51,7 +51,6 @@
 - code:bash (# Development server)
 - code:text (You are working on an existing running application. This app)
 - code:bash (claude)
-- _numeric_amounts
 
 ## God Nodes (most connected - your core abstractions)
 1. `fmt()` - 33 edges
@@ -80,7 +79,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (48 total, 13 thin omitted)
+## Communities (47 total, 13 thin omitted)
 
 ### Community 0 - "BytesIO"
 Cohesion: 0.06
@@ -103,8 +102,8 @@ Cohesion: 0.11
 Nodes (37): Any, _app(), arrears_analysis(), arrears_analysis_print(), _arrears_dir(), build_arrears_pdf(), classify_status(), compute_arrears_analysis() (+29 more)
 
 ### Community 5 - "app.py"
-Cohesion: 0.07
-Nodes (30): apply_manual_zone_overrides(), backfill_bill_arrears(), _build_dnc_register_report(), _dnc_classification(), _dnc_money(), _dnc_pair(), _dnc_rate_and_classification(), dnc_register() (+22 more)
+Cohesion: 0.08
+Nodes (33): apply_manual_zone_overrides(), backfill_bill_arrears(), _build_new_connection_detail_report(), _clear_new_connection_detail_cache(), export_sectors_summary(), export_staff_summary(), export_zones_summary(), file_column_matcher() (+25 more)
 
 ### Community 6 - "audit_engine.py"
 Cohesion: 0.09
@@ -130,9 +129,9 @@ Nodes (21): _bill_list_summary_from_rows(), _connection_rate_rows_from_payload()
 Cohesion: 0.14
 Nodes (17): _compose(), _conn_key(), _draw_ring_text(), _draw_signature_band(), _draw_star(), _draw_watermark(), _emblem_path(), _key_frame() (+9 more)
 
-### Community 12 - "_build_new_connection_detail_report"
-Cohesion: 0.17
-Nodes (17): allowed_file(), _build_new_connection_detail_report(), _clear_new_connection_detail_cache(), _load_new_connection_detail_cache(), _ncd_classification(), _ncd_decimal(), _ncd_int(), _ncd_load_file() (+9 more)
+### Community 12 - "allowed_file"
+Cohesion: 0.21
+Nodes (12): allowed_file(), _build_dnc_register_report(), _dnc_classification(), _dnc_money(), _dnc_pair(), _dnc_rate_and_classification(), dnc_register(), _dnc_report_rows() (+4 more)
 
 ### Community 13 - "consumer_report"
 Cohesion: 0.14
@@ -147,16 +146,16 @@ Cohesion: 0.17
 Nodes (16): _app(), _gunzip(), handover(), _handover_dir(), handover_status(), _list_snapshots(), load_dataset(), Read an uploaded CSV/XLSX as text so connection numbers keep leading zeros. (+8 more)
 
 ### Community 16 - "NumberedCanvas"
-Cohesion: 0.22
-Nodes (5): Flowable, NumberedCanvas, _PageMark, A zero-height marker that reports the page it lands on.      Placed at the hea, Canvas that stamps "Page X of Y" once the total is known.      ReportLab strea
+Cohesion: 0.16
+Nodes (7): Flowable, NumberedCanvas, _page_furniture(), _PageMark, A zero-height marker that reports the page it lands on.      Placed at the hea, Canvas that stamps "Page X of Y" once the total is known.      ReportLab strea, Page-begin callback.      Runs before the frame lays its flowables down, which
 
 ### Community 17 - "index"
-Cohesion: 0.24
-Nodes (13): ajax_error(), ajax_ok(), arrear_calculator(), build_dashboard_results(), daily_staff_receive(), index(), is_ajax(), _load_dashboard_results() (+5 more)
+Cohesion: 0.21
+Nodes (15): ajax_error(), ajax_ok(), arrear_calculator(), build_dashboard_results(), daily_staff_receive(), index(), is_ajax(), _load_dashboard_results() (+7 more)
 
 ### Community 18 - "export_handover"
-Cohesion: 0.20
-Nodes (9): detail_rows(), export_handover(), _index_flowables(), _page_furniture(), The one date the register carries.      A finalised record is dated when it wa, The table of contents: sector name on the left, page on the right.      ``offs, Page-begin callback.      Runs before the frame lays its flowables down, which, report_date() (+1 more)
+Cohesion: 0.18
+Nodes (11): detail_rows(), export_handover(), _index_flowables(), _numeric_amounts(), The one date the register carries.      A finalised record is dated when it wa, Write money columns to Excel as numbers, not "13,040" text, so the     arrears, Parse a money cell tolerantly.      Pulls the first number out rather than del, The table of contents: sector name on the left, page on the right.      ``offs (+3 more)
 
 ### Community 19 - "upload-progress.js"
 Cohesion: 0.44
@@ -177,10 +176,6 @@ Nodes (4): maxDuration, functions, app.py, $schema
 ### Community 23 - "Water Supply Report Application"
 Cohesion: 0.50
 Nodes (4): Water Supply Report Application, Python Libraries (numpy, pandas, openpyxl, reportlab), Flask Framework, bill_list.sqlite3 Database
-
-### Community 47 - "_numeric_amounts"
-Cohesion: 0.50
-Nodes (4): _numeric_amounts(), Write money columns to Excel as numbers, not "13,040" text, so the     arrears, Parse a money cell tolerantly.      Pulls the first number out rather than del, _to_amount()
 
 ## Knowledge Gaps
 - **7 isolated node(s):** `$schema`, `maxDuration`, `code:block1 (/graphify . --update)`, `code:block2 (/graphify query "how does bill upload work")`, `code:bash (# Development server)` (+2 more)

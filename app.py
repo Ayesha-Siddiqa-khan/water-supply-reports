@@ -2090,7 +2090,7 @@ def generate_card_pdf(
         left_margin = right_margin = 15 * mm
         top_margin = 20 * mm
         bottom_margin = 15 * mm
-        title_fs = 20
+        title_fs = 16 if len(title) > 35 else 20
         title_sa = 6*mm
         summary_fs = max(10, 11)
         summary_sa = 2*mm
@@ -2119,6 +2119,7 @@ def generate_card_pdf(
     )
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle("PDFTitle", parent=styles["Heading1"], fontSize=title_fs,
+                                  leading=title_fs + 3,
                                   textColor=ACCENT, alignment=1, spaceAfter=title_sa,
                                   fontName="Helvetica-Bold")
     summary_style = ParagraphStyle("PDFSummary", parent=styles["Normal"], fontSize=summary_fs,
@@ -7554,19 +7555,33 @@ def export_bill_income_category_summary(fmt_type: str):
     if category:
         title = f"{category.replace('-', ' ').title()} {mode_label} Summary"
         filename = f"bill_{mode}_{category}_summary"
+    elif mode == "income":
+        title = "Domestic, Commercial, and Private Societies total income"
 
     if fmt_type == "pdf":
         page_w = A4[0] - 30 * mm
+        income_col_weights = {
+            "Category": 0.21,
+            "Connections": 0.19,
+            "Rate (Rs./Year)": 0.18,
+            "No. of Bills": 0.16,
+            "Amount Received": 0.26,
+            "Arrears Received": 0.24,
+            "Unpaid Amount": 0.24,
+        }
+        fw_sum = sum(income_col_weights.get(h, 0.2) for h in headers)
+        col_widths = [page_w * (income_col_weights.get(h, 0.2) / fw_sum) for h in headers]
         pdf_bytes = generate_card_pdf(
             title,
             [f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}"],
             headers,
             rows,
             grand,
-            col_widths=[page_w / len(headers)] * len(headers),
+            col_widths=col_widths,
             left_cols=[0],
             header_font_size=10,
             body_font_size=10,
+            cell_padding=6,
         )
         return Response(pdf_bytes, mimetype="application/pdf", headers={"Content-Disposition": f"attachment; filename={filename}.pdf"})
     if fmt_type == "csv":
@@ -8137,8 +8152,8 @@ def download_card(card: str, fmt_type: str):
         grand = ["Grand Total", fmt(gt_count), fmt(gt_arrears), fmt(gt_amount)]
 
     elif card.startswith("income-"):
-        title = "Income Category Summary"
-        summary = ["<b>Domestic, Commercial, and Private Societies total income</b>"]
+        title = "Domestic, Commercial, and Private Societies total income"
+        summary = []
         headers = ["Category", "Connections", "Rate (Rs./Year)", "No. of Bills", "Amount Received"]
         category_filter = {
             "income-domestic": "Domestic",
@@ -8148,7 +8163,7 @@ def download_card(card: str, fmt_type: str):
         source_rows = r.get("income_category_summary", [])
         if category_filter:
             source_rows = [row for row in source_rows if row.get("category") == category_filter]
-            title = f"{category_filter} Income Summary"
+            title = f"{category_filter} Total Income"
         rows = []
         gt_connections, gt_bills, gt_amount = 0, 0, 0
         for row in source_rows:
@@ -8430,11 +8445,22 @@ def download_card(card: str, fmt_type: str):
                 }
             elif card.startswith("income-"):
                 page_w = A4[0] - 30 * mm
-                col_widths = [page_w * 0.30, page_w * 0.16, page_w * 0.18, page_w * 0.16, page_w * 0.20]
+                income_col_weights = {
+                    "Category": 0.21,
+                    "Connections": 0.19,
+                    "Rate (Rs./Year)": 0.18,
+                    "No. of Bills": 0.16,
+                    "Amount Received": 0.26,
+                }
+                fw_sum = sum(income_col_weights.get(h, 0.2) for h in pdf_headers)
+                col_widths = [page_w * (income_col_weights.get(h, 0.2) / fw_sum) for h in pdf_headers]
                 pdf_kwargs = {
                     "pagesize": A4,
                     "col_widths": col_widths,
                     "first_col_left": True,
+                    "header_font_size": 10,
+                    "body_font_size": 10,
+                    "cell_padding": 6,
                 }
             elif card == "commercial-monthly":
                 monthly_sections = []
