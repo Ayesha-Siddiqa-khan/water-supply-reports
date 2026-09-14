@@ -1738,7 +1738,7 @@ ACCENT2 = colors.black
 HEADER_BG = colors.HexColor("#f1f5f9")
 HEADER_FG = colors.black
 ALT_ROW = colors.HexColor("#f8fafc")
-BORDER_CLR = colors.HexColor("#94a3b8")
+BORDER_CLR = colors.HexColor("#555555")
 
 
 def _make_pdf_table(
@@ -2082,8 +2082,8 @@ def generate_card_pdf(
         section_fs = 12
         section_sb = 4*mm
         section_sa = 2*mm
-        hdr_fs = 10
-        bdy_fs = 10
+        hdr_fs = max(10, header_font_size) if header_font_size else 10
+        bdy_fs = max(10, body_font_size) if body_font_size else 10
         cp = 8
         extra_spacer = 4*mm
     else:
@@ -2092,15 +2092,15 @@ def generate_card_pdf(
         bottom_margin = 15 * mm
         title_fs = 20
         title_sa = 6*mm
-        summary_fs = 11
+        summary_fs = max(10, 11)
         summary_sa = 2*mm
         summary_leading = 16
         summary_spacer = 8*mm
         section_fs = 14
         section_sb = 6*mm
         section_sa = 3*mm
-        hdr_fs = header_font_size
-        bdy_fs = body_font_size
+        hdr_fs = max(10, header_font_size)
+        bdy_fs = max(10, body_font_size)
         cp = cell_padding
         extra_spacer = 2*mm
 
@@ -2282,7 +2282,7 @@ def _bracket_rich_text(text: str, base_style: ParagraphStyle, small_size: int) -
 
 def wrap_pdf_body_cells(
     rows: list[list],
-    font_size: int = 8,
+    font_size: int = 10,
     large_text_threshold: int = 22,
     left_columns: set[int] | None = None,
     bold_rows: set[int] | None = None,
@@ -2293,6 +2293,7 @@ def wrap_pdf_body_cells(
     left_columns = left_columns or set()
     bold_rows = bold_rows or set()
     bracket_cols = bracket_cols or set()
+    eff_font_size = max(10, font_size)
     for ri, row in enumerate(rows):
         wrapped_row = []
         for col_idx, value in enumerate(row):
@@ -2306,15 +2307,15 @@ def wrap_pdf_body_cells(
                 "PDFBodyCellLeft" if align == 0 else "PDFBodyCellCenter",
                 parent=styles["Normal"],
                 fontName=font_name,
-                fontSize=font_size,
-                leading=font_size + 1,
+                fontSize=eff_font_size,
+                leading=eff_font_size + 2,
                 alignment=align,
                 wordWrap="CJK",
             )
             cell_text = str(value or "").replace("\n", "<br/>")
-            # Render bracket text at a smaller font size for Sector/Locality columns
+            # Render bracket text for Sector/Locality columns without dropping below font size 10
             if bracket_cols and col_idx in bracket_cols and "(" in cell_text:
-                segments = _bracket_rich_text(cell_text, cell_style, max(7, font_size - 2))
+                segments = _bracket_rich_text(cell_text, cell_style, eff_font_size)
                 # Build a mini-ParagraphStyle that supports mixed font sizes
                 # by concatenating with <font> tags
                 rich_parts = []
@@ -2551,7 +2552,7 @@ def generate_zone_grouped_pdf(title, summary_lines, grouped_sections, overall_to
         for i in range(2, grand_idx):
             if i % 2 == 0:
                 st.add("BACKGROUND", (0, i), (-1, i), ALT_ROW)
-        st.add("BACKGROUND", (0, grand_idx), (-1, grand_idx), colors.HexColor("#e6d8c8"))
+        st.add("BACKGROUND", (0, grand_idx), (-1, grand_idx), HEADER_BG)
         st.add("FONTNAME", (0, grand_idx), (-1, grand_idx), "Helvetica-Bold")
         summary_table.setStyle(st)
         elements.append(summary_table)
@@ -3678,45 +3679,127 @@ def generate_grouped_advanced_pdf(
     total_outstanding_all = 0
     total_bills_all = 0
     total_amount_all = 0
+    total_arrears_all = 0
     for item in groups:
         item_bills = item[2] if len(item) == 3 else item[1]
         for b in item_bills:
             total_bills_all += 1
             total_amount_all += b["total_bill"]
             total_outstanding_all += b["outstanding_amount"]
+            total_arrears_all += b.get("arrears", 0)
 
     group_label_singular = {"sector": "Sector", "zone": "Zone", "staff": "Staff"}.get(group_type, "")
     group_label_plural = {"sector": "Sectors", "zone": "Zones", "staff": "Staff"}.get(group_type, "")
 
     buf = io.BytesIO()
-    margin = 4 * mm
+    margin = 10 * mm
     doc = SimpleDocTemplate(
         buf,
         pagesize=landscape(A4),
-        topMargin=8 * mm,
-        bottomMargin=6 * mm,
+        topMargin=10 * mm,
+        bottomMargin=8 * mm,
         leftMargin=margin,
         rightMargin=margin,
     )
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle("PDFTitle", parent=styles["Heading1"], fontSize=16, textColor=ACCENT, alignment=1, spaceAfter=3 * mm, fontName="Helvetica-Bold")
-    summary_style = ParagraphStyle("PDFSummary", parent=styles["Normal"], fontSize=9, alignment=0, spaceAfter=1 * mm, textColor=colors.black, leading=13)
-    group_heading_style = ParagraphStyle("GroupHeading", parent=styles["Heading2"], fontSize=12, textColor=ACCENT, spaceBefore=4 * mm, spaceAfter=1 * mm, fontName="Helvetica-Bold", alignment=0)
-    group_sub_style = ParagraphStyle("GroupSub", parent=styles["Normal"], fontSize=8, textColor=colors.black, spaceAfter=1.5 * mm, alignment=0, leading=11)
+    title_style = ParagraphStyle("PDFTitle", parent=styles["Heading1"], fontSize=18, textColor=colors.black, alignment=1, spaceAfter=4 * mm, fontName="Helvetica-Bold")
+    summary_style = ParagraphStyle("PDFSummary", parent=styles["Normal"], fontSize=10, alignment=0, spaceAfter=2 * mm, textColor=colors.black, leading=14)
+    group_heading_style = ParagraphStyle("GroupHeading", parent=styles["Heading2"], fontSize=13, textColor=colors.black, spaceBefore=4 * mm, spaceAfter=2 * mm, fontName="Helvetica-Bold", alignment=0)
+    group_sub_style = ParagraphStyle("GroupSub", parent=styles["Normal"], fontSize=10, textColor=colors.black, spaceAfter=2 * mm, alignment=0, leading=14)
 
+    page_w = landscape(A4)[0] - margin - margin
+
+    # --- COVER / EXECUTIVE SUMMARY PAGE (PAGE 1) ---
     elements = [Paragraph(f"Advanced Bill Filter Report — {group_label_plural}", title_style)]
     elements.append(Paragraph(f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}", summary_style))
     elements.append(Paragraph(f"<b>Filters:</b> {filters_applied}", summary_style))
-    elements.append(Paragraph(f"<b>Total Bills:</b> {total_bills_all:,} &nbsp;&nbsp; <b>Total Outstanding:</b> Rs. {fmt(total_outstanding_all)}", summary_style))
-    elements.append(Spacer(1, 3 * mm))
+    elements.append(Paragraph(f"<b>Total Bills:</b> {total_bills_all:,} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Total Amount:</b> Rs. {fmt(total_amount_all)} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Total Outstanding:</b> Rs. {fmt(total_outstanding_all)}", summary_style))
+    elements.append(Spacer(1, 4 * mm))
+
+    # Add high-level group overview table on Page 1
+    if groups:
+        if group_type == "staff":
+            s_hdr = ["Sr", "Zone", "Staff Name", "Total Bills", "Total Amount", "Arrears", "Outstanding"]
+            s_data = [[Paragraph(f"<b>{h}</b>", ParagraphStyle("SHdr", parent=styles["Normal"], fontSize=10, leading=12, alignment=1, textColor=HEADER_FG, fontName="Helvetica-Bold")) for h in s_hdr]]
+            for s_idx, item in enumerate(groups, start=1):
+                s_zone, s_staff, s_bills = item
+                sb_cnt = len(s_bills)
+                sb_amt = sum(b["total_bill"] for b in s_bills)
+                sb_arr = sum(b["arrears"] for b in s_bills)
+                sb_out = sum(b["outstanding_amount"] for b in s_bills)
+                s_name = fmt_staff_name(s_staff).replace("\n", " / ")
+                s_data.append([
+                    Paragraph(str(s_idx), ParagraphStyle("SCellC", fontSize=10, leading=12, alignment=1)),
+                    Paragraph(str(s_zone), ParagraphStyle("SCellC", fontSize=10, leading=12, alignment=1)),
+                    Paragraph(s_name, ParagraphStyle("SCellL", fontSize=10, leading=12, alignment=0)),
+                    Paragraph(f"{sb_cnt:,}", ParagraphStyle("SCellC", fontSize=10, leading=12, alignment=1)),
+                    Paragraph(fmt(sb_amt), ParagraphStyle("SCellC", fontSize=10, leading=12, alignment=1)),
+                    Paragraph(fmt(sb_arr), ParagraphStyle("SCellC", fontSize=10, leading=12, alignment=1)),
+                    Paragraph(fmt(sb_out), ParagraphStyle("SCellC", fontSize=10, leading=12, alignment=1)),
+                ])
+            s_data.append([
+                "",
+                Paragraph("<b>Grand Total</b>", ParagraphStyle("SCellB", fontSize=10, leading=12, alignment=0, fontName="Helvetica-Bold")),
+                "",
+                Paragraph(f"<b>{total_bills_all:,}</b>", ParagraphStyle("SCellBC", fontSize=10, leading=12, alignment=1, fontName="Helvetica-Bold")),
+                Paragraph(f"<b>{fmt(total_amount_all)}</b>", ParagraphStyle("SCellBC", fontSize=10, leading=12, alignment=1, fontName="Helvetica-Bold")),
+                Paragraph(f"<b>{fmt(total_arrears_all)}</b>", ParagraphStyle("SCellBC", fontSize=10, leading=12, alignment=1, fontName="Helvetica-Bold")),
+                Paragraph(f"<b>{fmt(total_outstanding_all)}</b>", ParagraphStyle("SCellBC", fontSize=10, leading=12, alignment=1, fontName="Helvetica-Bold")),
+            ])
+            s_widths = [page_w * 0.05, page_w * 0.12, page_w * 0.35, page_w * 0.12, page_w * 0.12, page_w * 0.12, page_w * 0.12]
+            sum_table = _make_pdf_table(
+                s_data,
+                col_widths=s_widths,
+                header_font_size=10,
+                body_font_size=10,
+                cell_padding=5,
+                left_cols=[2],
+            )
+            elements.append(sum_table)
+        elif group_type in ("sector", "zone"):
+            lbl = "Sector" if group_type == "sector" else "Zone"
+            s_hdr = ["Sr", lbl, "Total Bills", "Total Amount", "Arrears", "Outstanding"]
+            s_data = [[Paragraph(f"<b>{h}</b>", ParagraphStyle("SHdr", parent=styles["Normal"], fontSize=10, leading=12, alignment=1, textColor=HEADER_FG, fontName="Helvetica-Bold")) for h in s_hdr]]
+            for s_idx, item in enumerate(groups, start=1):
+                s_key, s_bills = item[0], item[1]
+                sb_cnt = len(s_bills)
+                sb_amt = sum(b["total_bill"] for b in s_bills)
+                sb_arr = sum(b["arrears"] for b in s_bills)
+                sb_out = sum(b["outstanding_amount"] for b in s_bills)
+                s_data.append([
+                    Paragraph(str(s_idx), ParagraphStyle("SCellC", fontSize=10, leading=12, alignment=1)),
+                    Paragraph(str(s_key), ParagraphStyle("SCellL", fontSize=10, leading=12, alignment=0)),
+                    Paragraph(f"{sb_cnt:,}", ParagraphStyle("SCellC", fontSize=10, leading=12, alignment=1)),
+                    Paragraph(fmt(sb_amt), ParagraphStyle("SCellC", fontSize=10, leading=12, alignment=1)),
+                    Paragraph(fmt(sb_arr), ParagraphStyle("SCellC", fontSize=10, leading=12, alignment=1)),
+                    Paragraph(fmt(sb_out), ParagraphStyle("SCellC", fontSize=10, leading=12, alignment=1)),
+                ])
+            s_data.append([
+                "",
+                Paragraph("<b>Grand Total</b>", ParagraphStyle("SCellB", fontSize=10, leading=12, alignment=0, fontName="Helvetica-Bold")),
+                Paragraph(f"<b>{total_bills_all:,}</b>", ParagraphStyle("SCellBC", fontSize=10, leading=12, alignment=1, fontName="Helvetica-Bold")),
+                Paragraph(f"<b>{fmt(total_amount_all)}</b>", ParagraphStyle("SCellBC", fontSize=10, leading=12, alignment=1, fontName="Helvetica-Bold")),
+                Paragraph(f"<b>{fmt(total_arrears_all)}</b>", ParagraphStyle("SCellBC", fontSize=10, leading=12, alignment=1, fontName="Helvetica-Bold")),
+                Paragraph(f"<b>{fmt(total_outstanding_all)}</b>", ParagraphStyle("SCellBC", fontSize=10, leading=12, alignment=1, fontName="Helvetica-Bold")),
+            ])
+            s_widths = [page_w * 0.06, page_w * 0.40, page_w * 0.13, page_w * 0.13, page_w * 0.14, page_w * 0.14]
+            sum_table = _make_pdf_table(
+                s_data,
+                col_widths=s_widths,
+                header_font_size=10,
+                body_font_size=10,
+                cell_padding=5,
+                left_cols=[1],
+            )
+            elements.append(sum_table)
+
+    # Page break after summary page so detail sections start on page 2
+    elements.append(PageBreak())
 
     n = len(headers)
-    page_w = landscape(A4)[0] - margin - margin
     col_widths = _calc_col_widths(headers, page_w, n)
-
-    left_cols = {i for i, h in enumerate(headers) if h == "Consumer Name"}
-
-    page_h = landscape(A4)[1] - 8 * mm - 6 * mm
+    left_cols = {i for i, h in enumerate(headers) if h in ("Consumer Name", "Locality", "Sector")}
+    page_h = landscape(A4)[1] - 10 * mm - 8 * mm
     wrapper = _GroupedPdfWrapper(doc, elements, headers, col_widths, group_heading_style, group_sub_style, group_label_singular, _col_indices, group_type, left_cols, page_h)
 
     for item in groups:
@@ -3731,10 +3814,10 @@ def generate_grouped_advanced_pdf(
 
 
 class _GroupedPdfWrapper:
-    """Helper to write grouped PDF sections with smart pagination and staff zone support."""
+    """Helper to write grouped PDF sections where each staff/group starts on a fresh page."""
 
-    _ROW_H = 6.5        # mm – estimated body row height (with padding)
-    _TOTAL_ROW_H = 7.5  # mm – estimated grand total row height
+    _ROW_H = 7.5        # mm – estimated body row height
+    _TOTAL_ROW_H = 8.5  # mm – estimated grand total row height
 
     def __init__(self, doc, elements, headers, col_widths, group_heading_style, group_sub_style, group_label, col_indices, group_type, left_cols, page_h):
         self.doc = doc
@@ -3747,54 +3830,29 @@ class _GroupedPdfWrapper:
         self.col_indices = col_indices
         self.group_type = group_type
         self.left_cols = left_cols
-        self._page_h = page_h       # usable height per page
-        self._used = 30 * mm        # title block: title + 3 summary lines + spacer
-        self._zone_label = ""       # current zone being rendered (staff-wise)
+        self._page_h = page_h
+        self._group_count = 0
+        self._zone_label = ""
 
     # ------------------------------------------------------------------
-    # Height estimation helpers
-    # ------------------------------------------------------------------
-    def _est(self, n_rows: int, sub_count: int = 0) -> float:
-        """Estimated mm needed for a group: heading + sub-lines + table header + body + total."""
-        heading = 9 * mm          # spaceBefore 4mm + text ~4mm + spaceAfter 1mm
-        sub = sub_count * 5 * mm
-        summary = 5 * mm          # leading 11pt + spaceAfter 1.5mm
-        spacer = 2 * mm
-        table_h = 7 * mm + n_rows * self._ROW_H + self._TOTAL_ROW_H
-        return heading + sub + summary + spacer + table_h
-
-    _MIN_GROUP = 45 * mm  # minimum mm needed: heading + summary + table header + 2 rows + total
-
-    def _maybe_new_page(self, needed_mm: float):
-        """Insert PageBreak before a group if remaining space is too small."""
-        if self._used > 0 and self._used + self._MIN_GROUP > self._page_h:
-            self.elements.append(PageBreak())
-            self._used = 0
-
-    def _track(self, added_mm: float):
-        self._used += added_mm
-        if self._used >= self._page_h:
-            self._used = self._used % self._page_h
-
-    # ------------------------------------------------------------------
-    # Group rendering methods
+    # Group rendering methods (each group starts on its own page)
     # ------------------------------------------------------------------
     def add_group(self, group_key, group_bills):
-        needed = self._est(len(group_bills))
-        self._maybe_new_page(needed)
+        if self._group_count > 0:
+            self.elements.append(PageBreak())
+        self._group_count += 1
         self._write_heading(f"{self.group_label}: {group_key}")
         self._write_summary(group_bills)
         self._add_detail_table(group_bills)
 
     def add_staff_group(self, zone, staff_name, group_bills):
+        if self._group_count > 0:
+            self.elements.append(PageBreak())
+        self._group_count += 1
+
         if zone != self._zone_label:
-            needed = 9 * mm + self._est(len(group_bills), sub_count=1)
-            self._maybe_new_page(needed)
             self._write_heading(f"Zone: {zone}")
             self._zone_label = zone
-        else:
-            needed = self._est(len(group_bills), sub_count=1)
-            self._maybe_new_page(needed)
 
         self._write_staff_heading(staff_name, group_bills)
         self._write_summary(group_bills)
@@ -3805,7 +3863,6 @@ class _GroupedPdfWrapper:
     # ------------------------------------------------------------------
     def _write_heading(self, text):
         self.elements.append(Paragraph(text, self.group_heading_style))
-        self._track(9 * mm)
 
     def _write_staff_heading(self, staff_name, bills):
         display = fmt_staff_name(staff_name).replace("\n", " / ")
@@ -3816,7 +3873,6 @@ class _GroupedPdfWrapper:
             zones = ["Unknown"]
         zone_prefix = "Zones" if len(zones) > 1 else "Zone"
         self.elements.append(Paragraph(f"<b>{zone_prefix}:</b> {', '.join(zones)}", self.group_sub_style))
-        self._track(5 * mm)
 
         sectors = sorted(set(b["sector"] for b in bills if b.get("sector")))
         ctx_parts = []
@@ -3824,8 +3880,6 @@ class _GroupedPdfWrapper:
             ctx_parts.append(f"<b>Sectors:</b> {', '.join(sectors)}")
         if ctx_parts:
             self.elements.append(Paragraph(" &nbsp;|&nbsp; ".join(ctx_parts), self.group_sub_style))
-            self._track(5 * mm)
-        self._track(9 * mm)
 
     def _write_summary(self, bills):
         total_b = len(bills)
@@ -3840,10 +3894,9 @@ class _GroupedPdfWrapper:
             self.group_sub_style,
         ))
         self.elements.append(Spacer(1, 2 * mm))
-        self._track(5 * mm + 2 * mm)
 
     def _add_detail_table(self, group_bills):
-        hdr_style = ParagraphStyle("GpHdr", fontSize=8, leading=10, alignment=1, textColor=HEADER_FG, fontName="Helvetica-Bold")
+        hdr_style = ParagraphStyle("GpHdr", fontSize=10, leading=12, alignment=1, textColor=HEADER_FG, fontName="Helvetica-Bold")
         wrapped_headers = [Paragraph(str(h), hdr_style) for h in self.headers]
         data = [wrapped_headers]
 
@@ -3875,43 +3928,82 @@ class _GroupedPdfWrapper:
         grand_row = [_full_g[i] for i in self.col_indices]
         data.append(grand_row)
 
-        body_rows = wrap_pdf_body_cells(data[1:], font_size=7, left_columns=self.left_cols)
+        body_rows = wrap_pdf_body_cells(data[1:], font_size=10, left_columns=self.left_cols)
         all_rows = [data[0]] + body_rows
 
         t = _make_pdf_table(
             all_rows,
             col_widths=self.col_widths,
-            header_font_size=8,
-            body_font_size=7,
-            cell_padding=5,
+            header_font_size=10,
+            body_font_size=10,
+            cell_padding=4.5,
             left_cols=self.left_cols,
         )
         self.elements.append(t)
         self.elements.append(Spacer(1, 3 * mm))
-        table_est = 7 * mm + len(group_bills) * self._ROW_H + self._TOTAL_ROW_H + 3 * mm
-        self._track(table_est)
 
     def finish(self):
         self.doc.build(self.elements)
 
 
 def _calc_col_widths(headers, page_w, n):
-    """Calculate column widths proportional to content, scaled to fill page_w."""
+    """Calculate column widths with compact space for fixed/numeric fields
+    and flexible expanded space for wide text fields (Locality, Consumer Name, Sector).
+    Guarantees text wraps cleanly and never bleeds or overlaps across columns.
+    """
+    fixed_widths_mm = {
+        "Sr": 9,
+        "Bill No": 18,
+        "Reference No": 18,
+        "Connection No": 22,
+        "Mobile No": 25,
+        "Zone": 16,
+        "Total Bill": 20,
+        "Arrears": 20,
+        "Amount Received": 20,
+        "Outstanding": 20,
+        "Status": 15,
+    }
+    flex_weights = {
+        "Locality": 0.50,
+        "Consumer Name": 0.35,
+        "Sector": 0.15,
+    }
+
+    fixed_widths_pt = {k: v * mm for k, v in fixed_widths_mm.items()}
+
+    flex_headers = [h for h in headers if h in flex_weights]
+    fixed_headers = [h for h in headers if h not in flex_weights]
+
+    fixed_req = sum(fixed_widths_pt.get(h, 20 * mm) for h in fixed_headers)
+
+    if flex_headers and (page_w - fixed_req) >= len(flex_headers) * 20 * mm:
+        rem = page_w - fixed_req
+        fw_sum = sum(flex_weights.get(h, 0.3) for h in flex_headers)
+        widths = []
+        for h in headers:
+            if h in flex_weights:
+                w = rem * (flex_weights.get(h, 0.3) / fw_sum)
+                widths.append(w)
+            else:
+                widths.append(fixed_widths_pt.get(h, 20 * mm))
+        return widths
+
     prop = {
         "Sr": 3.5,
-        "Bill No": 9,
-        "Reference No": 9,
-        "Connection No": 11,
-        "Consumer Name": 24,
-        "Sector": 9,
-        "Locality": 14,
-        "Zone": 7,
-        "Total Bill": 10,
-        "Arrears": 10,
-        "Amount Received": 10,
-        "Outstanding": 10,
-        "Status": 7,
-        "Mobile No": 12,
+        "Bill No": 7,
+        "Reference No": 7,
+        "Connection No": 8,
+        "Consumer Name": 18,
+        "Sector": 10,
+        "Locality": 24,
+        "Zone": 6,
+        "Total Bill": 8,
+        "Arrears": 8,
+        "Amount Received": 8,
+        "Outstanding": 8,
+        "Status": 6,
+        "Mobile No": 9,
     }
     widths = []
     total_p = 0
@@ -3958,34 +4050,34 @@ def generate_single_group_pdf(
     group_label = {"sector": "Sector", "zone": "Zone", "staff": "Staff"}.get(group_type, "")
 
     buf = io.BytesIO()
-    margin = 4 * mm
+    margin = 10 * mm
     doc = SimpleDocTemplate(
         buf,
         pagesize=landscape(A4),
-        topMargin=8 * mm,
-        bottomMargin=6 * mm,
+        topMargin=10 * mm,
+        bottomMargin=8 * mm,
         leftMargin=margin,
         rightMargin=margin,
     )
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle("PDFTitle", parent=styles["Heading1"], fontSize=16, textColor=ACCENT, alignment=1, spaceAfter=3 * mm, fontName="Helvetica-Bold")
-    summary_style = ParagraphStyle("PDFSummary", parent=styles["Normal"], fontSize=9, alignment=0, spaceAfter=1 * mm, textColor=colors.black, leading=13)
-    group_heading_style = ParagraphStyle("GroupHeading", parent=styles["Heading2"], fontSize=12, textColor=ACCENT, spaceBefore=4 * mm, spaceAfter=1 * mm, fontName="Helvetica-Bold", alignment=0)
-    group_sub_style = ParagraphStyle("GroupSub", parent=styles["Normal"], fontSize=8, textColor=colors.black, spaceAfter=1.5 * mm, alignment=0, leading=11)
+    title_style = ParagraphStyle("PDFTitle", parent=styles["Heading1"], fontSize=18, textColor=colors.black, alignment=1, spaceAfter=4 * mm, fontName="Helvetica-Bold")
+    summary_style = ParagraphStyle("PDFSummary", parent=styles["Normal"], fontSize=10, alignment=0, spaceAfter=2 * mm, textColor=colors.black, leading=14)
+    group_heading_style = ParagraphStyle("GroupHeading", parent=styles["Heading2"], fontSize=13, textColor=colors.black, spaceBefore=4 * mm, spaceAfter=2 * mm, fontName="Helvetica-Bold", alignment=0)
+    group_sub_style = ParagraphStyle("GroupSub", parent=styles["Normal"], fontSize=10, textColor=colors.black, spaceAfter=2 * mm, alignment=0, leading=14)
 
     elements = [Paragraph(f"Advanced Bill — {group_label}: {group_key}", title_style)]
     elements.append(Paragraph(f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}", summary_style))
     elements.append(Paragraph(f"<b>Filters:</b> {filters_applied}", summary_style))
-    elements.append(Paragraph(f"<b>Total Bills:</b> {total_bills:,} &nbsp;&nbsp; <b>Total Outstanding:</b> Rs. {fmt(total_outstanding)}", summary_style))
+    elements.append(Paragraph(f"<b>Total Bills:</b> {total_bills:,} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Total Amount:</b> Rs. {fmt(total_amount)} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Total Outstanding:</b> Rs. {fmt(total_outstanding)}", summary_style))
     elements.append(Spacer(1, 3 * mm))
 
     n = len(headers)
     page_w = landscape(A4)[0] - margin - margin
     col_widths = _calc_col_widths(headers, page_w, n)
 
-    left_cols = {i for i, h in enumerate(headers) if h == "Consumer Name"}
+    left_cols = {i for i, h in enumerate(headers) if h in ("Consumer Name", "Locality", "Sector")}
 
-    page_h = landscape(A4)[1] - 8 * mm - 6 * mm
+    page_h = landscape(A4)[1] - 10 * mm - 8 * mm
     wrapper = _GroupedPdfWrapper(doc, elements, headers, col_widths, group_heading_style, group_sub_style, group_label, _col_indices, group_type, left_cols, page_h)
 
     if group_type == "staff" and staff_zone:
@@ -4043,7 +4135,7 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
         buf = io.BytesIO()
         doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=20*mm, bottomMargin=15*mm)
         styles = getSampleStyleSheet()
-        title_style = ParagraphStyle("Title", parent=styles["Heading1"], fontSize=18, textColor=ACCENT, alignment=1)
+        title_style = ParagraphStyle("Title", parent=styles["Heading1"], fontSize=18, textColor=colors.black, alignment=1)
         elements = [Paragraph("Advanced Bill Filter Report", title_style), Paragraph("No bills match the selected filters.", styles["Normal"])]
         doc.build(elements)
         buf.seek(0)
@@ -4083,34 +4175,53 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
     total_bill = sum(b["total_bill"] for b in bills)
     amount_received = sum(b["amount_received"] for b in bills)
     outstanding = sum(b["outstanding_amount"] for b in bills)
-    _full_grand = ["", "", "", "", "", "", "", "Grand Total", fmt(total_bill), fmt(amount_received), fmt(outstanding), "", "", ""]
+    total_arrears = sum(b["arrears"] for b in bills)
+    _full_grand = [
+        "", "", "", "", "", "", "", "Grand Total",
+        fmt(total_bill),
+        fmt(total_arrears),
+        fmt(amount_received),
+        fmt(outstanding),
+        "", ""
+    ]
+    # Set Grand Total label at the last empty column before amounts
     grand_total = [_full_grand[i] for i in _pdf_col_indices]
+    for gi in range(len(grand_total) - 1, -1, -1):
+        if not grand_total[gi] and (gi + 1 < len(grand_total) and grand_total[gi + 1]):
+            grand_total[gi] = "Grand Total"
+            break
+    if "Grand Total" not in grand_total and grand_total:
+        grand_total[0] = "Grand Total"
 
-    page_w = landscape(A4)[0] - 8 * mm
+    page_w = landscape(A4)[0] - 20 * mm
     n = len(headers)
     col_widths = _calc_col_widths(headers, page_w, n)
 
-    left_cols = {i for i, h in enumerate(headers) if h == "Consumer Name"}
+    left_cols = {i for i, h in enumerate(headers) if h in ("Consumer Name", "Locality", "Sector")}
 
     summary_lines = [
         f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}",
         f"<b>Filters:</b> {filters_applied}",
-        f"<b>Total Bills:</b> {len(bills)}",
+        f"<b>Total Bills:</b> {len(bills):,}",
         f"<b>Total Outstanding:</b> Rs. {fmt(outstanding)}",
     ] if show_summary else []
+
+    body_rows = wrap_pdf_body_cells(rows, font_size=10, left_columns=left_cols)
+    wrapped_grand = wrap_pdf_body_cells([grand_total], font_size=10, bold_rows={0})[0]
 
     return generate_card_pdf(
         "Advanced Bill Filter Report",
         summary_lines,
         headers,
-        rows,
-        grand_total,
+        body_rows,
+        wrapped_grand,
         pagesize=landscape(A4),
         col_widths=col_widths,
         left_cols=left_cols,
-        header_font_size=8,
-        body_font_size=8,
-        cell_padding=6,
+        header_font_size=10,
+        body_font_size=10,
+        cell_padding=4.5,
+        margins=(10 * mm, 10 * mm, 10 * mm, 8 * mm),
     )
 
 
@@ -4627,12 +4738,12 @@ def _unpaid_total_from_section_rows(rows: list[list]) -> dict:
 def generate_unpaid_amount_pdf(sections: list[tuple[str, str, list[str], list[list]]], total: dict, show_summary: bool = True) -> bytes:
     buf = io.BytesIO()
     pagesize = landscape(A4)
-    left_margin = right_margin = 15 * mm
+    left_margin = right_margin = 10 * mm
     doc = SimpleDocTemplate(
         buf,
         pagesize=pagesize,
-        topMargin=18 * mm,
-        bottomMargin=14 * mm,
+        topMargin=12 * mm,
+        bottomMargin=10 * mm,
         leftMargin=left_margin,
         rightMargin=right_margin,
     )
@@ -4641,7 +4752,7 @@ def generate_unpaid_amount_pdf(sections: list[tuple[str, str, list[str], list[li
         "UnpaidAmountTitle",
         parent=styles["Heading1"],
         fontSize=18,
-        textColor=ACCENT,
+        textColor=colors.black,
         alignment=1,
         spaceAfter=5 * mm,
         fontName="Helvetica-Bold",
@@ -4685,14 +4796,15 @@ def generate_unpaid_amount_pdf(sections: list[tuple[str, str, list[str], list[li
             col_widths = [page_w * 0.05, page_w * 0.35, page_w * 0.10, page_w * 0.17, page_w * 0.17, page_w * 0.16]
             left_cols = [1]
         elements.append(Paragraph(title, section_style))
+        wrapped_body = wrap_pdf_body_cells(section_rows, font_size=10, left_columns=set(left_cols))
         elements.append(
             _make_pdf_table(
-                [headers] + section_rows,
+                [headers] + wrapped_body,
                 col_widths=col_widths,
                 left_cols=left_cols,
-                header_font_size=8,
-                body_font_size=8,
-                cell_padding=5,
+                header_font_size=10,
+                body_font_size=10,
+                cell_padding=4.5,
             )
         )
         elements.append(Spacer(1, 4 * mm))
@@ -5125,40 +5237,40 @@ def generate_staff_report_pdf(rows: list[list], show_summary: bool = True, cols_
         ]
 
     buf = io.BytesIO()
-    left_margin = 8 * mm
-    right_margin = 8 * mm
+    left_margin = 10 * mm
+    right_margin = 10 * mm
     doc = SimpleDocTemplate(
         buf,
         pagesize=landscape(A4),
-        topMargin=6 * mm,
-        bottomMargin=6 * mm,
-        leftMargin=6 * mm,
-        rightMargin=6 * mm,
+        topMargin=8 * mm,
+        bottomMargin=8 * mm,
+        leftMargin=left_margin,
+        rightMargin=right_margin,
     )
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
         "PDFTitle",
         parent=styles["Heading1"],
-        fontSize=20,
-        textColor=ACCENT,
+        fontSize=18,
+        textColor=colors.black,
         alignment=1,
-        spaceAfter=6 * mm,
+        spaceAfter=5 * mm,
         fontName="Helvetica-Bold",
     )
     summary_style = ParagraphStyle(
         "PDFSummary",
         parent=styles["Normal"],
-        fontSize=14,
+        fontSize=10,
         alignment=0,
         spaceAfter=2 * mm,
         textColor=colors.black,
-        leading=18,
+        leading=14,
     )
     group_style = ParagraphStyle(
         "PDFGroup",
         parent=styles["Heading3"],
-        fontSize=10,
-        textColor=colors.HexColor("#222222"),
+        fontSize=11,
+        textColor=colors.black,
         alignment=0,
         spaceBefore=1 * mm,
         spaceAfter=0.5 * mm,
@@ -5183,14 +5295,14 @@ def generate_staff_report_pdf(rows: list[list], show_summary: bool = True, cols_
         "Pending Amount",
     ]
     _sum_all_widths = [
-        page_w * 0.04,
-        page_w * 0.20,
-        page_w * 0.09,
-        page_w * 0.09,
-        page_w * 0.09,
-        page_w * 0.13,
-        page_w * 0.13,
-        page_w * 0.13,
+        page_w * 0.05,
+        page_w * 0.22,
+        page_w * 0.10,
+        page_w * 0.10,
+        page_w * 0.10,
+        page_w * 0.14,
+        page_w * 0.14,
+        page_w * 0.15,
     ]
     _sum_pdf_cols = sorted([STAFF_SUMMARY_COL_MAP[k] for k in _sum_sel]) if _sum_sel else list(range(8))
     sum_headers = [_sum_all_headers[i] for i in _sum_pdf_cols]
@@ -5199,10 +5311,10 @@ def generate_staff_report_pdf(rows: list[list], show_summary: bool = True, cols_
     _sum_left_cols = {_sum_pdf_cols.index(1)} if 1 in _sum_pdf_cols else set()
 
     def wrap_sum_text(value):
-        return wrap_pdf_body_cells([[value]], font_size=9)[0][0]
+        return wrap_pdf_body_cells([[value]], font_size=10)[0][0]
 
     def wrap_sum_left(value):
-        return wrap_pdf_body_cells([[value]], font_size=9, left_columns={0})[0][0]
+        return wrap_pdf_body_cells([[value]], font_size=10, left_columns={0})[0][0]
 
     grouped = {}
     for row in rows:
@@ -5297,8 +5409,8 @@ def generate_staff_report_pdf(rows: list[list], show_summary: bool = True, cols_
                 col_widths=_sum_sr_widths,
                 left_cols=_sum_left_cols,
                 header_font_size=10,
-                body_font_size=9,
-                cell_padding=6,
+                body_font_size=10,
+                cell_padding=5,
             )
         )
         elements.append(PageBreak())
@@ -5320,22 +5432,22 @@ def generate_staff_report_pdf(rows: list[list], show_summary: bool = True, cols_
     ]
     table_headers = [_all_table_headers[i] for i in _pdf_cols]
     _all_col_widths = [
-        page_w * 0.04,
+        page_w * 0.05,
         page_w * 0.24,
         page_w * 0.22,
         page_w * 0.08,
         page_w * 0.10,
         page_w * 0.10,
-        page_w * 0.11,
+        page_w * 0.10,
         page_w * 0.11,
     ]
     col_widths = [_all_col_widths[i] for i in _pdf_cols]
 
     def wrap_text(value):
-        return wrap_pdf_body_cells([[value]], font_size=8)[0][0]
+        return wrap_pdf_body_cells([[value]], font_size=10)[0][0]
 
     def wrap_text_left(value):
-        return wrap_pdf_body_cells([[value]], font_size=8, left_columns={0})[0][0]
+        return wrap_pdf_body_cells([[value]], font_size=10, left_columns={0})[0][0]
 
     for (staff_name, zone), group_rows in grouped_items:
         staff_elements = [
@@ -5352,8 +5464,8 @@ def generate_staff_report_pdf(rows: list[list], show_summary: bool = True, cols_
                 data_rows,
                 col_widths=col_widths,
                 left_cols=[],
-                header_font_size=8,
-                body_font_size=8,
+                header_font_size=10,
+                body_font_size=10,
                 cell_padding=5,
             )
         )
@@ -5955,7 +6067,7 @@ def export_bill_list(fmt_type: str):
     if fmt_type == "pdf":
         show_summary = request.args.get("show_summary", "0") == "1"
         n = len(headers)
-        page_w = landscape(A4)[0] - 30 * mm
+        page_w = landscape(A4)[0] - 20 * mm
         col_widths = [page_w / n] * n
         summary_lines = [
             f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}",
@@ -5965,16 +6077,20 @@ def export_bill_list(fmt_type: str):
             f"<b>Amount Received:</b> Rs. {fmt(summary['total_received_amount'])}",
             f"<b>Pending Amount:</b> Rs. {fmt(summary['remaining_amount'])}",
         ] if show_summary else []
+        left_cols = [i for i, h in enumerate(headers) if h.lower() in ("sector", "locality")]
+        body_rows = wrap_pdf_body_cells(rows, font_size=10, left_columns=set(left_cols))
         pdf_bytes = generate_card_pdf(
             "Bill List - Sector-wise Report",
             summary_lines,
             headers,
-            rows,
+            body_rows,
             pagesize=landscape(A4),
             col_widths=col_widths,
-            left_cols=[i for i, h in enumerate(headers) if h.lower() == "sector"],
-            header_font_size=9,
-            body_font_size=9,
+            left_cols=left_cols,
+            header_font_size=10,
+            body_font_size=10,
+            cell_padding=5,
+            margins=(10 * mm, 10 * mm, 10 * mm, 8 * mm),
         )
         return Response(
             pdf_bytes,
@@ -6490,17 +6606,17 @@ def export_six_month_pitch(fmt_type: str):
     # PDF
     if fmt_type == "pdf":
         buf = io.BytesIO()
-        margins = 8 * mm
-        doc = SimpleDocTemplate(buf, pagesize=landscape(A4), topMargin=6*mm, bottomMargin=6*mm, leftMargin=6*mm, rightMargin=6*mm)
+        margins = 10 * mm
+        doc = SimpleDocTemplate(buf, pagesize=landscape(A4), topMargin=8*mm, bottomMargin=8*mm, leftMargin=margins, rightMargin=margins)
         styles = getSampleStyleSheet()
-        title_style = ParagraphStyle("PitchTitle", parent=styles["Heading1"], fontSize=20, textColor=ACCENT, alignment=1, spaceAfter=6*mm, fontName="Helvetica-Bold")
+        title_style = ParagraphStyle("PitchTitle", parent=styles["Heading1"], fontSize=18, textColor=colors.black, alignment=1, spaceAfter=5*mm, fontName="Helvetica-Bold")
         elements = [Paragraph(report_title, title_style)]
         page_w = landscape(A4)[0] - 2 * margins
-        _all_pw = [page_w*0.04, page_w*0.15, page_w*0.09, page_w*0.13, page_w*0.13, page_w*0.14, page_w*0.14, page_w*0.18]
+        _all_pw = [page_w*0.05, page_w*0.17, page_w*0.09, page_w*0.13, page_w*0.13, page_w*0.14, page_w*0.14, page_w*0.15]
         _pw = [_all_pw[i] for i in _pitch_pdf_cols]
 
         def wrap_left(v):
-            return wrap_pdf_body_cells([[v]], font_size=9, left_columns={0})[0][0]
+            return wrap_pdf_body_cells([[v]], font_size=10, left_columns={0})[0][0]
 
         body_rows = []
         for r in pitch_rows:
@@ -6509,7 +6625,7 @@ def export_six_month_pitch(fmt_type: str):
         gt_full = [pitch_grand_row[0], pitch_grand_row[1], pitch_grand_row[2], pitch_grand_row[3], pitch_grand_row[4], pitch_grand_row[5], pitch_grand_row[6], pitch_grand_row[7]]
         body_rows.append([gt_full[i] for i in _pitch_pdf_cols])
         table_data = [_pitch_headers] + body_rows
-        elements.append(_make_pdf_table(table_data, col_widths=_pw, left_cols=_pitch_left_cols, header_font_size=10, body_font_size=9, cell_padding=6))
+        elements.append(_make_pdf_table(table_data, col_widths=_pw, left_cols=_pitch_left_cols, header_font_size=10, body_font_size=10, cell_padding=5))
         doc.build(elements)
         buf.seek(0)
         return Response(buf.getvalue(), mimetype="application/pdf", headers={"Content-Disposition": f"attachment; filename={file_slug}.pdf"})
@@ -6591,17 +6707,17 @@ def export_season_sector_pitch(fmt_type: str):
     # PDF
     if fmt_type == "pdf":
         buf = io.BytesIO()
-        margins = 8 * mm
-        doc = SimpleDocTemplate(buf, pagesize=landscape(A4), topMargin=6*mm, bottomMargin=6*mm, leftMargin=6*mm, rightMargin=6*mm)
+        margins = 10 * mm
+        doc = SimpleDocTemplate(buf, pagesize=landscape(A4), topMargin=8*mm, bottomMargin=8*mm, leftMargin=margins, rightMargin=margins)
         styles = getSampleStyleSheet()
-        title_style = ParagraphStyle("SeasonSectorTitle", parent=styles["Heading1"], fontSize=20, textColor=ACCENT, alignment=1, spaceAfter=6*mm, fontName="Helvetica-Bold")
+        title_style = ParagraphStyle("SeasonSectorTitle", parent=styles["Heading1"], fontSize=18, textColor=colors.black, alignment=1, spaceAfter=5*mm, fontName="Helvetica-Bold")
         elements = [Paragraph(report_title, title_style)]
         page_w = landscape(A4)[0] - 2 * margins
         _all_pw = [page_w*0.05, page_w*0.30, page_w*0.10, page_w*0.12, page_w*0.12, page_w*0.15, page_w*0.16]
         _pw = [_all_pw[i] for i in _pdf_cols]
 
         def wrap_left(v):
-            return wrap_pdf_body_cells([[v]], font_size=9, left_columns={0})[0][0]
+            return wrap_pdf_body_cells([[v]], font_size=10, left_columns={0})[0][0]
 
         body_rows = []
         for r in detail_rows:
@@ -6610,7 +6726,7 @@ def export_season_sector_pitch(fmt_type: str):
         gt_full = [grand_row[0], wrap_left(grand_row[1]), grand_row[2], grand_row[3], grand_row[4], grand_row[5], grand_row[6]]
         body_rows.append([gt_full[i] for i in _pdf_cols])
         table_data = [_filtered_headers] + body_rows
-        elements.append(_make_pdf_table(table_data, col_widths=_pw, left_cols=_left_cols, header_font_size=10, body_font_size=9, cell_padding=6))
+        elements.append(_make_pdf_table(table_data, col_widths=_pw, left_cols=_left_cols, header_font_size=10, body_font_size=10, cell_padding=5))
         doc.build(elements)
         buf.seek(0)
         return Response(buf.getvalue(), mimetype="application/pdf", headers={"Content-Disposition": f"attachment; filename={file_slug}.pdf"})
@@ -9365,14 +9481,14 @@ def _ncd_general_pdf(report: dict, payload: dict | None = None) -> bytes:
             ("GRID", (0, 0), (-1, -1), 0.75, colors.black),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f1eb")]),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("FONTSIZE", (0, 0), (-1, -1), 10),
             ("LEFTPADDING", (0, 0), (-1, -1), 8),
             ("RIGHTPADDING", (0, 0), (-1, -1), 8),
             ("TOPPADDING", (0, 0), (-1, -1), 7),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#d8f0df")),
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#f1f5f9")),
             ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
         ]))
         elements.extend([tbl, Spacer(1, 5 * mm)])
@@ -12102,7 +12218,7 @@ def export_arrear_calculator(fmt_type: str):
             "ArrearTitle", parent=styles["Heading1"],
             fontName="Helvetica-Bold",
             fontSize=16, leading=19, spaceAfter=6, spaceBefore=0,
-            textColor=rl_colors.HexColor("#10243f"),
+            textColor=rl_colors.black,
         )
         meta_style = ParagraphStyle(
             "ArrearMeta", parent=styles["Normal"],
@@ -12224,7 +12340,7 @@ def export_arrear_calculator(fmt_type: str):
             ("ROWBACKGROUNDS", (0, 1), (-1, -2),
              [rl_colors.white, rl_colors.HexColor("#f4f7fa")]),
             # Grand total row
-            ("BACKGROUND", (0, -1), (-1, -1), rl_colors.HexColor("#e8f5e9")),
+            ("BACKGROUND", (0, -1), (-1, -1), rl_colors.HexColor("#f1f5f9")),
             ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
             # Comfortable padding for readability
             ("TOPPADDING", (0, 0), (-1, -1), 4),

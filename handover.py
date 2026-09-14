@@ -1808,7 +1808,7 @@ class NumberedCanvas(canvas.Canvas):
 # ---------------------------------------------------------------------------
 
 EMBLEM_FILENAME = "emblem.jpg"
-WATERMARK_COLOR = colors.HexColor("#16324f")
+WATERMARK_COLOR = colors.HexColor("#333333")
 # Rings are thin lines and can carry a little more ink than the solid stars and
 # the lettering, which are what would otherwise show through the table text.
 WATERMARK_ALPHA = 0.10
