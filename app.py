@@ -3522,27 +3522,47 @@ def get_filtered_bills(
 
         rows = conn.execute(base_query, params).fetchall()
 
+    def _clean_str(val):
+        if val is None or pd.isna(val):
+            return ""
+        s = str(val).strip()
+        return "" if s.lower() in ("none", "nan", "null") else s
+
     bills = []
     for row in rows:
         consumer_mobile = row["consumer_mobile"] or ""
         consumer_name = row["consumer_name"] or ""
+        raw = {}
+        try:
+            if row["raw_data"]:
+                raw = json.loads(row["raw_data"])
+        except (json.JSONDecodeError, TypeError, ValueError):
+            raw = {}
+        if not consumer_name:
+            for nk in ("consumer name / f/h name", "consumer name", "f/h name"):
+                nv = raw.get(nk)
+                if nv is not None and str(nv).strip():
+                    consumer_name = str(nv).strip()
+                    break
         if not consumer_mobile:
-            try:
-                raw = json.loads(row["raw_data"] or "{}")
-                if not consumer_name:
-                    for nk in ("consumer name / f/h name", "consumer name", "f/h name"):
-                        nv = raw.get(nk)
-                        if nv is not None and str(nv).strip():
-                            consumer_name = str(nv).strip()
-                            break
-                for mk in ("consumer mobile", "mobile no", "mobile", "consumer phone", "phone"):
-                    mv = raw.get(mk)
-                    if mv is not None and str(mv).strip():
-                        consumer_mobile = str(mv).strip()
-                        break
-            except (json.JSONDecodeError, TypeError, ValueError):
-                pass
+            for mk in ("consumer mobile", "mobile no", "mobile", "consumer phone", "phone"):
+                mv = raw.get(mk)
+                if mv is not None and str(mv).strip():
+                    consumer_mobile = str(mv).strip()
+                    break
         consumer_mobile = format_mobile(consumer_mobile)
+
+        bill_type = _clean_str(raw.get("bill type") or raw.get("bill_type"))
+        address = _clean_str(raw.get("address") or raw.get("consumer address"))
+        old_conn = fast_upload_text(raw.get("old connection no") or raw.get("old_connection_no") or raw.get("old connection")) or ""
+        water_fee = fast_upload_number(raw.get("water fee") or raw.get("water_fee"))
+        sanitation = fast_upload_number(raw.get("sanitation") or raw.get("sanitation fee"))
+        drainage = fast_upload_number(raw.get("drainage") or raw.get("drainage fee"))
+        billing_fee = fast_upload_number(raw.get("billing fee") or raw.get("billing_fee"))
+        fine = fast_upload_number(raw.get("fine") or raw.get("fine amount"))
+        after_due_date = fast_upload_number(raw.get("after due date") or raw.get("after_due_date"))
+        due_date = _clean_str(raw.get("due date") or raw.get("due_date"))
+
         bills.append({
             "bill_no": row["bill_no"] or "",
             "reference_no": row["reference_no"] or "",
@@ -3557,6 +3577,16 @@ def get_filtered_bills(
             "outstanding_amount": float(row["outstanding_amount"] or 0),
             "status": row["status"] or "",
             "consumer_mobile": consumer_mobile,
+            "bill_type": bill_type,
+            "address": address,
+            "old_connection_no": old_conn,
+            "water_fee": water_fee,
+            "sanitation": sanitation,
+            "drainage": drainage,
+            "billing_fee": billing_fee,
+            "fine": fine,
+            "after_due_date": after_due_date,
+            "due_date": due_date,
         })
     if sort_amount == "desc":
         bills.sort(key=lambda b: (b["outstanding_amount"], b["total_bill"]), reverse=True)
@@ -3694,6 +3724,25 @@ def group_bills(bills: list[dict], group_by: str, sort_amount: str = "") -> list
     return [("All Bills", bills)]
 
 
+# ---------------------------------------------------------------------------
+# Advanced Bill Checking — Column definitions
+# ---------------------------------------------------------------------------
+ADV_BILLS_ALL_HEADERS = [
+    "Sr", "Bill Type", "Bill No", "Reference No", "Sector", "Locality", "Zone", "Address",
+    "Consumer Name", "Mobile No", "Connection No", "Old Connection No", "Arrears",
+    "Water Fee", "Sanitation", "Drainage", "Billing Fee", "Total Bill", "Fine",
+    "After Due Date", "Due Date", "Status", "Amount Received", "Outstanding"
+]
+ADV_BILLS_ALL_KEYS = [
+    "sr", "billType", "billNo", "referenceNo", "sector", "locality", "zone", "address",
+    "consumerName", "mobileNo", "connectionNo", "oldConnectionNo", "arrearsReceived",
+    "waterFee", "sanitation", "drainage", "billingFee", "totalBills", "fine",
+    "afterDueDate", "dueDate", "status", "totalReceivedAmount", "outstanding"
+]
+ADV_BILLS_KEY_MAP = {k: i for i, k in enumerate(ADV_BILLS_ALL_KEYS)}
+DEFAULT_ADV_KEYS = ["sr", "connectionNo", "consumerName", "mobileNo", "locality", "totalBills", "arrearsReceived", "outstanding"]
+
+
 def generate_grouped_advanced_pdf(
     group_type: str,
     groups: list[tuple],
@@ -3701,16 +3750,13 @@ def generate_grouped_advanced_pdf(
     cols_param: str = None,
 ) -> bytes:
     """Generate a landscape PDF with one section per group showing detailed bill rows."""
-    _all_headers = ["Sr", "Bill No", "Reference No", "Connection No", "Consumer Name", "Sector", "Locality", "Zone", "Total Bill", "Arrears", "Amount Received", "Outstanding", "Status", "Mobile No"]
-    _all_col_keys = ["sr", "billNo", "referenceNo", "connectionNo", "consumerName", "sector", "locality", "zone", "totalBills", "arrearsReceived", "totalReceivedAmount", "outstanding", "status", "mobileNo"]
-    _all_key_map = {k: i for i, k in enumerate(_all_col_keys)}
     if cols_param:
-        _sel_keys = [k.strip() for k in cols_param.split(",") if k.strip() in _all_col_keys]
-        _col_indices = [_all_key_map[k] for k in _sel_keys]
+        _sel_keys = [k.strip() for k in cols_param.split(",") if k.strip() in ADV_BILLS_ALL_KEYS]
+        _col_indices = [ADV_BILLS_KEY_MAP[k] for k in _sel_keys]
     else:
         _sel_keys = DEFAULT_ADV_KEYS
-        _col_indices = [_all_key_map[k] for k in _sel_keys]
-    headers = [_all_headers[i] for i in _col_indices]
+        _col_indices = [ADV_BILLS_KEY_MAP[k] for k in _sel_keys]
+    headers = [ADV_BILLS_ALL_HEADERS[i] for i in _col_indices]
 
     total_outstanding_all = 0
     total_bills_all = 0
@@ -3834,7 +3880,7 @@ def generate_grouped_advanced_pdf(
 
     n = len(headers)
     col_widths = _calc_col_widths(headers, page_w, n)
-    left_cols = {i for i, h in enumerate(headers) if h in ("Consumer Name", "Locality", "Sector")}
+    left_cols = {i for i, h in enumerate(headers) if h in ("Consumer Name", "Locality", "Sector", "Address", "Bill Type")}
     page_h = landscape(A4)[1] - 10 * mm - 8 * mm
     wrapper = _GroupedPdfWrapper(doc, elements, headers, col_widths, group_heading_style, group_sub_style, group_label_singular, _col_indices, group_type, left_cols, page_h)
 
@@ -3933,29 +3979,65 @@ class _GroupedPdfWrapper:
         for idx, bill in enumerate(group_bills, start=1):
             _full = [
                 idx,
-                bill["bill_no"] or "",
-                bill["reference_no"] or "",
-                bill["connection_no"] or "",
+                bill.get("bill_type") or "",
+                bill.get("bill_no") or "",
+                bill.get("reference_no") or "",
+                bill.get("sector") or "",
+                bill.get("locality") or "",
+                bill.get("zone") or "",
+                bill.get("address") or "",
                 bill.get("consumer_name") or "",
-                bill["sector"],
-                bill["locality"],
-                bill["zone"],
-                fmt(bill["total_bill"]),
-                fmt(bill["arrears"]),
-                fmt(bill["amount_received"]),
-                fmt(bill["outstanding_amount"]),
-                bill["status"] or "",
                 bill.get("consumer_mobile") or "",
+                bill.get("connection_no") or "",
+                bill.get("old_connection_no") or "",
+                fmt(bill.get("arrears", 0)),
+                fmt(bill.get("water_fee", 0)),
+                fmt(bill.get("sanitation", 0)),
+                fmt(bill.get("drainage", 0)),
+                fmt(bill.get("billing_fee", 0)),
+                fmt(bill.get("total_bill", 0)),
+                fmt(bill.get("fine", 0)),
+                fmt(bill.get("after_due_date", 0)),
+                bill.get("due_date") or "",
+                bill.get("status") or "",
+                fmt(bill.get("amount_received", 0)),
+                fmt(bill.get("outstanding_amount", 0)),
             ]
             row = [_full[i] for i in self.col_indices]
             data.append(row)
 
-        g_total_b = sum(b["total_bill"] for b in group_bills)
-        g_total_r = sum(b["amount_received"] for b in group_bills)
-        g_total_o = sum(b["outstanding_amount"] for b in group_bills)
-        g_total_a = sum(b["arrears"] for b in group_bills)
-        _full_g = ["", "", "", "", "", "", "", "Group Total", fmt(g_total_b), fmt(g_total_a), fmt(g_total_r), fmt(g_total_o), "", ""]
+        g_total_b = sum(b.get("total_bill", 0) for b in group_bills)
+        g_total_r = sum(b.get("amount_received", 0) for b in group_bills)
+        g_total_o = sum(b.get("outstanding_amount", 0) for b in group_bills)
+        g_total_a = sum(b.get("arrears", 0) for b in group_bills)
+        g_total_wf = sum(b.get("water_fee", 0) for b in group_bills)
+        g_total_san = sum(b.get("sanitation", 0) for b in group_bills)
+        g_total_dr = sum(b.get("drainage", 0) for b in group_bills)
+        g_total_bf = sum(b.get("billing_fee", 0) for b in group_bills)
+        g_total_fine = sum(b.get("fine", 0) for b in group_bills)
+        g_total_add = sum(b.get("after_due_date", 0) for b in group_bills)
+
+        _full_g = [
+            "", "", "", "", "", "", "", "", "", "", "", "",
+            fmt(g_total_a),
+            fmt(g_total_wf),
+            fmt(g_total_san),
+            fmt(g_total_dr),
+            fmt(g_total_bf),
+            fmt(g_total_b),
+            fmt(g_total_fine),
+            fmt(g_total_add),
+            "", "",
+            fmt(g_total_r),
+            fmt(g_total_o),
+        ]
         grand_row = [_full_g[i] for i in self.col_indices]
+        for gi in range(len(grand_row) - 1, -1, -1):
+            if not grand_row[gi] and (gi + 1 < len(grand_row) and grand_row[gi + 1]):
+                grand_row[gi] = "Group Total"
+                break
+        if "Group Total" not in grand_row and grand_row:
+            grand_row[0] = "Group Total"
         data.append(grand_row)
 
         body_rows = wrap_pdf_body_cells(data[1:], font_size=10, left_columns=self.left_cols)
@@ -3978,26 +4060,36 @@ class _GroupedPdfWrapper:
 
 def _calc_col_widths(headers, page_w, n):
     """Calculate column widths with compact space for fixed/numeric fields
-    and flexible expanded space for wide text fields (Locality, Consumer Name, Sector).
+    and flexible expanded space for wide text fields (Locality, Consumer Name, Sector, Address).
     Guarantees text wraps cleanly and never bleeds or overlaps across columns.
     """
     fixed_widths_mm = {
         "Sr": 9,
+        "Bill Type": 18,
         "Bill No": 18,
         "Reference No": 20,
         "Connection No": 24,
+        "Old Connection No": 20,
         "Mobile No": 25,
         "Zone": 16,
-        "Total Bill": 21,
         "Arrears": 20,
+        "Water Fee": 20,
+        "Sanitation": 18,
+        "Drainage": 18,
+        "Billing Fee": 18,
+        "Total Bill": 21,
+        "Fine": 16,
+        "After Due Date": 22,
+        "Due Date": 20,
+        "Status": 16,
         "Amount Received": 24,
         "Outstanding": 26,
-        "Status": 16,
     }
     flex_weights = {
-        "Locality": 0.50,
-        "Consumer Name": 0.35,
-        "Sector": 0.15,
+        "Locality": 0.35,
+        "Consumer Name": 0.30,
+        "Address": 0.25,
+        "Sector": 0.10,
     }
 
     fixed_widths_pt = {k: v * mm for k, v in fixed_widths_mm.items()}
@@ -4021,14 +4113,24 @@ def _calc_col_widths(headers, page_w, n):
 
     prop = {
         "Sr": 3.5,
+        "Bill Type": 7,
         "Bill No": 7,
         "Reference No": 8,
         "Connection No": 9,
-        "Consumer Name": 18,
+        "Old Connection No": 8,
+        "Consumer Name": 16,
+        "Address": 14,
         "Sector": 10,
-        "Locality": 24,
+        "Locality": 20,
         "Zone": 6,
+        "Water Fee": 8,
+        "Sanitation": 7,
+        "Drainage": 7,
+        "Billing Fee": 7,
         "Total Bill": 8,
+        "Fine": 6,
+        "After Due Date": 9,
+        "Due Date": 8,
         "Arrears": 8,
         "Amount Received": 9,
         "Outstanding": 10,
@@ -4062,16 +4164,13 @@ def generate_single_group_pdf(
     cols_param: str = None,
     staff_zone: str = None,
 ) -> bytes:
-    _all_headers = ["Sr", "Bill No", "Reference No", "Connection No", "Consumer Name", "Sector", "Locality", "Zone", "Total Bill", "Arrears", "Amount Received", "Outstanding", "Status", "Mobile No"]
-    _all_col_keys = ["sr", "billNo", "referenceNo", "connectionNo", "consumerName", "sector", "locality", "zone", "totalBills", "arrearsReceived", "totalReceivedAmount", "outstanding", "status", "mobileNo"]
-    _all_key_map = {k: i for i, k in enumerate(_all_col_keys)}
     if cols_param:
-        _sel_keys = [k.strip() for k in cols_param.split(",") if k.strip() in _all_col_keys]
-        _col_indices = [_all_key_map[k] for k in _sel_keys]
+        _sel_keys = [k.strip() for k in cols_param.split(",") if k.strip() in ADV_BILLS_ALL_KEYS]
+        _col_indices = [ADV_BILLS_KEY_MAP[k] for k in _sel_keys]
     else:
         _sel_keys = DEFAULT_ADV_KEYS
-        _col_indices = [_all_key_map[k] for k in _sel_keys]
-    headers = [_all_headers[i] for i in _col_indices]
+        _col_indices = [ADV_BILLS_KEY_MAP[k] for k in _sel_keys]
+    headers = [ADV_BILLS_ALL_HEADERS[i] for i in _col_indices]
 
     total_bills = len(group_bills)
     total_amount = sum(b["total_bill"] for b in group_bills)
@@ -4105,7 +4204,7 @@ def generate_single_group_pdf(
     page_w = landscape(A4)[0] - margin - margin
     col_widths = _calc_col_widths(headers, page_w, n)
 
-    left_cols = {i for i, h in enumerate(headers) if h in ("Consumer Name", "Locality", "Sector")}
+    left_cols = {i for i, h in enumerate(headers) if h in ("Consumer Name", "Locality", "Sector", "Address", "Bill Type")}
 
     page_h = landscape(A4)[1] - 10 * mm - 8 * mm
     wrapper = _GroupedPdfWrapper(doc, elements, headers, col_widths, group_heading_style, group_sub_style, group_label, _col_indices, group_type, left_cols, page_h)
@@ -4156,10 +4255,6 @@ def generate_zip_of_group_pdfs(
     return buf
 
 
-# Default selected column keys for Advanced Bill Checking in display order
-DEFAULT_ADV_KEYS = ["sr", "connectionNo", "consumerName", "mobileNo", "locality", "totalBills", "arrearsReceived", "outstanding"]
-
-
 def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show_summary: bool = True, cols_param: str = None) -> bytes:
     if not bills:
         buf = io.BytesIO()
@@ -4171,48 +4266,68 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
         buf.seek(0)
         return buf.getvalue()
 
-    _all_headers = ["Sr", "Bill No", "Reference No", "Connection No", "Consumer Name", "Sector", "Locality", "Zone", "Total Bill", "Arrears", "Amount Received", "Outstanding", "Status", "Mobile No"]
-    _all_col_keys = ["sr", "billNo", "referenceNo", "connectionNo", "consumerName", "sector", "locality", "zone", "totalBills", "arrearsReceived", "totalReceivedAmount", "outstanding", "status", "mobileNo"]
-    _all_key_map = {k: i for i, k in enumerate(_all_col_keys)}
     if cols_param:
-        _sel_keys = [k.strip() for k in cols_param.split(",") if k.strip() in _all_col_keys]
-        _pdf_col_indices = [_all_key_map[k] for k in _sel_keys]
+        _sel_keys = [k.strip() for k in cols_param.split(",") if k.strip() in ADV_BILLS_ALL_KEYS]
+        _pdf_col_indices = [ADV_BILLS_KEY_MAP[k] for k in _sel_keys]
     else:
         _sel_keys = DEFAULT_ADV_KEYS
-        _pdf_col_indices = [_all_key_map[k] for k in _sel_keys]
-    headers = [_all_headers[i] for i in _pdf_col_indices]
+        _pdf_col_indices = [ADV_BILLS_KEY_MAP[k] for k in _sel_keys]
+    headers = [ADV_BILLS_ALL_HEADERS[i] for i in _pdf_col_indices]
 
     rows = []
     for idx, bill in enumerate(bills, start=1):
         _full_row = [
             idx,
-            bill["bill_no"] or "",
-            bill["reference_no"] or "",
-            bill["connection_no"] or "",
+            bill.get("bill_type") or "",
+            bill.get("bill_no") or "",
+            bill.get("reference_no") or "",
+            bill.get("sector") or "",
+            bill.get("locality") or "",
+            bill.get("zone") or "",
+            bill.get("address") or "",
             bill.get("consumer_name") or "",
-            bill["sector"],
-            bill["locality"],
-            bill["zone"],
-            fmt(bill["total_bill"]),
-            fmt(bill["arrears"]),
-            fmt(bill["amount_received"]),
-            fmt(bill["outstanding_amount"]),
-            bill["status"] or "",
             bill.get("consumer_mobile") or "",
+            bill.get("connection_no") or "",
+            bill.get("old_connection_no") or "",
+            fmt(bill.get("arrears", 0)),
+            fmt(bill.get("water_fee", 0)),
+            fmt(bill.get("sanitation", 0)),
+            fmt(bill.get("drainage", 0)),
+            fmt(bill.get("billing_fee", 0)),
+            fmt(bill.get("total_bill", 0)),
+            fmt(bill.get("fine", 0)),
+            fmt(bill.get("after_due_date", 0)),
+            bill.get("due_date") or "",
+            bill.get("status") or "",
+            fmt(bill.get("amount_received", 0)),
+            fmt(bill.get("outstanding_amount", 0)),
         ]
         rows.append([_full_row[i] for i in _pdf_col_indices])
 
-    total_bill = sum(b["total_bill"] for b in bills)
-    amount_received = sum(b["amount_received"] for b in bills)
-    outstanding = sum(b["outstanding_amount"] for b in bills)
-    total_arrears = sum(b["arrears"] for b in bills)
+    total_bill = sum(b.get("total_bill", 0) for b in bills)
+    amount_received = sum(b.get("amount_received", 0) for b in bills)
+    outstanding = sum(b.get("outstanding_amount", 0) for b in bills)
+    total_arrears = sum(b.get("arrears", 0) for b in bills)
+    total_water_fee = sum(b.get("water_fee", 0) for b in bills)
+    total_sanitation = sum(b.get("sanitation", 0) for b in bills)
+    total_drainage = sum(b.get("drainage", 0) for b in bills)
+    total_billing_fee = sum(b.get("billing_fee", 0) for b in bills)
+    total_fine = sum(b.get("fine", 0) for b in bills)
+    total_after_due_date = sum(b.get("after_due_date", 0) for b in bills)
+
     _full_grand = [
-        "", "", "", "", "", "", "", "Grand Total",
-        fmt(total_bill),
+        "", "", "", "", "", "", "", "", "", "", "", "",
         fmt(total_arrears),
+        fmt(total_water_fee),
+        fmt(total_sanitation),
+        fmt(total_drainage),
+        fmt(total_billing_fee),
+        fmt(total_bill),
+        fmt(total_fine),
+        fmt(total_after_due_date),
+        "", "",
         fmt(amount_received),
         fmt(outstanding),
-        "", ""
     ]
     # Set Grand Total label at the last empty column before amounts
     grand_total = [_full_grand[i] for i in _pdf_col_indices]
@@ -4227,7 +4342,7 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
     n = len(headers)
     col_widths = _calc_col_widths(headers, page_w, n)
 
-    left_cols = {i for i, h in enumerate(headers) if h in ("Consumer Name", "Locality", "Sector")}
+    left_cols = {i for i, h in enumerate(headers) if h in ("Consumer Name", "Locality", "Sector", "Address", "Bill Type")}
 
     summary_lines = [
         f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}",
@@ -4260,33 +4375,39 @@ def export_advanced_bills_response(fmt_type: str, bills: list[dict], filters_app
         flash("No bills match the selected filters.")
         return redirect(url_for("bill_list"))
 
-    # Unified 14-column set matching PDF format
-    _all_headers_adv = ["Sr", "Bill No", "Reference No", "Connection No", "Consumer Name", "Sector", "Locality", "Zone", "Total Bill", "Arrears", "Amount Received", "Outstanding", "Status", "Mobile No"]
-    _all_adv_keys = ["sr", "billNo", "referenceNo", "connectionNo", "consumerName", "sector", "locality", "zone", "totalBills", "arrearsReceived", "totalReceivedAmount", "outstanding", "status", "mobileNo"]
-    _adv_key_map = {k: i for i, k in enumerate(_all_adv_keys)}
     if cols_param:
-        _sel = [k.strip() for k in cols_param.split(",") if k.strip() in _all_adv_keys]
-        _adv_cols = [_adv_key_map[k] for k in _sel]
+        _sel = [k.strip() for k in cols_param.split(",") if k.strip() in ADV_BILLS_ALL_KEYS]
+        _adv_cols = [ADV_BILLS_KEY_MAP[k] for k in _sel]
     else:
         _sel = DEFAULT_ADV_KEYS
-        _adv_cols = [_adv_key_map[k] for k in _sel]
-    headers = [_all_headers_adv[i] for i in _adv_cols]
+        _adv_cols = [ADV_BILLS_KEY_MAP[k] for k in _sel]
+    headers = [ADV_BILLS_ALL_HEADERS[i] for i in _adv_cols]
     rows = [
         [
             idx,
-            bill["bill_no"] or "",
-            bill["reference_no"] or "",
-            bill["connection_no"] or "",
+            bill.get("bill_type") or "",
+            bill.get("bill_no") or "",
+            bill.get("reference_no") or "",
+            bill.get("sector") or "",
+            bill.get("locality") or "",
+            bill.get("zone") or "",
+            bill.get("address") or "",
             bill.get("consumer_name") or "",
-            bill["sector"],
-            bill["locality"],
-            bill["zone"],
-            bill["total_bill"],
-            bill["arrears"],
-            bill["amount_received"],
-            bill["outstanding_amount"],
-            bill["status"] or "",
             bill.get("consumer_mobile") or "",
+            bill.get("connection_no") or "",
+            bill.get("old_connection_no") or "",
+            bill.get("arrears", 0),
+            bill.get("water_fee", 0),
+            bill.get("sanitation", 0),
+            bill.get("drainage", 0),
+            bill.get("billing_fee", 0),
+            bill.get("total_bill", 0),
+            bill.get("fine", 0),
+            bill.get("after_due_date", 0),
+            bill.get("due_date") or "",
+            bill.get("status") or "",
+            bill.get("amount_received", 0),
+            bill.get("outstanding_amount", 0),
         ]
         for idx, bill in enumerate(bills, start=1)
     ]
@@ -4312,8 +4433,8 @@ def export_advanced_bills_response(fmt_type: str, bills: list[dict], filters_app
         if mobile_col_idx is not None:
             for r in rows:
                 mv = r[mobile_col_idx]
-                if mv and mv != "-" and mv[0].isdigit():
-                    r[mobile_col_idx] = '="' + mv + '"'
+                if mv and mv != "-" and str(mv)[0].isdigit():
+                    r[mobile_col_idx] = '="' + str(mv) + '"'
         df = pd.DataFrame(rows, columns=headers)
         csv_data = df.to_csv(index=False)
         return Response(csv_data, mimetype="text/csv", headers={"Content-Disposition": f"attachment; filename={filename}.csv"})
@@ -4321,14 +4442,16 @@ def export_advanced_bills_response(fmt_type: str, bills: list[dict], filters_app
     if fmt_type == "xlsx":
         buf = io.BytesIO()
         df = pd.DataFrame(rows, columns=headers)
-        if mobile_col_idx is not None:
+        text_cols = [ci for ci, h in enumerate(headers) if h in ("Mobile No", "Reference No", "Connection No", "Old Connection No")]
+        if text_cols:
             from openpyxl.utils import get_column_letter
             with pd.ExcelWriter(buf, engine='openpyxl') as writer:
                 df.to_excel(writer, index=False, sheet_name='Sheet1')
                 ws = writer.sheets['Sheet1']
-                col_letter = get_column_letter(mobile_col_idx + 1)
-                for ri in range(2, len(rows) + 2):
-                    ws[f'{col_letter}{ri}'].number_format = '@'
+                for ci in text_cols:
+                    col_letter = get_column_letter(ci + 1)
+                    for ri in range(2, len(rows) + 2):
+                        ws[f'{col_letter}{ri}'].number_format = '@'
             buf.seek(0)
         else:
             df.to_excel(buf, index=False)

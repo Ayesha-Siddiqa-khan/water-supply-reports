@@ -231,7 +231,14 @@
         </div>
         <div id="advanced-filter-summary" class="filter-summary"></div>
         <div class="col-select-area">
-          <div class="col-select-label">Select Columns for Export</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+            <div class="col-select-label" style="margin:0;">Select Columns for Export</div>
+            <div style="display:flex;gap:6px;">
+              <span class="mini-btn" data-col-action="selectAll" data-config="advanceBillChecking" style="font-size:10px;cursor:pointer;padding:2px 8px;border-radius:4px;background:var(--card-bg, #1a2332);border:1px solid var(--border-color, #2d3748);color:var(--text-secondary, #a0aec0);">Select All</span>
+              <span class="mini-btn" data-col-action="unselectAll" data-config="advanceBillChecking" style="font-size:10px;cursor:pointer;padding:2px 8px;border-radius:4px;background:var(--card-bg, #1a2332);border:1px solid var(--border-color, #2d3748);color:var(--text-secondary, #a0aec0);">Deselect All</span>
+              <span class="mini-btn" data-col-action="resetDefault" data-config="advanceBillChecking" style="font-size:10px;cursor:pointer;padding:2px 8px;border-radius:4px;background:var(--card-bg, #1a2332);border:1px solid var(--border-color, #2d3748);color:var(--text-secondary, #a0aec0);">Reset</span>
+            </div>
+          </div>
           <div class="col-chips" id="col-chips-advanceBillChecking"></div>
         </div>
         <div class="column-selector-wrapper" data-col-config="advanceBillChecking" style="display:none;"></div>
@@ -1369,19 +1376,29 @@
     ],
     advanceBillChecking: [
       { key: "sr", label: "Sr", checked: true },
-      { key: "connectionNo", label: "Connection No", checked: true },
-      { key: "consumerName", label: "Consumer Name", checked: true },
-      { key: "mobileNo", label: "Mobile No", checked: true },
-      { key: "locality", label: "Locality", checked: true },
-      { key: "totalBills", label: "Total Bill", checked: true },
-      { key: "arrearsReceived", label: "Arrears", checked: true },
-      { key: "outstanding", label: "Outstanding", checked: true },
+      { key: "billType", label: "Bill Type", checked: false },
       { key: "billNo", label: "Bill No", checked: false },
       { key: "referenceNo", label: "Reference No", checked: false },
       { key: "sector", label: "Sector", checked: false },
+      { key: "locality", label: "Locality", checked: true },
       { key: "zone", label: "Zone", checked: false },
-      { key: "totalReceivedAmount", label: "Amount Received", checked: false },
+      { key: "address", label: "Address", checked: false },
+      { key: "consumerName", label: "Consumer Name", checked: true },
+      { key: "mobileNo", label: "Mobile No", checked: true },
+      { key: "connectionNo", label: "Connection No", checked: true },
+      { key: "oldConnectionNo", label: "Old Connection No", checked: false },
+      { key: "arrearsReceived", label: "Arrears", checked: true },
+      { key: "waterFee", label: "Water Fee", checked: false },
+      { key: "sanitation", label: "Sanitation", checked: false },
+      { key: "drainage", label: "Drainage", checked: false },
+      { key: "billingFee", label: "Billing Fee", checked: false },
+      { key: "totalBills", label: "Total Bill", checked: true },
+      { key: "fine", label: "Fine", checked: false },
+      { key: "afterDueDate", label: "After Due Date", checked: false },
+      { key: "dueDate", label: "Due Date", checked: false },
       { key: "status", label: "Status", checked: false },
+      { key: "totalReceivedAmount", label: "Amount Received", checked: false },
+      { key: "outstanding", label: "Outstanding", checked: true },
     ],
     staffSummary: [
       { key: "sr", label: "Sr", checked: true },
