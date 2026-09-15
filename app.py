@@ -3740,7 +3740,7 @@ ADV_BILLS_ALL_KEYS = [
     "afterDueDate", "dueDate", "status", "totalReceivedAmount", "outstanding"
 ]
 ADV_BILLS_KEY_MAP = {k: i for i, k in enumerate(ADV_BILLS_ALL_KEYS)}
-DEFAULT_ADV_KEYS = ["sr", "connectionNo", "consumerName", "mobileNo", "locality", "totalBills", "arrearsReceived", "outstanding"]
+DEFAULT_ADV_KEYS = ["sr", "locality", "consumerName", "mobileNo", "connectionNo", "oldConnectionNo", "arrearsReceived", "outstanding"]
 
 
 def generate_grouped_advanced_pdf(
