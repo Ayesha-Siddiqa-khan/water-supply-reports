@@ -124,6 +124,7 @@
         <div class="section-header-icon">&#128176;</div>
         <div class="section-title">Domestic, Commercial, and Private Societies total income</div>
         <span class="section-badge">{{ results.income_category_summary|length }} categories</span>
+        {% if results.date_range %}<span class="section-badge" style="background:rgba(20,184,166,0.15);color:var(--teal);">{{ results.date_range }}</span>{% endif %}
         <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="section-body">
@@ -158,27 +159,50 @@
           <div class="col-chips" id="col-chips-incomeCategorySummary"></div>
         </div>
         <div class="table-wrapper">
-          <table class="data-table">
+          <table class="data-table" id="table-incomeCategorySummary">
             <thead>
-              <tr><th>Category</th><th>Connections</th><th>Rate (Rs./Year)</th><th>No. of Bills</th><th>Amount Received</th></tr>
+              <tr>
+                <th data-col="category">Category</th>
+                <th data-col="connections">Connections</th>
+                <th data-col="rate">Rate (Rs./Year)</th>
+                <th data-col="bills">No. of Bills</th>
+                <th data-col="arrearsReceived">Arrears Received</th>
+                <th data-col="currentAmountReceived">Current Amount Received</th>
+                <th data-col="amountReceived">Amount Received</th>
+              </tr>
             </thead>
             <tbody>
-              {% set inc = namespace(tc=0, tb=0, ta=0) %}
+              {% set inc = namespace(tc=0, tb=0, tar=0, tcur=0, ta=0) %}
               {% for row in results.income_category_summary %}
+              {% set r_arr = row.arrears_total|default(0) %}
+              {% set r_tot = row.amount_total|default(0) %}
+              {% set r_cur = row.current_total|default(r_tot - r_arr) %}
               <tr>
-                <td>{{ row.category }}</td>
-                <td class="mono">{{ "{:,}".format(row.connections|default(0)) }}</td>
-                <td class="mono">{{ row.rate }}</td>
-                <td class="mono">{{ "{:,}".format(row.bills|default(0)) }}</td>
-                <td class="mono accent-teal">{{ "{:,.0f}".format(row.amount_total|default(0)) }}</td>
+                <td data-col="category">{{ row.category }}</td>
+                <td data-col="connections" class="mono">{{ "{:,}".format(row.connections|default(0)) }}</td>
+                <td data-col="rate" class="mono">{{ row.rate }}</td>
+                <td data-col="bills" class="mono">{{ "{:,}".format(row.bills|default(0)) }}</td>
+                <td data-col="arrearsReceived" class="mono accent-amber">{{ "{:,.0f}".format(r_arr) }}</td>
+                <td data-col="currentAmountReceived" class="mono accent-purple">{{ "{:,.0f}".format(r_cur) }}</td>
+                <td data-col="amountReceived" class="mono accent-teal">{{ "{:,.0f}".format(r_tot) }}</td>
                 {% set inc.tc = inc.tc + row.connections|default(0) %}
                 {% set inc.tb = inc.tb + row.bills|default(0) %}
-                {% set inc.ta = inc.ta + row.amount_total|default(0) %}
+                {% set inc.tar = inc.tar + r_arr %}
+                {% set inc.tcur = inc.tcur + r_cur %}
+                {% set inc.ta = inc.ta + r_tot %}
               </tr>
               {% endfor %}
             </tbody>
             <tfoot>
-              <tr><td>Grand Total</td><td class="mono">{{ "{:,}".format(inc.tc) }}</td><td></td><td class="mono">{{ "{:,}".format(inc.tb) }}</td><td class="mono">{{ "{:,.0f}".format(inc.ta) }}</td></tr>
+              <tr>
+                <td data-col="category">Grand Total</td>
+                <td data-col="connections" class="mono">{{ "{:,}".format(inc.tc) }}</td>
+                <td data-col="rate"></td>
+                <td data-col="bills" class="mono">{{ "{:,}".format(inc.tb) }}</td>
+                <td data-col="arrearsReceived" class="mono">{{ "{:,.0f}".format(inc.tar) }}</td>
+                <td data-col="currentAmountReceived" class="mono">{{ "{:,.0f}".format(inc.tcur) }}</td>
+                <td data-col="amountReceived" class="mono">{{ "{:,.0f}".format(inc.ta) }}</td>
+              </tr>
             </tfoot>
           </table>
         </div>
@@ -942,6 +966,8 @@
       { key: "connections", label: "Connections", checked: true },
       { key: "rate", label: "Rate", checked: true },
       { key: "bills", label: "No. of Bills", checked: true },
+      { key: "arrearsReceived", label: "Arrears Received", checked: true },
+      { key: "currentAmountReceived", label: "Current Amount Received", checked: true },
       { key: "amountReceived", label: "Amount Received", checked: true }
     ],
     commercialSectorTotalLocalityBreakdown: [
@@ -991,6 +1017,21 @@
     return cols.filter(function(c) { return c.checked; }).map(function(c) { return c.key; }).join(',');
   }
 
+  function updateTableColumnVisibility(configId) {
+    var table = document.getElementById('table-' + configId);
+    if (!table) return;
+    var cols = configStates[configId];
+    if (!cols) return;
+    var visible = {};
+    cols.forEach(function(c) { visible[c.key] = c.checked; });
+    table.querySelectorAll('[data-col]').forEach(function(el) {
+      var key = el.getAttribute('data-col');
+      if (key in visible) {
+        el.style.display = visible[key] ? '' : 'none';
+      }
+    });
+  }
+
   function buildColumnChips(configId) {
     var container = document.getElementById('col-chips-' + configId);
     if (!container) return;
@@ -1006,6 +1047,7 @@
       chip.addEventListener('click', function() {
         col.checked = !col.checked;
         chip.classList.toggle('active');
+        updateTableColumnVisibility(configId);
         updateDownloadParams();
       });
       container.appendChild(chip);
@@ -1029,6 +1071,7 @@
     else if (action === 'unselectAll') { cols.forEach(function(c) { c.checked = false; }); }
     else if (action === 'resetDefault') { configStates[configId] = JSON.parse(JSON.stringify(dashboardReportColumns[configId])); }
     buildColumnChips(configId);
+    updateTableColumnVisibility(configId);
     updateDownloadParams();
   });
 
@@ -1064,6 +1107,7 @@
     if (e.target.id === 'includeConnectionSummary') updateDownloadParams();
   });
 
+  updateTableColumnVisibility('incomeCategorySummary');
   updateDownloadParams();
 
   {% if results %}

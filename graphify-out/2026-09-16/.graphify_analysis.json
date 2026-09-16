@@ -284,16 +284,12 @@
     "5": [
       "app",
       "app_app_data_dir",
-      "app_apply_manual_zone_overrides",
-      "app_backfill_bill_arrears",
       "app_build_new_connection_detail_report",
       "app_clear_new_connection_detail_cache",
-      "app_export_staff_summary",
       "app_export_zones_summary",
       "app_file_column_matcher",
       "app_file_merger",
       "app_format_report_date",
-      "app_get_assignment_conflicts",
       "app_load_new_connection_detail_cache",
       "app_ncd_classification",
       "app_ncd_decimal",
@@ -317,7 +313,6 @@
       "app_resource_path",
       "app_save_new_connection_detail_cache",
       "app_seed_auto_assignment_rules",
-      "app_split_sector_values",
       "datetime",
       "decimal",
       "start_server"
@@ -358,11 +353,19 @@
       "check"
     ],
     "7": [
+      "app_ajax_error",
+      "app_ajax_ok",
+      "app_allowed_file",
+      "app_arrear_calculator",
+      "app_bill_list",
       "app_clear_consumer_summary_cache",
       "app_consumer_report",
       "app_consumer_sector_remaining_report",
+      "app_daily_staff_receive",
       "app_ensure_connection_rate_report",
       "app_filter_active_rows",
+      "app_get_assignment_conflicts",
+      "app_is_ajax",
       "app_load_rates_csv",
       "app_rationale_10241",
       "app_rationale_10300",
@@ -370,19 +373,26 @@
       "app_rationale_12729",
       "app_rationale_9034",
       "app_rationale_9062",
+      "app_read_and_merge_uploaded_files",
       "app_read_dataframe",
+      "app_read_uploaded_dataframe",
+      "app_request_entity_too_large",
       "app_save_consumer_rows_cache",
       "app_save_consumer_summary_cache",
-      "app_split_summary_by_type"
+      "app_split_sector_values",
+      "app_split_summary_by_type",
+      "app_update_sector_zone"
     ],
     "8": [
-      "app_bill_list",
+      "app_apply_manual_zone_overrides",
+      "app_backfill_bill_arrears",
       "app_bill_list_sector_seasonly_export_rows",
       "app_bill_list_staff_export_rows",
       "app_bill_list_zone_export_rows",
       "app_build_unpaid_amount_summary",
       "app_clear_bill_list_data",
       "app_export_sectors_summary",
+      "app_export_staff_summary",
       "app_get_bill_list_context",
       "app_get_db",
       "app_get_season_bill_ids",
@@ -399,7 +409,6 @@
       "app_rationale_6519",
       "app_rationale_6564",
       "app_unpaid_amount_export_data",
-      "app_update_sector_zone",
       "app_zone_sort_expr"
     ],
     "9": [
@@ -562,7 +571,6 @@
       "app_rationale_3280"
     ],
     "17": [
-      "app_allowed_file",
       "app_build_dnc_register_report",
       "app_dnc_classification",
       "app_dnc_money",
@@ -619,20 +627,12 @@
       "app_sort_arrear_rows"
     ],
     "22": [
-      "app_ajax_error",
-      "app_ajax_ok",
-      "app_arrear_calculator",
       "app_build_dashboard_results",
-      "app_daily_staff_receive",
       "app_index",
-      "app_is_ajax",
       "app_load_dashboard_results",
       "app_load_results_cache",
       "app_rationale_5797",
-      "app_read_and_merge_uploaded_files",
-      "app_read_uploaded_dataframe",
       "app_remove_pdf_column",
-      "app_request_entity_too_large",
       "app_save_results_cache"
     ],
     "23": [
@@ -742,10 +742,10 @@
     "2": 0.08244680851063829,
     "3": 0.11149825783972125,
     "4": 0.11153846153846154,
-    "5": 0.08232118758434548,
+    "5": 0.09982174688057041,
     "6": 0.0928030303030303,
-    "7": 0.14166666666666666,
-    "8": 0.16333333333333333,
+    "7": 0.10591133004926108,
+    "8": 0.14461538461538462,
     "9": 0.12666666666666668,
     "10": 0.17028985507246377,
     "11": 0.10952380952380952,
@@ -754,12 +754,12 @@
     "14": 0.15833333333333333,
     "15": 0.19696969696969696,
     "16": 0.2,
-    "17": 0.21212121212121213,
+    "17": 0.23636363636363636,
     "18": 0.43636363636363634,
     "19": 0.2222222222222222,
     "20": 0.25,
     "21": 0.2857142857142857,
-    "22": 0.20952380952380953,
+    "22": 0.38095238095238093,
     "23": 0.2857142857142857,
     "24": 0.4,
     "25": 0.4,
@@ -897,41 +897,8 @@
       "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
     }
   ],
-  "questions": [
-    {
-      "type": "bridge_node",
-      "question": "Why does `classify()` connect `data_comparison.py` to `audit_engine.py`, `build_handover_dataset`?",
-      "why": "High betweenness centrality (0.096) - this node is a cross-community bridge."
-    },
-    {
-      "type": "bridge_node",
-      "question": "Why does `parse_register()` connect `audit_engine.py` to `data_comparison.py`?",
-      "why": "High betweenness centrality (0.089) - this node is a cross-community bridge."
-    },
-    {
-      "type": "verify_inferred",
-      "question": "Are the 8 inferred relationships involving `ParagraphStyle` (e.g. with `build_arrears_pdf()` and `_report_pdf()`) actually correct?",
-      "why": "`ParagraphStyle` has 8 INFERRED edges - model-reasoned connections that need verification."
-    },
-    {
-      "type": "isolated_nodes",
-      "question": "What connects `Sector-wise auditor for the DNS Register connection CSVs. Pure logic, no Flask.…`, `4,800' -> 4800.0, '' -> 0.0, garbage -> None.`, `4,800 / 2,400' -> (4800.0, 2400.0). Demand / collection in one cell.` to the rest of the system?",
-      "why": "160 weakly-connected nodes found - possible documentation gaps or missing edges."
-    },
-    {
-      "type": "low_cohesion",
-      "question": "Should `BytesIO` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.05518925518925519 - nodes in this community are weakly interconnected."
-    },
-    {
-      "type": "low_cohesion",
-      "question": "Should `build_consumer_sector_remaining_report` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.06285714285714286 - nodes in this community are weakly interconnected."
-    },
-    {
-      "type": "low_cohesion",
-      "question": "Should `data_comparison.py` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.08244680851063829 - nodes in this community are weakly interconnected."
-    }
-  ]
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
 }
