@@ -360,15 +360,27 @@ def ajax_error(message: str):
 def read_dataframe(path: str) -> pd.DataFrame:
     _, ext = os.path.splitext(path)
     if ext.lower() == ".csv":
-        return pd.read_csv(path)
-    return pd.read_excel(path)
+        return pd.read_csv(path, dtype=str, keep_default_na=False)
+    return pd.read_excel(path, dtype=str).fillna("")
 
 
 def read_uploaded_dataframe(file) -> pd.DataFrame:
     _, ext = os.path.splitext(file.filename)
     if ext.lower() == ".csv":
-        return pd.read_csv(file)
-    return pd.read_excel(file)
+        return pd.read_csv(file, dtype=str, keep_default_na=False)
+    return pd.read_excel(file, dtype=str).fillna("")
+
+
+def clean_identifier(value) -> str | None:
+    """Clean and preserve exact identifier strings (connection_no, bill_no, ref_no, etc.)."""
+    if value is None or pd.isna(value):
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.endswith(".0"):
+        text = text[:-2].strip()
+    return text or None
 
 
 def normalize_column_name(name: str) -> str:
@@ -410,7 +422,11 @@ def _dedupe_value(value) -> str:
     text = str(value).strip()
     if not text:
         return ""
+    if text.endswith(".0"):
+        text = text[:-2].strip()
     compact_number = text.replace(",", "")
+    if re.fullmatch(r"0\d+", compact_number):
+        return compact_number
     numeric_chars = compact_number.replace(".", "", 1).replace("-", "", 1)
     if numeric_chars.isdigit() and len(numeric_chars) <= 15:
         number = pd.to_numeric(pd.Series([compact_number]), errors="coerce").iloc[0]
@@ -2831,6 +2847,32 @@ def init_bill_list_db() -> None:
         seed_auto_assignment_rules(conn)
         seed_staff_assignments_from_file(conn)
 
+        # Restore connection_no leading zeros from raw_data if available
+        try:
+            cur = conn.cursor()
+            rows_to_check = cur.execute("SELECT id, connection_no, raw_data FROM bills WHERE raw_data IS NOT NULL").fetchall()
+            to_update = []
+            for r in rows_to_check:
+                raw_str = r["raw_data"] if isinstance(r, sqlite3.Row) else r[2]
+                if not raw_str:
+                    continue
+                try:
+                    raw_dict = json.loads(raw_str)
+                except Exception:
+                    continue
+                raw_conn = raw_dict.get("connection no") or raw_dict.get("connection_no") or raw_dict.get("connection number")
+                if raw_conn is not None:
+                    raw_conn_str = str(raw_conn).strip()
+                    if raw_conn_str.endswith(".0"):
+                        raw_conn_str = raw_conn_str[:-2].strip()
+                    curr_conn = str((r["connection_no"] if isinstance(r, sqlite3.Row) else r[1]) or "").strip()
+                    if raw_conn_str.startswith("0") and raw_conn_str != curr_conn:
+                        to_update.append((raw_conn_str, r["id"] if isinstance(r, sqlite3.Row) else r[0]))
+            if to_update:
+                cur.executemany("UPDATE bills SET connection_no = ? WHERE id = ?", to_update)
+        except Exception:
+            pass
+
 
 def seed_auto_assignment_rules(conn) -> None:
     now = datetime.now().isoformat(timespec="seconds")
@@ -3285,7 +3327,11 @@ def fast_upload_text(value) -> str | None:
     text = str(value).strip()
     if not text:
         return None
+    if text.endswith(".0"):
+        text = text[:-2].strip()
     compact = text.replace(",", "")
+    if re.fullmatch(r"0\d+", compact):
+        return compact
     if re.fullmatch(r"-?\d+(?:\.\d+)?", compact):
         number = float(compact)
         return str(int(number)) if number.is_integer() else f"{number:.6f}".rstrip("0").rstrip(".")
@@ -3380,9 +3426,9 @@ def import_bill_list_dataframe(df: pd.DataFrame) -> tuple[int, int]:
                     sector,
                     locality,
                     zone,
-                    fast_upload_text(row.get("bill no")),
-                    fast_upload_text(row.get("reference no")),
-                    fast_upload_text(row.get("connection no")),
+                    clean_identifier(row.get("bill no")),
+                    clean_identifier(row.get("reference no")),
+                    clean_identifier(row.get("connection no")),
                     fast_upload_text(consumer_name_value),
                     total_bill,
                     arrears,
@@ -3566,7 +3612,7 @@ def get_filtered_bills(
 
         bill_type = _clean_str(raw.get("bill type") or raw.get("bill_type"))
         address = _clean_str(raw.get("address") or raw.get("consumer address"))
-        old_conn = fast_upload_text(raw.get("old connection no") or raw.get("old_connection_no") or raw.get("old connection")) or ""
+        old_conn = clean_identifier(raw.get("old connection no") or raw.get("old_connection_no") or raw.get("old connection")) or ""
         water_fee = fast_upload_number(raw.get("water fee") or raw.get("water_fee"))
         sanitation = fast_upload_number(raw.get("sanitation") or raw.get("sanitation fee"))
         drainage = fast_upload_number(raw.get("drainage") or raw.get("drainage fee"))
@@ -3575,10 +3621,20 @@ def get_filtered_bills(
         after_due_date = fast_upload_number(raw.get("after due date") or raw.get("after_due_date"))
         due_date = _clean_str(raw.get("due date") or raw.get("due_date"))
 
+        conn_no = str(row["connection_no"] or "").strip()
+        if raw:
+            raw_conn = raw.get("connection no") or raw.get("connection_no") or raw.get("connection number")
+            if raw_conn is not None:
+                raw_conn_str = str(raw_conn).strip()
+                if raw_conn_str.endswith(".0"):
+                    raw_conn_str = raw_conn_str[:-2].strip()
+                if raw_conn_str.startswith("0") and len(raw_conn_str) > len(conn_no):
+                    conn_no = raw_conn_str
+
         bills.append({
             "bill_no": row["bill_no"] or "",
             "reference_no": row["reference_no"] or "",
-            "connection_no": row["connection_no"] or "",
+            "connection_no": conn_no,
             "consumer_name": consumer_name,
             "sector": row["sector"],
             "locality": row["locality"],
@@ -3786,7 +3842,7 @@ def generate_grouped_advanced_pdf(
     group_label_plural = {"sector": "Sectors", "zone": "Zones", "staff": "Staff"}.get(group_type, "")
 
     buf = io.BytesIO()
-    margin = 10 * mm
+    margin = 14 * mm
     doc = SimpleDocTemplate(
         buf,
         pagesize=landscape(A4),
@@ -4076,7 +4132,7 @@ def _calc_col_widths(headers, page_w, n):
     Guarantees text wraps cleanly and never bleeds or overlaps across columns.
     """
     fixed_widths_mm = {
-        "Sr": 9,
+        "Sr": 12,
         "Bill Type": 18,
         "Bill No": 18,
         "Reference No": 20,
@@ -4121,10 +4177,12 @@ def _calc_col_widths(headers, page_w, n):
                 widths.append(w)
             else:
                 widths.append(fixed_widths_pt.get(h, 20 * mm))
+        if headers and headers[0] == "Sr" and len(widths) > 0:
+            widths[0] = max(widths[0], 11 * mm)
         return widths
 
     prop = {
-        "Sr": 3.5,
+        "Sr": 6.5,
         "Bill Type": 7,
         "Bill No": 7,
         "Reference No": 8,
@@ -4157,6 +4215,8 @@ def _calc_col_widths(headers, page_w, n):
         total_p += p
     if total_p > 0:
         widths = [page_w * w / total_p for w in widths]
+    if headers and headers[0] == "Sr" and len(widths) > 0:
+        widths[0] = max(widths[0], 11 * mm)
     return widths
 
 
@@ -4191,7 +4251,7 @@ def generate_single_group_pdf(
     group_label = {"sector": "Sector", "zone": "Zone", "staff": "Staff"}.get(group_type, "")
 
     buf = io.BytesIO()
-    margin = 10 * mm
+    margin = 14 * mm
     doc = SimpleDocTemplate(
         buf,
         pagesize=landscape(A4),
@@ -4350,7 +4410,7 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
     if "Grand Total" not in grand_total and grand_total:
         grand_total[0] = "Grand Total"
 
-    page_w = landscape(A4)[0] - 20 * mm
+    page_w = landscape(A4)[0] - 28 * mm
     n = len(headers)
     col_widths = _calc_col_widths(headers, page_w, n)
 
@@ -4378,7 +4438,7 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
         header_font_size=10,
         body_font_size=10,
         cell_padding=4.5,
-        margins=(10 * mm, 10 * mm, 10 * mm, 8 * mm),
+        margins=(14 * mm, 14 * mm, 10 * mm, 8 * mm),
     )
 
 

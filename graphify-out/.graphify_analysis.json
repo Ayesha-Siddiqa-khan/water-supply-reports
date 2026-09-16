@@ -3,25 +3,23 @@
     "0": [
       "app_bill_income_category_export_rows",
       "app_bill_list_export_rows",
+      "app_bill_list_staff_export_rows",
+      "app_bill_list_zone_export_rows",
       "app_bracket_rich_text",
       "app_build_connection_summary",
-      "app_calc_col_widths",
       "app_calc_daily_detail_col_widths",
       "app_calc_daily_summary_col_widths",
+      "app_closest_staff_key",
       "app_commercial_daily_income_export_rows",
       "app_daily_staff_receive_export_response",
       "app_daily_staff_receive_export_tables",
       "app_download_card",
-      "app_download_file",
       "app_export_bill_income_category_summary",
       "app_export_bill_list",
       "app_export_bill_list_staff",
-      "app_export_bill_list_zone",
       "app_export_connection_rate_report",
       "app_export_consumer_detail",
       "app_export_consumer_sector_remaining",
-      "app_export_daily_staff_receive",
-      "app_export_daily_staff_receive_summary_pdf",
       "app_export_dnc_register",
       "app_export_new_connection_detail",
       "app_export_row_selection",
@@ -38,6 +36,7 @@
       "app_fiscal_label_to_calendar_label",
       "app_fmt",
       "app_fmt_staff_name",
+      "app_fmt_staff_name_html",
       "app_generate_advanced_filtered_pdf",
       "app_generate_card_pdf",
       "app_generate_commercial_monthly_pdf",
@@ -45,22 +44,11 @@
       "app_generate_connection_rate_pdf",
       "app_generate_daily_staff_receive_pdf",
       "app_generate_daily_staff_receive_summary_pdf",
-      "app_generate_grouped_advanced_pdf",
-      "app_generate_single_group_pdf",
       "app_generate_staff_report_pdf",
       "app_generate_summary_pdf",
       "app_generate_unpaid_amount_pdf",
       "app_generate_zone_grouped_pdf",
-      "app_get_card_col_map",
-      "app_groupedpdfwrapper",
       "app_groupedpdfwrapper_add_detail_table",
-      "app_groupedpdfwrapper_add_group",
-      "app_groupedpdfwrapper_add_staff_group",
-      "app_groupedpdfwrapper_finish",
-      "app_groupedpdfwrapper_init",
-      "app_groupedpdfwrapper_write_heading",
-      "app_groupedpdfwrapper_write_staff_heading",
-      "app_groupedpdfwrapper_write_summary",
       "app_make_pdf_table",
       "app_ncd_annual_payload",
       "app_ncd_annual_pdf",
@@ -71,22 +59,20 @@
       "app_ncd_pdf_col_widths",
       "app_ncd_safe_annual_pdf",
       "app_ncd_table_pdf",
+      "app_normalize_staff_name",
       "app_parse_export_cols",
-      "app_rationale_11715",
-      "app_rationale_12910",
-      "app_rationale_1849",
-      "app_rationale_1860",
-      "app_rationale_2042",
-      "app_rationale_2273",
+      "app_rationale_11775",
+      "app_rationale_12970",
+      "app_rationale_1865",
+      "app_rationale_1876",
+      "app_rationale_2058",
+      "app_rationale_2289",
       "app_rationale_316",
-      "app_rationale_3764",
-      "app_rationale_3911",
-      "app_rationale_4074",
-      "app_rationale_7143",
-      "app_rationale_7846",
+      "app_rationale_326",
+      "app_rationale_7203",
+      "app_rationale_7906",
       "app_selection_has_filter",
-      "app_staff_row_key",
-      "app_unpaid_amount_section",
+      "app_unpaid_amount_export_data",
       "app_wrap_pdf_body_cells",
       "app_wrap_pdf_header_cells",
       "app_wrap_pdf_table_cells",
@@ -95,6 +81,7 @@
     ],
     "1": [
       "app_add_rate_alias",
+      "app_allowed_file",
       "app_annualize_connection_rate",
       "app_build_connection_rate_report",
       "app_build_connection_rate_report_from_summary",
@@ -103,6 +90,7 @@
       "app_canonical_consumer_sector_locality",
       "app_classify_connection_status",
       "app_clean_rate_type_name",
+      "app_clear_consumer_summary_cache",
       "app_connection_rate_bucket",
       "app_connection_rate_category",
       "app_connection_rate_default",
@@ -110,8 +98,12 @@
       "app_connection_rate_lookup",
       "app_connection_rate_report_from_groups",
       "app_connection_report_annual_rate",
+      "app_consumer_report",
       "app_consumer_report_detail_records",
+      "app_consumer_sector_remaining_report",
+      "app_ensure_connection_rate_report",
       "app_export_consumer_report",
+      "app_filter_active_rows",
       "app_is_extra_noor_mohalla_main_road_sector",
       "app_is_extra_zain_city_13g_sector",
       "app_is_faulty_commercial_hussain_colony",
@@ -119,31 +111,41 @@
       "app_is_private_society_summary_row",
       "app_load_consumer_rows_cache",
       "app_load_consumer_summary_cache",
+      "app_load_rates_csv",
       "app_norm_report_text",
       "app_normalize_consumer_col",
       "app_normalize_rate_title",
       "app_parse_consumer_csv",
-      "app_rationale_10212",
-      "app_rationale_10290",
-      "app_rationale_10642",
-      "app_rationale_12063",
-      "app_rationale_12588",
-      "app_rationale_9052",
-      "app_rationale_9075",
-      "app_rationale_9738",
-      "app_rationale_9753",
-      "app_rationale_9768",
-      "app_rationale_9784",
-      "app_rationale_9791",
-      "app_rationale_9797",
-      "app_rationale_9802",
-      "app_rationale_9815",
-      "app_rationale_9820",
+      "app_rationale_10272",
+      "app_rationale_10303",
+      "app_rationale_10350",
+      "app_rationale_10362",
+      "app_rationale_10463",
+      "app_rationale_10702",
+      "app_rationale_12123",
+      "app_rationale_12648",
+      "app_rationale_12791",
+      "app_rationale_9096",
+      "app_rationale_9112",
+      "app_rationale_9124",
+      "app_rationale_9135",
+      "app_rationale_9798",
+      "app_rationale_9813",
       "app_rationale_9828",
-      "app_rationale_9836",
-      "app_rationale_9906",
+      "app_rationale_9844",
+      "app_rationale_9851",
+      "app_rationale_9857",
+      "app_rationale_9862",
+      "app_rationale_9875",
+      "app_rationale_9880",
+      "app_rationale_9888",
+      "app_rationale_9896",
+      "app_rationale_9966",
       "app_resolve_consumer_columns",
-      "app_sort_summary_rows"
+      "app_save_consumer_rows_cache",
+      "app_save_consumer_summary_cache",
+      "app_sort_summary_rows",
+      "app_split_summary_by_type"
     ],
     "2": [
       "check_data_comparison",
@@ -193,9 +195,64 @@
       "data_comparison_result_path",
       "data_comparison_save_result",
       "data_comparison_status_label",
-      "data_comparison_summarise"
+      "data_comparison_summarise",
+      "handover_pick",
+      "handover_rationale_194",
+      "handover_status_of"
     ],
     "3": [
+      "app_build_arrear_export_rows",
+      "app_build_bill_key",
+      "app_build_commercial_daily_income_rows",
+      "app_build_commercial_mask",
+      "app_build_commercial_month_wise_summary",
+      "app_build_commercial_rows",
+      "app_build_daily_rows",
+      "app_build_income_category_summary",
+      "app_build_monthly_rows",
+      "app_build_private_society_mask",
+      "app_build_private_society_rows",
+      "app_build_receipt_monthly_rows",
+      "app_card_rows_to_df",
+      "app_clean_amount_value",
+      "app_dedupe_value",
+      "app_drop_duplicate_bills",
+      "app_export_arrear_calculator",
+      "app_fast_bill_no_key",
+      "app_fast_upload_text",
+      "app_format_calendar_month",
+      "app_format_fiscal_month",
+      "app_get_bill_income_category_summary",
+      "app_get_fiscal_window",
+      "app_import_bill_list_dataframe",
+      "app_normalize_column_name",
+      "app_normalize_dataframe",
+      "app_parse_arrear_export_cols",
+      "app_parse_date_dd_mm_yyyy",
+      "app_parse_received_dates",
+      "app_pick_column",
+      "app_private_society_locality_name",
+      "app_rationale_12298",
+      "app_rationale_12319",
+      "app_rationale_12353",
+      "app_rationale_3294",
+      "app_rationale_3322",
+      "app_rationale_442",
+      "app_rationale_580",
+      "app_rationale_592",
+      "app_rationale_7312",
+      "app_rationale_785",
+      "app_rationale_835",
+      "app_rationale_898",
+      "app_sort_arrear_rows",
+      "app_sql_text",
+      "app_summarize_dataframe",
+      "app_swap_day_month",
+      "dataframe",
+      "period",
+      "series"
+    ],
+    "4": [
       "any",
       "arrears_analysis",
       "arrears_analysis_app",
@@ -239,90 +296,7 @@
       "arrears_analysis_working_csv",
       "arrears_analysis_working_meta"
     ],
-    "4": [
-      "app_build_commercial_daily_income_rows",
-      "app_build_commercial_mask",
-      "app_build_commercial_month_wise_summary",
-      "app_build_commercial_rows",
-      "app_build_daily_rows",
-      "app_build_daily_staff_receive_report",
-      "app_build_income_category_summary",
-      "app_build_monthly_rows",
-      "app_build_private_society_mask",
-      "app_build_private_society_rows",
-      "app_build_receipt_monthly_rows",
-      "app_card_rows_to_df",
-      "app_clean_amount_value",
-      "app_clear_unmatched_log",
-      "app_dedupe_value",
-      "app_drop_duplicate_bills",
-      "app_format_calendar_month",
-      "app_format_fiscal_month",
-      "app_get_bill_income_category_summary",
-      "app_get_fiscal_window",
-      "app_get_unmatched_log",
-      "app_normalize_column_name",
-      "app_normalize_dataframe",
-      "app_parse_date_dd_mm_yyyy",
-      "app_parse_received_dates",
-      "app_pick_column",
-      "app_private_society_locality_name",
-      "app_rationale_426",
-      "app_rationale_564",
-      "app_rationale_576",
-      "app_rationale_7252",
-      "app_rationale_769",
-      "app_rationale_819",
-      "app_rationale_882",
-      "app_sql_text",
-      "app_summarize_dataframe",
-      "app_swap_day_month",
-      "dataframe",
-      "period",
-      "series"
-    ],
     "5": [
-      "app",
-      "app_app_data_dir",
-      "app_apply_manual_zone_overrides",
-      "app_backfill_bill_arrears",
-      "app_build_new_connection_detail_report",
-      "app_clear_new_connection_detail_cache",
-      "app_export_staff_summary",
-      "app_export_zones_summary",
-      "app_file_column_matcher",
-      "app_file_merger",
-      "app_format_report_date",
-      "app_get_assignment_conflicts",
-      "app_load_new_connection_detail_cache",
-      "app_ncd_classification",
-      "app_ncd_decimal",
-      "app_ncd_financial_year",
-      "app_ncd_general_payload",
-      "app_ncd_int",
-      "app_ncd_load_file",
-      "app_ncd_norm",
-      "app_ncd_parse_date",
-      "app_ncd_pick_column",
-      "app_ncd_recalculate",
-      "app_ncd_year_from_source",
-      "app_new_connection_detail",
-      "app_new_connection_receipt_matching",
-      "app_pick_saved_zone",
-      "app_private_society_norm",
-      "app_private_society_sector_name",
-      "app_rationale_12138",
-      "app_rationale_12151",
-      "app_rationale_9251",
-      "app_resource_path",
-      "app_save_new_connection_detail_cache",
-      "app_seed_auto_assignment_rules",
-      "app_split_sector_values",
-      "datetime",
-      "decimal",
-      "start_server"
-    ],
-    "6": [
       "audit_engine",
       "audit_engine_blank_totals",
       "audit_engine_build_audit_report",
@@ -357,14 +331,50 @@
       "audit_engine_structural",
       "check"
     ],
+    "6": [
+      "app",
+      "app_app_data_dir",
+      "app_build_dnc_register_report",
+      "app_dnc_classification",
+      "app_dnc_money",
+      "app_dnc_pair",
+      "app_dnc_rate_and_classification",
+      "app_dnc_register",
+      "app_dnc_report_rows",
+      "app_dnc_split_sector_locality",
+      "app_dnc_sum_rows",
+      "app_download_file",
+      "app_export_bill_list_zone",
+      "app_export_daily_staff_receive",
+      "app_export_daily_staff_receive_summary_pdf",
+      "app_file_column_matcher",
+      "app_file_merger",
+      "app_format_report_date",
+      "app_get_card_col_map",
+      "app_load_dnc_dataframe",
+      "app_ncd_general_payload",
+      "app_new_connection_receipt_matching",
+      "app_pick_saved_zone",
+      "app_private_society_norm",
+      "app_private_society_sector_name",
+      "app_rationale_12198",
+      "app_rationale_12211",
+      "app_rationale_7459",
+      "app_resource_path",
+      "app_staff_row_key",
+      "app_unpaid_amount_section",
+      "start_server"
+    ],
     "7": [
+      "app_apply_manual_zone_overrides",
       "app_bill_list",
       "app_bill_list_sector_seasonly_export_rows",
-      "app_bill_list_staff_export_rows",
-      "app_bill_list_zone_export_rows",
       "app_build_unpaid_amount_summary",
       "app_clear_bill_list_data",
       "app_export_sectors_summary",
+      "app_export_staff_summary",
+      "app_export_zones_summary",
+      "app_get_assignment_conflicts",
       "app_get_bill_list_context",
       "app_get_db",
       "app_get_season_bill_ids",
@@ -373,14 +383,16 @@
       "app_get_zone_summary_data",
       "app_get_zones_summary",
       "app_init_bill_list_db",
-      "app_load_staff_assignment_rows",
       "app_map_bills_to_staff",
       "app_normalize_sector_key",
-      "app_rationale_12583",
-      "app_rationale_3615",
-      "app_rationale_6519",
-      "app_rationale_6564",
-      "app_unpaid_amount_export_data",
+      "app_rationale_12643",
+      "app_rationale_3671",
+      "app_rationale_6579",
+      "app_rationale_6624",
+      "app_read_dataframe",
+      "app_seed_auto_assignment_rules",
+      "app_seed_staff_assignments_from_file",
+      "app_split_sector_values",
       "app_update_sector_zone",
       "app_zone_sort_expr"
     ],
@@ -395,6 +407,7 @@
       "handover_gunzip",
       "handover_handover",
       "handover_handover_dir",
+      "handover_handover_snapshot",
       "handover_handover_status",
       "handover_rationale_1",
       "handover_rationale_1007",
@@ -412,21 +425,42 @@
       "handover_working_meta"
     ],
     "9": [
+      "app_calc_col_widths",
+      "app_export_advanced_bills",
+      "app_export_advanced_bills_response",
+      "app_generate_grouped_advanced_pdf",
+      "app_generate_single_group_pdf",
+      "app_generate_zip_of_group_pdfs",
+      "app_group_bills",
+      "app_groupedpdfwrapper",
+      "app_groupedpdfwrapper_add_group",
+      "app_groupedpdfwrapper_add_staff_group",
+      "app_groupedpdfwrapper_finish",
+      "app_groupedpdfwrapper_init",
+      "app_groupedpdfwrapper_write_heading",
+      "app_groupedpdfwrapper_write_staff_heading",
+      "app_groupedpdfwrapper_write_summary",
+      "app_rationale_3722",
+      "app_rationale_3732",
+      "app_rationale_3820",
+      "app_rationale_3967",
+      "app_rationale_4130",
+      "app_sanitize_filename",
+      "app_zone_sort_key"
+    ],
+    "10": [
       "handover_apply_filters",
-      "handover_build_sections",
       "handover_build_sector_summary",
       "handover_col_key",
       "handover_detail_columns",
+      "handover_detail_rows",
       "handover_filter_label",
       "handover_finalize",
-      "handover_handover_print",
-      "handover_handover_snapshot",
       "handover_is_commercial",
       "handover_py_dataframe",
       "handover_rationale_500",
       "handover_rationale_600",
       "handover_rationale_675",
-      "handover_rationale_694",
       "handover_rationale_752",
       "handover_rationale_772",
       "handover_read_filters",
@@ -437,68 +471,66 @@
       "handover_selected_columns",
       "handover_summarise_block"
     ],
-    "10": [
-      "app_bill_list_summary_from_rows",
-      "app_connection_rate_rows_from_payload",
-      "app_export_advanced_bills",
-      "app_export_advanced_bills_response",
-      "app_generate_zip_of_group_pdfs",
-      "app_group_bills",
-      "app_is_large_pdf_text",
-      "app_merge_sector_list_rows",
-      "app_merge_sector_rows",
-      "app_normalise_sector",
-      "app_parse_number",
-      "app_rationale_1979",
-      "app_rationale_1985",
-      "app_rationale_2021",
-      "app_rationale_3666",
-      "app_rationale_3676",
-      "app_rationale_4832",
-      "app_rationale_4894",
-      "app_sanitize_filename",
-      "app_unpaid_total_from_section_rows",
-      "app_zone_sort_key"
-    ],
     "11": [
+      "app_build_daily_staff_receive_report",
       "app_clean_cell",
-      "app_closest_staff_key",
+      "app_clear_unmatched_log",
       "app_deep_normalize_sector",
-      "app_fmt_staff_name_html",
       "app_get_auto_staff_override",
       "app_get_staff_by_connection_rule",
+      "app_get_unmatched_log",
+      "app_infer_zone",
       "app_keyword_set",
       "app_levenshtein",
       "app_load_alias_rules",
+      "app_load_staff_assignment_rows",
       "app_match_by_alias",
       "app_match_key",
       "app_match_staff_assignment",
       "app_normalize_sector_locality",
-      "app_normalize_staff_name",
       "app_rationale_173",
-      "app_rationale_259",
-      "app_rationale_326",
-      "app_seed_staff_assignments_from_file"
+      "app_rationale_259"
     ],
     "12": [
-      "app_clear_consumer_summary_cache",
-      "app_consumer_report",
-      "app_consumer_sector_remaining_report",
-      "app_ensure_connection_rate_report",
-      "app_filter_active_rows",
-      "app_load_rates_csv",
-      "app_rationale_10243",
-      "app_rationale_10302",
-      "app_rationale_10403",
-      "app_rationale_12731",
-      "app_rationale_9036",
-      "app_rationale_9064",
-      "app_read_dataframe",
-      "app_save_consumer_rows_cache",
-      "app_save_consumer_summary_cache",
-      "app_split_summary_by_type"
+      "app_build_new_connection_detail_report",
+      "app_clear_new_connection_detail_cache",
+      "app_load_new_connection_detail_cache",
+      "app_ncd_classification",
+      "app_ncd_decimal",
+      "app_ncd_financial_year",
+      "app_ncd_int",
+      "app_ncd_load_file",
+      "app_ncd_norm",
+      "app_ncd_parse_date",
+      "app_ncd_pick_column",
+      "app_ncd_recalculate",
+      "app_ncd_year_from_source",
+      "app_new_connection_detail",
+      "app_rationale_9311",
+      "app_save_new_connection_detail_cache",
+      "datetime",
+      "decimal"
     ],
     "13": [
+      "handover_build_handover_dataset",
+      "handover_canonical_labels",
+      "handover_canonicalise_groups",
+      "handover_drop_excluded_sectors",
+      "handover_numeric_amounts",
+      "handover_rationale_133",
+      "handover_rationale_154",
+      "handover_rationale_1562",
+      "handover_rationale_170",
+      "handover_rationale_261",
+      "handover_rationale_625",
+      "handover_rationale_637",
+      "handover_rationale_660",
+      "handover_to_amount",
+      "handover_txt",
+      "handover_type_of",
+      "handover_zone_of"
+    ],
+    "14": [
       "check_handover",
       "check_handover_main",
       "check_handover_rationale_1",
@@ -516,24 +548,6 @@
       "handover_signature_flowable",
       "handover_wrap_rows"
     ],
-    "14": [
-      "handover_build_handover_dataset",
-      "handover_canonical_labels",
-      "handover_canonicalise_groups",
-      "handover_drop_excluded_sectors",
-      "handover_pick",
-      "handover_rationale_133",
-      "handover_rationale_154",
-      "handover_rationale_194",
-      "handover_rationale_261",
-      "handover_rationale_625",
-      "handover_rationale_637",
-      "handover_rationale_660",
-      "handover_status_of",
-      "handover_txt",
-      "handover_type_of",
-      "handover_zone_of"
-    ],
     "15": [
       "app_ajax_error",
       "app_ajax_ok",
@@ -544,7 +558,7 @@
       "app_is_ajax",
       "app_load_dashboard_results",
       "app_load_results_cache",
-      "app_rationale_5797",
+      "app_rationale_5857",
       "app_read_and_merge_uploaded_files",
       "app_read_uploaded_dataframe",
       "app_remove_pdf_column",
@@ -552,18 +566,20 @@
       "app_save_results_cache"
     ],
     "16": [
-      "app_allowed_file",
-      "app_build_dnc_register_report",
-      "app_dnc_classification",
-      "app_dnc_money",
-      "app_dnc_pair",
-      "app_dnc_rate_and_classification",
-      "app_dnc_register",
-      "app_dnc_report_rows",
-      "app_dnc_split_sector_locality",
-      "app_dnc_sum_rows",
-      "app_load_dnc_dataframe",
-      "app_rationale_7399"
+      "app_backfill_bill_arrears",
+      "app_bill_list_summary_from_rows",
+      "app_connection_rate_rows_from_payload",
+      "app_is_large_pdf_text",
+      "app_merge_sector_list_rows",
+      "app_merge_sector_rows",
+      "app_normalise_sector",
+      "app_parse_number",
+      "app_rationale_1995",
+      "app_rationale_2001",
+      "app_rationale_2037",
+      "app_rationale_4892",
+      "app_rationale_4954",
+      "app_unpaid_total_from_section_rows"
     ],
     "17": [
       "flowable",
@@ -572,25 +588,29 @@
       "handover_numberedcanvas_init",
       "handover_numberedcanvas_save",
       "handover_numberedcanvas_showpage",
+      "handover_page_furniture",
       "handover_pagemark",
       "handover_pagemark_draw",
       "handover_pagemark_init",
       "handover_pagemark_wrap",
       "handover_rationale_1698",
-      "handover_rationale_1772"
+      "handover_rationale_1772",
+      "handover_rationale_1912"
     ],
     "18": [
-      "app_build_bill_key",
-      "app_fast_bill_no_key",
+      "app_clean_identifier",
       "app_fast_upload_number",
-      "app_fast_upload_text",
       "app_format_mobile",
       "app_get_filtered_bills",
-      "app_import_bill_list_dataframe",
-      "app_infer_zone",
-      "app_rationale_3252",
-      "app_rationale_3265",
-      "app_rationale_3280"
+      "app_rationale_3307",
+      "app_rationale_375",
+      "check_csv_headers_export",
+      "check_csv_headers_export_rationale_1",
+      "check_csv_headers_export_test_csv_export_all_headers",
+      "check_csv_headers_export_test_excel_export_all_headers",
+      "check_csv_headers_export_test_get_filtered_bills_headers",
+      "check_csv_headers_export_test_grouped_pdf_exports",
+      "check_csv_headers_export_test_pdf_export_all_headers"
     ],
     "19": [
       "static_upload_progress",
@@ -606,165 +626,143 @@
       "static_upload_progress_updateoverlay"
     ],
     "20": [
-      "handover_detail_rows",
+      "handover_build_sections",
       "handover_export_handover",
+      "handover_handover_print",
       "handover_index_flowables",
-      "handover_page_furniture",
       "handover_rationale_1168",
       "handover_rationale_1717",
-      "handover_rationale_1912",
+      "handover_rationale_694",
       "handover_report_date",
       "handover_signature_band_height"
     ],
     "21": [
-      "handover_list_snapshots",
-      "handover_load_dataset",
-      "handover_numeric_amounts",
-      "handover_rationale_1562",
-      "handover_rationale_170",
-      "handover_rationale_429",
-      "handover_snapshot_dir",
-      "handover_to_amount"
-    ],
-    "22": [
-      "app_build_arrear_export_rows",
-      "app_export_arrear_calculator",
-      "app_parse_arrear_export_cols",
-      "app_rationale_12238",
-      "app_rationale_12259",
-      "app_rationale_12293",
-      "app_sort_arrear_rows"
-    ],
-    "23": [
-      "check_csv_headers_export",
-      "check_csv_headers_export_rationale_1",
-      "check_csv_headers_export_test_csv_export_all_headers",
-      "check_csv_headers_export_test_excel_export_all_headers",
-      "check_csv_headers_export_test_get_filtered_bills_headers",
-      "check_csv_headers_export_test_grouped_pdf_exports",
-      "check_csv_headers_export_test_pdf_export_all_headers"
-    ],
-    "24": [
       "handover_compose",
       "handover_conn_key",
       "handover_key_frame",
       "handover_py_series",
       "handover_rationale_138"
     ],
-    "25": [
+    "22": [
       "vercel",
       "vercel_app_py_maxduration",
       "vercel_functions",
       "vercel_functions_app_py",
       "vercel_schema"
     ],
-    "26": [
+    "23": [
       "concept_app",
       "concept_deps",
       "concept_flask",
       "concept_sqlite"
     ],
-    "27": [
+    "24": [
+      "handover_list_snapshots",
+      "handover_load_dataset",
+      "handover_rationale_429",
+      "handover_snapshot_dir"
+    ],
+    "25": [
       "templates_comparison_upload",
       "templates_comparison_upload_gzipfile",
       "templates_comparison_upload_overlay"
     ],
-    "28": [
+    "26": [
       "app_py_dataframe"
     ],
-    "29": [
+    "27": [
       "app_py_route"
     ],
-    "30": [
+    "28": [
       "app_py_series"
     ],
-    "31": [
+    "29": [
       "arrears_analysis_py_route"
     ],
-    "32": [
+    "30": [
       "check_bill_list"
     ],
-    "33": [
+    "31": [
       "check_csv"
     ],
-    "34": [
+    "32": [
       "check_dup"
     ],
-    "35": [
+    "33": [
       "check_import"
     ],
-    "36": [
+    "34": [
       "check_keys"
     ],
-    "37": [
+    "35": [
       "check_schema"
     ],
-    "38": [
+    "36": [
       "errorhandler"
     ],
-    "39": [
+    "37": [
       "ext_pdflib"
     ],
-    "40": [
+    "38": [
       "ext_sheetjs"
     ],
-    "41": [
+    "39": [
       "handover_py_route"
     ],
-    "42": [
+    "40": [
       "temp_debug"
     ],
-    "43": [
+    "41": [
       "temp_debug2"
     ],
-    "44": [
+    "42": [
       "temp_debug3"
     ],
-    "45": [
+    "43": [
       "water_suppy_report_agents_codeblock_1"
     ],
-    "46": [
+    "44": [
       "water_suppy_report_agents_codeblock_2"
     ],
-    "47": [
+    "45": [
       "water_suppy_report_agents_codeblock_3"
     ],
-    "48": [
+    "46": [
       "water_suppy_report_instruction_md_codeblock_1"
     ],
-    "49": [
+    "47": [
       "water_suppy_report_instruction_md_codeblock_2"
     ]
   },
   "cohesion": {
-    "0": 0.05518925518925519,
-    "1": 0.06285714285714286,
-    "2": 0.08244680851063829,
-    "3": 0.11149825783972125,
-    "4": 0.11153846153846154,
-    "5": 0.08232118758434548,
-    "6": 0.0928030303030303,
-    "7": 0.16333333333333333,
-    "8": 0.12666666666666668,
-    "9": 0.17028985507246377,
-    "10": 0.10952380952380952,
+    "0": 0.0673274094326726,
+    "1": 0.05034965034965035,
+    "2": 0.07764705882352942,
+    "3": 0.07918367346938776,
+    "4": 0.11149825783972125,
+    "5": 0.0928030303030303,
+    "6": 0.08870967741935484,
+    "7": 0.11330049261083744,
+    "8": 0.12,
+    "9": 0.15584415584415584,
+    "10": 0.20476190476190476,
     "11": 0.1437908496732026,
-    "12": 0.14166666666666666,
-    "13": 0.15,
-    "14": 0.15833333333333333,
+    "12": 0.1503267973856209,
+    "13": 0.14705882352941177,
+    "14": 0.15,
     "15": 0.20952380952380953,
-    "16": 0.21212121212121213,
-    "17": 0.19696969696969696,
-    "18": 0.2,
+    "16": 0.15384615384615385,
+    "17": 0.16483516483516483,
+    "18": 0.16666666666666666,
     "19": 0.43636363636363634,
-    "20": 0.2222222222222222,
-    "21": 0.25,
-    "22": 0.2857142857142857,
-    "23": 0.2857142857142857,
-    "24": 0.4,
-    "25": 0.4,
-    "26": 0.5,
-    "27": 0.6666666666666666,
+    "20": 0.25,
+    "21": 0.4,
+    "22": 0.4,
+    "23": 0.5,
+    "24": 0.5,
+    "25": 0.6666666666666666,
+    "26": 1.0,
+    "27": 1.0,
     "28": 1.0,
     "29": 1.0,
     "30": 1.0,
@@ -784,9 +782,7 @@
     "44": 1.0,
     "45": 1.0,
     "46": 1.0,
-    "47": 1.0,
-    "48": 1.0,
-    "49": 1.0
+    "47": 1.0
   },
   "gods": [
     {
@@ -854,17 +850,6 @@
     },
     {
       "source": "classify()",
-      "target": "_status_of()",
-      "source_files": [
-        "data_comparison.py",
-        "handover.py"
-      ],
-      "confidence": "INFERRED",
-      "relation": "indirect_call",
-      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
-    },
-    {
-      "source": "classify()",
       "target": "_type_of()",
       "source_files": [
         "data_comparison.py",
@@ -895,13 +880,24 @@
       "confidence": "INFERRED",
       "relation": "indirect_call",
       "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "arrears_analysis()",
+      "target": "allowed_file()",
+      "source_files": [
+        "arrears_analysis.py",
+        "app.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
     }
   ],
   "questions": [
     {
       "type": "bridge_node",
-      "question": "Why does `classify()` connect `data_comparison.py` to `audit_engine.py`, `build_handover_dataset`?",
-      "why": "High betweenness centrality (0.096) - this node is a cross-community bridge."
+      "question": "Why does `classify()` connect `data_comparison.py` to `build_handover_dataset`, `audit_engine.py`?",
+      "why": "High betweenness centrality (0.095) - this node is a cross-community bridge."
     },
     {
       "type": "bridge_node",
@@ -916,22 +912,22 @@
     {
       "type": "isolated_nodes",
       "question": "What connects `Sector-wise auditor for the DNS Register connection CSVs. Pure logic, no Flask.…`, `4,800' -> 4800.0, '' -> 0.0, garbage -> None.`, `4,800 / 2,400' -> (4800.0, 2400.0). Demand / collection in one cell.` to the rest of the system?",
-      "why": "160 weakly-connected nodes found - possible documentation gaps or missing edges."
+      "why": "161 weakly-connected nodes found - possible documentation gaps or missing edges."
     },
     {
       "type": "low_cohesion",
       "question": "Should `BytesIO` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.05518925518925519 - nodes in this community are weakly interconnected."
+      "why": "Cohesion score 0.0673274094326726 - nodes in this community are weakly interconnected."
     },
     {
       "type": "low_cohesion",
-      "question": "Should `build_consumer_sector_remaining_report` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.06285714285714286 - nodes in this community are weakly interconnected."
+      "question": "Should `consumer_report` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.05034965034965035 - nodes in this community are weakly interconnected."
     },
     {
       "type": "low_cohesion",
       "question": "Should `data_comparison.py` be split into smaller, more focused modules?",
-      "why": "Cohesion score 0.08244680851063829 - nodes in this community are weakly interconnected."
+      "why": "Cohesion score 0.07764705882352942 - nodes in this community are weakly interconnected."
     }
   ]
 }
