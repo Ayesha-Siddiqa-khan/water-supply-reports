@@ -8511,6 +8511,8 @@ def download_card(card: str, fmt_type: str):
     # Apply per-card column selection filtering for dashboard exports
     if card != "daily-staff-receive":
         cols_param = request.args.get("cols")
+        if not cols_param and card.startswith("income-"):
+            cols_param = "category,arrearsReceived,amountReceived"
         col_map = _get_card_col_map(card, r)
         if cols_param and col_map:
             headers, rows, grand = _filter_card_export(cols_param, col_map, headers, rows, grand)

@@ -9,7 +9,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `347553f1`
+- Built from commit: `55c4164f`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -21,22 +21,22 @@
 - DataFrame
 - app.py
 - audit_engine.py
-- consumer_report
 - get_db
 - handover.py
 - _render_page
 - parse_number
 - match_staff_assignment
+- consumer_report
 - main
 - build_handover_dataset
+- index
+- allowed_file
 - NumberedCanvas
 - import_bill_list_dataframe
-- allowed_file
 - upload-progress.js
 - export_handover
 - load_dataset
 - export_arrear_calculator
-- index
 - check_csv_headers_export.py
 - _key_frame
 - vercel.json
@@ -112,29 +112,29 @@ Nodes (31): apply_manual_zone_overrides(), backfill_bill_arrears(), _build_new_c
 Cohesion: 0.09
 Nodes (32): _blank_totals(), build_audit_report(), classify_negative(), conn_sort_key(), correct_pending(), _corrections_for(), _default_classify(), _hidden_arrear() (+24 more)
 
-### Community 7 - "consumer_report"
-Cohesion: 0.14
-Nodes (16): _clear_consumer_summary_cache(), consumer_report(), consumer_sector_remaining_report(), _ensure_connection_rate_report(), _filter_active_rows(), _load_rates_csv(), Return a copy of `summary` with all rows having zero active     connections remo, Split a summary dict into (normal, commercial, private_society).      COMMERCIAL (+8 more)
-
-### Community 8 - "get_db"
+### Community 7 - "get_db"
 Cohesion: 0.16
 Nodes (25): bill_list(), bill_list_sector_seasonly_export_rows(), bill_list_staff_export_rows(), bill_list_zone_export_rows(), build_unpaid_amount_summary(), clear_bill_list_data(), export_sectors_summary(), get_bill_list_context() (+17 more)
 
-### Community 9 - "handover.py"
+### Community 8 - "handover.py"
 Cohesion: 0.13
 Nodes (24): _app(), _draw_ring_text(), _draw_signature_band(), _draw_star(), _draw_watermark(), _emblem_path(), _gunzip(), handover() (+16 more)
 
-### Community 10 - "_render_page"
+### Community 9 - "_render_page"
 Cohesion: 0.17
 Nodes (24): apply_filters(), build_sections(), build_sector_summary(), col_key(), detail_columns(), filter_label(), _finalize(), handover_print() (+16 more)
 
-### Community 11 - "parse_number"
+### Community 10 - "parse_number"
 Cohesion: 0.11
 Nodes (21): _bill_list_summary_from_rows(), _connection_rate_rows_from_payload(), export_advanced_bills(), export_advanced_bills_response(), generate_zip_of_group_pdfs(), group_bills(), is_large_pdf_text(), merge_sector_list_rows() (+13 more)
 
-### Community 12 - "match_staff_assignment"
+### Community 11 - "match_staff_assignment"
 Cohesion: 0.14
 Nodes (18): clean_cell(), _closest_staff_key(), _deep_normalize_sector(), fmt_staff_name_html(), get_auto_staff_override(), get_staff_by_connection_rule(), _keyword_set(), _levenshtein() (+10 more)
+
+### Community 12 - "consumer_report"
+Cohesion: 0.14
+Nodes (16): _clear_consumer_summary_cache(), consumer_report(), consumer_sector_remaining_report(), _ensure_connection_rate_report(), _filter_active_rows(), _load_rates_csv(), Return a copy of `summary` with all rows having zero active     connections remo, Split a summary dict into (normal, commercial, private_society).      COMMERCIAL (+8 more)
 
 ### Community 13 - "main"
 Cohesion: 0.15
@@ -144,37 +144,37 @@ Nodes (15): main(), Self-check for the Handover Register join, filters, and snap
 Cohesion: 0.16
 Nodes (16): build_handover_dataset(), _canonical_labels(), canonicalise_groups(), drop_excluded_sectors(), _pick(), Collapse whitespace and lower-case — used for every exact-match key., Commercial when the rate type says so — including the ``COMERCIAL``     spellin, First column whose normalised name matches one of *candidates*. (+8 more)
 
-### Community 15 - "NumberedCanvas"
-Cohesion: 0.20
-Nodes (5): Flowable, NumberedCanvas, _PageMark, A zero-height marker that reports the page it lands on.      Placed at the hea, Canvas that stamps "Page X of Y" once the total is known.      ReportLab strea
+### Community 15 - "index"
+Cohesion: 0.21
+Nodes (15): ajax_error(), ajax_ok(), arrear_calculator(), build_dashboard_results(), daily_staff_receive(), index(), is_ajax(), _load_dashboard_results() (+7 more)
 
-### Community 16 - "import_bill_list_dataframe"
-Cohesion: 0.20
-Nodes (11): build_bill_key(), fast_bill_no_key(), fast_upload_number(), fast_upload_text(), format_mobile(), get_filtered_bills(), import_bill_list_dataframe(), infer_zone() (+3 more)
-
-### Community 17 - "allowed_file"
+### Community 16 - "allowed_file"
 Cohesion: 0.21
 Nodes (12): allowed_file(), _build_dnc_register_report(), _dnc_classification(), _dnc_money(), _dnc_pair(), _dnc_rate_and_classification(), dnc_register(), _dnc_report_rows() (+4 more)
 
-### Community 18 - "upload-progress.js"
+### Community 17 - "NumberedCanvas"
+Cohesion: 0.20
+Nodes (5): Flowable, NumberedCanvas, _PageMark, A zero-height marker that reports the page it lands on.      Placed at the hea, Canvas that stamps "Page X of Y" once the total is known.      ReportLab strea
+
+### Community 18 - "import_bill_list_dataframe"
+Cohesion: 0.20
+Nodes (11): build_bill_key(), fast_bill_no_key(), fast_upload_number(), fast_upload_text(), format_mobile(), get_filtered_bills(), import_bill_list_dataframe(), infer_zone() (+3 more)
+
+### Community 19 - "upload-progress.js"
 Cohesion: 0.44
 Nodes (10): bindUploadForms(), createOverlay(), getUploadFileLabel(), handleUpload(), removeOverlay(), setFormLoading(), shouldUseNativeUpload(), showToast() (+2 more)
 
-### Community 19 - "export_handover"
+### Community 20 - "export_handover"
 Cohesion: 0.22
 Nodes (9): detail_rows(), export_handover(), _index_flowables(), _page_furniture(), The one date the register carries.      A finalised record is dated when it wa, The table of contents: sector name on the left, page on the right.      ``offs, Page-begin callback.      Runs before the frame lays its flowables down, which, report_date() (+1 more)
 
-### Community 20 - "load_dataset"
+### Community 21 - "load_dataset"
 Cohesion: 0.25
 Nodes (8): _list_snapshots(), load_dataset(), _numeric_amounts(), Write money columns to Excel as numbers, not "13,040" text, so the     arrears, Parse a money cell tolerantly.      Pulls the first number out rather than del, Return (rows, meta). Snapshots read their own frozen copy., _snapshot_dir(), _to_amount()
 
-### Community 21 - "export_arrear_calculator"
+### Community 22 - "export_arrear_calculator"
 Cohesion: 0.29
 Nodes (7): _build_arrear_export_rows(), export_arrear_calculator(), _parse_arrear_export_cols(), Parse comma-separated column keys into an ordered list.      Fixed column order:, Build export rows from summary data, selecting only requested columns., Sort rows by the given status priority and order., _sort_arrear_rows()
-
-### Community 22 - "index"
-Cohesion: 0.21
-Nodes (15): ajax_error(), ajax_ok(), arrear_calculator(), build_dashboard_results(), daily_staff_receive(), index(), is_ajax(), _load_dashboard_results() (+7 more)
 
 ### Community 24 - "_key_frame"
 Cohesion: 0.40
