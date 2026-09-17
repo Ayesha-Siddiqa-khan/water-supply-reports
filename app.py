@@ -833,18 +833,20 @@ def build_private_society_rows(df: pd.DataFrame, dates: pd.Series, amount_col: s
 
 def build_commercial_rows(df: pd.DataFrame, dates: pd.Series, amount_col: str | None, arrears_col: str | None):
     """Build commercial sector breakdown by locality — total and month-wise."""
-    locality_col = pick_column(list(df.columns), ["locality"])
+    locality_col = pick_column(list(df.columns), ["locality"]) or pick_column(list(df.columns), ["sector"])
     if not locality_col:
         return None, None
 
-    mask = build_commercial_mask(df)
+    mask = build_commercial_mask(df) & ~build_private_society_mask(df)
     comm = df[mask].copy()
     if comm.empty:
-        return [], []
+        return [], {}
 
     comm_dates = dates.reindex(comm.index).dropna()
     comm = comm.loc[comm_dates.index]
     comm_dates = comm_dates.loc[comm.index]
+    if comm.empty:
+        return [], {}
 
     comm["_locality"] = comm[locality_col].fillna("Unknown").astype(str).str.strip()
     if amount_col:
@@ -852,9 +854,6 @@ def build_commercial_rows(df: pd.DataFrame, dates: pd.Series, amount_col: str | 
     if arrears_col:
         comm["_arrears"] = comm[arrears_col].apply(clean_amount_value)
     comm["_period"] = comm_dates.dt.to_period("M")
-
-    fiscal_start, current_period = get_fiscal_window()
-    comm = comm[(comm["_period"] >= fiscal_start) & (comm["_period"] <= current_period)]
 
     # Total by locality
     agg_t = {"count": ("_locality", "size")}
@@ -879,6 +878,7 @@ def build_commercial_rows(df: pd.DataFrame, dates: pd.Series, amount_col: str | 
     if arrears_col:
         agg_m["arrears"] = ("_arrears", "sum")
     monthly_grouped = comm.groupby(["_period", "_locality"]).agg(**agg_m).reset_index()
+    monthly_grouped = monthly_grouped.sort_values(by=["_period", "_locality"])
     monthly_data = {}
     for _, row in monthly_grouped.iterrows():
         month_label = format_fiscal_month(row["_period"])
@@ -896,7 +896,7 @@ def build_commercial_rows(df: pd.DataFrame, dates: pd.Series, amount_col: str | 
 
 def build_commercial_month_wise_summary(df: pd.DataFrame, dates: pd.Series, amount_col: str | None, arrears_col: str | None) -> list[dict]:
     """Build commercial month-wise summary — one row per fiscal month (July to June)."""
-    mask = build_commercial_mask(df)
+    mask = build_commercial_mask(df) & ~build_private_society_mask(df)
     comm = df[mask].copy()
     if comm.empty:
         return []
@@ -904,6 +904,8 @@ def build_commercial_month_wise_summary(df: pd.DataFrame, dates: pd.Series, amou
     comm_dates = dates.reindex(comm.index).dropna()
     comm = comm.loc[comm_dates.index]
     comm_dates = comm_dates.loc[comm.index]
+    if comm.empty:
+        return []
 
     metric_df = pd.DataFrame({"date": comm_dates})
     if amount_col:
@@ -917,9 +919,6 @@ def build_commercial_month_wise_summary(df: pd.DataFrame, dates: pd.Series, amou
     if arrears_col is not None:
         agg_dict["arrears"] = ("arrears", "sum")
     grouped = metric_df.groupby(metric_df["date"].dt.to_period("M")).agg(**agg_dict).sort_index()
-
-    fiscal_start, current_period = get_fiscal_window()
-    grouped = grouped.loc[(grouped.index >= fiscal_start) & (grouped.index <= current_period)]
 
     rows = []
     for label, row in grouped.iterrows():
@@ -946,23 +945,21 @@ def build_commercial_daily_income_rows(
         "sector": pick_column(columns, ["sector"]),
         "locality": pick_column(columns, ["locality"]),
     }
-    if not required_cols["sector"] or not required_cols["locality"]:
+    if not required_cols["sector"] and not required_cols["locality"]:
         return None, "Arrears Received" if arrears_col else "Areas Received"
+
+    sector_col = required_cols["sector"] or required_cols["locality"]
+    locality_col = required_cols["locality"] or required_cols["sector"]
 
     metric_col = arrears_col or areas_col
     metric_label = "Arrears Received" if arrears_col else "Areas Received"
-    mask = build_commercial_mask(df)
+    mask = build_commercial_mask(df) & ~build_private_society_mask(df)
     comm = df[mask].copy()
     if comm.empty:
         return [], metric_label
 
     comm_dates = dates.reindex(comm.index).dropna()
     comm = comm.loc[comm_dates.index].copy()
-    comm_dates = comm_dates.loc[comm.index]
-
-    fiscal_start, current_period = get_fiscal_window()
-    periods = comm_dates.dt.to_period("M")
-    comm = comm[(periods >= fiscal_start) & (periods <= current_period)].copy()
     comm_dates = comm_dates.loc[comm.index]
     if comm.empty:
         return [], metric_label
@@ -975,8 +972,8 @@ def build_commercial_daily_income_rows(
                 "date": comm_dates.loc[idx].strftime("%d-%m-%Y"),
                 "consumer_name": clean_cell(row.get(required_cols["consumer_name"])) if required_cols["consumer_name"] else "",
                 "connection_no": clean_cell(row.get(required_cols["connection_no"])) if required_cols["connection_no"] else "",
-                "sector": clean_cell(row.get(required_cols["sector"])),
-                "locality": clean_cell(row.get(required_cols["locality"])),
+                "sector": clean_cell(row.get(sector_col)),
+                "locality": clean_cell(row.get(locality_col)),
                 "metric_total": parse_number(row.get(metric_col)) if metric_col else 0,
                 "amount_total": parse_number(row.get(amount_col)) if amount_col else 0,
             }
@@ -8397,7 +8394,7 @@ def download_card(card: str, fmt_type: str):
 
     elif card in ("commercial", "commercial-total"):
         title = "Commercial Sector — Locality Report"
-        summary = [f"<b>Total (July to May)</b>"]
+        summary = [f"<b>Commercial Sector Locality Breakdown</b>"]
         headers = ["Locality", "No. of Bills"]
         if r.get("has_arrears"):
             headers.append("Arrears Received")
@@ -8485,12 +8482,17 @@ def download_card(card: str, fmt_type: str):
 
     elif card == "commercial-month-wise":
         title = "Commercial Month-wise Report"
-        fiscal_start, current_period = get_fiscal_window()
-        period_str = f"{format_calendar_month(fiscal_start)} to {format_calendar_month(current_period)}"
+        comm_rows = r.get("commercial_month_wise_summary", [])
+        if comm_rows:
+            p_start = fiscal_label_to_calendar_label(comm_rows[0]["label"])
+            p_end = fiscal_label_to_calendar_label(comm_rows[-1]["label"])
+            period_str = p_start if p_start == p_end else f"{p_start} to {p_end}"
+        else:
+            period_str = r.get("date_range", "")
         headers = ["Month", "No. of Bills", "Arrears Received", "Current Amount Received", "Amount Received"]
         rows = []
         gt_count, gt_arrears, gt_amount = 0, 0, 0
-        for row in r.get("commercial_month_wise_summary", []):
+        for row in comm_rows:
             c = row.get("count", 0)
             ar = row.get("arrears_total", 0)
             am = row.get("amount_total", 0)
@@ -8588,6 +8590,10 @@ def download_card(card: str, fmt_type: str):
         conn_summary = {"headers": conn_headers, "rows": conn_rows, "grand": conn_grand}
 
     dl_filename = {
+        "commercial": "Commercial_Sector_Total_Locality_Report",
+        "commercial-total": "Commercial_Sector_Total_Locality_Report",
+        "commercial-monthly": "Commercial_Sector_Month_Wise_Locality_Report",
+        "commercial-daily-income": "Commercial_Daily_Income_Report",
         "commercial-month-wise": "Commercial_Month_Wise_Report",
         "private-society-total": "Private_Societies_Locality_Report",
         "income-summary": "Income_Category_Summary",
