@@ -44,8 +44,11 @@ def main():
     assert pdf_response.status_code == 200
     assert pdf_response.mimetype == "application/pdf"
     assert "details_of_connections.pdf" in pdf_response.headers["Content-Disposition"]
-    pdf_text = "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(pdf_response.data)).pages)
+    pdf_reader = PdfReader(io.BytesIO(pdf_response.data))
+    assert len(pdf_reader.pages) == 1
+    pdf_text = "\n".join(page.extract_text() or "" for page in pdf_reader.pages)
     assert "Details of Connections" in pdf_text
+    assert "Sectors:" not in pdf_text and "Localities:" not in pdf_text and "Total Connections:" not in pdf_text
     assert pdf_text.index("Domestic") < pdf_text.index("Private Societies") < pdf_text.index("Commercial")
 
     print("Consumer connection summary export checks passed.")

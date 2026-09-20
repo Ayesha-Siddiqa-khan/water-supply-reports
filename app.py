@@ -11342,17 +11342,19 @@ def export_consumer_report(fmt_type: str):
         )
 
         styles = getSampleStyleSheet()
+        is_connections_summary = scope_label == "connections"
+        summary_font_size = 13 if len(active_cols) <= 5 else 10
 
         # -- Heading styles --
         report_title_style = ParagraphStyle(
             "ConsumerReportTitle",
             parent=styles["Heading1"],
-            fontSize=16,
-            leading=20,
+            fontSize=20 if is_connections_summary else 16,
+            leading=24 if is_connections_summary else 20,
             fontName="Helvetica-Bold",
             textColor=colors.black,
             alignment=1,
-            spaceAfter=3 * mm,
+            spaceAfter=(10 if is_connections_summary else 3) * mm,
         )
         meta_style = ParagraphStyle(
             "ConsumerReportMeta",
@@ -11369,25 +11371,25 @@ def export_consumer_report(fmt_type: str):
         cell_wrap_style = ParagraphStyle(
             "CellWrap",
             parent=styles["Normal"],
-            fontSize=8.2,
+            fontSize=summary_font_size if is_connections_summary else 8.2,
             fontName="Helvetica",
             textColor=PDF_BODY_FG,
-            leading=10.8,
+            leading=summary_font_size + 3 if is_connections_summary else 10.8,
             alignment=0,
         )
         cell_center_style = ParagraphStyle(
             "CellCenter",
             parent=styles["Normal"],
-            fontSize=8.2,
+            fontSize=summary_font_size if is_connections_summary else 8.2,
             fontName="Helvetica",
             textColor=PDF_BODY_FG,
             alignment=1,
-            leading=10.8,
+            leading=summary_font_size + 3 if is_connections_summary else 10.8,
         )
         header_cell_style = ParagraphStyle(
             "HeaderCell",
             parent=styles["Normal"],
-            fontSize=9,
+            fontSize=summary_font_size if is_connections_summary else 9,
             fontName="Helvetica-Bold",
             textColor=PDF_HEADER_FG,
             alignment=1,
@@ -11396,7 +11398,7 @@ def export_consumer_report(fmt_type: str):
         elements = []
 
         # -- Report heading block --
-        elements.append(Paragraph("Details of Connections" if scope_label == "connections" else "Sector-Based Connection Summary", report_title_style))
+        elements.append(Paragraph("Details of Connections" if is_connections_summary else "Sector-Based Connection Summary", report_title_style))
 
         # -- Shared filtered dataset is already domestic + Active>0 + sorted --
         non_commercial_rows = final_sorted
@@ -11414,7 +11416,8 @@ def export_consumer_report(fmt_type: str):
         meta_parts.append(f"<b>Sectors:</b> {non_commercial_sectors}")
         meta_parts.append(f"<b>Localities:</b> {non_commercial_count}")
         meta_parts.append(f"<b>Total Connections:</b> {non_commercial_total:,}")
-        elements.append(Paragraph(" &nbsp;&nbsp;|&nbsp;&nbsp; ".join(meta_parts), meta_style))
+        if not is_connections_summary:
+            elements.append(Paragraph(" &nbsp;&nbsp;|&nbsp;&nbsp; ".join(meta_parts), meta_style))
 
         # -- Build table data with Paragraph wrapping for Sector/Locality --
         # Uses active_cols list to only include selected columns
@@ -11458,14 +11461,14 @@ def export_consumer_report(fmt_type: str):
             if c == "sr":
                 gt_cells.append(Paragraph("", cell_center_style))
             elif c == "sector":
-                gt_cells.append(Paragraph("GRAND TOTAL", ParagraphStyle("GrandLabel", parent=cell_wrap_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)))
+                gt_cells.append(Paragraph("GRAND TOTAL", ParagraphStyle("GrandLabel", parent=cell_wrap_style, fontName="Helvetica-Bold", fontSize=summary_font_size if is_connections_summary else 9, textColor=PDF_GRAND_FG)))
             elif c == "locality":
                 gt_cells.append(Paragraph("", cell_center_style))
             elif c == "rate":
                 gt_cells.append(Paragraph("", cell_center_style))
             else:
                 gt_val = {"closed": non_commercial_closed, "suspended": non_commercial_suspended, "active": non_commercial_active, "total": non_commercial_total, "budget": non_commercial_budget}.get(c, 0)
-                gt_cells.append(Paragraph(str(int(gt_val)) if c == "budget" else str(gt_val), ParagraphStyle(f"Grand{c}", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=9, textColor=PDF_GRAND_FG)))
+                gt_cells.append(Paragraph(str(int(gt_val)) if c == "budget" else str(gt_val), ParagraphStyle(f"Grand{c}", parent=cell_center_style, fontName="Helvetica-Bold", fontSize=summary_font_size if is_connections_summary else 9, textColor=PDF_GRAND_FG)))
         table_data.append(gt_cells)
         row_types.append("grand_total")
 
@@ -11488,7 +11491,8 @@ def export_consumer_report(fmt_type: str):
         ]
 
         # -- Create table --
-        t = Table(table_data, colWidths=col_widths, repeatRows=1, hAlign="CENTER")
+        row_heights = [20 * mm] * len(table_data) if is_connections_summary else None
+        t = Table(table_data, colWidths=col_widths, rowHeights=row_heights, repeatRows=1, hAlign="CENTER")
 
         # -- Build table style commands --
         style_cmds = [
