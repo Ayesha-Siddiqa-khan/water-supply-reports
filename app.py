@@ -11194,7 +11194,7 @@ def export_consumer_report(fmt_type: str):
         sort_order = "desc"
 
     tab_param = request.args.get("tab", "normal")
-    if tab_param not in ("normal", "commercial", "private"):
+    if tab_param not in ("normal", "commercial", "private", "connections"):
         tab_param = "normal"
 
     # `summary` is already resolved above (from POST data, cache, or raw data).
@@ -11208,7 +11208,12 @@ def export_consumer_report(fmt_type: str):
     #   - private-pdf OR tab=private        -> private-society domestic rows
     #   - everything else                   -> normal Domestic rows only
     # -----------------------------------------------------------------------
-    if fmt_type == "commercial-pdf" or tab_param == "commercial":
+    if tab_param == "connections":
+        # The browser posts the three already-aggregated category rows in the
+        # requested Domestic, Private Societies, Commercial order.
+        base_rows = list(summary["summary_rows"])
+        scope_label = "connections"
+    elif fmt_type == "commercial-pdf" or tab_param == "commercial":
         detailed = summary.get("commercial_detailed_rows", [])
         if detailed:
             base_rows = list(detailed)
@@ -11228,7 +11233,7 @@ def export_consumer_report(fmt_type: str):
     # -----------------------------------------------------------------------
     filtered_rows = [
         r for r in base_rows
-        if (r.get("active") or 0) > 0
+        if (scope_label == "connections" or (r.get("active") or 0) > 0)
         and not _is_faulty_commercial_hussain_colony(r.get("sector", ""), r.get("locality", ""))
     ]
 
@@ -11237,7 +11242,7 @@ def export_consumer_report(fmt_type: str):
     # Delegated to _sort_summary_rows so the exact same ordering is guaranteed
     # across every output format.  See _sort_summary_rows for the full rules.
     # -----------------------------------------------------------------------
-    final_sorted = _sort_summary_rows(filtered_rows, sort_priority, sort_order)
+    final_sorted = filtered_rows if scope_label == "connections" else _sort_summary_rows(filtered_rows, sort_priority, sort_order)
 
     # -----------------------------------------------------------------------
     # STEP 4 — Column visibility.
@@ -11250,9 +11255,9 @@ def export_consumer_report(fmt_type: str):
 
     COL_DEFS = {
         "sr":     ("SR",     lambda r: r["serial"],             12),
-        "sector": ("Sector", lambda r: r["sector"],             58),
+        "sector": ("Classification" if scope_label == "connections" else "Sector", lambda r: r["sector"], 58),
         "locality": ("Locality", lambda r: r["locality"],       54),
-        "rate":   ("Rate (Rs./Year)", lambda r: int(r.get("rate", 0)), 18),
+        "rate":   ("Rate (Rs./Year)", lambda r: int(r.get("rate", 0)) if isinstance(r.get("rate", 0), (int, float)) else r.get("rate", ""), 18),
         "closed": ("Closed", lambda r: r["closed"],             16),
         "suspended": ("Suspended", lambda r: r.get("suspended", 0), 18),
         "active": ("Active", lambda r: r["active"],             16),
@@ -11296,7 +11301,8 @@ def export_consumer_report(fmt_type: str):
             grand.append(gt_vals.get(c, 0))
 
     filename = (
-        "commercial_sector_report" if scope_label == "commercial"
+        "details_of_connections" if scope_label == "connections"
+        else "commercial_sector_report" if scope_label == "commercial"
         else "private_societies_report" if scope_label == "private"
         else "consumer_sector_report"
     )
@@ -11390,7 +11396,7 @@ def export_consumer_report(fmt_type: str):
         elements = []
 
         # -- Report heading block --
-        elements.append(Paragraph("Sector-Based Connection Summary", report_title_style))
+        elements.append(Paragraph("Details of Connections" if scope_label == "connections" else "Sector-Based Connection Summary", report_title_style))
 
         # -- Shared filtered dataset is already domestic + Active>0 + sorted --
         non_commercial_rows = final_sorted
@@ -11766,7 +11772,8 @@ def export_consumer_report(fmt_type: str):
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             all_rows = rows + [grand]
-            pd.DataFrame(all_rows, columns=headers).to_excel(writer, sheet_name="Sector Summary", index=False)
+            sheet_name = "Details of Connections" if scope_label == "connections" else "Sector Summary"
+            pd.DataFrame(all_rows, columns=headers).to_excel(writer, sheet_name=sheet_name, index=False)
         buf.seek(0)
         return Response(buf.getvalue(),
                         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

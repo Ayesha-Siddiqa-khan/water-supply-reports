@@ -126,6 +126,11 @@
              "active" class controls which tab panel is visible.
              ================================================================ -->
         <div id="sub-tab-bar" style="display:flex;gap:0;margin-bottom:14px;border-bottom:2px solid var(--border);">
+          <button type="button" class="sub-tab-btn" data-tab="connections"
+                  onclick="switchTab('connections')"
+                  style="padding:8px 20px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--bg);color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
+            Summary
+          </button>
           <button type="button" class="sub-tab-btn active" data-tab="normal"
                   onclick="switchTab('normal')"
                   style="padding:8px 20px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--bg);color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
@@ -146,6 +151,52 @@
                   style="padding:8px 20px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--bg);color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;">
             Connection Details <span id="detail-tab-count-badge" style="font-size:11px;font-weight:400;opacity:.7;">{% if total_rows %}({{ "{:,}".format(total_rows) }}){% endif %}</span>
           </button>
+        </div>
+
+        <!-- One-page category summary: fixed order requested for print/export. -->
+        <div id="tab-panel-connections" class="tab-panel" style="display:none;">
+          <div class="export-bar" style="margin-bottom:12px;">
+            <a class="chip export-link" data-fmt="connections" href="{{ url_for('export_consumer_report', fmt_type='pdf', tab='connections') }}">&#11015; Download PDF</a>
+            <a class="chip export-link" data-fmt="connections" href="{{ url_for('export_consumer_report', fmt_type='csv', tab='connections') }}">&#11015; Download CSV</a>
+            <a class="chip export-link" data-fmt="connections" href="{{ url_for('export_consumer_report', fmt_type='xlsx', tab='connections') }}">&#11015; Download Excel</a>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table" id="connections-summary-table">
+              <thead><tr>
+                <th style="width:40px;text-align:center"><input type="checkbox" class="select-all-cb" data-tab="connections" checked title="Select/Deselect All"></th>
+                <th style="width:50px;text-align:center">SR</th><th>Classification</th><th>Locality</th><th>Rate (Rs./Year)</th>
+                <th>Closed</th><th>Suspended</th><th>Active</th><th>Total Connections</th><th>Budget (Rs.)</th>
+              </tr></thead>
+              <tbody>
+                {% set connection_groups = [
+                  ('Domestic', '4,800', normal_summary),
+                  ('Private Societies', '9,600', private_summary),
+                  ('Commercial', 'Mixed', commercial_summary)
+                ] %}
+                {% for label, rate, group in connection_groups %}
+                {% set group_total = group.get('grand_total', {}) %}
+                <tr data-serial="{{ loop.index }}" data-sector="{{ label }}" data-locality="" data-rate="{{ rate }}"
+                    data-closed="{{ group_total.closed|default(0) }}" data-suspended="{{ group_total.suspended|default(0) }}"
+                    data-active="{{ group_total.active|default(0) }}" data-total="{{ group_total.total|default(0) }}"
+                    data-budget="{{ group_total.budget|default(0) }}">
+                  <td style="text-align:center"><input type="checkbox" class="row-checkbox" data-tab="connections" data-serial="{{ loop.index }}" checked></td>
+                  <td style="text-align:center;color:var(--text-muted)">{{ loop.index }}</td><td style="font-weight:600">{{ label }}</td><td>&mdash;</td>
+                  <td style="text-align:center">{{ rate }}</td><td style="text-align:center;color:var(--coral)">{{ group_total.closed|default(0) }}</td>
+                  <td style="text-align:center;color:var(--amber)">{{ group_total.suspended|default(0) }}</td>
+                  <td style="text-align:center;color:var(--teal)">{{ group_total.active|default(0) }}</td>
+                  <td style="text-align:center;font-weight:600">{{ group_total.total|default(0) }}</td>
+                  <td style="text-align:right;color:var(--teal)">{{ "{:,.0f}".format(group_total.budget|default(0)) }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="grand-total-row" data-gt-for="connections">
+                  <td colspan="5" style="text-align:right;font-weight:700;color:var(--amber)">GRAND TOTAL</td>
+                  <td class="gt-closed" data-gt-for="connections"></td><td class="gt-suspended" data-gt-for="connections"></td>
+                  <td class="gt-active" data-gt-for="connections"></td><td class="gt-total" data-gt-for="connections"></td>
+                  <td class="gt-budget" data-gt-for="connections" style="text-align:right"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <!-- ================================================================
@@ -180,7 +231,7 @@
 
           <!-- PDF Column Visibility — choose which columns appear in the PDF -->
           <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);">
-            <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">PDF Columns:</span>
+            <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">Export Columns:</span>
             <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer;">
               <input type="checkbox" class="pdf-col-toggle" data-col="sr" autocomplete="off" checked> SR
             </label>
@@ -1457,6 +1508,8 @@
           if (window.renderDetailView) {
             window.renderDetailView();
           }
+        } else if (tab === 'connections') {
+          recomputeGrandTotalForTab(tab);
         } else {
           // Re-sort the newly active tab's preview to match the export sort.
           applyPreviewSort(tab);
@@ -1565,6 +1618,8 @@
           } else if (activeTab === 'commercial') {
             // CSV/Excel clicked while on the Commercial tab -> commercial scope
             fmt = 'commercial';
+          } else if (activeTab === 'connections') {
+            fmt = 'connections';
           } else {
             fmt = 'normal';
           }
@@ -1583,6 +1638,7 @@
           exportUrl.searchParams.set('order', (orderEl && orderEl.value) || 'desc');
           if (fmt === 'commercial') exportUrl.searchParams.set('tab', 'commercial');
           if (fmt === 'private') exportUrl.searchParams.set('tab', 'private');
+          if (fmt === 'connections') exportUrl.searchParams.set('tab', 'connections');
           var cols = getSelectedColumns();
           if (cols) exportUrl.searchParams.set('cols', cols);
           var url = exportUrl.toString();
@@ -1655,7 +1711,7 @@
           if (cb.checked) {
             var tr = cb.closest('tr');
             if (isFaultyCommercialHussainColony(tr.getAttribute('data-sector'), tr.getAttribute('data-locality'))) return;
-            if ((parseInt(tr.getAttribute('data-active')) || 0) <= 0) return;
+            if (tab !== 'connections' && (parseInt(tr.getAttribute('data-active')) || 0) <= 0) return;
             gtClosed += parseInt(tr.getAttribute('data-closed')) || 0;
             gtSuspended += parseInt(tr.getAttribute('data-suspended')) || 0;
             gtActive += parseInt(tr.getAttribute('data-active')) || 0;
@@ -1680,7 +1736,7 @@
       }
 
       function buildSelectedExportPayload(tab) {
-        var tableId = (tab === 'commercial') ? 'commercial-summary-table' : (tab === 'private' ? 'private-summary-table' : 'normal-summary-table');
+        var tableId = (tab === 'connections') ? 'connections-summary-table' : (tab === 'commercial') ? 'commercial-summary-table' : (tab === 'private' ? 'private-summary-table' : 'normal-summary-table');
         var table = document.getElementById(tableId);
         if (!table) return null;
 
@@ -1692,12 +1748,14 @@
           var cb = tr.querySelector('.row-checkbox');
           if (!cb || !cb.checked) return;
           if (isFaultyCommercialHussainColony(tr.getAttribute('data-sector'), tr.getAttribute('data-locality'))) return;
-          if ((parseInt(tr.getAttribute('data-active')) || 0) <= 0) return;
+          if (tab !== 'connections' && (parseInt(tr.getAttribute('data-active')) || 0) <= 0) return;
+          var rawRate = (tr.getAttribute('data-rate') || '').replace(/,/g, '');
+          var numericRate = Number(rawRate);
           selectedRows.push({
             serial: selectedRows.length + 1,
             sector: tr.getAttribute('data-sector') || '',
             locality: tr.getAttribute('data-locality') || '',
-            rate: parseFloat(tr.getAttribute('data-rate')) || 0,
+            rate: rawRate && isNaN(numericRate) ? tr.getAttribute('data-rate') : (numericRate || 0),
             closed: parseInt(tr.getAttribute('data-closed')) || 0,
             suspended: parseInt(tr.getAttribute('data-suspended')) || 0,
             active: parseInt(tr.getAttribute('data-active')) || 0,
@@ -1783,7 +1841,7 @@
       // reordered by their own counts.
       // ================================================================
       function applyPreviewSort(tab) {
-        var tableId = (tab === 'commercial') ? 'commercial-summary-table' : (tab === 'private' ? 'private-summary-table' : 'normal-summary-table');
+        var tableId = (tab === 'connections') ? 'connections-summary-table' : (tab === 'commercial') ? 'commercial-summary-table' : (tab === 'private' ? 'private-summary-table' : 'normal-summary-table');
         var table = document.getElementById(tableId);
         if (!table) return;
         var tbody = table.querySelector('tbody');
@@ -1830,7 +1888,7 @@
         // used by exports; do not mutate the original full report in memory.
         var summaryData = buildSelectedExportPayload(tab);
         if (!summaryData) return;
-        var storageKey = (tab === 'commercial') ? 'consumer_report_commercial' : (tab === 'private' ? 'consumer_report_private' : 'consumer_report_summary');
+        var storageKey = (tab === 'connections') ? 'consumer_report_connections' : (tab === 'commercial') ? 'consumer_report_commercial' : (tab === 'private' ? 'consumer_report_private' : 'consumer_report_summary');
         try { localStorage.setItem(storageKey, JSON.stringify(summaryData)); } catch(e) {}
       }
 

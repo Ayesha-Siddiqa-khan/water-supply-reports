@@ -1,8 +1,8 @@
 {
   "app.py": {
-    "mtime": 1789560475.986455,
-    "ast_hash": "463704829ebe63f8257ed2fcb7a76d76",
-    "semantic_hash": "463704829ebe63f8257ed2fcb7a76d76"
+    "mtime": 1789914684.653478,
+    "ast_hash": "9aa587c61fb20cf6da1926850d68db8a",
+    "semantic_hash": "9aa587c61fb20cf6da1926850d68db8a"
   },
   "arrears_analysis.py": {
     "mtime": 1789221546.0426788,
@@ -288,5 +288,10 @@
     "mtime": 1789450768.8783774,
     "ast_hash": "d9b5c7a56c4e05b54ca31f19f989d1c5",
     "semantic_hash": "d9b5c7a56c4e05b54ca31f19f989d1c5"
+  },
+  "check_consumer_connections_summary.py": {
+    "mtime": 1789914753.022282,
+    "ast_hash": "22057747cef985fdb0827e1791400489",
+    "semantic_hash": "22057747cef985fdb0827e1791400489"
   }
 }
