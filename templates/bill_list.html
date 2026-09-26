@@ -683,7 +683,7 @@
             <tbody>
               {% for assignment in assignments %}
                 <tr data-staff-id="{{ assignment.staff_id }}">
-                  <td>{{ assignment.name }}</td><td>{{ assignment.zone }}</td><td>{{ assignment.sector }}</td><td>{{ assignment.locality or 'All localities' }}</td>
+                  <td>{{ assignment.name|staff_name_html }}</td><td>{{ assignment.zone }}</td><td>{{ assignment.sector }}</td><td>{{ assignment.locality or 'All localities' }}</td>
                   <td>
                     <form method="post" class="inline-form" style="margin:0;">
                       <input type="hidden" name="action" value="delete_assignment" />

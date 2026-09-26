@@ -2107,8 +2107,8 @@ def generate_card_pdf(
         section_fs = 12
         section_sb = 4*mm
         section_sa = 2*mm
-        hdr_fs = max(10, header_font_size) if header_font_size else 10
-        bdy_fs = max(10, body_font_size) if body_font_size else 10
+        hdr_fs = max(8, header_font_size) if header_font_size else 10
+        bdy_fs = max(8, body_font_size) if body_font_size else 10
         cp = 8
         extra_spacer = 4*mm
     else:
@@ -2117,15 +2117,15 @@ def generate_card_pdf(
         bottom_margin = 15 * mm
         title_fs = 16 if len(title) > 35 else 20
         title_sa = 6*mm
-        summary_fs = max(10, 11)
+        summary_fs = max(8, 11)
         summary_sa = 2*mm
         summary_leading = 16
         summary_spacer = 8*mm
         section_fs = 14
         section_sb = 6*mm
         section_sa = 3*mm
-        hdr_fs = max(10, header_font_size)
-        bdy_fs = max(10, body_font_size)
+        hdr_fs = max(8, header_font_size)
+        bdy_fs = max(8, body_font_size)
         cp = cell_padding
         extra_spacer = 2*mm
 
@@ -2319,7 +2319,7 @@ def wrap_pdf_body_cells(
     left_columns = left_columns or set()
     bold_rows = bold_rows or set()
     bracket_cols = bracket_cols or set()
-    eff_font_size = max(10, font_size)
+    eff_font_size = max(8, font_size)
     for ri, row in enumerate(rows):
         wrapped_row = []
         for col_idx, value in enumerate(row):
@@ -4021,6 +4021,9 @@ class _GroupedPdfWrapper:
         sectors = sorted(set(b["sector"] for b in bills if b.get("sector")))
         if sectors:
             self.elements.append(Paragraph(f"<b>Sectors:</b> {', '.join(sectors)}", self.group_sub_style))
+        localities = sorted(set(b["locality"] for b in bills if b.get("locality")))
+        if localities:
+            self.elements.append(Paragraph(f"<b>Localities:</b> {', '.join(localities)}", self.group_sub_style))
 
     def _write_summary(self, bills):
         total_b = len(bills)
@@ -4105,15 +4108,15 @@ class _GroupedPdfWrapper:
             grand_row[0] = "Group Total"
         data.append(grand_row)
 
-        body_rows = wrap_pdf_body_cells(data[1:], font_size=10, left_columns=self.left_cols)
+        body_rows = wrap_pdf_body_cells(data[1:], font_size=9, left_columns=self.left_cols)
         all_rows = [data[0]] + body_rows
 
         t = _make_pdf_table(
             all_rows,
             col_widths=self.col_widths,
-            header_font_size=10,
-            body_font_size=10,
-            cell_padding=4.5,
+            header_font_size=9,
+            body_font_size=9,
+            cell_padding=3.5,
             left_cols=self.left_cols,
         )
         self.elements.append(t)
@@ -4132,7 +4135,7 @@ def _calc_col_widths(headers, page_w, n):
         "Sr": 12,
         "Bill Type": 18,
         "Bill No": 18,
-        "Reference No": 20,
+        "Reference No": 35,
         "Connection No": 24,
         "Old Connection No": 20,
         "Mobile No": 25,
@@ -4182,7 +4185,7 @@ def _calc_col_widths(headers, page_w, n):
         "Sr": 6.5,
         "Bill Type": 7,
         "Bill No": 7,
-        "Reference No": 8,
+        "Reference No": 12,
         "Connection No": 9,
         "Old Connection No": 8,
         "Consumer Name": 16,
@@ -4420,8 +4423,8 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
         f"<b>Total Outstanding:</b> Rs. {fmt(outstanding)}",
     ] if show_summary else []
 
-    body_rows = wrap_pdf_body_cells(rows, font_size=10, left_columns=left_cols)
-    wrapped_grand = wrap_pdf_body_cells([grand_total], font_size=10, bold_rows={0})[0]
+    body_rows = wrap_pdf_body_cells(rows, font_size=9, left_columns=left_cols)
+    wrapped_grand = wrap_pdf_body_cells([grand_total], font_size=9, bold_rows={0})[0]
 
     return generate_card_pdf(
         "Advanced Bill Filter Report",
@@ -4432,9 +4435,9 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
         pagesize=landscape(A4),
         col_widths=col_widths,
         left_cols=left_cols,
-        header_font_size=10,
-        body_font_size=10,
-        cell_padding=4.5,
+        header_font_size=9,
+        body_font_size=9,
+        cell_padding=3.5,
         margins=(14 * mm, 14 * mm, 10 * mm, 8 * mm),
     )
 
