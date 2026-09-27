@@ -4327,23 +4327,49 @@ def generate_zip_of_group_pdfs(
     return buf
 
 
-def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show_summary: bool = True, cols_param: str = None) -> bytes:
+def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show_summary: bool = True, cols_param: str = None, bill_status: str = "", filter_sector: str = "", filter_locality: str = "") -> bytes:
+    unique_sectors = sorted(set(b["sector"] for b in bills if b.get("sector")))
+    unique_localities = sorted(set(b["locality"] for b in bills if b.get("locality")))
+
+    # Determine dynamic title based on bill_status and sector/locality
+    status_label = "Unpaid Bills" if bill_status == "unpaid" else ("Paid Bills" if bill_status == "paid" else "Bills Report")
+    
+    # Priority for location: filter_sector, then filter_locality, then single unique sector, then single unique locality
+    sec_target = filter_sector or (unique_sectors[0] if len(unique_sectors) == 1 else "")
+    loc_target = filter_locality or (unique_localities[0] if len(unique_localities) == 1 else "")
+
+    if filter_locality:
+        title = f"{status_label} for Locality {filter_locality}"
+    elif sec_target:
+        title = f"{status_label} for Sector {sec_target}"
+    elif loc_target:
+        title = f"{status_label} for Locality {loc_target}"
+    elif len(unique_sectors) > 1 and len(unique_sectors) <= 3:
+        title = f"{status_label} for Sector {', '.join(unique_sectors)}"
+    else:
+        title = status_label
+
     if not bills:
         buf = io.BytesIO()
         doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=20*mm, bottomMargin=15*mm)
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle("Title", parent=styles["Heading1"], fontSize=18, textColor=colors.black, alignment=1)
-        elements = [Paragraph("Advanced Bill Filter Report", title_style), Paragraph("No bills match the selected filters.", styles["Normal"])]
+        elements = [Paragraph(title, title_style), Paragraph("No bills match the selected filters.", styles["Normal"])]
         doc.build(elements)
         buf.seek(0)
         return buf.getvalue()
 
     if cols_param:
         _sel_keys = [k.strip() for k in cols_param.split(",") if k.strip() in ADV_BILLS_ALL_KEYS]
-        _pdf_col_indices = [ADV_BILLS_KEY_MAP[k] for k in _sel_keys]
     else:
-        _sel_keys = DEFAULT_ADV_KEYS
-        _pdf_col_indices = [ADV_BILLS_KEY_MAP[k] for k in _sel_keys]
+        _sel_keys = list(DEFAULT_ADV_KEYS)
+
+    # When Sector/Locality is shown prominently in the title/header, omit redundant Sector column from table
+    has_sector_in_header = bool(sec_target or loc_target or (len(unique_sectors) > 0 and len(unique_sectors) <= 3))
+    if has_sector_in_header and "sector" in _sel_keys:
+        _sel_keys = [k for k in _sel_keys if k != "sector"]
+
+    _pdf_col_indices = [ADV_BILLS_KEY_MAP[k] for k in _sel_keys]
     headers = [ADV_BILLS_ALL_HEADERS[i] for i in _pdf_col_indices]
 
     rows = []
@@ -4416,9 +4442,6 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
 
     left_cols = {i for i, h in enumerate(headers) if h in ("Consumer Name", "Locality", "Sector", "Address", "Bill Type")}
 
-    unique_sectors = sorted(set(b["sector"] for b in bills if b.get("sector")))
-    unique_localities = sorted(set(b["locality"] for b in bills if b.get("locality")))
-
     summary_lines = []
     if show_summary:
         summary_lines.append(f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}")
@@ -4434,7 +4457,7 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
     wrapped_grand = wrap_pdf_body_cells([grand_total], font_size=9, bold_rows={0})[0]
 
     return generate_card_pdf(
-        "Advanced Bill Filter Report",
+        title,
         summary_lines,
         headers,
         body_rows,
@@ -4449,7 +4472,7 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
     )
 
 
-def export_advanced_bills_response(fmt_type: str, bills: list[dict], filters_applied: str, show_summary: bool = True, cols_param: str = None, group_by: str = "normal", sort_amount: str = ""):
+def export_advanced_bills_response(fmt_type: str, bills: list[dict], filters_applied: str, show_summary: bool = True, cols_param: str = None, group_by: str = "normal", sort_amount: str = "", bill_status: str = "", sector: str = "", locality: str = ""):
     if not bills:
         flash("No bills match the selected filters.")
         return redirect(url_for("bill_list"))
@@ -4505,7 +4528,7 @@ def export_advanced_bills_response(fmt_type: str, bills: list[dict], filters_app
             groups = group_bills(bills, group_by, sort_amount=sort_amount)
             pdf_bytes = generate_grouped_advanced_pdf(group_by, groups, filters_applied, cols_param=cols_param)
         else:
-            pdf_bytes = generate_advanced_filtered_pdf(bills, filters_applied, show_summary=show_summary, cols_param=cols_param)
+            pdf_bytes = generate_advanced_filtered_pdf(bills, filters_applied, show_summary=show_summary, cols_param=cols_param, bill_status=bill_status, filter_sector=sector, filter_locality=locality)
         return Response(pdf_bytes, mimetype="application/pdf", headers={"Content-Disposition": f"attachment; filename={filename}.pdf"})
 
     if fmt_type == "csv":
@@ -7072,7 +7095,7 @@ def export_advanced_bills(fmt_type: str):
         zip_filename = sanitize_filename("_".join(zip_parts)) + ".zip"
         return Response(zip_buf.getvalue(), mimetype="application/zip", headers={"Content-Disposition": f"attachment; filename={zip_filename}"})
 
-    return export_advanced_bills_response(fmt_type, bills, filters_applied, show_summary=show_summary, cols_param=cols_param, group_by=group_by, sort_amount=sort_amount)
+    return export_advanced_bills_response(fmt_type, bills, filters_applied, show_summary=show_summary, cols_param=cols_param, group_by=group_by, sort_amount=sort_amount, bill_status=bill_status, sector=sector)
 
 
 # ---------------------------------------------------------------------------
