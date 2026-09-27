@@ -3805,7 +3805,7 @@ ADV_BILLS_ALL_KEYS = [
     "afterDueDate", "dueDate", "status", "totalReceivedAmount", "outstanding"
 ]
 ADV_BILLS_KEY_MAP = {k: i for i, k in enumerate(ADV_BILLS_ALL_KEYS)}
-DEFAULT_ADV_KEYS = ["sr", "locality", "consumerName", "mobileNo", "connectionNo", "oldConnectionNo", "arrearsReceived", "outstanding"]
+DEFAULT_ADV_KEYS = ["sr", "referenceNo", "consumerName", "mobileNo", "connectionNo", "oldConnectionNo", "arrearsReceived", "outstanding"]
 
 
 def generate_grouped_advanced_pdf(
@@ -4054,7 +4054,7 @@ class _GroupedPdfWrapper:
                 bill.get("locality") or "",
                 bill.get("zone") or "",
                 bill.get("address") or "",
-                bill.get("consumer_name") or "",
+                (bill.get("consumer_name") or "").upper(),
                 bill.get("consumer_mobile") or "",
                 bill.get("connection_no") or "",
                 bill.get("old_connection_no") or "",
@@ -4135,23 +4135,23 @@ def _calc_col_widths(headers, page_w, n):
         "Sr": 12,
         "Bill Type": 18,
         "Bill No": 18,
-        "Reference No": 35,
-        "Connection No": 24,
-        "Old Connection No": 20,
-        "Mobile No": 25,
-        "Zone": 16,
-        "Arrears": 20,
-        "Water Fee": 20,
-        "Sanitation": 18,
-        "Drainage": 18,
-        "Billing Fee": 18,
-        "Total Bill": 21,
-        "Fine": 16,
-        "After Due Date": 22,
-        "Due Date": 20,
-        "Status": 16,
-        "Amount Received": 24,
-        "Outstanding": 26,
+        "Reference No": 44,
+        "Connection No": 28,
+        "Old Connection No": 26,
+        "Mobile No": 28,
+        "Zone": 18,
+        "Arrears": 26,
+        "Water Fee": 22,
+        "Sanitation": 20,
+        "Drainage": 20,
+        "Billing Fee": 20,
+        "Total Bill": 26,
+        "Fine": 18,
+        "After Due Date": 26,
+        "Due Date": 24,
+        "Status": 18,
+        "Amount Received": 26,
+        "Outstanding": 28,
     }
     flex_weights = {
         "Locality": 0.35,
@@ -4185,10 +4185,10 @@ def _calc_col_widths(headers, page_w, n):
         "Sr": 6.5,
         "Bill Type": 7,
         "Bill No": 7,
-        "Reference No": 12,
-        "Connection No": 9,
-        "Old Connection No": 8,
-        "Consumer Name": 16,
+        "Reference No": 17,
+        "Connection No": 10,
+        "Old Connection No": 9,
+        "Consumer Name": 14,
         "Address": 14,
         "Sector": 10,
         "Locality": 20,
@@ -4197,15 +4197,15 @@ def _calc_col_widths(headers, page_w, n):
         "Sanitation": 7,
         "Drainage": 7,
         "Billing Fee": 7,
-        "Total Bill": 8,
+        "Total Bill": 9,
         "Fine": 6,
         "After Due Date": 9,
         "Due Date": 8,
-        "Arrears": 8,
+        "Arrears": 9,
         "Amount Received": 9,
         "Outstanding": 10,
         "Status": 6,
-        "Mobile No": 9,
+        "Mobile No": 10,
     }
     widths = []
     total_p = 0
@@ -4357,7 +4357,7 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
             bill.get("locality") or "",
             bill.get("zone") or "",
             bill.get("address") or "",
-            bill.get("consumer_name") or "",
+            (bill.get("consumer_name") or "").upper(),
             bill.get("consumer_mobile") or "",
             bill.get("connection_no") or "",
             bill.get("old_connection_no") or "",
@@ -4416,12 +4416,19 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
 
     left_cols = {i for i, h in enumerate(headers) if h in ("Consumer Name", "Locality", "Sector", "Address", "Bill Type")}
 
-    summary_lines = [
-        f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}",
-        f"<b>Filters:</b> {filters_applied}",
-        f"<b>Total Bills:</b> {len(bills):,}",
-        f"<b>Total Outstanding:</b> Rs. {fmt(outstanding)}",
-    ] if show_summary else []
+    unique_sectors = sorted(set(b["sector"] for b in bills if b.get("sector")))
+    unique_localities = sorted(set(b["locality"] for b in bills if b.get("locality")))
+
+    summary_lines = []
+    if show_summary:
+        summary_lines.append(f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}")
+        summary_lines.append(f"<b>Filters:</b> {filters_applied}")
+        if unique_sectors:
+            summary_lines.append(f"<b>Sector:</b> {', '.join(unique_sectors)}")
+        if unique_localities:
+            summary_lines.append(f"<b>Locality:</b> {', '.join(unique_localities)}")
+        summary_lines.append(f"<b>Total Bills:</b> {len(bills):,}")
+        summary_lines.append(f"<b>Total Outstanding:</b> Rs. {fmt(outstanding)}")
 
     body_rows = wrap_pdf_body_cells(rows, font_size=9, left_columns=left_cols)
     wrapped_grand = wrap_pdf_body_cells([grand_total], font_size=9, bold_rows={0})[0]
@@ -4464,7 +4471,7 @@ def export_advanced_bills_response(fmt_type: str, bills: list[dict], filters_app
             bill.get("locality") or "",
             bill.get("zone") or "",
             bill.get("address") or "",
-            bill.get("consumer_name") or "",
+            (bill.get("consumer_name") or "").upper(),
             bill.get("consumer_mobile") or "",
             bill.get("connection_no") or "",
             bill.get("old_connection_no") or "",
