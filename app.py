@@ -3496,6 +3496,7 @@ def get_filtered_bills(
     outstanding_operator: str = "gt",
     bill_status: str = "",
     sector: str | None = None,
+    locality: str | None = None,
     zone: str | None = None,
     staff_id: int | None = None,
     sort_amount: str = "",
@@ -3539,6 +3540,10 @@ def get_filtered_bills(
         if sector:
             base_query += " AND b.sector = ?"
             params.append(sector)
+
+        if locality:
+            base_query += " AND b.locality = ?"
+            params.append(locality)
 
         if zone:
             base_query += " AND b.zone = ?"
@@ -3813,14 +3818,16 @@ def generate_grouped_advanced_pdf(
     groups: list[tuple],
     filters_applied: str,
     cols_param: str = None,
+    bill_status: str = "",
 ) -> bytes:
     """Generate a landscape PDF with one section per group showing detailed bill rows."""
     if cols_param:
         _sel_keys = [k.strip() for k in cols_param.split(",") if k.strip() in ADV_BILLS_ALL_KEYS]
-        _col_indices = [ADV_BILLS_KEY_MAP[k] for k in _sel_keys]
     else:
-        _sel_keys = DEFAULT_ADV_KEYS
-        _col_indices = [ADV_BILLS_KEY_MAP[k] for k in _sel_keys]
+        _sel_keys = list(DEFAULT_ADV_KEYS)
+    # Sector and Locality should not appear in the table columns
+    _sel_keys = [k for k in _sel_keys if k not in ("sector", "locality")]
+    _col_indices = [ADV_BILLS_KEY_MAP[k] for k in _sel_keys]
     headers = [ADV_BILLS_ALL_HEADERS[i] for i in _col_indices]
 
     total_outstanding_all = 0
@@ -3857,7 +3864,9 @@ def generate_grouped_advanced_pdf(
     page_w = landscape(A4)[0] - margin - margin
 
     # --- COVER / EXECUTIVE SUMMARY PAGE (PAGE 1) ---
-    elements = [Paragraph(f"Advanced Bill Filter Report — {group_label_plural}", title_style)]
+    status_label = "Unpaid Bills" if bill_status == "unpaid" else ("Paid Bills" if bill_status == "paid" else "Bills")
+    cover_title = f"{status_label} — {group_label_plural}" if bill_status else f"Advanced Bill Filter Report — {group_label_plural}"
+    elements = [Paragraph(cover_title, title_style)]
     elements.append(Paragraph(f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}", summary_style))
     elements.append(Paragraph(f"<b>Filters:</b> {filters_applied}", summary_style))
     elements.append(Paragraph(f"<b>Total Bills:</b> {total_bills_all:,} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Total Amount:</b> Rs. {fmt(total_amount_all)} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Total Outstanding:</b> Rs. {fmt(total_outstanding_all)}", summary_style))
@@ -3947,7 +3956,7 @@ def generate_grouped_advanced_pdf(
     col_widths = _calc_col_widths(headers, page_w, n)
     left_cols = {i for i, h in enumerate(headers) if h in ("Consumer Name", "Locality", "Sector", "Address", "Bill Type")}
     page_h = landscape(A4)[1] - 10 * mm - 8 * mm
-    wrapper = _GroupedPdfWrapper(doc, elements, headers, col_widths, group_heading_style, group_sub_style, group_label_singular, _col_indices, group_type, left_cols, page_h)
+    wrapper = _GroupedPdfWrapper(doc, elements, headers, col_widths, group_heading_style, group_sub_style, group_label_singular, _col_indices, group_type, left_cols, page_h, bill_status=bill_status)
 
     for item in groups:
         if len(item) == 3:
@@ -3966,7 +3975,7 @@ class _GroupedPdfWrapper:
     _ROW_H = 7.5        # mm – estimated body row height
     _TOTAL_ROW_H = 8.5  # mm – estimated grand total row height
 
-    def __init__(self, doc, elements, headers, col_widths, group_heading_style, group_sub_style, group_label, col_indices, group_type, left_cols, page_h):
+    def __init__(self, doc, elements, headers, col_widths, group_heading_style, group_sub_style, group_label, col_indices, group_type, left_cols, page_h, bill_status: str = ""):
         self.doc = doc
         self.elements = elements
         self.headers = headers
@@ -3980,6 +3989,7 @@ class _GroupedPdfWrapper:
         self._page_h = page_h
         self._group_count = 0
         self._zone_label = ""
+        self.bill_status = bill_status
 
     # ------------------------------------------------------------------
     # Group rendering methods (each group starts on its own page)
@@ -3988,7 +3998,14 @@ class _GroupedPdfWrapper:
         if self._group_count > 0:
             self.elements.append(PageBreak())
         self._group_count += 1
-        self._write_heading(f"{self.group_label}: {group_key}")
+        status_lbl = "Unpaid Bills" if self.bill_status == "unpaid" else ("Paid Bills" if self.bill_status == "paid" else "Bills")
+        if self.group_type == "sector":
+            heading = f"{status_lbl} Sector {group_key}"
+        elif self.group_type == "zone":
+            heading = f"{status_lbl} Zone {group_key}"
+        else:
+            heading = f"{self.group_label}: {group_key}"
+        self._write_heading(heading)
         self._write_summary(group_bills)
         self._add_detail_table(group_bills)
 
@@ -4235,13 +4252,15 @@ def generate_single_group_pdf(
     filters_applied: str,
     cols_param: str = None,
     staff_zone: str = None,
+    bill_status: str = "",
 ) -> bytes:
     if cols_param:
         _sel_keys = [k.strip() for k in cols_param.split(",") if k.strip() in ADV_BILLS_ALL_KEYS]
-        _col_indices = [ADV_BILLS_KEY_MAP[k] for k in _sel_keys]
     else:
-        _sel_keys = DEFAULT_ADV_KEYS
-        _col_indices = [ADV_BILLS_KEY_MAP[k] for k in _sel_keys]
+        _sel_keys = list(DEFAULT_ADV_KEYS)
+    # Sector and Locality should not appear in the table columns
+    _sel_keys = [k for k in _sel_keys if k not in ("sector", "locality")]
+    _col_indices = [ADV_BILLS_KEY_MAP[k] for k in _sel_keys]
     headers = [ADV_BILLS_ALL_HEADERS[i] for i in _col_indices]
 
     total_bills = len(group_bills)
@@ -4266,7 +4285,15 @@ def generate_single_group_pdf(
     group_heading_style = ParagraphStyle("GroupHeading", parent=styles["Heading2"], fontSize=13, textColor=colors.black, spaceBefore=4 * mm, spaceAfter=2 * mm, fontName="Helvetica-Bold", alignment=0)
     group_sub_style = ParagraphStyle("GroupSub", parent=styles["Normal"], fontSize=10, textColor=colors.black, spaceAfter=2 * mm, alignment=0, leading=14)
 
-    elements = [Paragraph(f"Advanced Bill — {group_label}: {group_key}", title_style)]
+    status_lbl = "Unpaid Bills" if bill_status == "unpaid" else ("Paid Bills" if bill_status == "paid" else "Bills")
+    if group_type == "sector":
+        title_text = f"{status_lbl} Sector {group_key}"
+    elif group_type == "zone":
+        title_text = f"{status_lbl} Zone {group_key}"
+    else:
+        title_text = f"Advanced Bill — {group_label}: {group_key}"
+
+    elements = [Paragraph(title_text, title_style)]
     elements.append(Paragraph(f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}", summary_style))
     elements.append(Paragraph(f"<b>Filters:</b> {filters_applied}", summary_style))
     elements.append(Paragraph(f"<b>Total Bills:</b> {total_bills:,} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Total Amount:</b> Rs. {fmt(total_amount)} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Total Outstanding:</b> Rs. {fmt(total_outstanding)}", summary_style))
@@ -4279,7 +4306,7 @@ def generate_single_group_pdf(
     left_cols = {i for i, h in enumerate(headers) if h in ("Consumer Name", "Locality", "Sector", "Address", "Bill Type")}
 
     page_h = landscape(A4)[1] - 10 * mm - 8 * mm
-    wrapper = _GroupedPdfWrapper(doc, elements, headers, col_widths, group_heading_style, group_sub_style, group_label, _col_indices, group_type, left_cols, page_h)
+    wrapper = _GroupedPdfWrapper(doc, elements, headers, col_widths, group_heading_style, group_sub_style, group_label, _col_indices, group_type, left_cols, page_h, bill_status=bill_status)
 
     if group_type == "staff" and staff_zone:
         wrapper.add_staff_group(staff_zone, group_key, group_bills)
@@ -4296,6 +4323,7 @@ def generate_zip_of_group_pdfs(
     groups: list[tuple],
     filters_applied: str,
     cols_param: str = None,
+    bill_status: str = "",
 ) -> io.BytesIO:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
@@ -4304,15 +4332,15 @@ def generate_zip_of_group_pdfs(
             if group_type == "staff":
                 zone, staff_name, group_bills = item
                 base_name = sanitize_filename(f"Staff_{staff_name}")
-                pdf_bytes = generate_single_group_pdf(group_type, staff_name, group_bills, filters_applied, cols_param, staff_zone=zone)
+                pdf_bytes = generate_single_group_pdf(group_type, staff_name, group_bills, filters_applied, cols_param, staff_zone=zone, bill_status=bill_status)
             elif group_type == "zone":
                 zone_name, group_bills = item
                 base_name = sanitize_filename(f"Zone_{zone_name}")
-                pdf_bytes = generate_single_group_pdf(group_type, zone_name, group_bills, filters_applied, cols_param)
+                pdf_bytes = generate_single_group_pdf(group_type, zone_name, group_bills, filters_applied, cols_param, bill_status=bill_status)
             elif group_type == "sector":
                 sector_name, group_bills = item
                 base_name = sanitize_filename(f"Sector_{sector_name}")
-                pdf_bytes = generate_single_group_pdf(group_type, sector_name, group_bills, filters_applied, cols_param)
+                pdf_bytes = generate_single_group_pdf(group_type, sector_name, group_bills, filters_applied, cols_param, bill_status=bill_status)
             else:
                 continue
             filename = f"{base_name}.pdf"
@@ -4338,14 +4366,16 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
     sec_target = filter_sector or (unique_sectors[0] if len(unique_sectors) == 1 else "")
     loc_target = filter_locality or (unique_localities[0] if len(unique_localities) == 1 else "")
 
-    if filter_locality:
-        title = f"{status_label} for Locality {filter_locality}"
+    if filter_locality and sec_target:
+        title = f"{status_label} Sector {sec_target} Locality {filter_locality}"
+    elif filter_locality:
+        title = f"{status_label} Locality {filter_locality}"
     elif sec_target:
-        title = f"{status_label} for Sector {sec_target}"
+        title = f"{status_label} Sector {sec_target}"
     elif loc_target:
-        title = f"{status_label} for Locality {loc_target}"
+        title = f"{status_label} Locality {loc_target}"
     elif len(unique_sectors) > 1 and len(unique_sectors) <= 3:
-        title = f"{status_label} for Sector {', '.join(unique_sectors)}"
+        title = f"{status_label} Sector {', '.join(unique_sectors)}"
     else:
         title = status_label
 
@@ -4364,10 +4394,8 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
     else:
         _sel_keys = list(DEFAULT_ADV_KEYS)
 
-    # When Sector/Locality is shown prominently in the title/header, omit redundant Sector column from table
-    has_sector_in_header = bool(sec_target or loc_target or (len(unique_sectors) > 0 and len(unique_sectors) <= 3))
-    if has_sector_in_header and "sector" in _sel_keys:
-        _sel_keys = [k for k in _sel_keys if k != "sector"]
+    # Sector and Locality should not appear in the table columns
+    _sel_keys = [k for k in _sel_keys if k not in ("sector", "locality")]
 
     _pdf_col_indices = [ADV_BILLS_KEY_MAP[k] for k in _sel_keys]
     headers = [ADV_BILLS_ALL_HEADERS[i] for i in _pdf_col_indices]
@@ -4446,9 +4474,9 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
     if show_summary:
         summary_lines.append(f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}")
         summary_lines.append(f"<b>Filters:</b> {filters_applied}")
-        if unique_sectors:
+        if unique_sectors and not sec_target and len(unique_sectors) > 3:
             summary_lines.append(f"<b>Sector:</b> {', '.join(unique_sectors)}")
-        if unique_localities:
+        if unique_localities and not loc_target and len(unique_localities) > 3:
             summary_lines.append(f"<b>Locality:</b> {', '.join(unique_localities)}")
         summary_lines.append(f"<b>Total Bills:</b> {len(bills):,}")
         summary_lines.append(f"<b>Total Outstanding:</b> Rs. {fmt(outstanding)}")
@@ -4526,7 +4554,7 @@ def export_advanced_bills_response(fmt_type: str, bills: list[dict], filters_app
     if fmt_type == "pdf":
         if group_by in ("sector", "zone", "staff"):
             groups = group_bills(bills, group_by, sort_amount=sort_amount)
-            pdf_bytes = generate_grouped_advanced_pdf(group_by, groups, filters_applied, cols_param=cols_param)
+            pdf_bytes = generate_grouped_advanced_pdf(group_by, groups, filters_applied, cols_param=cols_param, bill_status=bill_status)
         else:
             pdf_bytes = generate_advanced_filtered_pdf(bills, filters_applied, show_summary=show_summary, cols_param=cols_param, bill_status=bill_status, filter_sector=sector, filter_locality=locality)
         return Response(pdf_bytes, mimetype="application/pdf", headers={"Content-Disposition": f"attachment; filename={filename}.pdf"})
@@ -7023,6 +7051,7 @@ def export_advanced_bills(fmt_type: str):
     bill_status = request.args.get("bill_status") or ""
 
     sector = request.args.get("sector") or None
+    locality = request.args.get("locality") or None
     zone = request.args.get("zone") or None
     staff_id = request.args.get("staff_id")
     staff_id = int(staff_id) if staff_id and staff_id.isdigit() else None
@@ -7036,6 +7065,7 @@ def export_advanced_bills(fmt_type: str):
         outstanding_operator=outstanding_operator,
         bill_status=bill_status,
         sector=sector,
+        locality=locality,
         zone=zone,
         staff_id=staff_id,
         sort_amount=sort_amount,
@@ -7055,6 +7085,8 @@ def export_advanced_bills(fmt_type: str):
         filters_list.append(f"Outstanding {op_label} {fmt(outstanding_amount)}")
     if sector:
         filters_list.append(f"Sector: {sector}")
+    if locality:
+        filters_list.append(f"Locality: {locality}")
     if zone:
         filters_list.append(f"Zone: {zone}")
     if staff_name:
@@ -7077,7 +7109,7 @@ def export_advanced_bills(fmt_type: str):
         if not groups:
             flash("No bills match the selected filters for ZIP export.")
             return redirect(url_for("bill_list"))
-        zip_buf = generate_zip_of_group_pdfs(group_by, groups, filters_applied, cols_param=cols_param)
+        zip_buf = generate_zip_of_group_pdfs(group_by, groups, filters_applied, cols_param=cols_param, bill_status=bill_status)
         zip_parts = [f"{group_by.capitalize()}_Wise"]
         if bill_status:
             zip_parts.append("Paid" if bill_status == "paid" else "Unpaid")
@@ -7086,6 +7118,8 @@ def export_advanced_bills(fmt_type: str):
             zip_parts.append(f"Outstanding{op_str}_{int(outstanding_amount)}")
         if sector:
             zip_parts.append(f"Sector_{sector}")
+        if locality:
+            zip_parts.append(f"Locality_{locality}")
         if zone:
             zip_parts.append(f"Zone_{zone}")
         if staff_name:
@@ -7095,7 +7129,7 @@ def export_advanced_bills(fmt_type: str):
         zip_filename = sanitize_filename("_".join(zip_parts)) + ".zip"
         return Response(zip_buf.getvalue(), mimetype="application/zip", headers={"Content-Disposition": f"attachment; filename={zip_filename}"})
 
-    return export_advanced_bills_response(fmt_type, bills, filters_applied, show_summary=show_summary, cols_param=cols_param, group_by=group_by, sort_amount=sort_amount, bill_status=bill_status, sector=sector)
+    return export_advanced_bills_response(fmt_type, bills, filters_applied, show_summary=show_summary, cols_param=cols_param, group_by=group_by, sort_amount=sort_amount, bill_status=bill_status, sector=sector, locality=locality)
 
 
 # ---------------------------------------------------------------------------
