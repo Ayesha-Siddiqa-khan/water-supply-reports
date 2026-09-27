@@ -4,7 +4,8 @@ Run: .venv/Scripts/python check_csv_headers_export.py
 import io
 import csv
 import pandas as pd
-from app import app, get_filtered_bills, ADV_BILLS_ALL_HEADERS, ADV_BILLS_ALL_KEYS
+from pypdf import PdfReader
+from app import app, get_filtered_bills, generate_advanced_filtered_pdf, ADV_BILLS_ALL_HEADERS, ADV_BILLS_ALL_KEYS
 
 
 def test_get_filtered_bills_headers():
@@ -67,10 +68,34 @@ def test_grouped_pdf_exports():
         print(f"[PASS] PDF grouped by {group} generated successfully with all 24 columns.")
 
 
+def test_pdf_sector_locality_are_heading_only():
+    bills = [{
+        "sector": "Waris Colony",
+        "locality": "Street 7",
+        "consumer_name": "TEST CONSUMER",
+        "outstanding_amount": 2400,
+        "total_bill": 2400,
+        "amount_received": 0,
+        "arrears": 0,
+    }]
+    pdf = generate_advanced_filtered_pdf(
+        bills,
+        "Unpaid",
+        show_summary=False,
+        cols_param="sr,sector,locality,consumerName,outstanding",
+        bill_status="unpaid",
+    )
+    text = "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(pdf)).pages)
+    assert "Unpaid Bills - Sector: Waris Colony - Locality: Street 7" in text.replace("\n", " ")
+    assert text.count("Waris Colony") == 1 and text.count("Street 7") == 1, "Sector/locality must appear only in the heading"
+    print("[PASS] Selected Sector and Locality appear in the PDF heading, not the table.")
+
+
 if __name__ == "__main__":
     test_get_filtered_bills_headers()
     test_csv_export_all_headers()
     test_excel_export_all_headers()
     test_pdf_export_all_headers()
     test_grouped_pdf_exports()
+    test_pdf_sector_locality_are_heading_only()
     print("\nALL ADVANCED BILL HEADERS CHECKS PASSED!")

@@ -4356,28 +4356,24 @@ def generate_zip_of_group_pdfs(
 
 
 def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show_summary: bool = True, cols_param: str = None, bill_status: str = "", filter_sector: str = "", filter_locality: str = "") -> bytes:
+    from xml.sax.saxutils import escape
+
     unique_sectors = sorted(set(b["sector"] for b in bills if b.get("sector")))
     unique_localities = sorted(set(b["locality"] for b in bills if b.get("locality")))
+    selected_keys = {
+        key.strip() for key in (cols_param or "").split(",")
+        if key.strip() in ADV_BILLS_ALL_KEYS
+    }
 
-    # Determine dynamic title based on bill_status and sector/locality
     status_label = "Unpaid Bills" if bill_status == "unpaid" else ("Paid Bills" if bill_status == "paid" else "Bills Report")
-    
-    # Priority for location: filter_sector, then filter_locality, then single unique sector, then single unique locality
-    sec_target = filter_sector or (unique_sectors[0] if len(unique_sectors) == 1 else "")
-    loc_target = filter_locality or (unique_localities[0] if len(unique_localities) == 1 else "")
-
-    if filter_locality and sec_target:
-        title = f"{status_label} Sector {sec_target} Locality {filter_locality}"
-    elif filter_locality:
-        title = f"{status_label} Locality {filter_locality}"
-    elif sec_target:
-        title = f"{status_label} Sector {sec_target}"
-    elif loc_target:
-        title = f"{status_label} Locality {loc_target}"
-    elif len(unique_sectors) > 1 and len(unique_sectors) <= 3:
-        title = f"{status_label} Sector {', '.join(unique_sectors)}"
-    else:
-        title = status_label
+    sector_names = [filter_sector] if filter_sector else (unique_sectors if "sector" in selected_keys or len(unique_sectors) == 1 else [])
+    locality_names = [filter_locality] if filter_locality else (unique_localities if "locality" in selected_keys or len(unique_localities) == 1 else [])
+    title_parts = [status_label]
+    if sector_names:
+        title_parts.append(f"Sector: {', '.join(escape(str(name)) for name in sector_names)}")
+    if locality_names:
+        title_parts.append(f"Locality: {', '.join(escape(str(name)) for name in locality_names)}")
+    title = " - ".join(title_parts)
 
     if not bills:
         buf = io.BytesIO()
@@ -4390,7 +4386,7 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
         return buf.getvalue()
 
     if cols_param:
-        _sel_keys = [k.strip() for k in cols_param.split(",") if k.strip() in ADV_BILLS_ALL_KEYS]
+        _sel_keys = [k.strip() for k in cols_param.split(",") if k.strip() in selected_keys]
     else:
         _sel_keys = list(DEFAULT_ADV_KEYS)
 
