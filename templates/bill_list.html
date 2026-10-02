@@ -723,16 +723,24 @@
           <label class="field" style="min-width:150px;">
             <span>Select Year</span>
             <select class="filter-select" id="season-year-select">
-              <option value="2024">2024</option>
-              <option value="2025">2025</option>
-              <option value="2026" selected>2026</option>
+              {% for year in season_years %}<option value="{{ year }}"{% if year == season_current_year %} selected{% endif %}>{{ year }}</option>{% endfor %}
             </select>
           </label>
         </div>
+        <div class="muted" style="margin-bottom:6px;">Staff-wise report</div>
         <div class="export-bar" data-col-config="sixMonthPitch" data-row-scope="six-month-staff">
-          <a class="chip" href="{{ url_for('export_six_month_pitch', fmt_type='pdf') }}">&#11015; Season PDF</a>
-          <a class="chip" href="{{ url_for('export_six_month_pitch', fmt_type='csv') }}">&#11015; Season CSV</a>
-          <a class="chip" href="{{ url_for('export_six_month_pitch', fmt_type='xlsx') }}">&#11015; Season Excel</a>
+          <a class="chip" href="{{ url_for('export_six_month_pitch', fmt_type='pdf') }}">&#11015; Staff-wise PDF</a>
+          <a class="chip" href="{{ url_for('export_six_month_pitch', fmt_type='csv') }}">&#11015; Staff-wise CSV</a>
+          <a class="chip" href="{{ url_for('export_six_month_pitch', fmt_type='xlsx') }}">&#11015; Staff-wise Excel</a>
+        </div>
+        <div class="muted" style="margin:12px 0 6px;">General report (one season total)</div>
+        <label class="muted" style="display:inline-flex;align-items:center;gap:7px;margin-bottom:8px;cursor:pointer;">
+          <input type="checkbox" id="season-category-detail"> Include Category-wise Detail on the general report
+        </label>
+        <div class="export-bar">
+          <a class="chip season-general-export-link" href="{{ url_for('export_six_month_pitch', fmt_type='pdf') }}?view=general">&#11015; General PDF</a>
+          <a class="chip season-general-export-link" href="{{ url_for('export_six_month_pitch', fmt_type='csv') }}?view=general">&#11015; General CSV</a>
+          <a class="chip season-general-export-link" href="{{ url_for('export_six_month_pitch', fmt_type='xlsx') }}?view=general">&#11015; General Excel</a>
         </div>
         <div class="col-select-area">
           <div class="col-select-label">Select Columns for Export</div>
@@ -776,9 +784,7 @@
           <label class="field" style="min-width:150px;">
             <span>Select Year</span>
             <select class="filter-select" id="season-sector-year-select">
-              <option value="2024">2024</option>
-              <option value="2025">2025</option>
-              <option value="2026" selected>2026</option>
+              {% for year in season_years %}<option value="{{ year }}"{% if year == season_current_year %} selected{% endif %}>{{ year }}</option>{% endfor %}
             </select>
           </label>
         </div>
@@ -1413,6 +1419,7 @@
     sixMonthPitch: [
       { key: "sr", label: "Sr", checked: true },
       { key: "staffName", label: "Staff Name", checked: true },
+      { key: "connections", label: "Connections", checked: true },
       { key: "totalBills", label: "Total Bills", checked: true },
       { key: "receivedBills", label: "Received Bills", checked: true },
       { key: "remainingBills", label: "Remaining Bills", checked: true },
@@ -1482,6 +1489,7 @@
 
   const seasonSelect = document.getElementById('season-select');
   const seasonYearSelect = document.getElementById('season-year-select');
+  const seasonCategoryDetail = document.getElementById('season-category-detail');
 
   function updateDownloadParams() {
     const show = showSummaryCheckbox ? showSummaryCheckbox.checked : false;
@@ -1519,6 +1527,10 @@
         url.searchParams.set('season', season);
         if (seasonYear) url.searchParams.set('year', seasonYear);
       }
+      if (link.classList.contains('season-general-export-link')) {
+        if (seasonCategoryDetail && seasonCategoryDetail.checked) url.searchParams.set('category_detail', '1');
+        else url.searchParams.delete('category_detail');
+      }
       // Add season and year params for season-sector links
       if (link.classList.contains('season-sector-export-link')) {
         var seasonVal = seasonSectorSelect ? seasonSectorSelect.value : 'jan-jun';
@@ -1554,6 +1566,7 @@
   if (showSummaryCheckbox) showSummaryCheckbox.addEventListener('change', refreshAllExportLinks);
   if (seasonSelect) seasonSelect.addEventListener('change', refreshAllExportLinks);
   if (seasonYearSelect) seasonYearSelect.addEventListener('change', refreshAllExportLinks);
+  if (seasonCategoryDetail) seasonCategoryDetail.addEventListener('change', refreshAllExportLinks);
 
   // Season selector: defaults to "January to June" (first option in HTML select)
   if (seasonSelect) {

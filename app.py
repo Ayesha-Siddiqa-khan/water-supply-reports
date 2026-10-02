@@ -1964,7 +1964,7 @@ STAFF_COL_MAP = {"sr": 0, "staff": 1, "zone": 2, "sector": 3, "locality": 4, "to
 # Bills Reports income category summary: Category, Connections, Rate, Bills, Arrears, Amount, Unpaid.
 BILL_INCOME_CATEGORY_COL_MAP = {"category": 0, "connections": 1, "rate": 2, "bills": 3, "arrearsReceived": 4, "amountReceived": 5, "unpaidAmount": 6}
 STAFF_SUMMARY_COL_MAP = {"sr": 0, "staffName": 1, "totalBills": 2, "receivedBills": 3, "remainingBills": 4, "totalAmount": 5, "amountReceived": 6, "pendingAmount": 7}
-PITCH_COL_MAP = {"sr": 0, "staffName": 1, "totalBills": 2, "receivedBills": 3, "remainingBills": 4, "totalAmount": 5, "amountReceived": 6, "currentBillAmount": 7}
+PITCH_COL_MAP = {"sr": 0, "staffName": 1, "connections": 2, "totalBills": 3, "receivedBills": 4, "remainingBills": 5, "totalAmount": 6, "amountReceived": 7, "currentBillAmount": 8}
 
 # Staff PDF detail: Sr, Sector, Locality, Total Bills, Received Bills, Remaining Bills, Amount Received, Pending Amount
 STAFF_PDF_COL_MAP = {"sr": 0, "sector": 1, "locality": 2, "totalBills": 3, "receivedBills": 4, "remainingBills": 5, "totalReceivedAmount": 6, "pendingAmount": 7}
@@ -2220,7 +2220,9 @@ def generate_card_pdf(
                                                   left_columns={0})[0])
         n_extra = len(extra_headers)
         extra_page_w = pagesize[0] - left_margin - right_margin
-        if n_extra == 5:
+        if extra_section.get("col_widths"):
+            extra_col_widths = extra_section["col_widths"]
+        elif n_extra == 5:
             extra_col_widths = [extra_page_w * 0.26, extra_page_w * 0.14,
                                 extra_page_w * 0.20, extra_page_w * 0.20, extra_page_w * 0.20]
         elif n_extra == 4:
@@ -2242,7 +2244,7 @@ def generate_card_pdf(
         )
         extra_section_elements = []
         extra_section_elements.append(Spacer(1, extra_spacer))
-        extra_section_elements.append(Paragraph("Summary", section_style))
+        extra_section_elements.append(Paragraph(extra_section.get("title", "Summary"), section_style))
         extra_section_elements.append(extra_table)
         elements.append(KeepTogether(extra_section_elements))
 
@@ -4913,6 +4915,8 @@ def get_bill_list_context():
         "summary_report_sectors": get_sectors_summary(),
         "summary_report_staff": get_staff_summary(),
         "staff_report_rows": bill_list_staff_export_rows()[1],
+        "season_years": range(2024, datetime.now().year + 4),
+        "season_current_year": datetime.now().year,
     }
 
 
@@ -5202,7 +5206,7 @@ def get_zone_summary_data():
     return rows
 
 
-def bill_list_staff_export_rows(staff_id=None, bill_ids: set[int] | None = None):
+def bill_list_staff_export_rows(staff_id=None, bill_ids: set[int] | None = None, include_connections: bool = False):
     init_bill_list_db()
     headers = [
         "Sr",
@@ -5248,6 +5252,7 @@ def bill_list_staff_export_rows(staff_id=None, bill_ids: set[int] | None = None)
                 COALESCE(sa.sector, 'All sectors') AS sector,
                 COALESCE(sa.locality, '') AS locality,
                 COUNT(DISTINCT b.id) AS total_bills,
+                COUNT(DISTINCT NULLIF(TRIM(b.connection_no), '')) AS total_connections,
                 COUNT(DISTINCT CASE WHEN b.amount_received > 0 THEN b.id END) AS received_bills,
                 SUM(COALESCE(b.amount_received, 0)) AS total_received_amount,
                 SUM(CASE WHEN b.total_bill > b.amount_received THEN b.total_bill - b.amount_received ELSE 0 END) AS remaining_amount
@@ -5285,6 +5290,7 @@ def bill_list_staff_export_rows(staff_id=None, bill_ids: set[int] | None = None)
                         b.sector,
                         b.locality,
                         COUNT(DISTINCT b.id) AS total_bills,
+                        COUNT(DISTINCT NULLIF(TRIM(b.connection_no), '')) AS total_connections,
                         COUNT(DISTINCT CASE WHEN b.amount_received > 0 THEN b.id END) AS received_bills,
                         SUM(COALESCE(b.amount_received, 0)) AS total_received_amount,
                         SUM(CASE WHEN b.total_bill > b.amount_received THEN b.total_bill - b.amount_received ELSE 0 END) AS remaining_amount
@@ -5330,6 +5336,7 @@ def bill_list_staff_export_rows(staff_id=None, bill_ids: set[int] | None = None)
                     b.sector,
                     b.locality,
                     COUNT(DISTINCT b.id) AS total_bills,
+                    COUNT(DISTINCT NULLIF(TRIM(b.connection_no), '')) AS total_connections,
                     COUNT(DISTINCT CASE WHEN b.amount_received > 0 THEN b.id END) AS received_bills,
                     SUM(COALESCE(b.amount_received, 0)) AS total_received_amount,
                     SUM(CASE WHEN b.total_bill > b.amount_received THEN b.total_bill - b.amount_received ELSE 0 END) AS remaining_amount
@@ -5364,6 +5371,7 @@ def bill_list_staff_export_rows(staff_id=None, bill_ids: set[int] | None = None)
                     b.sector,
                     b.locality,
                     COUNT(b.id) AS total_bills,
+                    COUNT(DISTINCT NULLIF(TRIM(b.connection_no), '')) AS total_connections,
                     SUM(CASE WHEN b.amount_received > 0 THEN 1 ELSE 0 END) AS received_bills,
                     SUM(COALESCE(b.amount_received, 0)) AS total_received_amount,
                     SUM(CASE WHEN b.total_bill > b.amount_received THEN b.total_bill - b.amount_received ELSE 0 END) AS remaining_amount
@@ -5390,8 +5398,7 @@ def bill_list_staff_export_rows(staff_id=None, bill_ids: set[int] | None = None)
         remaining_amount = float(row["remaining_amount"] or 0)
         if total_bills == 0 and received_bills == 0 and total_received_amount == 0 and remaining_amount == 0:
             continue
-        rows.append(
-            [
+        export_row = [
                 idx,
                 row["staff_name"],
                 row["zone"],
@@ -5403,11 +5410,13 @@ def bill_list_staff_export_rows(staff_id=None, bill_ids: set[int] | None = None)
                 fmt(total_received_amount),
                 fmt(remaining_amount),
             ]
-        )
+        if include_connections:
+            export_row.append(fmt(int(row["total_connections"] or 0)))
+        rows.append(export_row)
     return headers, rows
 
 
-def export_table_response(fmt_type: str, title: str, headers: list[str], rows: list[list], filename: str):
+def export_table_response(fmt_type: str, title: str, headers: list[str], rows: list[list], filename: str, left_cols: list[int] | None = None):
     if fmt_type == "pdf":
         page_w = landscape(A4)[0] - 30 * mm
         col_widths = [page_w / len(headers)] * len(headers)
@@ -5441,7 +5450,7 @@ def export_table_response(fmt_type: str, title: str, headers: list[str], rows: l
             rows,
             pagesize=landscape(A4),
             col_widths=col_widths,
-            left_cols=[2] if len(headers) == 8 else [1, 3],
+            left_cols=left_cols if left_cols is not None else ([2] if len(headers) == 8 else [1, 3]),
             header_font_size=8,
             body_font_size=8,
         )
@@ -6784,6 +6793,8 @@ def bill_list_sector_seasonly_export_rows(year: int, season: str):
 @app.route("/bill-list/export/six-month-pitch/<fmt_type>")
 def export_six_month_pitch(fmt_type: str):
     cols_param = request.args.get("cols")
+    general_view = request.args.get("view") == "general"
+    include_category_detail = general_view and request.args.get("category_detail") == "1"
     season = request.args.get("season", "").strip().lower()
 
     # Auto-detect default season from current month
@@ -6804,10 +6815,16 @@ def export_six_month_pitch(fmt_type: str):
     # Get bill IDs for the selected season
     season_bill_ids = _get_season_bill_ids(year, season)
 
-    headers, detail_rows = bill_list_staff_export_rows(bill_ids=season_bill_ids)
+    headers, detail_rows = bill_list_staff_export_rows(bill_ids=season_bill_ids, include_connections=True)
     init_bill_list_db()
     with get_db() as conn:
         unpaid_summary = build_unpaid_amount_summary(conn, bill_ids=season_bill_ids)
+        season_connections = 0
+        if season_bill_ids:
+            id_list = ",".join(str(i) for i in season_bill_ids)
+            season_connections = conn.execute(
+                f"SELECT COUNT(DISTINCT NULLIF(TRIM(connection_no), '')) FROM bills WHERE id IN ({id_list})"
+            ).fetchone()[0]
     unpaid_staff_rows = unpaid_summary.get("staff_rows", [])
 
     # Build unpaid lookup: normalized base name → current_bill_amount
@@ -6818,7 +6835,7 @@ def export_six_month_pitch(fmt_type: str):
         key = _normalize_staff_name(closest) if closest and closest != norm else norm
         unpaid_lookup[key] = float(row["current_bill_amount"])
 
-    # Group staff summary by staff name (10-col: sr(0), staff(1), zone(2), sector(3), locality(4), totalBills(5), receivedBills(6), remainingBills(7), totalReceivedAmount(8), pendingAmount(9))
+    # Group staff summary by staff name; the optional eleventh field is distinct connections.
     def pn(v):
         return parse_number(str(v).replace(",", ""))
     staff_groups = {}
@@ -6827,8 +6844,9 @@ def export_six_month_pitch(fmt_type: str):
         staff_groups.setdefault(name, []).append(row)
 
     pitch_rows = []
-    pitch_grand = {"totalBills": 0, "receivedBills": 0, "remainingBills": 0, "totalAmount": 0, "amountReceived": 0, "currentBillAmount": 0}
+    pitch_grand = {"connections": 0, "totalBills": 0, "receivedBills": 0, "remainingBills": 0, "totalAmount": 0, "amountReceived": 0, "currentBillAmount": 0}
     for idx, (staff_name, group_rows) in enumerate(sorted(staff_groups.items()), start=1):
+        connections = sum(pn(r[10]) for r in group_rows)
         total_bills = sum(pn(r[5]) for r in group_rows)
         received_bills = sum(pn(r[6]) for r in group_rows)
         remaining_bills = sum(pn(r[7]) for r in group_rows)
@@ -6844,6 +6862,7 @@ def export_six_month_pitch(fmt_type: str):
         pitch_rows.append([
             idx,
             fmt_staff_name(staff_name),
+            fmt(connections),
             fmt(total_bills),
             fmt(received_bills),
             fmt(remaining_bills),
@@ -6851,6 +6870,7 @@ def export_six_month_pitch(fmt_type: str):
             fmt(amount_received),
             fmt(current_bill),
         ])
+        pitch_grand["connections"] += connections
         pitch_grand["totalBills"] += total_bills
         pitch_grand["receivedBills"] += received_bills
         pitch_grand["remainingBills"] += remaining_bills
@@ -6858,27 +6878,90 @@ def export_six_month_pitch(fmt_type: str):
         pitch_grand["amountReceived"] += amount_received
         pitch_grand["currentBillAmount"] += current_bill
 
-    # The six-month season report follows the same checkbox selection rule as the visible staff rows.
-    pitch_rows = _filter_rows_by_selection(pitch_rows, lambda row: str(row[1]))
-    if _selection_has_filter():
+    # The general view always summarizes the complete season.
+    if not general_view:
+        pitch_rows = _filter_rows_by_selection(pitch_rows, lambda row: str(row[1]))
+    if not general_view and _selection_has_filter():
         pitch_grand = {
-            "totalBills": sum(parse_number(row[2]) for row in pitch_rows),
-            "receivedBills": sum(parse_number(row[3]) for row in pitch_rows),
-            "remainingBills": sum(parse_number(row[4]) for row in pitch_rows),
-            "totalAmount": sum(parse_number(row[5]) for row in pitch_rows),
-            "amountReceived": sum(parse_number(row[6]) for row in pitch_rows),
-            "currentBillAmount": sum(parse_number(row[7]) for row in pitch_rows),
+            "connections": sum(parse_number(row[2]) for row in pitch_rows),
+            "totalBills": sum(parse_number(row[3]) for row in pitch_rows),
+            "receivedBills": sum(parse_number(row[4]) for row in pitch_rows),
+            "remainingBills": sum(parse_number(row[5]) for row in pitch_rows),
+            "totalAmount": sum(parse_number(row[6]) for row in pitch_rows),
+            "amountReceived": sum(parse_number(row[7]) for row in pitch_rows),
+            "currentBillAmount": sum(parse_number(row[8]) for row in pitch_rows),
         }
+    else:
+        pitch_grand["connections"] = season_connections
 
-    pitch_grand_row = ["", "Grand Total", fmt(pitch_grand["totalBills"]), fmt(pitch_grand["receivedBills"]), fmt(pitch_grand["remainingBills"]), fmt(pitch_grand["totalAmount"]), fmt(pitch_grand["amountReceived"]), fmt(pitch_grand["currentBillAmount"])]
+    if general_view:
+        general_headers = ["Sr", "Connections", "Total Bills", "Received Bills", "Remaining Bills", "Amount Received", "Pending Amount"]
+        general_row = [1, fmt(pitch_grand["connections"]), fmt(pitch_grand["totalBills"]),
+                       fmt(pitch_grand["receivedBills"]), fmt(pitch_grand["remainingBills"]),
+                       fmt(pitch_grand["amountReceived"]), fmt(pitch_grand["currentBillAmount"])]
+        general_pdf_margins = (8 * mm, 8 * mm, 12 * mm, 10 * mm)
+        general_pdf_width = landscape(A4)[0] - general_pdf_margins[0] - general_pdf_margins[1]
+        general_pdf_columns = [general_pdf_width * share for share in (0.07, 0.15, 0.14, 0.15, 0.17, 0.16, 0.16)]
+        general_pdf_options = dict(
+            pagesize=landscape(A4), margins=general_pdf_margins,
+            col_widths=general_pdf_columns, left_cols=[],
+            header_font_size=11, body_font_size=12, cell_padding=22,
+        )
+        if not include_category_detail:
+            if fmt_type == "pdf":
+                pdf_bytes = generate_card_pdf(report_title, [], general_headers, [general_row], **general_pdf_options)
+                return Response(pdf_bytes, mimetype="application/pdf", headers={"Content-Disposition": f"attachment; filename={file_slug}_General.pdf"})
+            return export_table_response(fmt_type, report_title, general_headers, [general_row], file_slug + "_General", left_cols=[])
 
-    pitch_headers = ["Sr", "Staff Name", "Total Bills", "Received Bills", "Remaining Bills", "Total Amount", "Amount Received", "Pending Amount"]
+        category_headers = ["Category"] + general_headers[1:]
+        category_data = get_bill_income_category_summary(bill_ids=season_bill_ids)
+        if not category_data:
+            category_data = [{"category": name, "connections": 0, "bills": 0, "received_bills": 0,
+                              "remaining_bills": 0, "amount_total": 0, "season_pending": 0}
+                             for name in ("Domestic", "Commercial", "Private Societies")]
+        category_rows = [[row["category"], fmt(row["connections"]), fmt(row["bills"]),
+                          fmt(row["received_bills"]), fmt(row["remaining_bills"]),
+                          fmt(row["amount_total"]), fmt(row["season_pending"])]
+                         for row in category_data]
+        category_grand = ["Grand Total"] + [fmt(sum(row[key] for row in category_data)) for key in
+                                             ("connections", "bills", "received_bills", "remaining_bills", "amount_total", "season_pending")]
+        category_filename = file_slug + "_General_Category_Wise"
+        if fmt_type == "pdf":
+            category_pdf_columns = [general_pdf_width * share for share in (0.17, 0.14, 0.13, 0.14, 0.15, 0.14, 0.13)]
+            pdf_bytes = generate_card_pdf(
+                report_title, [], general_headers, [general_row], **general_pdf_options,
+                extra_section={"title": "Category-wise Detail", "headers": category_headers,
+                               "rows": category_rows, "grand": category_grand,
+                               "col_widths": category_pdf_columns},
+            )
+            return Response(pdf_bytes, mimetype="application/pdf", headers={"Content-Disposition": f"attachment; filename={category_filename}.pdf"})
+        if fmt_type == "csv":
+            out = io.StringIO()
+            writer = csv.writer(out)
+            writer.writerow(general_headers)
+            writer.writerow(general_row)
+            writer.writerow([])
+            writer.writerow(["Category-wise Detail"])
+            writer.writerow(category_headers)
+            writer.writerows(category_rows + [category_grand])
+            return Response(out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment; filename={category_filename}.csv"})
+        if fmt_type == "xlsx":
+            buf = io.BytesIO()
+            with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+                pd.DataFrame([general_row], columns=general_headers).to_excel(writer, sheet_name="General", index=False)
+                pd.DataFrame(category_rows + [category_grand], columns=category_headers).to_excel(writer, sheet_name="Category-wise Detail", index=False)
+            return Response(buf.getvalue(), mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename={category_filename}.xlsx"})
+        return export_table_response(fmt_type, report_title, general_headers, [general_row], category_filename, left_cols=[])
+
+    pitch_grand_row = ["", "Grand Total", fmt(pitch_grand["connections"]), fmt(pitch_grand["totalBills"]), fmt(pitch_grand["receivedBills"]), fmt(pitch_grand["remainingBills"]), fmt(pitch_grand["totalAmount"]), fmt(pitch_grand["amountReceived"]), fmt(pitch_grand["currentBillAmount"])]
+
+    pitch_headers = ["Sr", "Staff Name", "Connections", "Total Bills", "Received Bills", "Remaining Bills", "Total Amount", "Amount Received", "Pending Amount"]
 
     # Column filtering
     _pitch_sel = []
     if cols_param:
         _pitch_sel = [k.strip() for k in cols_param.split(",") if k.strip() in PITCH_COL_MAP]
-    _pitch_pdf_cols = sorted([PITCH_COL_MAP[k] for k in _pitch_sel]) if _pitch_sel else list(range(8))
+    _pitch_pdf_cols = sorted([PITCH_COL_MAP[k] for k in _pitch_sel]) if _pitch_sel else list(range(9))
     _pitch_headers = [pitch_headers[i] for i in _pitch_pdf_cols]
     _pitch_left_cols = {_pitch_pdf_cols.index(1)} if 1 in _pitch_pdf_cols else set()
 
@@ -6891,7 +6974,7 @@ def export_six_month_pitch(fmt_type: str):
         title_style = ParagraphStyle("PitchTitle", parent=styles["Heading1"], fontSize=18, textColor=colors.black, alignment=1, spaceAfter=5*mm, fontName="Helvetica-Bold")
         elements = [Paragraph(report_title, title_style)]
         page_w = landscape(A4)[0] - 2 * margins
-        _all_pw = [page_w*0.05, page_w*0.17, page_w*0.09, page_w*0.13, page_w*0.13, page_w*0.14, page_w*0.14, page_w*0.15]
+        _all_pw = [page_w*0.04, page_w*0.18, page_w*0.10, page_w*0.10, page_w*0.12, page_w*0.12, page_w*0.10, page_w*0.12, page_w*0.12]
         _pw = [_all_pw[i] for i in _pitch_pdf_cols]
 
         def wrap_left(v):
@@ -6899,9 +6982,9 @@ def export_six_month_pitch(fmt_type: str):
 
         body_rows = []
         for r in pitch_rows:
-            full = [r[0], wrap_left(r[1]), r[2], r[3], r[4], r[5], r[6], r[7]]
+            full = [r[0], wrap_left(r[1])] + r[2:]
             body_rows.append([full[i] for i in _pitch_pdf_cols])
-        gt_full = [pitch_grand_row[0], pitch_grand_row[1], pitch_grand_row[2], pitch_grand_row[3], pitch_grand_row[4], pitch_grand_row[5], pitch_grand_row[6], pitch_grand_row[7]]
+        gt_full = pitch_grand_row
         body_rows.append([gt_full[i] for i in _pitch_pdf_cols])
         table_data = [_pitch_headers] + body_rows
         elements.append(_make_pdf_table(table_data, col_widths=_pw, left_cols=_pitch_left_cols, header_font_size=10, body_font_size=10, cell_padding=5))
@@ -7368,14 +7451,18 @@ def generate_connection_rate_pdf(rows: list[list], total_row: list[str]) -> byte
     return buf.getvalue()
 
 
-def get_bill_income_category_summary():
+def get_bill_income_category_summary(bill_ids: set[int] | None = None):
     """Build Bills Reports income categories from the saved bills table."""
     init_bill_list_db()
+    bill_filter = ""
+    if bill_ids is not None:
+        bill_filter = f"WHERE id IN ({','.join(str(i) for i in bill_ids)})" if bill_ids else "WHERE 1=0"
     with get_db() as conn:
         rows = conn.execute(
-            """
-            SELECT sector, locality, connection_no, amount_received, arrears, total_bill, raw_data
+            f"""
+            SELECT sector, locality, connection_no, amount_received, arrears, total_bill, status, raw_data
             FROM bills
+            {bill_filter}
             """
         ).fetchall()
     if not rows:
@@ -7396,6 +7483,7 @@ def get_bill_income_category_summary():
             "amount received": float(row["amount_received"] or 0),
             "arrears": float(row["arrears"] or 0),
             "total bill": float(row["total_bill"] or 0),
+            "status": row["status"] or "",
         })
 
     df = pd.DataFrame(records)
@@ -7412,11 +7500,16 @@ def get_bill_income_category_summary():
         connections = 0
         if not part.empty:
             connections = int(part["connection no"].fillna("").astype(str).str.strip().replace("", pd.NA).dropna().nunique())
+        unpaid_status = part["status"].str.strip().str.lower().str.replace("-", "", regex=False).str.replace(" ", "", regex=False)
+        unpaid = part[unpaid_status.isin(("unpaid", "expired"))]
         summary.append({
             "category": category,
             "connections": connections,
             "rate": rate,
             "bills": int(len(part)),
+            "received_bills": int((part["amount received"] > 0).sum()),
+            "remaining_bills": int((part["amount received"] <= 0).sum()),
+            "season_pending": float((unpaid["total bill"] - unpaid["arrears"]).sum()),
             "arrears_total": float(part["arrears"].sum()) if not part.empty else 0,
             "amount_total": float(part["amount received"].sum()) if not part.empty else 0,
             # Unpaid means the pending balance still left on bills, not arrears received.
