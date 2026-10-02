@@ -140,15 +140,15 @@
       </div>
       <div class="stat-card coral">
         <div class="stat-card-icon">💰</div>
-        <div class="stat-label">Combined Total Arrears</div>
-        <div class="stat-value" style="font-size:20px;">{{ analysis.grand_total.total_arrears_fmt }}</div>
+        <div class="stat-label">Total Arrears (All Areas)</div>
+        <div class="stat-value" style="font-size:20px;">{{ category_summary.grand_total.total_arrears_fmt }}</div>
         <div class="stat-delta">Regular + Suspended + Closed</div>
       </div>
       <div class="stat-card violet">
         <div class="stat-card-icon">🏘️</div>
-        <div class="stat-label">Combined Connections</div>
-        <div class="stat-value">{{ analysis.grand_total.total_count|int }}</div>
-        <div class="stat-delta">Across {{ analysis.locality_summaries|length }} selected localities</div>
+        <div class="stat-label">Total Connections (All Areas)</div>
+        <div class="stat-value">{{ category_summary.grand_total.total_count|int }}</div>
+        <div class="stat-delta">Domestic + Private Societies + Commercial</div>
       </div>
     </div>
 
@@ -190,6 +190,18 @@
                 Both (Summary + Details)
               </label>
             </div>
+            {% if report_mode == 'one_page' %}
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-bright, rgba(255,255,255,0.08));">
+              <label class="btn btn-sm {% if summary_group == 'status' %}btn-primary{% endif %}" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                <input type="radio" name="summary_group" value="status" {% if summary_group == 'status' %}checked{% endif %} onchange="document.getElementById('aa-filter-form').submit();">
+                Regular / Suspended / Closed
+              </label>
+              <label class="btn btn-sm {% if summary_group == 'category' %}btn-primary{% endif %}" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                <input type="radio" name="summary_group" value="category" {% if summary_group == 'category' %}checked{% endif %} onchange="document.getElementById('aa-filter-form').submit();">
+                Domestic / Private Societies / Commercial
+              </label>
+            </div>
+            {% endif %}
           </div>
 
           <!-- 2. SELECT COLUMNS FOR EXPORT / DETAILED REPORT (PROMINENT & ALWAYS VISIBLE) -->
@@ -274,16 +286,16 @@
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         {% if report_mode == 'one_page' %}
-        <a class="chip" id="onepage-print-btn" target="_blank" rel="noopener" style="background:rgba(16,185,129,0.15);border-color:#10b981;color:#34d399;font-weight:700;" title="Print One Page Arrears Summary" href="{{ url_for('arrears_analysis.arrears_analysis_print') }}?mode=one_page">
+        <a class="chip" id="onepage-print-btn" target="_blank" rel="noopener" style="background:rgba(16,185,129,0.15);border-color:#10b981;color:#34d399;font-weight:700;" title="Print One Page Arrears Summary" href="{{ url_for('arrears_analysis.arrears_analysis_print') }}?mode=one_page&amp;summary_group={{ summary_group }}">
           🖨️ Print Arrears Summary
         </a>
-        <a class="chip pdf" id="onepage-pdf-btn" target="_blank" rel="noopener" style="background:#059669;color:#fff;border-color:#059669;font-weight:700;" title="Download One Page Arrears Summary PDF" href="{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='pdf') }}?mode=one_page">
+        <a class="chip pdf" id="onepage-pdf-btn" target="_blank" rel="noopener" style="background:#059669;color:#fff;border-color:#059669;font-weight:700;" title="Download One Page Arrears Summary PDF" href="{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='pdf') }}?mode=one_page&amp;summary_group={{ summary_group }}">
           📄 Arrears Summary PDF
         </a>
-        <a class="chip" id="onepage-xlsx-btn" style="background:rgba(16,185,129,0.15);border-color:#10b981;color:#34d399;font-weight:600;" title="Download One Page Arrears Summary Excel" href="{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='xlsx') }}?mode=one_page">
+        <a class="chip" id="onepage-xlsx-btn" style="background:rgba(16,185,129,0.15);border-color:#10b981;color:#34d399;font-weight:600;" title="Download One Page Arrears Summary Excel" href="{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='xlsx') }}?mode=one_page&amp;summary_group={{ summary_group }}">
           📗 Summary Excel
         </a>
-        <a class="chip" id="onepage-csv-btn" style="background:rgba(16,185,129,0.15);border-color:#10b981;color:#34d399;font-weight:600;" title="Download One Page Arrears Summary CSV" href="{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='csv') }}?mode=one_page">
+        <a class="chip" id="onepage-csv-btn" style="background:rgba(16,185,129,0.15);border-color:#10b981;color:#34d399;font-weight:600;" title="Download One Page Arrears Summary CSV" href="{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='csv') }}?mode=one_page&amp;summary_group={{ summary_group }}">
           📄 Summary CSV
         </a>
         {% else %}
@@ -448,10 +460,10 @@
           </span>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="{{ url_for('arrears_analysis.arrears_analysis_print') }}?mode=one_page" id="one-page-card-print-btn" title="Print this One Page Arrears Summary">
+          <a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="{{ url_for('arrears_analysis.arrears_analysis_print') }}?mode=one_page&amp;summary_group={{ summary_group }}" id="one-page-card-print-btn" title="Print this One Page Arrears Summary">
             🖨️ Print Summary
           </a>
-          <a class="btn btn-sm" target="_blank" rel="noopener" href="{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='pdf') }}?mode=one_page" id="one-page-card-pdf-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;" title="Download PDF of Arrears Summary">
+          <a class="btn btn-sm" target="_blank" rel="noopener" href="{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='pdf') }}?mode=one_page&amp;summary_group={{ summary_group }}" id="one-page-card-pdf-btn" style="background:#0284c7;color:#fff;border-color:#0284c7;" title="Download PDF of Arrears Summary">
             📄 PDF Summary
           </a>
         </div>
@@ -462,62 +474,28 @@
           <thead>
             <tr>
               <th style="width:48px;text-align:center;">#</th>
-              <th style="text-align:left;">Consumer Category</th>
-              <th class="col-reg_count" style="text-align:center;">Regular Conns</th>
-              <th class="col-reg_arr" style="text-align:center;">Regular Arrears (PKR)</th>
-              <th class="col-sus_count" style="text-align:center;display:none;">Suspended Conns</th>
-              <th class="col-sus_arr" style="text-align:center;display:none;">Suspended Arrears (PKR)</th>
-              <th class="col-cls_count" style="text-align:center;display:none;">Closed Conns</th>
-              <th class="col-cls_arr" style="text-align:center;display:none;">Closed Arrears (PKR)</th>
-              <th class="col-total_count" style="text-align:center;display:none;">Total Conns</th>
-              <th class="col-total_arr" style="text-align:center;display:none;">Total Arrears (PKR)</th>
+              <th style="text-align:left;">{% if summary_group == 'status' %}Connection Status{% else %}Consumer Category{% endif %}</th>
+              <th style="text-align:center;">Connections</th>
+              <th style="text-align:center;">Arrears (PKR)</th>
             </tr>
           </thead>
           <tbody>
-            {% for r in category_summary.rows %}
-            <tr class="one-page-cat-row"
-                data-reg-count="{{ r.regular_count }}"
-                data-reg-arr="{{ r.regular_arrears }}"
-                data-sus-count="{{ r.suspended_count }}"
-                data-sus-arr="{{ r.suspended_arrears }}"
-                data-cls-count="{{ r.closed_count }}"
-                data-cls-arr="{{ r.closed_arrears }}"
-                data-tot-count="{{ r.total_count }}"
-                data-tot-arr="{{ r.total_arrears }}">
-              <td style="text-align:center;color:var(--text-muted);font-weight:600;">{{ r.sr }}</td>
+            {% for row in one_page_rows %}
+            <tr>
+              <td style="text-align:center;color:var(--text-muted);font-weight:600;padding:18px 12px;">{{ row.sr }}</td>
               <td style="text-align:left;font-weight:700;font-size:14px;">
-                {% if r.category == 'Domestic' %}
-                  🏠 {{ r.category }}
-                {% elif r.category == 'Private Societies' %}
-                  🏘️ {{ r.category }}
-                {% elif r.category == 'Commercial' %}
-                  🏢 {{ r.category }}
-                {% else %}
-                  {{ r.category }}
-                {% endif %}
+                {{ row.label }}
               </td>
-              <td class="col-reg_count" style="text-align:center;font-weight:600;">{{ r.regular_count|int }}</td>
-              <td class="col-reg_arr" style="text-align:center;font-family:monospace;">{{ r.regular_arrears_fmt }}</td>
-              <td class="col-sus_count" style="text-align:center;display:none;">{{ r.suspended_count|int }}</td>
-              <td class="col-sus_arr" style="text-align:center;font-family:monospace;display:none;">{{ r.suspended_arrears_fmt }}</td>
-              <td class="col-cls_count" style="text-align:center;display:none;">{{ r.closed_count|int }}</td>
-              <td class="col-cls_arr" style="text-align:center;font-family:monospace;display:none;">{{ r.closed_arrears_fmt }}</td>
-              <td class="col-total_count" style="text-align:center;font-weight:600;display:none;">{{ r.total_count|int }}</td>
-              <td class="col-total_arr" style="text-align:center;font-family:monospace;font-weight:700;color:var(--danger, #ef4444);display:none;">{{ r.total_arrears_fmt }}</td>
+              <td style="text-align:center;font-weight:600;">{{ row.connections|int }}</td>
+              <td style="text-align:center;font-family:monospace;font-weight:700;">{{ row.arrears|round|int }}</td>
             </tr>
             {% endfor %}
           </tbody>
           <tfoot>
             <tr style="background:var(--nav-hover, rgba(0,0,0,0.04));font-weight:700;border-top:2px solid var(--border, #334155);">
-              <td colspan="2" style="text-align:right;font-size:13px;letter-spacing:0.05em;">GRAND TOTAL:</td>
-              <td class="col-reg_count" style="text-align:center;font-size:13px;">{{ category_summary.grand_total.regular_count|int }}</td>
-              <td class="col-reg_arr" style="text-align:center;font-family:monospace;font-size:13px;">{{ category_summary.grand_total.regular_arrears_fmt }}</td>
-              <td class="col-sus_count" style="text-align:center;display:none;font-size:13px;">{{ category_summary.grand_total.suspended_count|int }}</td>
-              <td class="col-sus_arr" style="text-align:center;font-family:monospace;display:none;font-size:13px;">{{ category_summary.grand_total.suspended_arrears_fmt }}</td>
-              <td class="col-cls_count" style="text-align:center;display:none;font-size:13px;">{{ category_summary.grand_total.closed_count|int }}</td>
-              <td class="col-cls_arr" style="text-align:center;font-family:monospace;display:none;font-size:13px;">{{ category_summary.grand_total.closed_arrears_fmt }}</td>
-              <td class="col-total_count" style="text-align:center;display:none;font-size:13px;">{{ category_summary.grand_total.total_count|int }}</td>
-              <td class="col-total_arr" style="text-align:center;font-family:monospace;display:none;font-size:13px;color:var(--danger, #ef4444);">{{ category_summary.grand_total.total_arrears_fmt }}</td>
+              <td colspan="2" style="text-align:right;font-size:13px;letter-spacing:0.05em;padding:18px 12px;">GRAND TOTAL:</td>
+              <td style="text-align:center;font-size:13px;">{{ category_summary.grand_total.total_count|int }}</td>
+              <td style="text-align:center;font-family:monospace;font-size:13px;color:var(--danger, #ef4444);">{{ category_summary.grand_total.total_arrears_fmt }}</td>
             </tr>
           </tfoot>
         </table>
@@ -895,15 +873,7 @@
       // Tile 3: Closed
       statTiles[2].querySelector('.stat-value').textContent = clsCount.toLocaleString();
       statTiles[2].querySelector('.stat-delta').textContent = 'Arrears: ' + formatPKR(clsArr);
-      // Tile 4: Combined Arrears
-      statTiles[3].querySelector('.stat-value').textContent = formatPKR(totalArr);
-      var parts = [];
-      if (incReg) parts.push('Regular');
-      if (incSus) parts.push('Suspended');
-      if (incClosed) parts.push('Closed');
-      statTiles[3].querySelector('.stat-delta').textContent = parts.length > 0 ? parts.join(' + ') : 'None';
-      // Tile 5: Combined Conns
-      statTiles[4].querySelector('.stat-value').textContent = totalCount.toLocaleString();
+      // Tiles 4 and 5 are server-rendered all-area totals and do not change with table filters.
     }
 
     // Update header & action bar counts
@@ -2022,15 +1992,17 @@
     var onePagePdf = document.getElementById('onepage-pdf-btn');
     var onePageXlsx = document.getElementById('onepage-xlsx-btn');
     var onePageCsv = document.getElementById('onepage-csv-btn');
+    var summaryGroupInput = document.querySelector('input[name="summary_group"]:checked');
+    var summaryGroupParam = '&summary_group=' + encodeURIComponent(summaryGroupInput ? summaryGroupInput.value : '{{ summary_group }}');
 
     [onePageCardPrint, onePagePrint].forEach(function(btn) {
-      if (btn) btn.href = "{{ url_for('arrears_analysis.arrears_analysis_print') }}?mode=one_page" + secParam + filterParams;
+      if (btn) btn.href = "{{ url_for('arrears_analysis.arrears_analysis_print') }}?mode=one_page" + summaryGroupParam;
     });
     [onePageCardPdf, onePagePdf].forEach(function(btn) {
-      if (btn) btn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='pdf') }}?mode=one_page" + secParam + filterParams;
+      if (btn) btn.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='pdf') }}?mode=one_page" + summaryGroupParam;
     });
-    if (onePageXlsx) onePageXlsx.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='xlsx') }}?mode=one_page" + secParam + filterParams;
-    if (onePageCsv) onePageCsv.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='csv') }}?mode=one_page" + secParam + filterParams;
+    if (onePageXlsx) onePageXlsx.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='xlsx') }}?mode=one_page" + summaryGroupParam;
+    if (onePageCsv) onePageCsv.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='csv') }}?mode=one_page" + summaryGroupParam;
   }
 
   function onToggleShowZero(checked) {
