@@ -148,7 +148,11 @@
   <div class="print-toolbar">
     <div>
       <strong>Water Supply Consumer Arrears</strong> &mdash;
-      <span>Mode: {{ report_mode.title() }} &middot; {{ analysis.locality_summaries|length }} Localities</span>
+      {% if report_mode == 'one_page' %}
+        <span>One Page Summary (Arrears Summary)</span>
+      {% else %}
+        <span>Mode: {{ report_mode.title() }} &middot; {{ analysis.locality_summaries|length }} Localities</span>
+      {% endif %}
     </div>
     <div>
       <button onclick="window.print()">🖨️ Print Now</button>
@@ -159,21 +163,83 @@
   <!-- DOCUMENT HEADER -->
   <div class="doc-head">
     <h1>
-      Water Supply Consumer Arrears
-      {% if analysis.locality_summaries|length == 1 %}
-        - {{ analysis.locality_summaries[0].locality }} ({{ analysis.locality_summaries[0].sector }}){% if report_mode == 'detailed' %} - Detailed Report{% endif %}
+      {% if report_mode == 'one_page' %}
+        Water Supply Consumer Arrears - Arrears Summary
+      {% elif analysis.locality_summaries|length == 1 %}
+        Water Supply Consumer Arrears - {{ analysis.locality_summaries[0].locality }} ({{ analysis.locality_summaries[0].sector }}){% if report_mode == 'detailed' %} - Detailed Report{% endif %}
       {% elif report_mode == 'detailed' %}
-        {% if category == 'commercial' or (selected_sector and 'commercial' in selected_sector.lower()) %} - Commercial Sector (Detailed Report)
-        {% elif category == 'domestic' %} - Domestic Detailed Report{% if selected_sector and selected_sector not in ('All Sectors', '') %} ({{ selected_sector }}){% endif %}
-        {% elif selected_sector %} - {{ selected_sector }} Sector (Detailed Report)
-        {% else %} - Detailed Consumer Report{% endif %}
+        Water Supply Consumer Arrears{% if category == 'commercial' or (selected_sector and 'commercial' in selected_sector.lower()) %} - Commercial Sector (Detailed Report){% elif category == 'domestic' %} - Domestic Detailed Report{% if selected_sector and selected_sector not in ('All Sectors', '') %} ({{ selected_sector }}){% endif %}{% elif selected_sector %} - {{ selected_sector }} Sector (Detailed Report){% else %} - Detailed Consumer Report{% endif %}
       {% else %}
-        {% if category == 'commercial' or (selected_sector and 'commercial' in selected_sector.lower()) %} - Commercial Sector
-        {% elif category == 'domestic' %} - Domestic Report{% if selected_sector and selected_sector not in ('All Sectors', '') %} ({{ selected_sector }}){% endif %}
-        {% elif selected_sector %} - {{ selected_sector }} Sector{% endif %}
+        Water Supply Consumer Arrears{% if category == 'commercial' or (selected_sector and 'commercial' in selected_sector.lower()) %} - Commercial Sector{% elif category == 'domestic' %} - Domestic Report{% if selected_sector and selected_sector not in ('All Sectors', '') %} ({{ selected_sector }}){% endif %}{% elif selected_sector %} - {{ selected_sector }} Sector{% endif %}
       {% endif %}
     </h1>
   </div>
+
+  <!-- ONE PAGE ARREARS SUMMARY TABLE (Only shown in one_page mode) -->
+  {% if report_mode == 'one_page' %}
+  <table>
+    <thead>
+      <tr>
+        <th class="center" style="width:40px;">Sr #</th>
+        <th class="left">Consumer Category</th>
+        {% if show_reg_c %}<th class="center">Regular<br>Conns</th>{% endif %}
+        {% if show_reg_a %}<th class="center">Regular Arrears<br>(PKR)</th>{% endif %}
+        {% if show_sus_c %}<th class="center">Suspended<br>Conns</th>{% endif %}
+        {% if show_sus_a %}<th class="center">Suspended Arrears<br>(PKR)</th>{% endif %}
+        {% if show_cls_c %}<th class="center">Closed<br>Conns</th>{% endif %}
+        {% if show_cls_a %}<th class="center">Closed Arrears<br>(PKR)</th>{% endif %}
+        {% if show_tot_c %}<th class="center">Total<br>Conns</th>{% endif %}
+        {% if show_tot_a %}<th class="center">Total Arrears<br>(PKR)</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in category_summary.rows %}
+      {% set r_reg_c = r.regular_count|int %}
+      {% set r_reg_a = r.regular_arrears|float %}
+      {% set r_sus_c = r.suspended_count|int %}
+      {% set r_sus_a = r.suspended_arrears|float %}
+      {% set r_cls_c = r.closed_count|int %}
+      {% set r_cls_a = r.closed_arrears|float %}
+      {% set r_tot_c = (r_reg_c if show_reg_c else 0) + (r_sus_c if show_sus_c else 0) + (r_cls_c if show_cls_c else 0) %}
+      {% set r_tot_a = (r_reg_a if show_reg_a else 0) + (r_sus_a if show_sus_a else 0) + (r_cls_a if show_cls_a else 0) %}
+      <tr>
+        <td class="center">{{ r.sr }}</td>
+        <td class="left"><strong>{{ r.category }}</strong></td>
+        {% if show_reg_c %}<td class="center">{{ r_reg_c }}</td>{% endif %}
+        {% if show_reg_a %}<td class="center">{{ r.regular_arrears_fmt }}</td>{% endif %}
+        {% if show_sus_c %}<td class="center">{{ r_sus_c }}</td>{% endif %}
+        {% if show_sus_a %}<td class="center">{{ r.suspended_arrears_fmt }}</td>{% endif %}
+        {% if show_cls_c %}<td class="center">{{ r_cls_c }}</td>{% endif %}
+        {% if show_cls_a %}<td class="center">{{ r.closed_arrears_fmt }}</td>{% endif %}
+        {% if show_tot_c %}<td class="center"><strong>{{ r_tot_c }}</strong></td>{% endif %}
+        {% if show_tot_a %}<td class="center"><strong>{{ r_tot_a|round|int|string }}</strong></td>{% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      {% set gt = category_summary.grand_total %}
+      {% set gt_reg_c = gt.regular_count|int %}
+      {% set gt_reg_a = gt.regular_arrears|float %}
+      {% set gt_sus_c = gt.suspended_count|int %}
+      {% set gt_sus_a = gt.suspended_arrears|float %}
+      {% set gt_cls_c = gt.closed_count|int %}
+      {% set gt_cls_a = gt.closed_arrears|float %}
+      {% set gt_tot_c = (gt_reg_c if show_reg_c else 0) + (gt_sus_c if show_sus_c else 0) + (gt_cls_c if show_cls_c else 0) %}
+      {% set gt_tot_a = (gt_reg_a if show_reg_a else 0) + (gt_sus_a if show_sus_a else 0) + (gt_cls_a if show_cls_a else 0) %}
+      <tr>
+        <td colspan="2" class="left" style="font-weight:700;">GRAND TOTAL:</td>
+        {% if show_reg_c %}<td class="center" style="font-weight:700;">{{ gt_reg_c }}</td>{% endif %}
+        {% if show_reg_a %}<td class="center" style="font-weight:700;">{{ gt.regular_arrears_fmt }}</td>{% endif %}
+        {% if show_sus_c %}<td class="center" style="font-weight:700;">{{ gt_sus_c }}</td>{% endif %}
+        {% if show_sus_a %}<td class="center" style="font-weight:700;">{{ gt.suspended_arrears_fmt }}</td>{% endif %}
+        {% if show_cls_c %}<td class="center" style="font-weight:700;">{{ gt_cls_c }}</td>{% endif %}
+        {% if show_cls_a %}<td class="center" style="font-weight:700;">{{ gt.closed_arrears_fmt }}</td>{% endif %}
+        {% if show_tot_c %}<td class="center" style="font-weight:700;">{{ gt_tot_c }}</td>{% endif %}
+        {% if show_tot_a %}<td class="center" style="font-weight:700;">{{ gt_tot_a|round|int|string }}</td>{% endif %}
+      </tr>
+    </tfoot>
+  </table>
+  {% endif %}
 
   <!-- MAIN CONSOLIDATED LOCALITY / SECTOR ARREARS TABLE (Only shown in summary or both modes) -->
   {% if report_mode in ('summary', 'both') %}

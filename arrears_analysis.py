@@ -383,6 +383,134 @@ def compute_arrears_analysis(
     }
 
 
+def compute_category_arrears_summary(
+    df: pd.DataFrame,
+    selected_localities: list[str] | None = None,
+    sectors: list[str] | None = None,
+) -> dict[str, Any]:
+    """Perform category-wise arrears aggregation for One Page Arrears Summary:
+    1. Domestic
+    2. Private Societies
+    3. Commercial
+    4. Grand Total
+    Strictly categorizes records and calculates counts and arrears for
+    Regular (Open), Suspended, Closed, and Combined/Total.
+    """
+    detected = inspect_dataframe_columns(df)
+    loc_col = detected["locality"] or "Locality"
+    sec_col = detected["sector"] or "Sector"
+    stat_col = detected["status"] or "Status"
+    arr_col = detected["arrears"] or "Total Arrears"
+
+    rate_col = _detect_column(df, ["Rate Type", "Rate", "Bill Type", "Type", "RateType"])
+
+    calc_df = df.copy()
+    if loc_col not in calc_df.columns:
+        calc_df[loc_col] = "-"
+    if sec_col not in calc_df.columns:
+        calc_df[sec_col] = "-"
+    if stat_col not in calc_df.columns:
+        calc_df[stat_col] = "Open"
+    if arr_col not in calc_df.columns:
+        calc_df[arr_col] = 0.0
+
+    calc_df["_parsed_status"] = calc_df[stat_col].apply(classify_status)
+    calc_df["_parsed_arrears"] = calc_df[arr_col].apply(parse_amount)
+    calc_df["_norm_locality"] = calc_df[loc_col].astype(str).str.strip()
+    calc_df["_norm_sector"] = calc_df[sec_col].astype(str).str.strip()
+
+    if selected_localities:
+        calc_df = calc_df[calc_df["_norm_locality"].isin(selected_localities)]
+    elif sectors:
+        sec_list = [s.strip() for s in sectors if s.strip()]
+        if sec_list:
+            calc_df = calc_df[calc_df["_norm_sector"].isin(sec_list)]
+
+    rate_series = calc_df[rate_col].astype(str).str.strip() if rate_col else pd.Series("", index=calc_df.index)
+
+    PRIVATE_KW = (
+        "private soc", "private so", "al khair", "al-khair", "al haram", "alharam",
+        "batool garden", "batool gadran", "dream land", "dreem land", "gulshan batool",
+        "itefaq city", "rehan av", "rehan garden", "sidra town", "sukh chain", "zain city"
+    )
+
+    def classify_cat(sec: str, loc: str, rate: str) -> str:
+        s = str(sec or "").strip().upper()
+        l = str(loc or "").strip().upper()
+        r = str(rate or "").strip().upper()
+
+        if ("COMMERCIAL" in s or "COMMERCIAL" in r or "COMERCIAL" in r) and ("COLONY" not in l):
+            return "Commercial"
+
+        comb = f"{s} {l} {r}"
+        if any(k.upper() in comb for k in PRIVATE_KW) or "PRIVATE SOC" in comb or ("PRIVATE" in comb and any(w in comb for w in ("SOCIET", "SOCIT", "SOCITY"))) or r == "9600":
+            return "Private Societies"
+
+        return "Domestic"
+
+    cats = [classify_cat(s, l, r) for s, l, r in zip(calc_df["_norm_sector"], calc_df["_norm_locality"], rate_series)]
+    calc_df["_cat"] = cats
+
+    cat_order = ["Domestic", "Private Societies", "Commercial"]
+    rows = []
+    grand_total = {
+        "regular_count": 0, "regular_arrears": 0.0,
+        "suspended_count": 0, "suspended_arrears": 0.0,
+        "closed_count": 0, "closed_arrears": 0.0,
+        "total_count": 0, "total_arrears": 0.0,
+    }
+
+    for idx, cname in enumerate(cat_order, start=1):
+        sub = calc_df[calc_df["_cat"] == cname]
+        reg_sub = sub[sub["_parsed_status"] == "Open"]
+        sus_sub = sub[sub["_parsed_status"] == "Suspended"]
+        cls_sub = sub[sub["_parsed_status"] == "Closed"]
+
+        reg_c = len(reg_sub)
+        reg_a = float(reg_sub["_parsed_arrears"].sum())
+        sus_c = len(sus_sub)
+        sus_a = float(sus_sub["_parsed_arrears"].sum())
+        cls_c = len(cls_sub)
+        cls_a = float(cls_sub["_parsed_arrears"].sum())
+
+        tot_c = reg_c + sus_c + cls_c
+        tot_a = reg_a + sus_a + cls_a
+
+        row = {
+            "sr": idx,
+            "category": cname,
+            "regular_count": reg_c,
+            "regular_arrears": reg_a,
+            "regular_arrears_fmt": format_pkr(reg_a),
+            "suspended_count": sus_c,
+            "suspended_arrears": sus_a,
+            "suspended_arrears_fmt": format_pkr(sus_a),
+            "closed_count": cls_c,
+            "closed_arrears": cls_a,
+            "closed_arrears_fmt": format_pkr(cls_a),
+            "total_count": tot_c,
+            "total_arrears": tot_a,
+            "total_arrears_fmt": format_pkr(tot_a),
+        }
+        rows.append(row)
+
+        grand_total["regular_count"] += reg_c
+        grand_total["regular_arrears"] += reg_a
+        grand_total["suspended_count"] += sus_c
+        grand_total["suspended_arrears"] += sus_a
+        grand_total["closed_count"] += cls_c
+        grand_total["closed_arrears"] += cls_a
+        grand_total["total_count"] += tot_c
+        grand_total["total_arrears"] += tot_a
+
+    grand_total["regular_arrears_fmt"] = format_pkr(grand_total["regular_arrears"])
+    grand_total["suspended_arrears_fmt"] = format_pkr(grand_total["suspended_arrears"])
+    grand_total["closed_arrears_fmt"] = format_pkr(grand_total["closed_arrears"])
+    grand_total["total_arrears_fmt"] = format_pkr(grand_total["total_arrears"])
+
+    return {"rows": rows, "grand_total": grand_total}
+
+
 def get_detail_columns(df: pd.DataFrame) -> list[str]:
     """Determine all available displayable columns in the dataframe, ordered logically."""
     exclude_internal = {"_parsed_status", "_parsed_arrears", "_norm_locality", "_norm_sector", "_st"}
@@ -568,7 +696,9 @@ def build_arrears_pdf(
         if sec_col in df.columns:
             df = df[df[sec_col].astype(str).str.upper() != 'COMMERCIAL'].copy()
 
-    if len(analysis.get("locality_summaries", [])) == 1:
+    if report_mode == "one_page":
+        title_text = "Water Supply Consumer Arrears - Arrears Summary"
+    elif len(analysis.get("locality_summaries", [])) == 1:
         single_loc = analysis["locality_summaries"][0]["locality"]
         single_sec = analysis["locality_summaries"][0].get("sector", "")
         if report_mode == "detailed":
@@ -790,6 +920,102 @@ def build_arrears_pdf(
         avail_metric_w = (281 - 10 - (loc_w / mm)) * mm
 
     total_metric_weight = sum(m[2] for m in metric_defs)
+    if report_mode == "one_page":
+        cat_sum = compute_category_arrears_summary(
+            df,
+            selected_localities=analysis.get("active_localities") if show_locality else None,
+            sectors=[selected_sector] if (selected_sector and selected_sector not in ("All Sectors", "82 Sectors", "83 Sectors", "COMMERCIAL", "")) else None,
+        )
+        sr_w = 14 * mm
+        cat_w = 75 * mm
+        avail_m_w = (281 - 14 - 75) * mm
+        metric_w = [(m[2] / total_metric_weight) * avail_m_w for m in metric_defs] if total_metric_weight > 0 else []
+
+        header_row = [Paragraph("Sr #", th_center), Paragraph("Consumer Category", th_left)] + [m[1] for m in metric_defs]
+        col_w = [sr_w, cat_w] + metric_w
+        table_data = [header_row]
+
+        sum_reg_conns = 0
+        sum_reg_arr = 0.0
+        sum_sus_conns = 0
+        sum_sus_arr = 0.0
+        sum_cls_conns = 0
+        sum_cls_arr = 0.0
+        sum_tot_conns = 0
+        sum_tot_arr = 0.0
+
+        for r in cat_sum["rows"]:
+            reg_c = r["regular_count"]
+            reg_a = r["regular_arrears"]
+            sus_c = r["suspended_count"]
+            sus_a = r["suspended_arrears"]
+            cls_c = r["closed_count"]
+            cls_a = r["closed_arrears"]
+            tot_c = (reg_c if show_reg_c else 0) + (sus_c if show_sus_c else 0) + (cls_c if show_cls_c else 0)
+            tot_a = (reg_a if show_reg_a else 0) + (sus_a if show_sus_a else 0) + (cls_a if show_cls_a else 0)
+
+            sum_reg_conns += reg_c
+            sum_reg_arr += reg_a
+            sum_sus_conns += sus_c
+            sum_sus_arr += sus_a
+            sum_cls_conns += cls_c
+            sum_cls_arr += cls_a
+            sum_tot_conns += tot_c
+            sum_tot_arr += tot_a
+
+            row_metric_cells = []
+            for key, _, _ in metric_defs:
+                if key == "reg_count": row_metric_cells.append(Paragraph(f"{reg_c:,}", td_center))
+                elif key == "reg_arr": row_metric_cells.append(Paragraph(f"{reg_a:,.0f}", td_center))
+                elif key == "sus_count": row_metric_cells.append(Paragraph(f"{sus_c:,}", td_center))
+                elif key == "sus_arr": row_metric_cells.append(Paragraph(f"{sus_a:,.0f}", td_center))
+                elif key == "cls_count": row_metric_cells.append(Paragraph(f"{cls_c:,}", td_center))
+                elif key == "cls_arr": row_metric_cells.append(Paragraph(f"{cls_a:,.0f}", td_center))
+                elif key == "total_count": row_metric_cells.append(Paragraph(f"{tot_c:,}", td_center))
+                elif key == "total_arr": row_metric_cells.append(Paragraph(f"{tot_a:,.0f}", td_center))
+
+            table_data.append([Paragraph(str(r["sr"]), td_center), Paragraph(r["category"], td_loc)] + row_metric_cells)
+
+        grand_metric_cells = []
+        for key, _, _ in metric_defs:
+            if key == "reg_count": grand_metric_cells.append(Paragraph(f"{sum_reg_conns:,}", td_gt_center))
+            elif key == "reg_arr": grand_metric_cells.append(Paragraph(f"{sum_reg_arr:,.0f}", td_gt_center))
+            elif key == "sus_count": grand_metric_cells.append(Paragraph(f"{sum_sus_conns:,}", td_gt_center))
+            elif key == "sus_arr": grand_metric_cells.append(Paragraph(f"{sum_sus_arr:,.0f}", td_gt_center))
+            elif key == "cls_count": grand_metric_cells.append(Paragraph(f"{sum_cls_conns:,}", td_gt_center))
+            elif key == "cls_arr": grand_metric_cells.append(Paragraph(f"{sum_cls_arr:,.0f}", td_gt_center))
+            elif key == "total_count": grand_metric_cells.append(Paragraph(f"{sum_tot_conns:,}", td_gt_center))
+            elif key == "total_arr": grand_metric_cells.append(Paragraph(f"{sum_tot_arr:,.0f}", td_gt_center))
+
+        table_data.append([Paragraph("", td_gt_center), Paragraph("GRAND TOTAL", td_gt_title)] + grand_metric_cells)
+
+        one_page_table = Table(table_data, colWidths=col_w, repeatRows=1)
+        one_page_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
+            ("LINEBELOW", (0, 0), (-1, 0), 1.2, colors.black),
+            ("LINEABOVE", (0, 0), (-1, 0), 1.2, colors.black),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#94a3b8")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#f8fafc")]),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, 0), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
+            ("TOPPADDING", (0, 1), (-1, -2), 6),
+            ("BOTTOMPADDING", (0, 1), (-1, -2), 6),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("ALIGN", (0, 0), (0, -1), "CENTER"),
+            ("ALIGN", (1, 0), (1, -1), "LEFT"),
+            ("ALIGN", (2, 0), (-1, -1), "CENTER"),
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#f1f5f9")),
+            ("LINEABOVE", (0, -1), (-1, -1), 1.4, colors.black),
+            ("LINEBELOW", (0, -1), (-1, -1), 1.4, colors.black),
+            ("TOPPADDING", (0, -1), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, -1), (-1, -1), 6),
+        ]))
+        story.append(one_page_table)
+        doc.build(story, canvasmaker=NumberedCanvas)
+        return buf.getvalue()
+
     if total_metric_weight > 0:
         metric_widths = [(m[2] / total_metric_weight) * avail_metric_w for m in metric_defs]
     else:
@@ -1296,6 +1522,19 @@ def arrears_analysis():
             all_available_cols=[],
             selected_cols=[],
             detail_records={},
+            category_summary={
+                "rows": [],
+                "grand_total": {
+                    "regular_count": 0,
+                    "regular_arrears_fmt": "0",
+                    "suspended_count": 0,
+                    "suspended_arrears_fmt": "0",
+                    "closed_count": 0,
+                    "closed_arrears_fmt": "0",
+                    "total_count": 0,
+                    "total_arrears_fmt": "0",
+                },
+            },
             category=request.args.get("category", "domestic").strip().lower(),
             active_page="arrears_analysis",
         )
@@ -1333,9 +1572,9 @@ def arrears_analysis():
             s["locality"] for s in full_analysis["locality_summaries"] if s["total_arrears"] > 0
         ]
 
-    # Report mode: 'summary', 'detailed', or 'both'
+    # Report mode: 'summary', 'one_page', 'detailed', or 'both'
     report_mode = request.args.get("mode", "summary").strip().lower()
-    if report_mode not in ("summary", "detailed", "both"):
+    if report_mode not in ("summary", "one_page", "detailed", "both"):
         report_mode = "summary"
 
     # Column selection
@@ -1419,6 +1658,12 @@ def arrears_analysis():
                 records.append(row_dict)
             detail_records[loc_name] = records
 
+    category_summary = compute_category_arrears_summary(
+        df,
+        selected_localities=selected_localities if explicit_selection else None,
+        sectors=[selected_sector] if (selected_sector and selected_sector not in ("All Sectors", "82 Sectors", "83 Sectors", "COMMERCIAL", "")) else None,
+    )
+
     handover_available = os.path.exists(_handover_working_csv()) and os.path.getsize(_handover_working_csv()) > 0
 
     return render_template(
@@ -1437,6 +1682,7 @@ def arrears_analysis():
         all_available_cols=all_available_cols,
         selected_cols=selected_cols,
         detail_records=detail_records,
+        category_summary=category_summary,
         category=category,
         is_detail_limited=is_detail_limited,
         detail_limit_count=detail_limit_count,
@@ -1569,7 +1815,7 @@ def arrears_analysis_print():
     selected_sector_label = ", ".join(req_sectors) if len(req_sectors) <= 2 else f"{len(req_sectors)} Sectors"
 
     report_mode = request.args.get("mode", "summary").strip().lower()
-    if report_mode not in ("summary", "detailed", "both"):
+    if report_mode not in ("summary", "one_page", "detailed", "both"):
         report_mode = "summary"
 
     all_loc_param = request.args.get("all_loc", "0").strip()
@@ -1635,10 +1881,17 @@ def arrears_analysis_print():
                 records.append(row_dict)
             detail_records[loc_name] = records
 
+    category_summary = compute_category_arrears_summary(
+        df,
+        selected_localities=selected_localities if req_localities else None,
+        sectors=req_sectors if req_sectors else None,
+    )
+
     return render_template(
         "arrears_analysis_print.html",
         meta=meta,
         analysis=analysis,
+        category_summary=category_summary,
         selected_sector=selected_sector_label,
         category=category,
         report_mode=report_mode,
@@ -1789,7 +2042,7 @@ def export_arrears_analysis(fmt_type: str):
     selected_sector_label = ", ".join(req_sectors) if len(req_sectors) <= 2 else f"{len(req_sectors)} Sectors"
 
     report_mode = request.args.get("mode", "summary").strip().lower()
-    if report_mode not in ("summary", "detailed", "both"):
+    if report_mode not in ("summary", "one_page", "detailed", "both"):
         report_mode = "summary"
 
     # For Detailed / Both mode without explicit locality or sector filter in domestic:
@@ -1826,7 +2079,9 @@ def export_arrears_analysis(fmt_type: str):
         analysis["active_localities"] = [s["locality"] for s in analysis["locality_summaries"]]
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-    if category == "commercial":
+    if report_mode == "one_page":
+        slug = f"Arrears_Summary_One_Page_{timestamp}"
+    elif category == "commercial":
         slug = f"Commercial_Sector_Arrears_{report_mode}_{timestamp}"
     elif category == "domestic":
         slug = f"Domestic_Arrears_{report_mode}_{timestamp}"
@@ -1890,6 +2145,57 @@ def export_arrears_analysis(fmt_type: str):
     if fmt_type == "csv":
         out = io.StringIO()
         writer = csv.writer(out)
+
+        if report_mode == "one_page":
+            cat_sum = compute_category_arrears_summary(
+                df,
+                selected_localities=analysis.get("active_localities") if show_loc else None,
+                sectors=req_sectors if req_sectors else None,
+            )
+            writer.writerow(["WATER SUPPLY CONSUMER ARREARS - ARREARS SUMMARY", f"Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')}"])
+            writer.writerow([])
+            headers = ["Sr #", "Consumer Category"] + [m[0] for m in metric_export_cols]
+            writer.writerow(headers)
+
+            for r in cat_sum["rows"]:
+                row_vals = [r["sr"], r["category"]]
+                for m in metric_export_cols:
+                    if m[0].startswith("Regular Con"): row_vals.append(r["regular_count"])
+                    elif m[0].startswith("Regular Arr"): row_vals.append(r["regular_arrears"])
+                    elif m[0].startswith("Suspended Con"): row_vals.append(r["suspended_count"])
+                    elif m[0].startswith("Suspended Arr"): row_vals.append(r["suspended_arrears"])
+                    elif m[0].startswith("Closed Con"): row_vals.append(r["closed_count"])
+                    elif m[0].startswith("Closed Arr"): row_vals.append(r["closed_arrears"])
+                    elif m[0].startswith("Total Con"):
+                        tot_c = (r["regular_count"] if show_reg_c else 0) + (r["suspended_count"] if show_sus_c else 0) + (r["closed_count"] if show_cls_c else 0)
+                        row_vals.append(tot_c)
+                    elif m[0].startswith("Total Arr"):
+                        tot_a = (r["regular_arrears"] if show_reg_a else 0) + (r["suspended_arrears"] if show_sus_a else 0) + (r["closed_arrears"] if show_cls_a else 0)
+                        row_vals.append(tot_a)
+                writer.writerow(row_vals)
+
+            gt = cat_sum["grand_total"]
+            gt_vals = ["", "GRAND TOTAL"]
+            for m in metric_export_cols:
+                if m[0].startswith("Regular Con"): gt_vals.append(gt["regular_count"])
+                elif m[0].startswith("Regular Arr"): gt_vals.append(gt["regular_arrears"])
+                elif m[0].startswith("Suspended Con"): gt_vals.append(gt["suspended_count"])
+                elif m[0].startswith("Suspended Arr"): gt_vals.append(gt["suspended_arrears"])
+                elif m[0].startswith("Closed Con"): gt_vals.append(gt["closed_count"])
+                elif m[0].startswith("Closed Arr"): gt_vals.append(gt["closed_arrears"])
+                elif m[0].startswith("Total Con"):
+                    tot_c = (gt["regular_count"] if show_reg_c else 0) + (gt["suspended_count"] if show_sus_c else 0) + (gt["closed_count"] if show_cls_c else 0)
+                    gt_vals.append(tot_c)
+                elif m[0].startswith("Total Arr"):
+                    tot_a = (gt["regular_arrears"] if show_reg_a else 0) + (gt["suspended_arrears"] if show_sus_a else 0) + (gt["closed_arrears"] if show_cls_a else 0)
+                    gt_vals.append(tot_a)
+            writer.writerow(gt_vals)
+
+            return Response(
+                out.getvalue(),
+                mimetype="text/csv",
+                headers={"Content-Disposition": f"attachment; filename={slug}.csv"},
+            )
 
         # Write Summary Table
         writer.writerow(["WATER SUPPLY CONSUMER ARREARS - SUMMARY REPORT", f"Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')}"])
@@ -1962,43 +2268,81 @@ def export_arrears_analysis(fmt_type: str):
     if fmt_type == "xlsx":
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-            sum_rows = []
-            for s in analysis["locality_summaries"]:
-                row_dict = {}
-                if show_loc and show_sec:
-                    if col_order == "sec_first":
+            if report_mode == "one_page":
+                cat_sum = compute_category_arrears_summary(
+                    df,
+                    selected_localities=analysis.get("active_localities") if show_loc else None,
+                    sectors=req_sectors if req_sectors else None,
+                )
+                rows_data = []
+                for r in cat_sum["rows"]:
+                    row_dict = {"Sr #": r["sr"], "Consumer Category": r["category"]}
+                    for m in metric_export_cols:
+                        if m[0].startswith("Regular Con"): row_dict[m[0]] = r["regular_count"]
+                        elif m[0].startswith("Regular Arr"): row_dict[m[0]] = r["regular_arrears"]
+                        elif m[0].startswith("Suspended Con"): row_dict[m[0]] = r["suspended_count"]
+                        elif m[0].startswith("Suspended Arr"): row_dict[m[0]] = r["suspended_arrears"]
+                        elif m[0].startswith("Closed Con"): row_dict[m[0]] = r["closed_count"]
+                        elif m[0].startswith("Closed Arr"): row_dict[m[0]] = r["closed_arrears"]
+                        elif m[0].startswith("Total Con"):
+                            row_dict[m[0]] = (r["regular_count"] if show_reg_c else 0) + (r["suspended_count"] if show_sus_c else 0) + (r["closed_count"] if show_cls_c else 0)
+                        elif m[0].startswith("Total Arr"):
+                            row_dict[m[0]] = (r["regular_arrears"] if show_reg_a else 0) + (r["suspended_arrears"] if show_sus_a else 0) + (r["closed_arrears"] if show_cls_a else 0)
+                    rows_data.append(row_dict)
+
+                gt = cat_sum["grand_total"]
+                gt_dict = {"Sr #": "", "Consumer Category": "GRAND TOTAL"}
+                for m in metric_export_cols:
+                    if m[0].startswith("Regular Con"): gt_dict[m[0]] = gt["regular_count"]
+                    elif m[0].startswith("Regular Arr"): gt_dict[m[0]] = gt["regular_arrears"]
+                    elif m[0].startswith("Suspended Con"): gt_dict[m[0]] = gt["suspended_count"]
+                    elif m[0].startswith("Suspended Arr"): gt_dict[m[0]] = gt["suspended_arrears"]
+                    elif m[0].startswith("Closed Con"): gt_dict[m[0]] = gt["closed_count"]
+                    elif m[0].startswith("Closed Arr"): gt_dict[m[0]] = gt["closed_arrears"]
+                    elif m[0].startswith("Total Con"):
+                        gt_dict[m[0]] = (gt["regular_count"] if show_reg_c else 0) + (gt["suspended_count"] if show_sus_c else 0) + (gt["closed_count"] if show_cls_c else 0)
+                    elif m[0].startswith("Total Arr"):
+                        gt_dict[m[0]] = (gt["regular_arrears"] if show_reg_a else 0) + (gt["suspended_arrears"] if show_sus_a else 0) + (gt["closed_arrears"] if show_cls_a else 0)
+                rows_data.append(gt_dict)
+
+                pd.DataFrame(rows_data).to_excel(writer, sheet_name="Arrears Summary", index=False)
+            else:
+                for s in analysis["locality_summaries"]:
+                    row_dict = {}
+                    if show_loc and show_sec:
+                        if col_order == "sec_first":
+                            row_dict["Sector"] = s["sector"]
+                            row_dict["Locality"] = s["locality"]
+                        else:
+                            row_dict["Locality"] = s["locality"]
+                            row_dict["Sector"] = s["sector"]
+                    elif show_sec:
                         row_dict["Sector"] = s["sector"]
-                        row_dict["Locality"] = s["locality"]
                     else:
                         row_dict["Locality"] = s["locality"]
-                        row_dict["Sector"] = s["sector"]
+
+                    for m in metric_export_cols:
+                        row_dict[m[0]] = m[1](s)
+                    sum_rows.append(row_dict)
+
+                grand_row = {}
+                if show_loc and show_sec:
+                    if col_order == "sec_first":
+                        grand_row["Sector"] = "GRAND TOTAL"
+                        grand_row["Locality"] = "-"
+                    else:
+                        grand_row["Locality"] = "GRAND TOTAL"
+                        grand_row["Sector"] = "-"
                 elif show_sec:
-                    row_dict["Sector"] = s["sector"]
-                else:
-                    row_dict["Locality"] = s["locality"]
-
-                for m in metric_export_cols:
-                    row_dict[m[0]] = m[1](s)
-                sum_rows.append(row_dict)
-
-            grand_row = {}
-            if show_loc and show_sec:
-                if col_order == "sec_first":
                     grand_row["Sector"] = "GRAND TOTAL"
-                    grand_row["Locality"] = "-"
                 else:
                     grand_row["Locality"] = "GRAND TOTAL"
-                    grand_row["Sector"] = "-"
-            elif show_sec:
-                grand_row["Sector"] = "GRAND TOTAL"
-            else:
-                grand_row["Locality"] = "GRAND TOTAL"
 
-            for m in metric_export_cols:
-                grand_row[m[0]] = m[2]
-            sum_rows.append(grand_row)
+                for m in metric_export_cols:
+                    grand_row[m[0]] = m[2]
+                sum_rows.append(grand_row)
 
-            pd.DataFrame(sum_rows).to_excel(writer, sheet_name="Arrears Summary", index=False)
+                pd.DataFrame(sum_rows).to_excel(writer, sheet_name="Arrears Summary", index=False)
 
             if report_mode in ("detailed", "both"):
                 det_rows = []
@@ -2044,3 +2388,10 @@ def export_arrears_analysis(fmt_type: str):
 
     flash(f"Unsupported export format: {fmt_type}", "error")
     return redirect(url_for("arrears_analysis.arrears_analysis"))
+
+
+@arrears_analysis_bp.route("/arrears-analysis/one-page-summary")
+def arrears_analysis_one_page_summary():
+    """Direct route / shortcut to One Page Arrears Summary."""
+    return redirect(url_for("arrears_analysis.arrears_analysis", mode="one_page", **request.args))
+
