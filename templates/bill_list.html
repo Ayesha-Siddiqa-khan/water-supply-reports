@@ -737,7 +737,7 @@
         <label class="muted" style="display:inline-flex;align-items:center;gap:7px;margin-bottom:8px;cursor:pointer;">
           <input type="checkbox" id="season-category-detail"> Include Category-wise Detail on the general report
         </label>
-        <div class="export-bar">
+        <div class="export-bar" data-col-config="sixMonthPitch">
           <a class="chip season-general-export-link" href="{{ url_for('export_six_month_pitch', fmt_type='pdf') }}?view=general">&#11015; General PDF</a>
           <a class="chip season-general-export-link" href="{{ url_for('export_six_month_pitch', fmt_type='csv') }}?view=general">&#11015; General CSV</a>
           <a class="chip season-general-export-link" href="{{ url_for('export_six_month_pitch', fmt_type='xlsx') }}?view=general">&#11015; General Excel</a>
@@ -1420,7 +1420,7 @@
       { key: "sr", label: "Sr", checked: true },
       { key: "staffName", label: "Staff Name", checked: true },
       { key: "connections", label: "Connections", checked: true },
-      { key: "totalBills", label: "Total Bills", checked: true },
+      { key: "totalBills", label: "Total Bills", checked: false },
       { key: "receivedBills", label: "Received Bills", checked: true },
       { key: "remainingBills", label: "Remaining Bills", checked: true },
       { key: "totalAmount", label: "Total Amount", checked: false },
@@ -1506,7 +1506,7 @@
       if (configParent) {
         var configId = configParent.getAttribute('data-col-config');
         var cols = getSelectedCols(configId);
-        if (cols) url.searchParams.set('cols', cols);
+        if (cols || configId === 'sixMonthPitch') url.searchParams.set('cols', cols);
         else url.searchParams.delete('cols');
       }
       var rowScopeParent = link.closest('[data-row-scope]');

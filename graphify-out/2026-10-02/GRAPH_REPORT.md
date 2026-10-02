@@ -1,12 +1,12 @@
 # Graph Report - water suppy report  (2026-10-02)
 
 ## Corpus Check
-- 40 files · ~154,033 words
+- 40 files · ~154,122 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 5 file(s) not represented in the graph (top: .bat 2, (none) 1, .err 1)
 
 ## Summary
-- 736 nodes · 1789 edges · 40 communities (34 shown, 6 thin omitted)
+- 736 nodes · 1789 edges · 42 communities (36 shown, 6 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 43 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
@@ -22,7 +22,7 @@
 - _build_new_connection_detail_report
 - get_db
 - audit_engine.py
-- export_bill_list_staff
+- export_zone_report_response
 - DataFrame
 - consumer_sector_remaining_report
 - app.py
@@ -41,17 +41,19 @@
 - _build_connection_rate_report
 - consumer_report
 - parse_number
-- export_consumer_report
+- _is_faulty_commercial_hussain_colony
 - NumberedCanvas
 - upload-progress.js
+- export_six_month_pitch
+- match_staff_assignment
 - Agent Instructions
 - export_arrear_calculator
 - arrears_analysis_print
 - NumberedCanvas
 - vercel.json
 - Claude Code CLI Prompt: Advanced Bill List Filters and Export
-- export_bill_list
-- _is_faulty_commercial_hussain_colony
+- _filter_rows_by_selection
+- _parse_consumer_csv
 - Water Supply Report Application
 - pdf-lib (CDN library)
 - SheetJS (CDN library)
@@ -77,13 +79,13 @@
   handover.py → app.py
 - `test_get_filtered_bills_headers()` --calls--> `get_filtered_bills()`  [EXTRACTED]
   check_csv_headers_export.py → app.py
-- `main()` --calls--> `import_bill_list_dataframe()`  [EXTRACTED]
-  check_six_month_connections.py → app.py
+- `test_pdf_sector_locality_are_heading_only()` --calls--> `generate_advanced_filtered_pdf()`  [EXTRACTED]
+  check_csv_headers_export.py → app.py
 
 ## Import Cycles
 - None detected.
 
-## Communities (40 total, 6 thin omitted)
+## Communities (42 total, 6 thin omitted)
 
 ### Community 0 - "compute_category_arrears_summary"
 Cohesion: 0.16
@@ -98,40 +100,40 @@ Cohesion: 0.09
 Nodes (20): _calc_col_widths(), export_advanced_bills(), export_advanced_bills_response(), generate_advanced_filtered_pdf(), generate_grouped_advanced_pdf(), generate_single_group_pdf(), generate_zip_of_group_pdfs(), group_bills() (+12 more)
 
 ### Community 3 - "_build_new_connection_detail_report"
-Cohesion: 0.09
-Nodes (30): allowed_file(), _build_dnc_register_report(), _build_new_connection_detail_report(), _clear_new_connection_detail_cache(), _dnc_classification(), _dnc_money(), _dnc_pair(), _dnc_rate_and_classification() (+22 more)
+Cohesion: 0.07
+Nodes (40): allowed_file(), _build_dnc_register_report(), _build_new_connection_detail_report(), _clear_new_connection_detail_cache(), _dnc_classification(), _dnc_money(), _dnc_pair(), _dnc_rate_and_classification() (+32 more)
 
 ### Community 4 - "get_db"
-Cohesion: 0.10
-Nodes (36): apply_manual_zone_overrides(), bill_list(), bill_list_sector_seasonly_export_rows(), bill_list_staff_export_rows(), bill_list_zone_export_rows(), build_unpaid_amount_summary(), clear_bill_list_data(), export_six_month_pitch() (+28 more)
+Cohesion: 0.09
+Nodes (38): bill_list(), bill_list_sector_seasonly_export_rows(), bill_list_staff_export_rows(), bill_list_zone_export_rows(), build_unpaid_amount_summary(), clean_identifier(), clear_bill_list_data(), fast_bill_no_key() (+30 more)
 
 ### Community 5 - "audit_engine.py"
 Cohesion: 0.08
 Nodes (34): _blank_totals(), build_audit_report(), classify_negative(), conn_sort_key(), correct_pending(), _corrections_for(), _default_classify(), _hidden_arrear() (+26 more)
 
-### Community 6 - "export_bill_list_staff"
-Cohesion: 0.25
-Nodes (9): export_bill_list_staff(), parse_num(), export_bill_list_zone(), export_table_response(), export_zone_report_response(), transform_row(), without_zone(), generate_zone_grouped_pdf() (+1 more)
+### Community 6 - "export_zone_report_response"
+Cohesion: 0.50
+Nodes (5): export_bill_list_zone(), export_zone_report_response(), transform_row(), without_zone(), generate_zone_grouped_pdf()
 
 ### Community 7 - "DataFrame"
-Cohesion: 0.09
-Nodes (45): build_commercial_daily_income_rows(), build_commercial_mask(), build_commercial_month_wise_summary(), build_commercial_rows(), build_daily_rows(), build_daily_staff_receive_report(), build_income_category_summary(), build_monthly_rows() (+37 more)
+Cohesion: 0.15
+Nodes (31): build_commercial_daily_income_rows(), build_commercial_mask(), build_commercial_month_wise_summary(), build_commercial_rows(), build_daily_rows(), build_daily_staff_receive_report(), build_income_category_summary(), build_monthly_rows() (+23 more)
 
 ### Community 8 - "consumer_sector_remaining_report"
-Cohesion: 0.19
-Nodes (13): build_consumer_sector_remaining_report(), _canonical_consumer_sector_locality(), consumer_sector_remaining_report(), _is_extra_noor_mohalla_main_road_sector(), _is_extra_zain_city_13g_sector(), _is_faulty_empty_consumer_sector(), _normalize_sector_key(), Skip duplicate Noor Mohalla sector text generated from address wording. (+5 more)
+Cohesion: 0.17
+Nodes (16): build_consumer_sector_remaining_report(), _canonical_consumer_sector_locality(), consumer_sector_remaining_report(), _is_extra_noor_mohalla_main_road_sector(), _is_extra_zain_city_13g_sector(), _is_faulty_empty_consumer_sector(), _normalize_consumer_col(), _normalize_sector_key() (+8 more)
 
 ### Community 9 - "app.py"
 Cohesion: 0.08
-Nodes (38): build_bill_key(), clean_identifier(), _closest_staff_key(), _dedupe_value(), export_new_connection_detail(), fast_bill_no_key(), fast_upload_number(), fast_upload_text() (+30 more)
+Nodes (32): apply_manual_zone_overrides(), bill_income_category_export_rows(), build_bill_key(), build_connection_summary(), _card_rows_to_df(), _dedupe_value(), download_card(), drop_duplicate_bills() (+24 more)
 
 ### Community 10 - "_render_page"
 Cohesion: 0.16
 Nodes (29): main(), apply_filters(), build_sections(), add(), build_sector_summary(), col_key(), detail_columns(), detail_rows() (+21 more)
 
 ### Community 11 - "fmt"
-Cohesion: 0.08
-Nodes (46): _bracket_rich_text(), build_connection_summary(), _calc_daily_detail_col_widths(), _calc_daily_summary_col_widths(), _card_rows_to_df(), commercial_daily_income_export_rows(), append_day_total(), daily_staff_receive_export_response() (+38 more)
+Cohesion: 0.10
+Nodes (37): bill_list_export_rows(), _bracket_rich_text(), _calc_daily_detail_col_widths(), _calc_daily_summary_col_widths(), commercial_daily_income_export_rows(), append_day_total(), daily_staff_receive_export_response(), daily_staff_receive_export_tables() (+29 more)
 
 ### Community 12 - "handover.py"
 Cohesion: 0.11
@@ -146,8 +148,8 @@ Cohesion: 0.09
 Nodes (16): Self-check for the Consumer Report category summary exports. Run: python…, Self-check for the Handover Register join, filters, and snapshot lock. Run:…, read(), Check both six-month report views against a supplied Bills CSV. Run:…, contextlib, csv, io, json (+8 more)
 
 ### Community 15 - "route"
-Cohesion: 0.12
-Nodes (21): bill_income_category_export_rows(), download_file(), export_bill_income_category_summary(), export_consumer_detail(), export_daily_staff_receive(), export_daily_staff_receive_summary_pdf(), export_dnc_register(), export_sectors_summary() (+13 more)
+Cohesion: 0.14
+Nodes (16): download_file(), export_consumer_detail(), export_daily_staff_receive(), export_daily_staff_receive_summary_pdf(), export_sectors_summary(), export_staff_summary(), export_summary_response(), export_zones_summary() (+8 more)
 
 ### Community 16 - "make_story"
 Cohesion: 0.15
@@ -185,13 +187,21 @@ Nodes (12): _clear_consumer_summary_cache(), consumer_report(), _ensure_connecti
 Cohesion: 0.11
 Nodes (19): backfill_bill_arrears(), _bill_list_summary_from_rows(), make_total_row(), _connection_rate_rows_from_payload(), export_connection_rate_report(), pn(), generate_connection_rate_pdf(), is_large_pdf_text() (+11 more)
 
-### Community 25 - "export_consumer_report"
-Cohesion: 0.17
-Nodes (11): consumer_report_detail_records(), export_consumer_report(), _is_private_society_summary_row(), _load_consumer_rows_cache(), _load_consumer_summary_cache(), Shared sorting for the Consumer Sector Report (preview, PDF, CSV, Excel).…, Return True for domestic private-society rows shown in their own tab., Return consumer connection records for a specific sector/locality/category with… (+3 more)
+### Community 25 - "_is_faulty_commercial_hussain_colony"
+Cohesion: 0.15
+Nodes (13): consumer_report_detail_records(), export_consumer_report(), _is_faulty_commercial_hussain_colony(), _is_private_society_summary_row(), _load_consumer_rows_cache(), _load_consumer_summary_cache(), Skip dummy/faulted Commercial Hussain Colony records that do not represent real…, Shared sorting for the Consumer Sector Report (preview, PDF, CSV, Excel).… (+5 more)
 
 ### Community 27 - "upload-progress.js"
 Cohesion: 0.44
 Nodes (10): bindUploadForms(), createOverlay(), getUploadFileLabel(), handleUpload(), removeOverlay(), setFormLoading(), shouldUseNativeUpload(), showToast() (+2 more)
+
+### Community 28 - "export_six_month_pitch"
+Cohesion: 0.15
+Nodes (18): _closest_staff_key(), export_bill_list_staff(), parse_num(), export_six_month_pitch(), wrap_left(), export_table_response(), fmt_staff_name(), fmt_staff_name_html() (+10 more)
+
+### Community 29 - "match_staff_assignment"
+Cohesion: 0.27
+Nodes (10): clean_cell(), _deep_normalize_sector(), _keyword_set(), load_alias_rules(), match_by_alias(), match_key(), match_staff_assignment(), Aggressively normalize a sector/locality name for robust matching. (+2 more)
 
 ### Community 30 - "Agent Instructions"
 Cohesion: 0.18
@@ -209,13 +219,13 @@ Nodes (14): arrears_analysis_one_page_summary(), arrears_analysis_print(), class
 Cohesion: 0.40
 Nodes (4): maxDuration, functions, app.py, $schema
 
-### Community 36 - "export_bill_list"
-Cohesion: 0.24
-Nodes (11): bill_list_export_rows(), export_bill_list(), _export_row_selection(), export_season_sector_pitch(), wrap_left(), export_unpaid_amount_section(), _filter_rows_by_selection(), Read bill-list row checkbox selection from export query params. (+3 more)
+### Community 36 - "_filter_rows_by_selection"
+Cohesion: 0.28
+Nodes (9): _export_row_selection(), export_season_sector_pitch(), wrap_left(), export_unpaid_amount_section(), _filter_rows_by_selection(), Read bill-list row checkbox selection from export query params., Keep only bill-list rows selected by the page checkboxes before exporting., _selection_has_filter() (+1 more)
 
-### Community 37 - "_is_faulty_commercial_hussain_colony"
-Cohesion: 0.24
-Nodes (9): _classify_connection_status(), _is_faulty_commercial_hussain_colony(), _normalize_consumer_col(), _parse_consumer_csv(), Skip dummy/faulted Commercial Hussain Colony records that do not represent real…, Read uploaded CSV/XLSX and return (rows, errors). Uses flexible column matching…, Map each canonical key to the actual CSV column name that matched., Classify both 'Status' column values and 'Consumer Status' into… (+1 more)
+### Community 37 - "_parse_consumer_csv"
+Cohesion: 0.40
+Nodes (4): _classify_connection_status(), _parse_consumer_csv(), Read uploaded CSV/XLSX and return (rows, errors). Uses flexible column matching…, Classify both 'Status' column values and 'Consumer Status' into…
 
 ### Community 38 - "Water Supply Report Application"
 Cohesion: 0.50
@@ -242,4 +252,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `check_csv_headers_export.py` be split into smaller, more focused modules?**
   _Cohesion score 0.08522727272727272 - nodes in this community are weakly interconnected._
 - **Should `_build_new_connection_detail_report` be split into smaller, more focused modules?**
-  _Cohesion score 0.0896551724137931 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06923076923076923 - nodes in this community are weakly interconnected._

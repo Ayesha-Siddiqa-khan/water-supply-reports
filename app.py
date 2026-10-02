@@ -1775,7 +1775,9 @@ def _make_pdf_table(
     body_font_size=11,
     cell_padding=8,
     span_rows=None,
+    horizontal_padding=None,
 ):
+    side_padding = max(3, cell_padding - 2) if horizontal_padding is None else horizontal_padding
     style = TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
         ("TEXTCOLOR", (0, 0), (-1, 0), HEADER_FG),
@@ -1792,8 +1794,8 @@ def _make_pdf_table(
         ("BOX", (0, 0), (-1, -1), 0.8, colors.black),
         ("TOPPADDING", (0, 0), (-1, -1), cell_padding),
         ("BOTTOMPADDING", (0, 0), (-1, -1), cell_padding),
-        ("LEFTPADDING", (0, 0), (-1, -1), max(3, cell_padding - 2)),
-        ("RIGHTPADDING", (0, 0), (-1, -1), max(3, cell_padding - 2)),
+        ("LEFTPADDING", (0, 0), (-1, -1), side_padding),
+        ("RIGHTPADDING", (0, 0), (-1, -1), side_padding),
     ])
     # Alternate row colors
     for i in range(1, len(data_rows)):
@@ -2092,6 +2094,7 @@ def generate_card_pdf(
     compact=False,
     span_rows=None,
     margins=None,
+    horizontal_padding=None,
 ):
     buf = io.BytesIO()
     if compact:
@@ -2193,6 +2196,7 @@ def generate_card_pdf(
         body_font_size=bdy_fs,
         cell_padding=cp,
         span_rows=span_rows,
+        horizontal_padding=horizontal_padding,
     )
     elements.append(t)
 
@@ -2241,6 +2245,7 @@ def generate_card_pdf(
             header_font_size=hdr_fs,
             body_font_size=bdy_fs,
             cell_padding=cp,
+            horizontal_padding=horizontal_padding,
         )
         extra_section_elements = []
         extra_section_elements.append(Spacer(1, extra_spacer))
@@ -6793,6 +6798,10 @@ def bill_list_sector_seasonly_export_rows(year: int, season: str):
 @app.route("/bill-list/export/six-month-pitch/<fmt_type>")
 def export_six_month_pitch(fmt_type: str):
     cols_param = request.args.get("cols")
+    selected_keys = (
+        {key.strip() for key in cols_param.split(",") if key.strip() in PITCH_COL_MAP}
+        if cols_param is not None else set(PITCH_COL_MAP) - {"totalBills", "totalAmount"}
+    )
     general_view = request.args.get("view") == "general"
     include_category_detail = general_view and request.args.get("category_detail") == "1"
     season = request.args.get("season", "").strip().lower()
@@ -6895,17 +6904,29 @@ def export_six_month_pitch(fmt_type: str):
         pitch_grand["connections"] = season_connections
 
     if general_view:
-        general_headers = ["Sr", "Connections", "Total Bills", "Received Bills", "Remaining Bills", "Amount Received", "Pending Amount"]
-        general_row = [1, fmt(pitch_grand["connections"]), fmt(pitch_grand["totalBills"]),
-                       fmt(pitch_grand["receivedBills"]), fmt(pitch_grand["remainingBills"]),
-                       fmt(pitch_grand["amountReceived"]), fmt(pitch_grand["currentBillAmount"])]
+        general_keys = ["sr", "connections", "totalBills", "receivedBills", "remainingBills",
+                        "totalAmount", "amountReceived", "currentBillAmount"]
+        selected_general = [i for i, key in enumerate(general_keys) if key in selected_keys]
+        if not selected_general:
+            return Response("Select at least one report column.", status=400)
+        full_headers = ["Sr", "Connections", "Total Bills", "Received Bills", "Remaining Bills",
+                        "Total Amount", "Amount Received", "Pending Amount"]
+        full_row = [1, fmt(pitch_grand["connections"]), fmt(pitch_grand["totalBills"]),
+                    fmt(pitch_grand["receivedBills"]), fmt(pitch_grand["remainingBills"]),
+                    fmt(pitch_grand["totalAmount"]), fmt(pitch_grand["amountReceived"]),
+                    fmt(pitch_grand["currentBillAmount"])]
+        general_headers = [full_headers[i] for i in selected_general]
+        general_row = [full_row[i] for i in selected_general]
         general_pdf_margins = (8 * mm, 8 * mm, 12 * mm, 10 * mm)
         general_pdf_width = landscape(A4)[0] - general_pdf_margins[0] - general_pdf_margins[1]
-        general_pdf_columns = [general_pdf_width * share for share in (0.07, 0.15, 0.14, 0.15, 0.17, 0.16, 0.16)]
+        general_shares = (0.07, 0.13, 0.12, 0.14, 0.15, 0.13, 0.13, 0.13)
+        selected_width = sum(general_shares[i] for i in selected_general)
+        general_pdf_columns = [general_pdf_width * general_shares[i] / selected_width for i in selected_general]
         general_pdf_options = dict(
             pagesize=landscape(A4), margins=general_pdf_margins,
             col_widths=general_pdf_columns, left_cols=[],
             header_font_size=11, body_font_size=12, cell_padding=22,
+            horizontal_padding=8 if len(selected_general) > 6 else None,
         )
         if not include_category_detail:
             if fmt_type == "pdf":
@@ -6913,21 +6934,31 @@ def export_six_month_pitch(fmt_type: str):
                 return Response(pdf_bytes, mimetype="application/pdf", headers={"Content-Disposition": f"attachment; filename={file_slug}_General.pdf"})
             return export_table_response(fmt_type, report_title, general_headers, [general_row], file_slug + "_General", left_cols=[])
 
-        category_headers = ["Category"] + general_headers[1:]
+        category_indices = [0] + [i for i in selected_general if i != 0]
+        category_headers_full = ["Category"] + full_headers[1:]
+        category_headers = [category_headers_full[i] for i in category_indices]
         category_data = get_bill_income_category_summary(bill_ids=season_bill_ids)
         if not category_data:
             category_data = [{"category": name, "connections": 0, "bills": 0, "received_bills": 0,
-                              "remaining_bills": 0, "amount_total": 0, "season_pending": 0}
+                              "remaining_bills": 0, "amount_total": 0, "unpaid_total": 0,
+                              "season_pending": 0}
                              for name in ("Domestic", "Commercial", "Private Societies")]
-        category_rows = [[row["category"], fmt(row["connections"]), fmt(row["bills"]),
-                          fmt(row["received_bills"]), fmt(row["remaining_bills"]),
-                          fmt(row["amount_total"]), fmt(row["season_pending"])]
-                         for row in category_data]
-        category_grand = ["Grand Total"] + [fmt(sum(row[key] for row in category_data)) for key in
-                                             ("connections", "bills", "received_bills", "remaining_bills", "amount_total", "season_pending")]
+        def category_values(row):
+            return [row["category"], fmt(row["connections"]), fmt(row["bills"]),
+                    fmt(row["received_bills"]), fmt(row["remaining_bills"]),
+                    fmt(row["amount_total"] + row["unpaid_total"]),
+                    fmt(row["amount_total"]), fmt(row["season_pending"])]
+        category_rows = [[values[i] for i in category_indices]
+                         for values in (category_values(row) for row in category_data)]
+        category_totals = {key: sum(row[key] for row in category_data) for key in
+                           ("connections", "bills", "received_bills", "remaining_bills", "amount_total", "unpaid_total", "season_pending")}
+        category_grand_full = category_values({"category": "Grand Total", **category_totals})
+        category_grand = [category_grand_full[i] for i in category_indices]
         category_filename = file_slug + "_General_Category_Wise"
         if fmt_type == "pdf":
-            category_pdf_columns = [general_pdf_width * share for share in (0.17, 0.14, 0.13, 0.14, 0.15, 0.14, 0.13)]
+            category_shares = (0.17, 0.12, 0.11, 0.12, 0.13, 0.12, 0.12, 0.11)
+            category_width = sum(category_shares[i] for i in category_indices)
+            category_pdf_columns = [general_pdf_width * category_shares[i] / category_width for i in category_indices]
             pdf_bytes = generate_card_pdf(
                 report_title, [], general_headers, [general_row], **general_pdf_options,
                 extra_section={"title": "Category-wise Detail", "headers": category_headers,
@@ -6958,10 +6989,9 @@ def export_six_month_pitch(fmt_type: str):
     pitch_headers = ["Sr", "Staff Name", "Connections", "Total Bills", "Received Bills", "Remaining Bills", "Total Amount", "Amount Received", "Pending Amount"]
 
     # Column filtering
-    _pitch_sel = []
-    if cols_param:
-        _pitch_sel = [k.strip() for k in cols_param.split(",") if k.strip() in PITCH_COL_MAP]
-    _pitch_pdf_cols = sorted([PITCH_COL_MAP[k] for k in _pitch_sel]) if _pitch_sel else list(range(9))
+    _pitch_pdf_cols = [index for key, index in PITCH_COL_MAP.items() if key in selected_keys]
+    if not _pitch_pdf_cols:
+        return Response("Select at least one report column.", status=400)
     _pitch_headers = [pitch_headers[i] for i in _pitch_pdf_cols]
     _pitch_left_cols = {_pitch_pdf_cols.index(1)} if 1 in _pitch_pdf_cols else set()
 

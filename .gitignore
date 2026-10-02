@@ -67,3 +67,5 @@ Consumer_List_*.xlsx
 Consumer_List_*.csv
 scratch/
 
+
+tmp/

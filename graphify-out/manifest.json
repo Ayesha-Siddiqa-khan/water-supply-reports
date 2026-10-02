@@ -1,8 +1,8 @@
 {
   "app.py": {
-    "mtime": 1790964844.2136054,
-    "seen": 1790964928.2821841,
-    "ast_hash": "c3ef918b4a67bb15b1b4fa6bab0914fc",
+    "mtime": 1790965969.3646388,
+    "seen": 1790966082.586886,
+    "ast_hash": "62947f70278eb1bc3bf7b1dfca5f95bf",
     "semantic_hash": ""
   },
   "arrears_analysis.py": {
@@ -162,9 +162,9 @@
     "semantic_hash": ""
   },
   "templates/bill_list.html": {
-    "mtime": 1790964366.7848246,
-    "seen": 1790964487.6383774,
-    "ast_hash": "ed949dcfbe7b2ebae23bf0ce9cab84f5",
+    "mtime": 1790965651.7000382,
+    "seen": 1790966082.5983942,
+    "ast_hash": "b83b9b6de7e4ebd92e3beee0d1b23feb",
     "semantic_hash": ""
   },
   "templates/consumer_report.html": {
@@ -372,27 +372,33 @@
     "semantic_hash": ""
   },
   "check_six_month_connections.py": {
-    "mtime": 1790964823.430103,
-    "seen": 1790964928.2854571,
-    "ast_hash": "d756c6e6e35a2b81433d7bebfbfada42",
+    "mtime": 1790965854.6317058,
+    "seen": 1790966082.5928552,
+    "ast_hash": "479eee5a984d03cb32e3a2b3d8929b0d",
     "semantic_hash": ""
   },
   "output/pdf/six_month_general_jul_dec_2026.pdf": {
-    "mtime": 1790964879.7392943,
-    "seen": 1790964928.2955992,
-    "ast_hash": "cee68b8b2dadd6a3045ad3765a0d527f",
+    "mtime": 1790966014.2867637,
+    "seen": 1790966082.6035178,
+    "ast_hash": "fa5b7c66b2a385d56d41ca31fad430e9",
     "semantic_hash": ""
   },
   "output/pdf/six_month_staffwise_jul_dec_2026.pdf": {
-    "mtime": 1790964876.0168743,
-    "seen": 1790964928.2956014,
-    "ast_hash": "0a27c489604bca7209c22e06b9f44637",
+    "mtime": 1790966009.721263,
+    "seen": 1790966082.6035204,
+    "ast_hash": "45ac44cfb0d2e6b06af035264e82d9ee",
     "semantic_hash": ""
   },
   "output/pdf/six_month_general_category_jul_dec_2026.pdf": {
-    "mtime": 1790964884.4110641,
-    "seen": 1790964928.2955961,
-    "ast_hash": "d7fd2d2772a155fcda85be54a753a442",
+    "mtime": 1790966019.0062885,
+    "seen": 1790966082.6035144,
+    "ast_hash": "0c25336ee55c123df030c225daccaba9",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/six_month_columns/selected_all.pdf": {
+    "mtime": 1790966032.3681595,
+    "seen": 1790966082.6038013,
+    "ast_hash": "d8e1065c9ef34eb96912870e0ffec9bf",
     "semantic_hash": ""
   }
 }
