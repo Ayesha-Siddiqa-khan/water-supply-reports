@@ -933,6 +933,11 @@
       "degree": 18
     },
     {
+      "id": "arrears_analysis_arrears_analysis",
+      "label": "arrears_analysis()",
+      "degree": 17
+    },
+    {
       "id": "app_consumer_report",
       "label": "consumer_report()",
       "degree": 17
@@ -941,14 +946,31 @@
       "id": "app_export_six_month_pitch",
       "label": "export_six_month_pitch()",
       "degree": 17
-    },
-    {
-      "id": "app_build_consumer_sector_summary",
-      "label": "_build_consumer_sector_summary()",
-      "degree": 17
     }
   ],
   "surprises": [
+    {
+      "source": "arrears_analysis()",
+      "target": "ajax_error()",
+      "source_files": [
+        "arrears_analysis.py",
+        "app.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "indirect_call",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "arrears_analysis()",
+      "target": "ajax_ok()",
+      "source_files": [
+        "arrears_analysis.py",
+        "app.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "indirect_call",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
+    },
     {
       "source": "handover()",
       "target": "allowed_file()",
@@ -961,17 +983,6 @@
       "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
     },
     {
-      "source": "arrears_analysis()",
-      "target": "ajax_error()",
-      "source_files": [
-        "arrears_analysis.py",
-        "app.py"
-      ],
-      "confidence": "INFERRED",
-      "relation": "indirect_call",
-      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
-    },
-    {
       "source": "handover()",
       "target": "ajax_error()",
       "source_files": [
@@ -980,17 +991,6 @@
       ],
       "confidence": "INFERRED",
       "relation": "calls",
-      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
-    },
-    {
-      "source": "arrears_analysis()",
-      "target": "ajax_ok()",
-      "source_files": [
-        "arrears_analysis.py",
-        "app.py"
-      ],
-      "confidence": "INFERRED",
-      "relation": "indirect_call",
       "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
     },
     {
@@ -1005,8 +1005,41 @@
       "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
     }
   ],
-  "tokens": {
-    "input": 0,
-    "output": 0
-  }
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `classify()` connect `data_comparison.py` to `build_handover_dataset`, `audit_engine.py`?",
+      "why": "High betweenness centrality (0.087) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `parse_register()` connect `audit_engine.py` to `data_comparison.py`?",
+      "why": "High betweenness centrality (0.081) - this node is a cross-community bridge."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `maxDuration`, `$schema`, `code:block1 (/graphify . --update)` to the rest of the system?",
+      "why": "7 weakly-connected nodes found - possible documentation gaps or missing edges."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `arrears_analysis.py` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.07270865335381464 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `data_comparison.py` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.0784313725490196 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `check_csv_headers_export.py` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.06463414634146342 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `app.py` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.08636977058029689 - nodes in this community are weakly interconnected."
+    }
+  ]
 }

@@ -6,10 +6,10 @@
     "semantic_hash": "77e37ef5f303d3f7467a3e008eb80240"
   },
   "arrears_analysis.py": {
-    "mtime": 1790959361.8991773,
-    "seen": 1790959402.2633562,
-    "ast_hash": "90244f190c7bc91e67ecf79aa82ba127",
-    "semantic_hash": "90244f190c7bc91e67ecf79aa82ba127"
+    "mtime": 1790961829.3545258,
+    "seen": 1790961967.2831323,
+    "ast_hash": "fdad05ce0a010107ec41dbc6180ddf82",
+    "semantic_hash": ""
   },
   "audit_engine.py": {
     "mtime": 1784996935.517019,
@@ -115,116 +115,139 @@
   },
   "AGENTS.md": {
     "mtime": 1783933184.8124442,
+    "seen": 1790961967.289576,
     "ast_hash": "69247afced5a03eab1c20128fae74f54",
     "semantic_hash": ""
   },
   "instruction.md.md": {
     "mtime": 1778761370.1597085,
+    "seen": 1790961967.2895808,
     "ast_hash": "ebecc0c98d89aed3961b3fa772ca109a",
     "semantic_hash": ""
   },
   "PORTABLE_APP_README.txt": {
     "mtime": 1778135876.0,
+    "seen": 1790961967.2895787,
     "ast_hash": "dd73595ad4b068407dfdcbc3e5448f42",
     "semantic_hash": ""
   },
   "requirements.txt": {
     "mtime": 1783493833.3010852,
+    "seen": 1790961967.2895823,
     "ast_hash": "c8b57d95cd933558ea728eae4c3aa734",
     "semantic_hash": ""
   },
   "templates/arrears_analysis.html": {
-    "mtime": 1789221582.5356536,
-    "ast_hash": "14ef402ef9b508854cca9f28724a80c1",
+    "mtime": 1790961754.781913,
+    "seen": 1790961967.2895856,
+    "ast_hash": "b1605ef0fcbe8b2ce4f16bfb0360c54d",
     "semantic_hash": ""
   },
   "templates/arrears_analysis_print.html": {
-    "mtime": 1789211244.9276588,
-    "ast_hash": "981f5e531fb177c5f370f801b1785d19",
+    "mtime": 1790961767.1965556,
+    "seen": 1790961967.2895873,
+    "ast_hash": "4a4f1eb047187860a506b8e2fcafd141",
     "semantic_hash": ""
   },
   "templates/arrear_calculator.html": {
     "mtime": 1783621832.734727,
+    "seen": 1790961967.289584,
     "ast_hash": "f3d25b000ae1ad494096cbf2e2101d9c",
     "semantic_hash": ""
   },
   "templates/base.html": {
     "mtime": 1789124308.9993024,
+    "seen": 1790961967.289589,
     "ast_hash": "0fa022b5992063f3a2ea9f5c30eb718a",
     "semantic_hash": ""
   },
   "templates/bill_list.html": {
-    "mtime": 1784901344.1478393,
-    "ast_hash": "68b7dd607a5146abdc05b6ea865d8e2d",
+    "mtime": 1790608924.695309,
+    "seen": 1790961967.2895904,
+    "ast_hash": "7e64e6e74272fddc347ea756faa9bd71",
     "semantic_hash": ""
   },
   "templates/consumer_report.html": {
-    "mtime": 1789223283.505891,
-    "ast_hash": "3e5204fd896bdf4bf2b84b264909ba43",
+    "mtime": 1789914722.9681494,
+    "seen": 1790961967.2895918,
+    "ast_hash": "b9136e979892b6d60bdc99b23b4cd273",
     "semantic_hash": ""
   },
   "templates/consumer_sector_remaining_report.html": {
     "mtime": 1789205251.048465,
+    "seen": 1790961967.2895935,
     "ast_hash": "9bd1c8e85d8786317c25f1cdd3148740",
     "semantic_hash": ""
   },
   "templates/daily_staff_receive.html": {
     "mtime": 1782897743.020051,
+    "seen": 1790961967.2895947,
     "ast_hash": "04b8149b63ad6fe54666851dd52a9144",
     "semantic_hash": ""
   },
   "templates/data_comparison.html": {
     "mtime": 1787150913.0109806,
+    "seen": 1790961967.289596,
     "ast_hash": "b8dfc35a8410b63ec2eddf54f28a0597",
     "semantic_hash": ""
   },
   "templates/dnc_register.html": {
     "mtime": 1784914811.7970989,
+    "seen": 1790961967.2895977,
     "ast_hash": "ef13d42d2df4f635bf85ca65f1bfa3bb",
     "semantic_hash": ""
   },
   "templates/file_column_matcher.html": {
     "mtime": 1783658173.0301175,
+    "seen": 1790961967.289599,
     "ast_hash": "244b3e6f7b711c76099bf5b3f07f9c68",
     "semantic_hash": ""
   },
   "templates/file_merger.html": {
     "mtime": 1787149664.6761212,
+    "seen": 1790961967.2896006,
     "ast_hash": "a3f0109c4ee53b2b8d37ac6206856e24",
     "semantic_hash": ""
   },
   "templates/handover.html": {
     "mtime": 1787059522.5024903,
+    "seen": 1790961967.2896018,
     "ast_hash": "483253cff12b20796bf94be89c4041f3",
     "semantic_hash": ""
   },
   "templates/handover_print.html": {
     "mtime": 1787057001.5286183,
+    "seen": 1790961967.2896032,
     "ast_hash": "34fc5cb95144cf66d3a28ab1d24dccb6",
     "semantic_hash": ""
   },
   "templates/index.html": {
-    "mtime": 1784898224.459918,
-    "ast_hash": "5f90ad4e19673d03b9b10ab1f9345e0d",
+    "mtime": 1789557965.6216023,
+    "seen": 1790961967.2896047,
+    "ast_hash": "621834539ecf50e15c7e819395ae4af7",
     "semantic_hash": ""
   },
   "templates/new_connection_detail.html": {
     "mtime": 1784036298.6455047,
+    "seen": 1790961967.2896059,
     "ast_hash": "643cb8d47f88d0179575c28c9c4574b3",
     "semantic_hash": ""
   },
   "templates/new_connection_receipt_matching.html": {
     "mtime": 1784041173.4211745,
+    "seen": 1790961967.2896075,
     "ast_hash": "32ab14f847420015ba0be037f4c59920",
     "semantic_hash": ""
   },
   "Data-Audit-Findings.pdf": {
     "mtime": 1784988224.610103,
+    "seen": 1790961967.289609,
     "ast_hash": "796beab4bb751baf007b40da5168b7d5",
     "semantic_hash": ""
   },
   "static/emblem.jpg": {
     "mtime": 1786997400.9731753,
+    "seen": 1790961967.2896159,
     "ast_hash": "d2bf2eb45c04fbf3ba95ce1a7f4ae06d",
     "semantic_hash": ""
   },
@@ -319,9 +342,33 @@
     "semantic_hash": "42dd6afcc7b397e5e911bd6a13d5e0dc"
   },
   "check_arrears_one_page_summary.py": {
-    "mtime": 1790959370.2418249,
-    "seen": 1790959402.2640357,
-    "ast_hash": "3277438b3586899c29e711ff3eef855e",
-    "semantic_hash": "3277438b3586899c29e711ff3eef855e"
+    "mtime": 1790961936.7408147,
+    "seen": 1790961967.2834365,
+    "ast_hash": "59e6b54cf1971dbdf5633458fcb57c07",
+    "semantic_hash": ""
+  },
+  "output/arrears_summary_category_check.pdf": {
+    "mtime": 1790961943.338807,
+    "seen": 1790961967.2896104,
+    "ast_hash": "b7b54f5d2cb76b57d3f1f37b11118277",
+    "semantic_hash": ""
+  },
+  "output/arrears_summary_status_check.pdf": {
+    "mtime": 1790961943.3628354,
+    "seen": 1790961967.2896118,
+    "ast_hash": "4c5e6287fa3d98cba5d1a7a4479ea595",
+    "semantic_hash": ""
+  },
+  "output/pdf/details_of_connections_preview.pdf": {
+    "mtime": 1789915276.4112716,
+    "seen": 1790961967.289613,
+    "ast_hash": "db80ece8a0dbf8862fe44caa353176a0",
+    "semantic_hash": ""
+  },
+  "output/pdf/unpaid_bills_sector_locality_preview.pdf": {
+    "mtime": 1790517498.1685436,
+    "seen": 1790961967.2896144,
+    "ast_hash": "7c448a4b51cde82c5dfe7beac9a10137",
+    "semantic_hash": ""
   }
 }

@@ -182,8 +182,8 @@
       <tr>
         <th class="center" style="width:40px;">Sr #</th>
         <th class="left">{% if summary_group == 'status' %}Connection Status{% else %}Consumer Category{% endif %}</th>
-        <th class="center">Connections</th>
-        <th class="center">Arrears (PKR)</th>
+        {% if 'connections' in selected_summary_cols %}<th class="center">Connections</th>{% endif %}
+        {% if 'arrears' in selected_summary_cols %}<th class="center">Arrears (PKR)</th>{% endif %}
       </tr>
     </thead>
     <tbody>
@@ -191,17 +191,17 @@
       <tr>
         <td class="center" style="padding:15px 8px;">{{ row.sr }}</td>
         <td class="left"><strong>{{ row.label }}</strong></td>
-        <td class="center">{{ row.connections }}</td>
-        <td class="center">{{ row.arrears|round|int }}</td>
+        {% if 'connections' in selected_summary_cols %}<td class="center">{{ row.connections }}</td>{% endif %}
+        {% if 'arrears' in selected_summary_cols %}<td class="center">{{ row.arrears|round|int }}</td>{% endif %}
       </tr>
       {% endfor %}
     </tbody>
     <tfoot>
-      {% set gt = category_summary.grand_total %}
+      {% set gt = one_page_total %}
       <tr>
         <td colspan="2" class="left" style="font-weight:700;">GRAND TOTAL:</td>
-        <td class="center" style="font-weight:700;">{{ gt.total_count }}</td>
-        <td class="center" style="font-weight:700;">{{ gt.total_arrears_fmt }}</td>
+        {% if 'connections' in selected_summary_cols %}<td class="center" style="font-weight:700;">{{ gt.total_count }}</td>{% endif %}
+        {% if 'arrears' in selected_summary_cols %}<td class="center" style="font-weight:700;">{{ gt.total_arrears_fmt }}</td>{% endif %}
       </tr>
     </tfoot>
   </table>

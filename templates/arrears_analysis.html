@@ -193,14 +193,27 @@
             {% if report_mode == 'one_page' %}
             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-bright, rgba(255,255,255,0.08));">
               <label class="btn btn-sm {% if summary_group == 'status' %}btn-primary{% endif %}" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
-                <input type="radio" name="summary_group" value="status" {% if summary_group == 'status' %}checked{% endif %} onchange="document.getElementById('aa-filter-form').submit();">
+                <input type="radio" name="summary_group" value="status" {% if summary_group == 'status' %}checked{% endif %} onchange="document.getElementById('summary-rows-input').remove();document.getElementById('aa-filter-form').submit();">
                 Regular / Suspended / Closed
               </label>
               <label class="btn btn-sm {% if summary_group == 'category' %}btn-primary{% endif %}" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
-                <input type="radio" name="summary_group" value="category" {% if summary_group == 'category' %}checked{% endif %} onchange="document.getElementById('aa-filter-form').submit();">
+                <input type="radio" name="summary_group" value="category" {% if summary_group == 'category' %}checked{% endif %} onchange="document.getElementById('summary-rows-input').remove();document.getElementById('aa-filter-form').submit();">
                 Domestic / Private Societies / Commercial
               </label>
             </div>
+            <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+              <strong style="font-size:12px;">Include rows:</strong>
+              {% for key, label in ([('regular','Regular'), ('suspended','Suspended'), ('closed','Closed')] if summary_group == 'status' else [('domestic','Domestic'), ('private_societies','Private Societies'), ('commercial','Commercial'), ('suspended','Suspended'), ('closed','Closed')]) %}
+              <label><input type="checkbox" class="one-page-row-choice" value="{{ key }}" {% if key in selected_summary_rows %}checked{% endif %} onchange="updateOnePageChoices()"> {{ label }}</label>
+              {% endfor %}
+            </div>
+            <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+              <strong style="font-size:12px;">Include columns:</strong>
+              <label><input type="checkbox" class="one-page-col-choice" value="connections" {% if 'connections' in selected_summary_cols %}checked{% endif %} onchange="updateOnePageChoices()"> Connections</label>
+              <label><input type="checkbox" class="one-page-col-choice" value="arrears" {% if 'arrears' in selected_summary_cols %}checked{% endif %} onchange="updateOnePageChoices()"> Arrears (PKR)</label>
+            </div>
+            <input type="hidden" name="summary_rows" id="summary-rows-input" value="{{ selected_summary_rows|join(',') }}">
+            <input type="hidden" name="summary_cols" id="summary-cols-input" value="{{ selected_summary_cols|join(',') }}">
             {% endif %}
           </div>
 
@@ -475,8 +488,8 @@
             <tr>
               <th style="width:48px;text-align:center;">#</th>
               <th style="text-align:left;">{% if summary_group == 'status' %}Connection Status{% else %}Consumer Category{% endif %}</th>
-              <th style="text-align:center;">Connections</th>
-              <th style="text-align:center;">Arrears (PKR)</th>
+              {% if 'connections' in selected_summary_cols %}<th style="text-align:center;">Connections</th>{% endif %}
+              {% if 'arrears' in selected_summary_cols %}<th style="text-align:center;">Arrears (PKR)</th>{% endif %}
             </tr>
           </thead>
           <tbody>
@@ -486,16 +499,16 @@
               <td style="text-align:left;font-weight:700;font-size:14px;">
                 {{ row.label }}
               </td>
-              <td style="text-align:center;font-weight:600;">{{ row.connections|int }}</td>
-              <td style="text-align:center;font-family:monospace;font-weight:700;">{{ row.arrears|round|int }}</td>
+              {% if 'connections' in selected_summary_cols %}<td style="text-align:center;font-weight:600;">{{ row.connections|int }}</td>{% endif %}
+              {% if 'arrears' in selected_summary_cols %}<td style="text-align:center;font-family:monospace;font-weight:700;">{{ row.arrears|round|int }}</td>{% endif %}
             </tr>
             {% endfor %}
           </tbody>
           <tfoot>
             <tr style="background:var(--nav-hover, rgba(0,0,0,0.04));font-weight:700;border-top:2px solid var(--border, #334155);">
               <td colspan="2" style="text-align:right;font-size:13px;letter-spacing:0.05em;padding:18px 12px;">GRAND TOTAL:</td>
-              <td style="text-align:center;font-size:13px;">{{ category_summary.grand_total.total_count|int }}</td>
-              <td style="text-align:center;font-family:monospace;font-size:13px;color:var(--danger, #ef4444);">{{ category_summary.grand_total.total_arrears_fmt }}</td>
+              {% if 'connections' in selected_summary_cols %}<td style="text-align:center;font-size:13px;">{{ one_page_total.total_count|int }}</td>{% endif %}
+              {% if 'arrears' in selected_summary_cols %}<td style="text-align:center;font-family:monospace;font-size:13px;color:var(--danger, #ef4444);">{{ one_page_total.total_arrears_fmt }}</td>{% endif %}
             </tr>
           </tfoot>
         </table>
@@ -1993,7 +2006,9 @@
     var onePageXlsx = document.getElementById('onepage-xlsx-btn');
     var onePageCsv = document.getElementById('onepage-csv-btn');
     var summaryGroupInput = document.querySelector('input[name="summary_group"]:checked');
-    var summaryGroupParam = '&summary_group=' + encodeURIComponent(summaryGroupInput ? summaryGroupInput.value : '{{ summary_group }}');
+    var summaryGroupParam = '&summary_group=' + encodeURIComponent(summaryGroupInput ? summaryGroupInput.value : '{{ summary_group }}')
+      + '&summary_rows=' + encodeURIComponent((document.getElementById('summary-rows-input') || {}).value || '')
+      + '&summary_cols=' + encodeURIComponent((document.getElementById('summary-cols-input') || {}).value || '');
 
     [onePageCardPrint, onePagePrint].forEach(function(btn) {
       if (btn) btn.href = "{{ url_for('arrears_analysis.arrears_analysis_print') }}?mode=one_page" + summaryGroupParam;
@@ -2003,6 +2018,12 @@
     });
     if (onePageXlsx) onePageXlsx.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='xlsx') }}?mode=one_page" + summaryGroupParam;
     if (onePageCsv) onePageCsv.href = "{{ url_for('arrears_analysis.export_arrears_analysis', fmt_type='csv') }}?mode=one_page" + summaryGroupParam;
+  }
+
+  function updateOnePageChoices() {
+    document.getElementById('summary-rows-input').value = Array.from(document.querySelectorAll('.one-page-row-choice:checked')).map(function(el) { return el.value; }).join(',');
+    document.getElementById('summary-cols-input').value = Array.from(document.querySelectorAll('.one-page-col-choice:checked')).map(function(el) { return el.value; }).join(',');
+    document.getElementById('aa-filter-form').submit();
   }
 
   function onToggleShowZero(checked) {

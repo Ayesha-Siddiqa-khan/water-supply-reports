@@ -234,6 +234,9 @@ def compute_arrears_analysis(
     calc_df["_norm_locality"] = calc_df[loc_col].astype(str).str.strip()
     calc_df["_norm_sector"] = calc_df[sec_col].astype(str).str.strip()
 
+    # A connection belongs in an arrears summary only while it owes money.
+    calc_df = calc_df[calc_df["_parsed_arrears"] > 0].copy()
+
     # Exclude misassigned residential colony records from Commercial sector
     calc_df = calc_df[~((calc_df["_norm_sector"].str.upper() == "COMMERCIAL") & (calc_df["_norm_locality"].str.upper().str.contains("COLONY")))]
 
@@ -388,14 +391,7 @@ def compute_category_arrears_summary(
     selected_localities: list[str] | None = None,
     sectors: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Perform category-wise arrears aggregation for One Page Arrears Summary:
-    1. Domestic
-    2. Private Societies
-    3. Commercial
-    4. Grand Total
-    Strictly categorizes records and calculates counts and arrears for
-    Regular (Open), Suspended, Closed, and Combined/Total.
-    """
+    """Aggregate positive arrears by category and connection status."""
     detected = inspect_dataframe_columns(df)
     loc_col = detected["locality"] or "Locality"
     sec_col = detected["sector"] or "Sector"
@@ -418,6 +414,9 @@ def compute_category_arrears_summary(
     calc_df["_parsed_arrears"] = calc_df[arr_col].apply(parse_amount)
     calc_df["_norm_locality"] = calc_df[loc_col].astype(str).str.strip()
     calc_df["_norm_sector"] = calc_df[sec_col].astype(str).str.strip()
+
+    # Zero/blank arrears and empty plots are not outstanding connections.
+    calc_df = calc_df[calc_df["_parsed_arrears"] > 0].copy()
 
     # Keep the category report on the same population as the main arrears analysis.
     calc_df = calc_df[~(
@@ -522,14 +521,41 @@ def get_one_page_summary_rows(category_summary: dict[str, Any], summary_group: s
     if summary_group == "status":
         gt = category_summary["grand_total"]
         return [
-            {"sr": 1, "label": "Regular", "connections": gt["regular_count"], "arrears": gt["regular_arrears"]},
-            {"sr": 2, "label": "Suspended", "connections": gt["suspended_count"], "arrears": gt["suspended_arrears"]},
-            {"sr": 3, "label": "Closed", "connections": gt["closed_count"], "arrears": gt["closed_arrears"]},
+            {"key": "regular", "sr": 1, "label": "Regular", "connections": gt["regular_count"], "arrears": gt["regular_arrears"]},
+            {"key": "suspended", "sr": 2, "label": "Suspended", "connections": gt["suspended_count"], "arrears": gt["suspended_arrears"]},
+            {"key": "closed", "sr": 3, "label": "Closed", "connections": gt["closed_count"], "arrears": gt["closed_arrears"]},
         ]
-    return [
-        {"sr": row["sr"], "label": row["category"], "connections": row["total_count"], "arrears": row["total_arrears"]}
+    rows = [
+        {"key": row["category"].lower().replace(" ", "_"), "sr": row["sr"], "label": row["category"], "connections": row["regular_count"], "arrears": row["regular_arrears"]}
         for row in category_summary["rows"]
     ]
+    gt = category_summary["grand_total"]
+    rows.extend([
+        {"key": "suspended", "sr": 4, "label": "Suspended", "connections": gt["suspended_count"], "arrears": gt["suspended_arrears"]},
+        {"key": "closed", "sr": 5, "label": "Closed", "connections": gt["closed_count"], "arrears": gt["closed_arrears"]},
+    ])
+    return rows
+
+
+def select_one_page_summary(category_summary: dict[str, Any], summary_group: str,
+                            selected_rows: list[str] | None = None) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    rows = get_one_page_summary_rows(category_summary, summary_group)
+    if selected_rows is not None:
+        rows = [row for row in rows if row["key"] in selected_rows]
+    total = {"total_count": sum(row["connections"] for row in rows),
+             "total_arrears": sum(row["arrears"] for row in rows)}
+    total["total_arrears_fmt"] = format_pkr(total["total_arrears"])
+    return rows, total
+
+
+def one_page_options(args: Any, summary_group: str) -> tuple[list[str], list[str]]:
+    allowed_rows = (["regular", "suspended", "closed"] if summary_group == "status" else
+                    ["domestic", "private_societies", "commercial", "suspended", "closed"])
+    raw_rows = args.get("summary_rows")
+    rows = [key for key in allowed_rows if key in raw_rows.split(",")] if raw_rows is not None else allowed_rows
+    raw_cols = args.get("summary_cols")
+    cols = [key for key in ("connections", "arrears") if key in raw_cols.split(",")] if raw_cols is not None else ["connections", "arrears"]
+    return rows, cols
 
 
 def get_detail_columns(df: pd.DataFrame) -> list[str]:
@@ -653,6 +679,8 @@ def build_arrears_pdf(
     order: str = "loc_first",
     include_zero: bool = False,
     summary_group: str = "category",
+    one_page_rows: list[str] | None = None,
+    one_page_cols: list[str] | None = None,
 ) -> bytes:
     """Generate a clean consolidated landscape A4 PDF report with custom sector/locality columns and order."""
     detected = analysis.get("detected_columns") or inspect_dataframe_columns(df)
@@ -947,29 +975,25 @@ def build_arrears_pdf(
     if report_mode == "one_page":
         cat_sum = compute_category_arrears_summary(df)
         summary_group = "status" if summary_group == "status" else "category"
-        rows = get_one_page_summary_rows(cat_sum, summary_group)
+        rows, gt = select_one_page_summary(cat_sum, summary_group, one_page_rows)
+        shown_cols = one_page_cols if one_page_cols is not None else ["connections", "arrears"]
         label_header = "Connection Status" if summary_group == "status" else "Consumer Category"
-        table_data = [[
-            Paragraph("Sr #", th_center),
-            Paragraph(label_header, th_left),
-            Paragraph("Connections", th_center),
-            Paragraph("Arrears (PKR)", th_center),
-        ]]
+        table_data = [[Paragraph("Sr #", th_center), Paragraph(label_header, th_left)] + [
+            Paragraph("Connections" if key == "connections" else "Arrears (PKR)", th_center)
+            for key in shown_cols]]
         for row in rows:
-            table_data.append([
+            table_data.append(([
                 Paragraph(str(row["sr"]), td_center),
                 Paragraph(row["label"], td_loc),
-                Paragraph(f'{row["connections"]:,}', td_center),
-                Paragraph(f'{row["arrears"]:,.0f}', td_center),
-            ])
-        table_data.append([
+            ]) + [Paragraph(f'{row[key]:,}' if key == "connections" else f'{row[key]:,.0f}', td_center) for key in shown_cols])
+        table_data.append(([
             Paragraph("", td_gt_center),
             Paragraph("GRAND TOTAL", td_gt_title),
-            Paragraph(f'{cat_sum["grand_total"]["total_count"]:,}', td_gt_center),
-            Paragraph(f'{cat_sum["grand_total"]["total_arrears"]:,.0f}', td_gt_center),
-        ])
+        ]) + [Paragraph(f'{gt["total_count"]:,}' if key == "connections" else f'{gt["total_arrears"]:,.0f}', td_gt_center) for key in shown_cols])
 
-        one_page_table = Table(table_data, colWidths=[16 * mm, 100 * mm, 55 * mm, 70 * mm], repeatRows=1, hAlign="CENTER")
+        widths = ([16 * mm, 100 * mm, 55 * mm, 70 * mm] if len(shown_cols) == 2 else
+                  [16 * mm, 140 * mm, 75 * mm] if shown_cols else [16 * mm, 180 * mm])
+        one_page_table = Table(table_data, colWidths=widths, repeatRows=1, hAlign="CENTER")
         one_page_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
             ("LINEBELOW", (0, 0), (-1, 0), 1.2, colors.black),
@@ -1646,7 +1670,8 @@ def arrears_analysis():
             detail_records[loc_name] = records
 
     category_summary = compute_category_arrears_summary(df)
-    one_page_rows = get_one_page_summary_rows(category_summary, summary_group)
+    selected_summary_rows, selected_summary_cols = one_page_options(request.args, summary_group)
+    one_page_rows, one_page_total = select_one_page_summary(category_summary, summary_group, selected_summary_rows)
 
     handover_available = os.path.exists(_handover_working_csv()) and os.path.getsize(_handover_working_csv()) > 0
 
@@ -1668,6 +1693,9 @@ def arrears_analysis():
         detail_records=detail_records,
         category_summary=category_summary,
         one_page_rows=one_page_rows,
+        one_page_total=one_page_total,
+        selected_summary_rows=selected_summary_rows,
+        selected_summary_cols=selected_summary_cols,
         summary_group=summary_group,
         category=category,
         is_detail_limited=is_detail_limited,
@@ -1880,7 +1908,8 @@ def arrears_analysis_print():
         selected_localities=selected_localities if req_localities else None,
         sectors=req_sectors if req_sectors else None,
     )
-    one_page_rows = get_one_page_summary_rows(category_summary, summary_group)
+    selected_summary_rows, selected_summary_cols = one_page_options(request.args, summary_group)
+    one_page_rows, one_page_total = select_one_page_summary(category_summary, summary_group, selected_summary_rows)
 
     return render_template(
         "arrears_analysis_print.html",
@@ -1888,6 +1917,8 @@ def arrears_analysis_print():
         analysis=analysis,
         category_summary=category_summary,
         one_page_rows=one_page_rows,
+        one_page_total=one_page_total,
+        selected_summary_cols=selected_summary_cols,
         summary_group=summary_group,
         selected_sector=selected_sector_label,
         category=category,
@@ -1929,6 +1960,7 @@ def export_arrears_analysis(fmt_type: str):
     summary_group = request.args.get("summary_group", "category").strip().lower()
     if summary_group not in ("category", "status"):
         summary_group = "category"
+    selected_summary_rows, selected_summary_cols = one_page_options(request.args, summary_group)
 
     category = request.args.get("category", "").strip().lower()
     req_sectors = request.args.getlist("sector")
@@ -2140,6 +2172,8 @@ def export_arrears_analysis(fmt_type: str):
             order=col_order,
             include_zero=include_zero,
             summary_group=summary_group,
+            one_page_rows=selected_summary_rows,
+            one_page_cols=selected_summary_cols,
         )
         return Response(
             pdf_bytes,
@@ -2154,15 +2188,15 @@ def export_arrears_analysis(fmt_type: str):
 
         if report_mode == "one_page":
             cat_sum = compute_category_arrears_summary(df)
-            rows = get_one_page_summary_rows(cat_sum, summary_group)
+            rows, gt = select_one_page_summary(cat_sum, summary_group, selected_summary_rows)
             label_header = "Connection Status" if summary_group == "status" else "Consumer Category"
+            metric_headers = ["Connections" if key == "connections" else "Arrears (PKR)" for key in selected_summary_cols]
             writer.writerow(["WATER SUPPLY CONSUMER ARREARS", f"Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')}"])
             writer.writerow([])
-            writer.writerow(["Sr #", label_header, "Connections", "Arrears (PKR)"])
+            writer.writerow(["Sr #", label_header] + metric_headers)
             for row in rows:
-                writer.writerow([row["sr"], row["label"], row["connections"], row["arrears"]])
-            gt = cat_sum["grand_total"]
-            writer.writerow(["", "GRAND TOTAL", gt["total_count"], gt["total_arrears"]])
+                writer.writerow([row["sr"], row["label"]] + [row[key] for key in selected_summary_cols])
+            writer.writerow(["", "GRAND TOTAL"] + [gt["total_count" if key == "connections" else "total_arrears"] for key in selected_summary_cols])
 
             return Response(
                 out.getvalue(),
@@ -2243,20 +2277,21 @@ def export_arrears_analysis(fmt_type: str):
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             if report_mode == "one_page":
                 cat_sum = compute_category_arrears_summary(df)
+                rows, gt = select_one_page_summary(cat_sum, summary_group, selected_summary_rows)
                 label_header = "Connection Status" if summary_group == "status" else "Consumer Category"
                 rows_data = [
-                    {
-                        "Sr #": row["sr"],
-                        label_header: row["label"],
-                        "Connections": row["connections"],
-                        "Arrears (PKR)": row["arrears"],
-                    }
-                    for row in get_one_page_summary_rows(cat_sum, summary_group)
+                    {"Sr #": row["sr"], label_header: row["label"], **{
+                        "Connections" if key == "connections" else "Arrears (PKR)": row[key]
+                        for key in selected_summary_cols}}
+                    for row in rows
                 ]
-                gt = cat_sum["grand_total"]
-                rows_data.append({"Sr #": "", label_header: "GRAND TOTAL", "Connections": gt["total_count"], "Arrears (PKR)": gt["total_arrears"]})
+                rows_data.append({"Sr #": "", label_header: "GRAND TOTAL", **{
+                    "Connections" if key == "connections" else "Arrears (PKR)": gt["total_count" if key == "connections" else "total_arrears"]
+                    for key in selected_summary_cols}})
 
-                pd.DataFrame(rows_data).to_excel(writer, sheet_name="Arrears Summary", index=False)
+                pd.DataFrame(rows_data, columns=["Sr #", label_header] + [
+                    "Connections" if key == "connections" else "Arrears (PKR)" for key in selected_summary_cols
+                ]).to_excel(writer, sheet_name="Arrears Summary", index=False)
             else:
                 for s in analysis["locality_summaries"]:
                     row_dict = {}
