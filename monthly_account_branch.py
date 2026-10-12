@@ -411,19 +411,19 @@ def generate_monthly_account_branch_pdf(
     grand_label_style = ParagraphStyle(
         "MABGrandLabel",
         parent=styles["Normal"],
-        fontSize=10,
-        leading=13,
+        fontSize=12,
+        leading=15,
         fontName="Helvetica-Bold",
         alignment=0,
         textColor=colors.black,
     )
-    grand_r_style = ParagraphStyle(
-        "MABGrandR",
+    grand_c_style = ParagraphStyle(
+        "MABGrandC",
         parent=styles["Normal"],
-        fontSize=10,
-        leading=13,
+        fontSize=12,
+        leading=15,
         fontName="Helvetica-Bold",
-        alignment=2,
+        alignment=1,
         textColor=colors.black,
     )
 
@@ -469,7 +469,8 @@ def generate_monthly_account_branch_pdf(
                 num = parse_number(raw_v)
                 col_sums[c] += num
                 disp = fmt_amt(num) if (raw_v != "" or num != 0) else "-"
-                row_cells.append(Paragraph(disp, td_r_style))
+                # Numeric cells are centralized as requested
+                row_cells.append(Paragraph(disp, td_c_style))
             elif c == "No.":
                 row_cells.append(Paragraph(str(raw_v or "-"), td_c_style))
             elif c == "Object Code":
@@ -478,23 +479,64 @@ def generate_monthly_account_branch_pdf(
                 row_cells.append(Paragraph(str(raw_v or "-"), td_style))
         data_table.append(row_cells)
 
-    # Grand total row
+    # Grand total row:
+    # 1. Serial number ("No.") and "Object Code" are left blank.
+    # 2. Total label e.g. "Total (3 Items)" is strictly placed under "Detail Receipt Head".
+    # 3. Numeric columns have bold, enlarged, centralized totals.
     grand_cells = []
-    total_labeled = False
+    total_label_text = f"Total ({len(chosen_rows)} Items)"
+    has_receipt_head = "Detail Receipt Head" in selected_cols
+
     for c in selected_cols:
         if c in NUMERIC_COL_NAMES:
-            grand_cells.append(Paragraph(f"<b>{fmt_amt(col_sums[c])}</b>", grand_r_style))
+            grand_cells.append(Paragraph(f"<b>{fmt_amt(col_sums[c])}</b>", grand_c_style))
+        elif c == "Detail Receipt Head":
+            grand_cells.append(Paragraph(f"<b>{total_label_text}</b>", grand_label_style))
         else:
-            if not total_labeled and c in ("Detail Receipt Head", "Object Code", "No."):
-                grand_cells.append(
-                    Paragraph(f"<b>Total ({len(chosen_rows)} Items)</b>", grand_label_style)
-                )
-                total_labeled = True
-            else:
-                grand_cells.append(Paragraph("", td_c_style))
-    if not total_labeled and grand_cells:
-        grand_cells[0] = Paragraph(f"<b>Total ({len(chosen_rows)} Items)</b>", grand_label_style)
+            grand_cells.append(Paragraph("", td_c_style))
+
+    if not has_receipt_head:
+        # Fallback if Detail Receipt Head was deselected
+        placed = False
+        for idx_c, c in enumerate(selected_cols):
+            if c not in NUMERIC_COL_NAMES and c not in ("No.", "Object Code"):
+                grand_cells[idx_c] = Paragraph(f"<b>{total_label_text}</b>", grand_label_style)
+                placed = True
+                break
+        if not placed:
+            for idx_c, c in enumerate(selected_cols):
+                if c not in NUMERIC_COL_NAMES:
+                    grand_cells[idx_c] = Paragraph(f"<b>{total_label_text}</b>", grand_label_style)
+                    placed = True
+                    break
     data_table.append(grand_cells)
+
+    # Dynamic row spacing so table expands gracefully across half page ("khula khula")
+    n_rows = len(chosen_rows)
+    if n_rows <= 3:
+        pad_y = 16
+        th_pad_y = 10
+        grand_pad_y = 14
+    elif n_rows <= 5:
+        pad_y = 12
+        th_pad_y = 9
+        grand_pad_y = 11
+    elif n_rows <= 8:
+        pad_y = 9
+        th_pad_y = 7
+        grand_pad_y = 9
+    elif n_rows <= 11:
+        pad_y = 6.5
+        th_pad_y = 5.5
+        grand_pad_y = 7.5
+    elif n_rows <= 16:
+        pad_y = 4.5
+        th_pad_y = 4.5
+        grand_pad_y = 5.5
+    else:
+        pad_y = 3.5
+        th_pad_y = 3.5
+        grand_pad_y = 4.5
 
     t = Table(data_table, colWidths=col_widths, repeatRows=1)
     t.setStyle(
@@ -503,10 +545,14 @@ def generate_monthly_account_branch_pdf(
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f0f0")),
                 ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                ("LEFTPADDING", (0, 0), (-1, -1), 3),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+                ("TOPPADDING", (0, 0), (-1, 0), th_pad_y),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), th_pad_y),
+                ("TOPPADDING", (0, 1), (-1, -2), pad_y),
+                ("BOTTOMPADDING", (0, 1), (-1, -2), pad_y),
+                ("TOPPADDING", (0, -1), (-1, -1), grand_pad_y),
+                ("BOTTOMPADDING", (0, -1), (-1, -1), grand_pad_y),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
                 ("BACKGROUND", (0, 1), (-1, -2), colors.white),
                 ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#e0e0e0")),
                 ("LINEABOVE", (0, -1), (-1, -1), 1.2, colors.black),
@@ -566,18 +612,29 @@ def monthly_account_branch_export_excel():
 
     # Total row
     total_dict = {}
-    total_labeled = False
+    total_label_text = f"Total ({len(chosen_rows)} Items)"
+    has_receipt_head = "Detail Receipt Head" in selected_cols
+
     for c in selected_cols:
         if c in NUMERIC_COL_NAMES:
             total_dict[c] = col_sums[c]
+        elif c == "Detail Receipt Head":
+            total_dict[c] = total_label_text
         else:
-            if not total_labeled and c in ("Detail Receipt Head", "Object Code", "No."):
-                total_dict[c] = f"Total ({len(chosen_rows)} Items)"
-                total_labeled = True
-            else:
-                total_dict[c] = ""
-    if not total_labeled and selected_cols:
-        total_dict[selected_cols[0]] = f"Total ({len(chosen_rows)} Items)"
+            total_dict[c] = ""
+    if not has_receipt_head:
+        placed = False
+        for c in selected_cols:
+            if c not in NUMERIC_COL_NAMES and c not in ("No.", "Object Code"):
+                total_dict[c] = total_label_text
+                placed = True
+                break
+        if not placed:
+            for c in selected_cols:
+                if c not in NUMERIC_COL_NAMES:
+                    total_dict[c] = total_label_text
+                    placed = True
+                    break
     excel_rows.append(total_dict)
 
     df = pd.DataFrame(excel_rows, columns=selected_cols)
@@ -600,7 +657,7 @@ def monthly_account_branch_export_excel():
         title_font = Font(name="Calibri", size=14, bold=True)
         sub_font = Font(name="Calibri", size=11, bold=True)
         header_font = Font(name="Calibri", size=11, bold=True)
-        total_font = Font(name="Calibri", size=11, bold=True)
+        total_font = Font(name="Calibri", size=12, bold=True)
         data_font = Font(name="Calibri", size=10)
 
         gray_fill = PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid")
@@ -628,14 +685,16 @@ def monthly_account_branch_export_excel():
 
         # Format data rows (Row 5 to 5 + len(chosen_rows) - 1)
         last_data_row = 4 + len(chosen_rows)
+        row_h = 28 if len(chosen_rows) <= 3 else (24 if len(chosen_rows) <= 6 else 20)
         for r_idx in range(5, last_data_row + 1):
+            ws.row_dimensions[r_idx].height = row_h
             for col_idx, col_name in enumerate(selected_cols, start=1):
                 cell = ws.cell(row=r_idx, column=col_idx)
                 cell.font = data_font
                 cell.border = thin_border
                 if col_name in NUMERIC_COL_NAMES:
                     cell.number_format = "#,##0"
-                    cell.alignment = Alignment(horizontal="right", vertical="center")
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
                 elif col_name in ("No.", "Object Code"):
                     cell.alignment = Alignment(horizontal="center", vertical="center")
                 else:
@@ -643,6 +702,7 @@ def monthly_account_branch_export_excel():
 
         # Format Total row (last row)
         tot_row_idx = last_data_row + 1
+        ws.row_dimensions[tot_row_idx].height = 26
         for col_idx, col_name in enumerate(selected_cols, start=1):
             t_cell = ws.cell(row=tot_row_idx, column=col_idx)
             t_cell.font = total_font
@@ -650,9 +710,11 @@ def monthly_account_branch_export_excel():
             t_cell.border = double_bottom
             if col_name in NUMERIC_COL_NAMES:
                 t_cell.number_format = "#,##0"
-                t_cell.alignment = Alignment(horizontal="right", vertical="center")
-            else:
+                t_cell.alignment = Alignment(horizontal="center", vertical="center")
+            elif col_name == "Detail Receipt Head":
                 t_cell.alignment = Alignment(horizontal="left", vertical="center")
+            else:
+                t_cell.alignment = Alignment(horizontal="center", vertical="center")
 
         # Auto-fit column widths
         for col_idx, col_name in enumerate(selected_cols, start=1):
@@ -701,18 +763,29 @@ def monthly_account_branch_export_csv():
 
     # Total row
     total_vals = []
-    total_labeled = False
+    total_label_text = f"Total ({len(chosen_rows)} Items)"
+    has_receipt_head = "Detail Receipt Head" in selected_cols
+
     for c in selected_cols:
         if c in NUMERIC_COL_NAMES:
             total_vals.append(str(int(round(col_sums[c]))))
+        elif c == "Detail Receipt Head":
+            total_vals.append(total_label_text)
         else:
-            if not total_labeled and c in ("Detail Receipt Head", "Object Code", "No."):
-                total_vals.append(f"Total ({len(chosen_rows)} Items)")
-                total_labeled = True
-            else:
-                total_vals.append("")
-    if not total_labeled and selected_cols:
-        total_vals[0] = f"Total ({len(chosen_rows)} Items)"
+            total_vals.append("")
+    if not has_receipt_head:
+        placed = False
+        for idx_c, c in enumerate(selected_cols):
+            if c not in NUMERIC_COL_NAMES and c not in ("No.", "Object Code"):
+                total_vals[idx_c] = total_label_text
+                placed = True
+                break
+        if not placed:
+            for idx_c, c in enumerate(selected_cols):
+                if c not in NUMERIC_COL_NAMES:
+                    total_vals[idx_c] = total_label_text
+                    placed = True
+                    break
     writer.writerow(total_vals)
 
     # UTF-8 with BOM for Excel compatibility
