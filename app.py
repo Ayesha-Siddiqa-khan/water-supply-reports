@@ -13574,10 +13574,12 @@ def export_consumer_sector_remaining(fmt_type: str):
 from handover import handover_bp  # noqa: E402
 from data_comparison import data_comparison_bp  # noqa: E402
 from arrears_analysis import arrears_analysis_bp  # noqa: E402
+from monthly_account_branch import monthly_account_branch_bp  # noqa: E402
 
 app.register_blueprint(handover_bp)
 app.register_blueprint(data_comparison_bp)
 app.register_blueprint(arrears_analysis_bp)
+app.register_blueprint(monthly_account_branch_bp)
 
 
 if __name__ == "__main__":

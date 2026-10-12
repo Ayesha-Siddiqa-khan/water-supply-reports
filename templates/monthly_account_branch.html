@@ -1,0 +1,467 @@
+{% extends "base.html" %}
+{% block title %}Water Supply Report — Monthly Account Branch Report{% endblock %}
+{% block meta_description %}Interactive Monthly Account Receipts DDO report with customizable rows, columns, and PDF/Excel/CSV exports.{% endblock %}
+{% block active_page %}monthly_account_branch{% endblock %}
+{% block breadcrumb %}Monthly Account Branch Report{% endblock %}
+
+{% block topbar_actions %}
+  <form method="post" enctype="multipart/form-data" action="{{ url_for('monthly_account_branch.monthly_account_branch_upload') }}" style="display:flex;gap:10px;align-items:center;margin:0;">
+    <label class="topbar-btn" style="cursor:pointer;">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 1v8M4 4l3-3 3 3M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2"/></svg>
+      <span>Upload CSV / Excel</span>
+      <input type="file" name="file" accept=".csv,.xlsx,.xls" style="display:none;" onchange="this.form.submit()">
+    </label>
+  </form>
+  <form method="post" action="{{ url_for('monthly_account_branch.monthly_account_branch_reset') }}" style="margin:0;">
+    <button type="submit" class="topbar-btn" title="Reload default sample water supply report data">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 2v4h4M13 12v-4H9"/><path d="M2.5 9A5 5 0 0011 11M11.5 5A5 5 0 003 3"/></svg>
+      <span>Default Sample</span>
+    </button>
+  </form>
+{% endblock %}
+
+{% block pill_label %}Monthly Account{% endblock %}
+{% block pill_detail %}{{ rows|length }} Heads{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="content">
+
+    <!-- Header Section -->
+    <div class="page-header" style="margin-bottom:20px;">
+      <div class="page-tag">Monthly Account Branch</div>
+      <h1 class="page-title" style="margin-bottom:6px;">Summary Monthly Account Receipts DDO</h1>
+      <p class="page-subtitle" style="margin-bottom:0;">
+        Interactive report with selectable rows and columns. Export customized PDF, Excel (.xlsx), and CSV reports.
+      </p>
+    </div>
+
+    <!-- Configuration & Filter Controls Card -->
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:20px;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+      <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between;">
+        
+        <!-- Report Header Inputs -->
+        <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;">
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.5px;">For the Month of</label>
+            <input type="text" id="cfg-month-year" value="{{ default_month_year }}" style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary);padding:7px 12px;border-radius:6px;font-size:13px;font-weight:600;width:190px;" oninput="mabUpdateHeaders()">
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.5px;">Print Date</label>
+            <input type="text" id="cfg-print-date" value="{{ today_str }}" style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary);padding:7px 12px;border-radius:6px;font-size:13px;width:140px;" oninput="mabUpdateHeaders()">
+          </div>
+        </div>
+
+        <!-- Export Buttons Toolbar -->
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+          <button type="button" class="btn" onclick="mabExport('pdf')" style="background:#2563eb;color:#fff;font-weight:600;border:none;padding:8px 14px;border-radius:6px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M14 4.5V14a2 2 0 01-2 2H4a2 2 0 01-2-2V2a2 2 0 012-2h5.5L14 4.5zm-3 0A1.5 1.5 0 019.5 3V1H4a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V4.5h-2z"/></svg>
+            <span>Download PDF</span>
+          </button>
+          <button type="button" class="btn" onclick="mabExport('excel')" style="background:#16a34a;color:#fff;font-weight:600;border:none;padding:8px 14px;border-radius:6px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5.884 6.68a.5.5 0 10-.768.64L7.349 10l-2.233 2.68a.5.5 0 00.768.64L8 10.748l2.116 2.572a.5.5 0 00.768-.64L8.651 10l2.233-2.68a.5.5 0 00-.768-.64L8 9.252 5.884 6.68z"/><path d="M14 4.5V14a2 2 0 01-2 2H4a2 2 0 01-2-2V2a2 2 0 012-2h5.5L14 4.5zm-3 0A1.5 1.5 0 019.5 3V1H4a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V4.5h-2z"/></svg>
+            <span>Export Excel</span>
+          </button>
+          <button type="button" class="btn" onclick="mabExport('csv')" style="background:#475569;color:#fff;font-weight:600;border:none;padding:8px 14px;border-radius:6px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 2a.5.5 0 00-.5.5v11a.5.5 0 00.5.5h9a.5.5 0 00.5-.5V5.707L9.293 2H3.5z"/></svg>
+            <span>Export CSV</span>
+          </button>
+          <button type="button" class="btn" onclick="mabPrint()" style="background:#334155;color:#fff;font-weight:600;border:1px solid #475569;padding:8px 14px;border-radius:6px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1a1 1 0 00-1 1v3h10V2a1 1 0 00-1-1H4zm10 5H2a2 2 0 00-2 2v4a1 1 0 001 1h1v2a1 1 0 001 1h8a1 1 0 001-1v-2h1a1 1 0 001-1V8a2 2 0 00-2-2zM4 14v-4h8v4H4z"/></svg>
+            <span>Print View</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Column Selection Checkboxes Bar -->
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">
+            Visible & Export Columns (<span id="selected-col-count">{{ headers|length }}</span> / {{ headers|length }})
+          </span>
+          <button type="button" onclick="mabToggleAllCols()" style="background:none;border:none;color:var(--teal);font-size:12px;font-weight:600;cursor:pointer;padding:0;">
+            Select / Deselect All Columns
+          </button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          {% for h in headers %}
+          <label style="display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;user-select:none;color:var(--text-primary);">
+            <input type="checkbox" class="col-checkbox" data-col="{{ h }}" checked onchange="mabOnColChange()">
+            <span>{{ h }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Row Selection Quick Controls Bar -->
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+          <span style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-right:6px;">
+            Row Selection:
+          </span>
+          <button type="button" class="btn" onclick="mabSelectWaterOnly()" style="background:rgba(20,184,166,0.15);color:#2dd4bf;border:1px solid rgba(20,184,166,0.4);padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">
+            💧 Water Supply Rows Only (Default 3)
+          </button>
+          <button type="button" class="btn" onclick="mabSelectAllRows(true)" style="background:var(--bg);color:var(--text-primary);border:1px solid var(--border);padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">
+            Select All Rows ({{ rows|length }})
+          </button>
+          <button type="button" class="btn" onclick="mabSelectAllRows(false)" style="background:var(--bg);color:var(--text-muted);border:1px solid var(--border);padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;">
+            Clear Selection
+          </button>
+        </div>
+        <div>
+          <span style="font-size:12px;color:var(--text-muted);">
+            Active Rows: <strong id="selected-row-count" style="color:var(--teal);font-size:14px;">0</strong> of {{ rows|length }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Table Preview Card -->
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+      <div style="overflow-x:auto;">
+        <table id="mab-table" class="data-table" style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead>
+            <tr style="background:rgba(255,255,255,0.03);border-bottom:2px solid var(--border);">
+              <th style="width:44px;text-align:center;padding:10px 8px;">
+                <input type="checkbox" id="th-toggle-all" onchange="mabToggleAllRowsCheckbox(this)" title="Toggle all rows">
+              </th>
+              {% for h in headers %}
+              <th data-col-header="{{ h }}" style="padding:10px 12px;font-weight:700;color:var(--text-primary);white-space:nowrap;
+                {% if h in ('No.', 'Object Code') %}text-align:center;
+                {% elif h in numeric_cols %}text-align:right;
+                {% else %}text-align:left;{% endif %}">
+                {{ h }}
+              </th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody id="mab-tbody">
+            {% for r in rows %}
+            <tr id="mab-row-{{ r.idx }}" data-row-idx="{{ r.idx }}" class="mab-row {% if r.is_default %}row-selected{% endif %}" style="border-bottom:1px solid var(--border);transition:background 0.15s ease;" onclick="mabOnRowClick(event, {{ r.idx }})">
+              <td style="text-align:center;padding:8px;" onclick="event.stopPropagation();">
+                <input type="checkbox" class="row-checkbox" data-row-idx="{{ r.idx }}" {% if r.is_default %}checked{% endif %} onchange="mabOnRowCheckboxChange({{ r.idx }})">
+              </td>
+              {% for h in headers %}
+              {% set val = (r.cells or r.values or {}).get(h, '') %}
+              <td data-col-cell="{{ h }}" style="padding:8px 12px;color:var(--text-primary);
+                {% if h in ('No.', 'Object Code') %}text-align:center;font-family:var(--font-mono, monospace);
+                {% elif h in numeric_cols %}text-align:right;font-family:var(--font-mono, monospace);
+                {% else %}text-align:left;{% endif %}">
+                {% if h in numeric_cols %}
+                  {% if val != '' and val != '0' %}
+                    {{ "{:,}".format(val|int) if val|int == val|float else val }}
+                  {% elif val == '0' %}
+                    0
+                  {% else %}
+                    <span style="color:var(--text-muted);">-</span>
+                  {% endif %}
+                {% else %}
+                  {{ val or '-' }}
+                {% endif %}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr id="mab-total-row" style="background:rgba(255,255,255,0.06);border-top:2px solid var(--teal);font-weight:bold;">
+              <td style="text-align:center;padding:10px 8px;"></td>
+              {% for h in headers %}
+              <td id="tot-col-{{ loop.index0 }}" data-tot-col="{{ h }}" style="padding:10px 12px;font-size:13px;color:var(--text-primary);
+                {% if h in ('No.', 'Object Code') %}text-align:center;
+                {% elif h in numeric_cols %}text-align:right;font-family:var(--font-mono, monospace);color:var(--teal);
+                {% else %}text-align:left;{% endif %}">
+                {% if h == 'Detail Receipt Head' or (loop.first and headers|length < 3) %}
+                  <span id="tot-label">Total (0 Items)</span>
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              {% endfor %}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Hidden Export Form -->
+<form id="mab-export-form" method="post" action="" style="display:none;">
+  <input type="hidden" name="selected_cols" id="form-selected-cols">
+  <input type="hidden" name="selected_rows" id="form-selected-rows">
+  <input type="hidden" name="month_year" id="form-month-year">
+  <input type="hidden" name="print_date" id="form-print-date">
+</form>
+
+<style>
+  .mab-row:hover { background: rgba(255, 255, 255, 0.04); }
+  .mab-row.row-selected { background: rgba(20, 184, 166, 0.08); }
+  .mab-row.row-selected:hover { background: rgba(20, 184, 166, 0.12); }
+</style>
+
+<script>
+  var allHeaders = {{ headers|tojson }};
+  var allRows = {{ rows|tojson }};
+  var numericCols = {{ numeric_cols|tojson }};
+
+  function mabGetSelectedColNames() {
+    var cbs = document.querySelectorAll('.col-checkbox:checked');
+    var cols = [];
+    cbs.forEach(function(cb) { cols.push(cb.getAttribute('data-col')); });
+    return cols;
+  }
+
+  function mabGetSelectedRowIndices() {
+    var cbs = document.querySelectorAll('.row-checkbox:checked');
+    var indices = [];
+    cbs.forEach(function(cb) { indices.push(parseInt(cb.getAttribute('data-row-idx'), 10)); });
+    return indices;
+  }
+
+  function mabOnColChange() {
+    var selectedCols = mabGetSelectedColNames();
+    var colCountEl = document.getElementById('selected-col-count');
+    if (colCountEl) colCountEl.textContent = selectedCols.length;
+
+    allHeaders.forEach(function(h) {
+      var isVisible = selectedCols.indexOf(h) !== -1;
+      var ths = document.querySelectorAll('[data-col-header="' + CSS.escape(h) + '"]');
+      ths.forEach(function(el) { el.style.display = isVisible ? '' : 'none'; });
+
+      var tds = document.querySelectorAll('[data-col-cell="' + CSS.escape(h) + '"]');
+      tds.forEach(function(el) { el.style.display = isVisible ? '' : 'none'; });
+
+      var totCell = document.querySelector('[data-tot-col="' + CSS.escape(h) + '"]');
+      if (totCell) totCell.style.display = isVisible ? '' : 'none';
+    });
+  }
+
+  function mabToggleAllCols() {
+    var cbs = document.querySelectorAll('.col-checkbox');
+    var anyUnchecked = false;
+    cbs.forEach(function(cb) { if (!cb.checked) anyUnchecked = true; });
+    cbs.forEach(function(cb) { cb.checked = anyUnchecked; });
+    mabOnColChange();
+  }
+
+  function mabOnRowClick(e, idx) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'LABEL') return;
+    var cb = document.querySelector('.row-checkbox[data-row-idx="' + idx + '"]');
+    if (cb) {
+      cb.checked = !cb.checked;
+      mabOnRowCheckboxChange(idx);
+    }
+  }
+
+  function mabOnRowCheckboxChange(idx) {
+    var cb = document.querySelector('.row-checkbox[data-row-idx="' + idx + '"]');
+    var tr = document.getElementById('mab-row-' + idx);
+    if (cb && tr) {
+      if (cb.checked) tr.classList.add('row-selected');
+      else tr.classList.remove('row-selected');
+    }
+    mabUpdateTotals();
+  }
+
+  function mabToggleAllRowsCheckbox(masterCb) {
+    mabSelectAllRows(masterCb.checked);
+  }
+
+  function mabSelectAllRows(select) {
+    var cbs = document.querySelectorAll('.row-checkbox');
+    cbs.forEach(function(cb) {
+      cb.checked = select;
+      var idx = cb.getAttribute('data-row-idx');
+      var tr = document.getElementById('mab-row-' + idx);
+      if (tr) {
+        if (select) tr.classList.add('row-selected');
+        else tr.classList.remove('row-selected');
+      }
+    });
+    var masterCb = document.getElementById('th-toggle-all');
+    if (masterCb) masterCb.checked = select;
+    mabUpdateTotals();
+  }
+
+  function mabSelectWaterOnly() {
+    allRows.forEach(function(r) {
+      var cb = document.querySelector('.row-checkbox[data-row-idx="' + r.idx + '"]');
+      var tr = document.getElementById('mab-row-' + r.idx);
+      if (cb && tr) {
+        cb.checked = r.is_default;
+        if (r.is_default) tr.classList.add('row-selected');
+        else tr.classList.remove('row-selected');
+      }
+    });
+    var masterCb = document.getElementById('th-toggle-all');
+    if (masterCb) masterCb.checked = false;
+    mabUpdateTotals();
+  }
+
+  function mabUpdateTotals() {
+    var selectedIndices = mabGetSelectedRowIndices();
+    var countEl = document.getElementById('selected-row-count');
+    if (countEl) countEl.textContent = selectedIndices.length;
+
+    var masterCb = document.getElementById('th-toggle-all');
+    if (masterCb) {
+      masterCb.checked = (selectedIndices.length === allRows.length && allRows.length > 0);
+    }
+
+    var sums = {};
+    numericCols.forEach(function(c) { sums[c] = 0; });
+
+    allRows.forEach(function(r) {
+      if (selectedIndices.indexOf(r.idx) !== -1) {
+        var cellData = (r.cells || r.values || {});
+        numericCols.forEach(function(c) {
+          var raw = (cellData[c] || '').toString().replace(/,/g, '').trim();
+          var val = parseFloat(raw) || 0;
+          sums[c] += val;
+        });
+      }
+    });
+
+    var totLabel = document.getElementById('tot-label');
+    if (totLabel) totLabel.textContent = 'Total (' + selectedIndices.length + ' Items)';
+
+    numericCols.forEach(function(c) {
+      var cell = document.querySelector('[data-tot-col="' + CSS.escape(c) + '"]');
+      if (cell) {
+        cell.textContent = Math.round(sums[c]).toLocaleString();
+      }
+    });
+  }
+
+  function mabUpdateHeaders() {
+    // updates live input values
+  }
+
+  function mabExport(fmt) {
+    var selectedCols = mabGetSelectedColNames();
+    var selectedRows = mabGetSelectedRowIndices();
+
+    if (selectedRows.length === 0) {
+      alert('Please select at least one row to export.');
+      return;
+    }
+    if (selectedCols.length === 0) {
+      alert('Please select at least one column to export.');
+      return;
+    }
+
+    var monthYear = (document.getElementById('cfg-month-year') ? document.getElementById('cfg-month-year').value : 'September 2026').trim();
+    var printDate = (document.getElementById('cfg-print-date') ? document.getElementById('cfg-print-date').value : '').trim();
+
+    var form = document.getElementById('mab-export-form');
+    document.getElementById('form-selected-cols').value = JSON.stringify(selectedCols);
+    document.getElementById('form-selected-rows').value = JSON.stringify(selectedRows);
+    document.getElementById('form-month-year').value = monthYear;
+    document.getElementById('form-print-date').value = printDate;
+
+    if (fmt === 'pdf') {
+      form.action = "{{ url_for('monthly_account_branch.monthly_account_branch_export_pdf') }}";
+    } else if (fmt === 'excel') {
+      form.action = "{{ url_for('monthly_account_branch.monthly_account_branch_export_excel') }}";
+    } else if (fmt === 'csv') {
+      form.action = "{{ url_for('monthly_account_branch.monthly_account_branch_export_csv') }}";
+    }
+    form.submit();
+  }
+
+  function mabPrint() {
+    var selectedCols = mabGetSelectedColNames();
+    var selectedRowIndices = mabGetSelectedRowIndices();
+    if (selectedRowIndices.length === 0) {
+      alert('Please select at least one row to print.');
+      return;
+    }
+
+    var monthYear = (document.getElementById('cfg-month-year') ? document.getElementById('cfg-month-year').value : 'September 2026').trim();
+    var printDate = (document.getElementById('cfg-print-date') ? document.getElementById('cfg-print-date').value : '').trim();
+
+    var sums = {};
+    numericCols.forEach(function(c) { sums[c] = 0; });
+
+    var chosenRows = allRows.filter(function(r) { return selectedRowIndices.indexOf(r.idx) !== -1; });
+    chosenRows.forEach(function(r) {
+      var cellData = (r.cells || r.values || {});
+      numericCols.forEach(function(c) {
+        var raw = (cellData[c] || '').toString().replace(/,/g, '').trim();
+        sums[c] += (parseFloat(raw) || 0);
+      });
+    });
+
+    var printWin = window.open('', '_blank');
+    var html = '<!DOCTYPE html><html><head><title>Summary Monthly Account Receipts DDO</title>' +
+      '<style>' +
+      '@page { size: landscape; margin: 8mm; }' +
+      'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 15px; color: #000; font-size: 10pt; }' +
+      'h2 { margin: 0 0 6px 0; font-size: 16pt; color: #000; text-align: center; font-weight: bold; }' +
+      '.sub { font-size: 10pt; color: #000; margin-bottom: 14px; text-align: center; }' +
+      'table { width: 100%; border-collapse: collapse; font-size: 10pt; }' +
+      'th, td { border: 1px solid #333; padding: 5px 8px; color: #000; }' +
+      'th { background: #f0f0f0; font-weight: bold; text-align: center; }' +
+      '.r { text-align: right; font-family: monospace; }' +
+      '.c { text-align: center; }' +
+      'tfoot tr { font-weight: bold; background: #e0e0e0; border-top: 2px solid #000; }' +
+      '</style></head><body>' +
+      '<h2>Summary Monthly Account Receipts DDO</h2>' +
+      '<div class="sub"><strong>For the Month of:</strong> ' + escapeHtml(monthYear) + ' &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <strong>Print Date:</strong> ' + escapeHtml(printDate) + '</div>' +
+      '<table><thead><tr>';
+
+    selectedCols.forEach(function(c) {
+      html += '<th>' + escapeHtml(c) + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+
+    chosenRows.forEach(function(r) {
+      var cellData = (r.cells || r.values || {});
+      html += '<tr>';
+      selectedCols.forEach(function(c) {
+        var val = cellData[c] || '';
+        if (numericCols.indexOf(c) !== -1) {
+          var num = parseFloat(val.toString().replace(/,/g, '')) || 0;
+          html += '<td class="r">' + (num !== 0 ? Math.round(num).toLocaleString() : '-') + '</td>';
+        } else if (c === 'No.' || c === 'Object Code') {
+          html += '<td class="c">' + escapeHtml(val || '-') + '</td>';
+        } else {
+          html += '<td>' + escapeHtml(val || '-') + '</td>';
+        }
+      });
+      html += '</tr>';
+    });
+
+    html += '</tbody><tfoot><tr>';
+    var totalLabeled = false;
+    selectedCols.forEach(function(c) {
+      if (numericCols.indexOf(c) !== -1) {
+        html += '<td class="r"><strong>' + Math.round(sums[c]).toLocaleString() + '</strong></td>';
+      } else {
+        if (!totalLabeled && (c === 'Detail Receipt Head' || c === 'Object Code' || c === 'No.')) {
+          html += '<td><strong>Total (' + chosenRows.length + ' Items)</strong></td>';
+          totalLabeled = true;
+        } else {
+          html += '<td class="c"></td>';
+        }
+      }
+    });
+    html += '</tr></tfoot></table>';
+    html += '<script>window.onload = function() { window.print(); };<\/script></body></html>';
+
+    printWin.document.write(html);
+    printWin.document.close();
+  }
+
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // Initialize totals on load
+  mabUpdateTotals();
+</script>
+{% endblock %}
