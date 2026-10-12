@@ -9370,7 +9370,7 @@ def generate_daily_received_bills_pdf(report: dict, bill_rows: list[dict], staff
         "BillsTitle",
         parent=styles["Heading1"],
         fontSize=16,
-        textColor=ACCENT,
+        textColor=colors.black,
         alignment=1,
         spaceAfter=3 * mm,
         fontName="Helvetica-Bold",
@@ -9378,45 +9378,79 @@ def generate_daily_received_bills_pdf(report: dict, bill_rows: list[dict], staff
     sub_style = ParagraphStyle(
         "BillsSub",
         parent=styles["Normal"],
-        fontSize=9,
-        leading=13,
+        fontSize=10,
+        leading=14,
+        textColor=colors.black,
         alignment=1,
         spaceAfter=4 * mm,
     )
     th_style = ParagraphStyle(
         "BillsTh",
         parent=styles["Normal"],
-        fontSize=8,
+        fontSize=10,
+        leading=13,
         fontName="Helvetica-Bold",
-        textColor=colors.white,
+        textColor=colors.black,
         alignment=1,
     )
     td_style = ParagraphStyle(
         "BillsTd",
         parent=styles["Normal"],
-        fontSize=7.5,
-        leading=10,
+        fontSize=10,
+        leading=13,
         fontName="Helvetica",
         alignment=0,
+        textColor=colors.black,
     )
     td_c_style = ParagraphStyle(
         "BillsTdC",
         parent=styles["Normal"],
-        fontSize=7.5,
-        leading=10,
+        fontSize=10,
+        leading=13,
         fontName="Helvetica",
         alignment=1,
+        textColor=colors.black,
     )
     td_r_style = ParagraphStyle(
         "BillsTdR",
         parent=styles["Normal"],
-        fontSize=7.5,
-        leading=10,
+        fontSize=10,
+        leading=13,
         fontName="Helvetica",
         alignment=2,
+        textColor=colors.black,
+    )
+    grand_label_style = ParagraphStyle(
+        "BillsGrandLabel",
+        parent=styles["Normal"],
+        fontSize=10,
+        leading=13,
+        fontName="Helvetica-Bold",
+        alignment=0,
+        textColor=colors.black,
+    )
+    grand_c_style = ParagraphStyle(
+        "BillsGrandC",
+        parent=styles["Normal"],
+        fontSize=10,
+        leading=13,
+        fontName="Helvetica-Bold",
+        alignment=1,
+        textColor=colors.black,
+    )
+    grand_r_style = ParagraphStyle(
+        "BillsGrandR",
+        parent=styles["Normal"],
+        fontSize=10,
+        leading=13,
+        fontName="Helvetica-Bold",
+        alignment=2,
+        textColor=colors.black,
     )
 
-    staff_title = f" — {fmt_staff_name(staff_filter).replace(chr(10), ' / ')}" if staff_filter and staff_filter != "ALL" else ""
+    has_specific_staff = bool(staff_filter and staff_filter.upper() != "ALL")
+    staff_display_name = fmt_staff_name(staff_filter).replace("\n", " / ") if has_specific_staff else ""
+    staff_title = f" - {staff_display_name}" if has_specific_staff else ""
     date_range = report.get("date_range") or ""
     total_bills = len(bill_rows)
     total_arrears = sum(b.get("arrears", 0) for b in bill_rows)
@@ -9425,82 +9459,96 @@ def generate_daily_received_bills_pdf(report: dict, bill_rows: list[dict], staff
     elements = [
         Paragraph(f"Daily Received Bills Report{staff_title}", title_style),
         Paragraph(
-            f"<b>Report Date:</b> {date_range or 'N/A'} &nbsp;&nbsp;&nbsp; "
-            f"<b>Total Received Bills:</b> {fmt(total_bills)} &nbsp;&nbsp;&nbsp; "
-            f"<b>Arrears:</b> Rs. {fmt(total_arrears)} &nbsp;&nbsp;&nbsp; "
+            f"<b>Report Date:</b> {date_range or 'N/A'} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "
+            f"<b>Total Received Bills:</b> {fmt(total_bills)} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "
+            f"<b>Arrears:</b> Rs. {fmt(total_arrears)} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "
             f"<b>Total Amount:</b> Rs. {fmt(total_amount)}",
             sub_style,
         ),
         Spacer(1, 2 * mm),
     ]
 
-    headers = ["Sr", "Staff Name", "Consumer Name", "Conn #", "Sector", "Locality", "Bill #", "Conn Type", "Arrears", "Amount", "Date", "Method"]
+    # Conditionally include Staff Name only if no specific staff is selected
+    if has_specific_staff:
+        headers = ["Sr", "Consumer Name", "Conn #", "Sector", "Locality", "Bill #", "Arrears", "Amount", "Date"]
+        col_widths = [12 * mm, 55 * mm, 25 * mm, 38 * mm, 46 * mm, 25 * mm, 26 * mm, 28 * mm, 26 * mm]
+    else:
+        headers = ["Sr", "Staff Name", "Consumer Name", "Conn #", "Sector", "Locality", "Bill #", "Arrears", "Amount", "Date"]
+        col_widths = [11 * mm, 38 * mm, 44 * mm, 24 * mm, 32 * mm, 38 * mm, 24 * mm, 22 * mm, 24 * mm, 24 * mm]
+
     th_cells = [Paragraph(f"<b>{h}</b>", th_style) for h in headers]
     data_rows = [th_cells]
 
     for idx, b in enumerate(bill_rows, start=1):
-        s_name = fmt_staff_name(b.get("staff_name", "")).replace("\n", " / ")
-        data_rows.append([
-            Paragraph(str(idx), td_c_style),
-            Paragraph(s_name, td_style),
-            Paragraph(b.get("consumer_name") or "-", td_style),
-            Paragraph(str(b.get("connection_no") or "-"), td_c_style),
-            Paragraph(b.get("sector") or "-", td_style),
-            Paragraph(b.get("locality") or "-", td_style),
-            Paragraph(str(b.get("bill_no") or "-"), td_c_style),
-            Paragraph(b.get("connection_type") or b.get("bill_type") or "-", td_c_style),
-            Paragraph(fmt(b.get("arrears", 0)), td_r_style),
-            Paragraph(fmt(b.get("amount", 0)), td_r_style),
-            Paragraph(b.get("date") or "-", td_c_style),
-            Paragraph(b.get("payment_method") or "-", td_c_style),
-        ])
+        if has_specific_staff:
+            row_cells = [
+                Paragraph(str(idx), td_c_style),
+                Paragraph(b.get("consumer_name") or "-", td_style),
+                Paragraph(str(b.get("connection_no") or "-"), td_c_style),
+                Paragraph(b.get("sector") or "-", td_style),
+                Paragraph(b.get("locality") or "-", td_style),
+                Paragraph(str(b.get("bill_no") or "-"), td_c_style),
+                Paragraph(fmt(b.get("arrears", 0)), td_r_style),
+                Paragraph(fmt(b.get("amount", 0)), td_r_style),
+                Paragraph(b.get("date") or "-", td_c_style),
+            ]
+        else:
+            s_name = fmt_staff_name(b.get("staff_name", "")).replace("\n", " / ")
+            row_cells = [
+                Paragraph(str(idx), td_c_style),
+                Paragraph(s_name, td_style),
+                Paragraph(b.get("consumer_name") or "-", td_style),
+                Paragraph(str(b.get("connection_no") or "-"), td_c_style),
+                Paragraph(b.get("sector") or "-", td_style),
+                Paragraph(b.get("locality") or "-", td_style),
+                Paragraph(str(b.get("bill_no") or "-"), td_c_style),
+                Paragraph(fmt(b.get("arrears", 0)), td_r_style),
+                Paragraph(fmt(b.get("amount", 0)), td_r_style),
+                Paragraph(b.get("date") or "-", td_c_style),
+            ]
+        data_rows.append(row_cells)
 
-    grand_th_cells = [
-        Paragraph("", td_c_style),
-        Paragraph("<b>Total</b>", td_style),
-        Paragraph("", td_style),
-        Paragraph("", td_c_style),
-        Paragraph("", td_style),
-        Paragraph("", td_style),
-        Paragraph("", td_c_style),
-        Paragraph(f"<b>{fmt(total_bills)}</b>", td_c_style),
-        Paragraph(f"<b>{fmt(total_arrears)}</b>", td_r_style),
-        Paragraph(f"<b>{fmt(total_amount)}</b>", td_r_style),
-        Paragraph("", td_c_style),
-        Paragraph("", td_c_style),
-    ]
-    data_rows.append(grand_th_cells)
-
-    page_w = landscape(A4)[0] - 16 * mm
-    col_widths = [
-        page_w * 0.04,  # Sr
-        page_w * 0.15,  # Staff
-        page_w * 0.15,  # Consumer
-        page_w * 0.09,  # Conn
-        page_w * 0.09,  # Sector
-        page_w * 0.11,  # Locality
-        page_w * 0.07,  # Bill #
-        page_w * 0.08,  # Conn Type
-        page_w * 0.07,  # Arrears
-        page_w * 0.07,  # Amount
-        page_w * 0.05,  # Date
-        page_w * 0.03,  # Method
-    ]
+    # Grand total row - all bold and distinct for black & white printer
+    if has_specific_staff:
+        grand_cells = [
+            Paragraph("", td_c_style),
+            Paragraph(f"<b>Total ({fmt(total_bills)} Bills)</b>", grand_label_style),
+            Paragraph("", td_c_style),
+            Paragraph("", td_style),
+            Paragraph("", td_style),
+            Paragraph(f"<b>{fmt(total_bills)}</b>", grand_c_style),
+            Paragraph(f"<b>{fmt(total_arrears)}</b>", grand_r_style),
+            Paragraph(f"<b>{fmt(total_amount)}</b>", grand_r_style),
+            Paragraph("", td_c_style),
+        ]
+    else:
+        grand_cells = [
+            Paragraph("", td_c_style),
+            Paragraph(f"<b>Total ({fmt(total_bills)} Bills)</b>", grand_label_style),
+            Paragraph("", td_style),
+            Paragraph("", td_c_style),
+            Paragraph("", td_style),
+            Paragraph("", td_style),
+            Paragraph(f"<b>{fmt(total_bills)}</b>", grand_c_style),
+            Paragraph(f"<b>{fmt(total_arrears)}</b>", grand_r_style),
+            Paragraph(f"<b>{fmt(total_amount)}</b>", grand_r_style),
+            Paragraph("", td_c_style),
+        ]
+    data_rows.append(grand_cells)
 
     t = Table(data_rows, colWidths=col_widths, repeatRows=1)
     t_style = [
-        ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
-        ("GRID", (0, 0), (-1, -1), 0.4, BORDER_CLR),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f0f0")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 2.5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
-        ("LEFTPADDING", (0, 0), (-1, -1), 2.5),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 2.5),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#e6d8c8")),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ("BACKGROUND", (0, 1), (-1, -2), colors.white),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#e0e0e0")),
+        ("LINEABOVE", (0, -1), (-1, -1), 1.2, colors.black),
     ]
-    for r_idx in range(1, len(data_rows) - 1):
-        if r_idx % 2 == 0:
-            t_style.append(("BACKGROUND", (0, r_idx), (-1, r_idx), ALT_ROW))
     t.setStyle(TableStyle(t_style))
     elements.append(t)
     doc.build(elements)
@@ -9517,7 +9565,13 @@ def export_daily_staff_receive_bills_pdf():
     bill_rows = report.get("bill_rows") or []
     staff_filter = request.args.get("staff", "").strip()
     if staff_filter and staff_filter != "ALL":
-        bill_rows = [b for b in bill_rows if _normalize_staff_name(b.get("staff_name", "")) == _normalize_staff_name(staff_filter)]
+        target = _normalize_staff_name(staff_filter)
+        target_no_slash = _normalize_staff_name(staff_filter.replace("/", " "))
+        bill_rows = [
+            b for b in bill_rows
+            if _normalize_staff_name(b.get("staff_name", "")) == target
+            or _normalize_staff_name(b.get("staff_name", "").replace("/", " ")) == target_no_slash
+        ]
     pdf_bytes = generate_daily_received_bills_pdf(report, bill_rows, staff_filter=staff_filter)
     filename = "received_bills_report"
     if staff_filter and staff_filter != "ALL":

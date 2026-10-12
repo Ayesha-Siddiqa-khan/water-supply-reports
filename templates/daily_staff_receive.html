@@ -788,44 +788,52 @@
   function dsPrintBills() {
     var printWin = window.open('', '_blank');
     var staffFilterVal = document.getElementById('bill-staff-filter') ? document.getElementById('bill-staff-filter').value : 'ALL';
-    var staffTitle = (staffFilterVal === 'ALL') ? 'All Staff Members' : staffFilterVal;
-    var html = '<!DOCTYPE html><html><head><title>Received Bills - ' + escapeHtml(staffTitle) + '</title>' +
-      '<style>' +
-      'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 20px; color: #111; }' +
-      'h2 { margin: 0 0 6px 0; }' +
-      '.meta { font-size: 12px; color: #555; margin-bottom: 16px; }' +
-      'table { width: 100%; border-collapse: collapse; font-size: 11px; }' +
-      'th, td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; }' +
-      'th { background: #f3f4f6; font-weight: bold; }' +
-      '.r { text-align: right; }' +
-      '.c { text-align: center; }' +
-      '</style></head><body>' +
-      '<h2>Received Bills Report</h2>' +
-      '<div class="meta"><strong>Staff:</strong> ' + escapeHtml(staffTitle) + ' &nbsp;|&nbsp; <strong>Total Bills:</strong> ' + currentFilteredBills.length + '</div>' +
-      '<table><thead><tr>' +
-      '<th>#</th><th>Staff</th><th>Consumer Name</th><th>Connection No</th><th>Sector</th><th>Locality</th><th>Bill No</th><th class="r">Arrears</th><th class="r">Amount</th><th class="c">Date</th><th class="c">Payment</th>' +
-      '</tr></thead><tbody>';
-
+    var hasSpecificStaff = (staffFilterVal && staffFilterVal !== 'ALL');
+    var staffTitle = hasSpecificStaff ? staffFilterVal : 'All Staff Members';
     var totalArrears = 0, totalAmount = 0;
-    currentFilteredBills.forEach(function(b, idx) {
+    currentFilteredBills.forEach(function(b) {
       totalArrears += (parseFloat(b.arrears) || 0);
       totalAmount += (parseFloat(b.amount) || 0);
+    });
+
+    var html = '<!DOCTYPE html><html><head><title>Received Bills - ' + escapeHtml(staffTitle) + '</title>' +
+      '<style>' +
+      '@page { size: landscape; margin: 10mm; }' +
+      'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 15px; color: #000; font-size: 10pt; }' +
+      'h2 { margin: 0 0 6px 0; font-size: 16pt; color: #000; text-align: center; }' +
+      '.meta { font-size: 10pt; color: #000; margin-bottom: 12px; text-align: center; }' +
+      'table { width: 100%; border-collapse: collapse; font-size: 10pt; }' +
+      'th, td { border: 1px solid #333; padding: 4px 6px; text-align: left; color: #000; }' +
+      'th { background: #f0f0f0; font-weight: bold; text-align: center; }' +
+      '.r { text-align: right; }' +
+      '.c { text-align: center; }' +
+      'tfoot tr { font-weight: bold; background: #e0e0e0; border-top: 2px solid #000; }' +
+      '</style></head><body>' +
+      '<h2>Daily Received Bills Report' + (hasSpecificStaff ? (' - ' + escapeHtml(staffTitle)) : '') + '</h2>' +
+      '<div class="meta"><strong>Total Received Bills:</strong> ' + currentFilteredBills.length.toLocaleString() + ' &nbsp;|&nbsp; <strong>Arrears:</strong> Rs. ' + Math.round(totalArrears).toLocaleString() + ' &nbsp;|&nbsp; <strong>Total Amount:</strong> Rs. ' + Math.round(totalAmount).toLocaleString() + '</div>' +
+      '<table><thead><tr>' +
+      '<th class="c" style="width:40px;">#</th>' +
+      (hasSpecificStaff ? '' : '<th>Staff Name</th>') +
+      '<th>Consumer Name</th><th class="c">Conn #</th><th>Sector</th><th>Locality</th><th class="c">Bill #</th><th class="r">Arrears</th><th class="r">Amount</th><th class="c">Date</th>' +
+      '</tr></thead><tbody>';
+
+    currentFilteredBills.forEach(function(b, idx) {
       html += '<tr>' +
         '<td class="c">' + (idx + 1) + '</td>' +
-        '<td>' + escapeHtml(b.staff_name || '') + '</td>' +
+        (hasSpecificStaff ? '' : ('<td>' + escapeHtml(b.staff_name || '') + '</td>')) +
         '<td>' + escapeHtml(b.consumer_name || '') + '</td>' +
-        '<td>' + escapeHtml(b.connection_no || '') + '</td>' +
+        '<td class="c">' + escapeHtml(b.connection_no || '') + '</td>' +
         '<td>' + escapeHtml(b.sector || '') + '</td>' +
         '<td>' + escapeHtml(b.locality || '') + '</td>' +
-        '<td>' + escapeHtml(b.bill_no || '') + '</td>' +
+        '<td class="c">' + escapeHtml(b.bill_no || '') + '</td>' +
         '<td class="r">' + (parseFloat(b.arrears) || 0).toLocaleString() + '</td>' +
         '<td class="r">' + (parseFloat(b.amount) || 0).toLocaleString() + '</td>' +
         '<td class="c">' + escapeHtml(b.date || '') + '</td>' +
-        '<td class="c">' + escapeHtml(b.payment_method || '') + '</td>' +
       '</tr>';
     });
 
-    html += '</tbody><tfoot><tr style="font-weight:bold;background:#fafafa;"><td colspan="7" class="r">Total</td><td class="r">' + Math.round(totalArrears).toLocaleString() + '</td><td class="r">' + Math.round(totalAmount).toLocaleString() + '</td><td colspan="2"></td></tr></tfoot></table>';
+    var colspan = hasSpecificStaff ? 6 : 7;
+    html += '</tbody><tfoot><tr><td colspan="' + colspan + '" class="r"><strong>Total (' + currentFilteredBills.length.toLocaleString() + ' Bills)</strong></td><td class="r"><strong>' + Math.round(totalArrears).toLocaleString() + '</strong></td><td class="r"><strong>' + Math.round(totalAmount).toLocaleString() + '</strong></td><td></td></tr></tfoot></table>';
     html += '<script>window.onload = function() { window.print(); };<\/script></body></html>';
     printWin.document.write(html);
     printWin.document.close();
