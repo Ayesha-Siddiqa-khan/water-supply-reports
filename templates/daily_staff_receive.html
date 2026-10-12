@@ -91,127 +91,250 @@
       </div>
     </div>
 
-    <!-- Staff Daily Progress -->
-    <div class="section collapsed" id="sec-staff-progress">
-      <div class="section-header" onclick="toggleSection('sec-staff-progress')">
-        <div class="section-header-icon">&#128101;</div>
-        <div class="section-title">Staff Daily Progress</div>
-        <span class="section-badge">{{ report.summary_rows|length }} staff</span>
-      </div>
-      <div class="section-body">
-        {% if uploaded_names %}
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Uploaded: {{ uploaded_names | join(', ') }}</div>
-        {% endif %}
-        {% if report.date_range %}
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:16px;">Report date: {{ report.date_range }}</div>
-        {% endif %}
+    <!-- Sub-Tabs Navigation -->
+    <div id="daily-tab-bar" style="display:flex;gap:4px;margin:22px 0 16px 0;border-bottom:2px solid var(--border);">
+      <button type="button" class="sub-tab-btn active" id="tab-btn-progress" data-tab="progress"
+              onclick="switchDailyTab('progress')"
+              style="padding:9px 20px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:transparent;color:var(--text-primary);border-bottom:2px solid var(--teal);margin-bottom:-2px;transition:all .15s;display:inline-flex;align-items:center;gap:8px;">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 5h6M5 11h4"/></svg>
+        <span>Staff Daily Progress</span>
+        <span style="font-size:11px;padding:2px 7px;border-radius:10px;background:rgba(15,212,176,0.15);color:var(--teal);font-weight:600;">{{ report.summary_rows|length }} staff</span>
+      </button>
+      <button type="button" class="sub-tab-btn" id="tab-btn-bills" data-tab="bills"
+              onclick="switchDailyTab('bills')"
+              style="padding:9px 20px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:transparent;color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;display:inline-flex;align-items:center;gap:8px;">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 2h10a1 1 0 011 1v11l-3-2-3 2-3-2-3 2V3a1 1 0 011-1z"/><path d="M6 6h4M6 9h4"/></svg>
+        <span>Received Bills Details</span>
+        <span id="tab-bills-count-badge" style="font-size:11px;padding:2px 7px;border-radius:10px;background:rgba(255,255,255,0.08);color:var(--text-muted);font-weight:600;">{% if report.bill_rows %}{{ report.bill_rows|length }}{% else %}{{ totals.bills }}{% endif %} bills</span>
+      </button>
+    </div>
 
-        <div class="export-bar" style="margin-bottom:10px;" data-col-config="dailyStaffReceive">
-          <a class="chip" href="{{ url_for('export_daily_staff_receive', fmt_type='pdf') }}">&#11015; Download PDF</a>
-          <a class="chip" href="{{ url_for('export_daily_staff_receive_summary_pdf') }}">&#11015; Summary Page Only</a>
-          <a class="chip" href="{{ url_for('export_daily_staff_receive', fmt_type='csv') }}">&#11015; Download CSV</a>
-          <a class="chip" href="{{ url_for('export_daily_staff_receive', fmt_type='xlsx') }}">&#11015; Download Excel</a>
-          <label style="display:inline-flex;align-items:center;gap:6px;margin-left:12px;font-size:12px;color:var(--text-muted);">
-            Sort by Amount:
-            <select id="sort-select" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg-card);color:var(--text);">
-              <option value="default"{% if sort_order == 'default' %} selected{% endif %}>Default</option>
-              <option value="desc"{% if sort_order == 'desc' %} selected{% endif %}>Highest First</option>
-              <option value="asc"{% if sort_order == 'asc' %} selected{% endif %}>Lowest First</option>
-            </select>
-          </label>
+    <!-- TAB 1: Staff Daily Progress -->
+    <div class="daily-tab-panel" id="tab-panel-progress">
+      <div class="section" id="sec-staff-progress">
+        <div class="section-header" onclick="toggleSection('sec-staff-progress')">
+          <div class="section-header-icon">&#128101;</div>
+          <div class="section-title">Staff Daily Progress</div>
+          <span class="section-badge">{{ report.summary_rows|length }} staff</span>
         </div>
-        <div class="col-select-area" style="margin-bottom:16px;">
-          <div class="col-select-label">
-            Select Columns for Report
-            <span class="column-actions" style="display:inline;margin-left:12px;">
-              <span class="mini-btn" data-col-action="selectAll" data-config="dailyStaffReceive" style="font-size:9px;">Select All</span>
-              <span class="mini-btn" data-col-action="unselectAll" data-config="dailyStaffReceive" style="font-size:9px;">Deselect All</span>
-              <span class="mini-btn" data-col-action="resetDefault" data-config="dailyStaffReceive" style="font-size:9px;">Reset</span>
-            </span>
+        <div class="section-body">
+          {% if uploaded_names %}
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Uploaded: {{ uploaded_names | join(', ') }}</div>
+          {% endif %}
+          {% if report.date_range %}
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:16px;">Report date: {{ report.date_range }}</div>
+          {% endif %}
+
+          <div class="export-bar" style="margin-bottom:10px;" data-col-config="dailyStaffReceive">
+            <a class="chip" href="{{ url_for('export_daily_staff_receive', fmt_type='pdf') }}">&#11015; Download PDF</a>
+            <a class="chip" href="{{ url_for('export_daily_staff_receive_summary_pdf') }}">&#11015; Summary Page Only</a>
+            <a class="chip" href="{{ url_for('export_daily_staff_receive', fmt_type='csv') }}">&#11015; Download CSV</a>
+            <a class="chip" href="{{ url_for('export_daily_staff_receive', fmt_type='xlsx') }}">&#11015; Download Excel</a>
+            <label style="display:inline-flex;align-items:center;gap:6px;margin-left:12px;font-size:12px;color:var(--text-muted);">
+              Sort by Amount:
+              <select id="sort-select" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg-card);color:var(--text);">
+                <option value="default"{% if sort_order == 'default' %} selected{% endif %}>Default</option>
+                <option value="desc"{% if sort_order == 'desc' %} selected{% endif %}>Highest First</option>
+                <option value="asc"{% if sort_order == 'asc' %} selected{% endif %}>Lowest First</option>
+              </select>
+            </label>
           </div>
-          <div class="col-chips" id="col-chips-dailyStaffReceive"></div>
-        </div>
-
-        {% if report.summary_rows %}
-        <!-- Staff Header Row -->
-        <div class="staff-header-row">
-          <div data-col="sr" style="width:24px">#</div>
-          <div data-col="avatar" style="width:34px"></div>
-          <div data-col="staffName" style="flex:1">Staff Name</div>
-          <div data-col="bills" style="width:80px;text-align:right">Bills</div>
-          <div data-col="arrears" style="width:110px;text-align:right">Arrears</div>
-          <div data-col="amount" style="width:110px;text-align:right">Amount</div>
-          <div data-col="perf" style="width:80px;text-align:right">Performance</div>
-        </div>
-        {% set max_amount = report.summary_rows | map(attribute='amount_total') | max %}
-        <div id="staff-list">
-          {% for row in report.summary_rows %}
-          {% set pct = (row.amount_total|default(0) / max_amount * 100) if max_amount > 0 else 0 %}
-          <div class="staff-row">
-            <div data-col="sr" class="staff-rank">{{ "{:02d}".format(loop.index) }}</div>
-            <div data-col="avatar" class="staff-avatar">{% set name_parts = row.staff_name.split() %}{{ name_parts[0][0] if name_parts else '' }}{{ name_parts[1][0] if name_parts|length > 1 else '' }}</div>
-            <div data-col="staffName" class="staff-name">{{ row.staff_name|staff_name_html }}</div>
-            <div data-col="bills" class="staff-bills">{{ "{:,}".format(row.bills) }}</div>
-            <div data-col="arrears" class="staff-amount" style="color:var(--amber)">{{ "{:,.0f}".format(row.metric_total|default(0)) }}</div>
-            <div data-col="amount" class="staff-amount" style="color:var(--teal)">{{ "{:,.0f}".format(row.amount_total|default(0)) }}</div>
-            <div data-col="perf" class="staff-perf-bar">
-              <div class="staff-perf-fill" style="width:{{ pct }}%"></div>
+          <div class="col-select-area" style="margin-bottom:16px;">
+            <div class="col-select-label">
+              Select Columns for Report
+              <span class="column-actions" style="display:inline;margin-left:12px;">
+                <span class="mini-btn" data-col-action="selectAll" data-config="dailyStaffReceive" style="font-size:9px;">Select All</span>
+                <span class="mini-btn" data-col-action="unselectAll" data-config="dailyStaffReceive" style="font-size:9px;">Deselect All</span>
+                <span class="mini-btn" data-col-action="resetDefault" data-config="dailyStaffReceive" style="font-size:9px;">Reset</span>
+              </span>
             </div>
+            <div class="col-chips" id="col-chips-dailyStaffReceive"></div>
           </div>
-          {% endfor %}
-        </div>
-        {% endif %}
 
-        {% if report.grouped_detail %}
-        <div class="section collapsed" id="sec-staff-detail" style="margin-top:20px;">
-          <div class="section-header" onclick="toggleSection('sec-staff-detail')">
-            <div class="section-header-icon">&#128196;</div>
-            <div class="section-title">Staff Detail Preview</div>
-            <span class="section-badge">{{ report.grouped_detail|length }} staff</span>
-            <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+          {% if report.summary_rows %}
+          <!-- Staff Header Row -->
+          <div class="staff-header-row">
+            <div data-col="sr" style="width:24px">#</div>
+            <div data-col="avatar" style="width:34px"></div>
+            <div data-col="staffName" style="flex:1">Staff Name</div>
+            <div data-col="bills" style="width:80px;text-align:right">Bills</div>
+            <div data-col="arrears" style="width:110px;text-align:right">Arrears</div>
+            <div data-col="amount" style="width:110px;text-align:right">Amount</div>
+            <div data-col="perf" style="width:80px;text-align:right">Performance</div>
           </div>
-          <div class="section-body">
-            {% for group in report.grouped_detail %}
-            <div class="staff-detail-group" style="margin-bottom:16px;">
-              <h4 style="margin:0 0 4px 0;font-size:14px;">{{ group.staff_name|staff_name_html }}</h4>
-              <div class="table-wrapper">
-                <table class="data-table">
-                  <thead>
-                    <tr><th data-col="sr" style="width:50px">Sr</th><th data-col="zone" style="text-align:left">Zone</th><th data-col="sector" style="text-align:left">Sector</th><th data-col="locality" style="text-align:left">Locality</th><th data-col="bills" style="text-align:right">Bills</th><th data-col="arrears" style="text-align:right">Arrears Received</th><th data-col="amount" style="text-align:right">Amount Received</th></tr>
-                  </thead>
-                  <tbody>
-                    {% for sub in group.sub_rows %}
-                    <tr>
-                      <td data-col="sr" style="text-align:center">{{ loop.index }}</td>
-                      <td data-col="zone" style="text-align:left">{{ sub.zone }}</td>
-                      <td data-col="sector" style="text-align:left">{{ sub.sector }}</td>
-                      <td data-col="locality" style="text-align:left">{{ sub.locality }}</td>
-                      <td data-col="bills" class="mono" style="text-align:right">{{ "{:,}".format(sub.bills) }}</td>
-                      <td data-col="arrears" class="mono accent-amber" style="text-align:right">{{ "{:,.0f}".format(sub.metric_total|default(0)) }}</td>
-                      <td data-col="amount" class="mono accent-teal" style="text-align:right">{{ "{:,.0f}".format(sub.amount_total|default(0)) }}</td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                  <tfoot>
-                    <tr style="font-weight:bold;border-top:2px solid var(--border-bright);">
-                      <td data-col="sr" colspan="1" style="text-align:right"></td>
-                      <td data-col="zone" style="text-align:right"></td>
-                      <td data-col="sector" style="text-align:right"></td>
-                      <td data-col="locality" style="text-align:right">Sub Total</td>
-                      <td data-col="bills" class="mono" style="text-align:right">{{ "{:,}".format(group.bills) }}</td>
-                      <td data-col="arrears" class="mono" style="text-align:right">{{ "{:,.0f}".format(group.metric_total|default(0)) }}</td>
-                      <td data-col="amount" class="mono" style="text-align:right">{{ "{:,.0f}".format(group.amount_total|default(0)) }}</td>
-                    </tr>
-                  </tfoot>
-                </table>
+          {% set max_amount = report.summary_rows | map(attribute='amount_total') | max %}
+          <div id="staff-list">
+            {% for row in report.summary_rows %}
+            {% set pct = (row.amount_total|default(0) / max_amount * 100) if max_amount > 0 else 0 %}
+            <div class="staff-row">
+              <div data-col="sr" class="staff-rank">{{ "{:02d}".format(loop.index) }}</div>
+              <div data-col="avatar" class="staff-avatar">{% set name_parts = row.staff_name.split() %}{{ name_parts[0][0] if name_parts else '' }}{{ name_parts[1][0] if name_parts|length > 1 else '' }}</div>
+              <div data-col="staffName" class="staff-name">{{ row.staff_name|staff_name_html }}</div>
+              <div data-col="bills" class="staff-bills">
+                <button type="button" class="staff-bills-btn" data-staff="{{ row.staff_name }}" onclick="viewStaffBills(this.dataset.staff)" title="Click to view these {{ row.bills }} bills in Received Bills Details" style="background:none;border:none;color:var(--teal);cursor:pointer;font-family:inherit;font-size:inherit;font-weight:700;padding:0;text-decoration:underline;text-underline-offset:3px;">
+                  {{ "{:,}".format(row.bills) }}
+                </button>
+              </div>
+              <div data-col="arrears" class="staff-amount" style="color:var(--amber)">{{ "{:,.0f}".format(row.metric_total|default(0)) }}</div>
+              <div data-col="amount" class="staff-amount" style="color:var(--teal)">{{ "{:,.0f}".format(row.amount_total|default(0)) }}</div>
+              <div data-col="perf" class="staff-perf-bar">
+                <div class="staff-perf-fill" style="width:{{ pct }}%"></div>
               </div>
             </div>
             {% endfor %}
           </div>
+          {% endif %}
+
+          {% if report.grouped_detail %}
+          <div class="section collapsed" id="sec-staff-detail" style="margin-top:20px;">
+            <div class="section-header" onclick="toggleSection('sec-staff-detail')">
+              <div class="section-header-icon">&#128196;</div>
+              <div class="section-title">Staff Detail Preview</div>
+              <span class="section-badge">{{ report.grouped_detail|length }} staff</span>
+              <span class="section-toggle"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+            </div>
+            <div class="section-body">
+              {% for group in report.grouped_detail %}
+              <div class="staff-detail-group" style="margin-bottom:16px;">
+                <h4 style="margin:0 0 4px 0;font-size:14px;">{{ group.staff_name|staff_name_html }}</h4>
+                <div class="table-wrapper">
+                  <table class="data-table">
+                    <thead>
+                      <tr><th data-col="sr" style="width:50px">Sr</th><th data-col="zone" style="text-align:left">Zone</th><th data-col="sector" style="text-align:left">Sector</th><th data-col="locality" style="text-align:left">Locality</th><th data-col="bills" style="text-align:right">Bills</th><th data-col="arrears" style="text-align:right">Arrears Received</th><th data-col="amount" style="text-align:right">Amount Received</th></tr>
+                    </thead>
+                    <tbody>
+                      {% for sub in group.sub_rows %}
+                      <tr>
+                        <td data-col="sr" style="text-align:center">{{ loop.index }}</td>
+                        <td data-col="zone" style="text-align:left">{{ sub.zone }}</td>
+                        <td data-col="sector" style="text-align:left">{{ sub.sector }}</td>
+                        <td data-col="locality" style="text-align:left">{{ sub.locality }}</td>
+                        <td data-col="bills" class="mono" style="text-align:right">{{ "{:,}".format(sub.bills) }}</td>
+                        <td data-col="arrears" class="mono accent-amber" style="text-align:right">{{ "{:,.0f}".format(sub.metric_total|default(0)) }}</td>
+                        <td data-col="amount" class="mono accent-teal" style="text-align:right">{{ "{:,.0f}".format(sub.amount_total|default(0)) }}</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                    <tfoot>
+                      <tr style="font-weight:bold;border-top:2px solid var(--border-bright);">
+                        <td data-col="sr" colspan="1" style="text-align:right"></td>
+                        <td data-col="zone" style="text-align:right"></td>
+                        <td data-col="sector" style="text-align:right"></td>
+                        <td data-col="locality" style="text-align:right">Sub Total</td>
+                        <td data-col="bills" class="mono" style="text-align:right">{{ "{:,}".format(group.bills) }}</td>
+                        <td data-col="arrears" class="mono" style="text-align:right">{{ "{:,.0f}".format(group.metric_total|default(0)) }}</td>
+                        <td data-col="amount" class="mono" style="text-align:right">{{ "{:,.0f}".format(group.amount_total|default(0)) }}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
         </div>
-        {% endif %}
       </div>
     </div>
+
+    <!-- TAB 2: Received Bills Details -->
+    <div class="daily-tab-panel" id="tab-panel-bills" style="display:none;">
+      <div class="section" id="sec-received-bills">
+        <div class="section-header" style="cursor:default;">
+          <div class="section-header-icon">&#128196;</div>
+          <div class="section-title">Received Bills Details</div>
+          <span class="section-badge" id="badge-total-bills">{% if report.bill_rows %}{{ report.bill_rows|length }}{% else %}{{ totals.bills }}{% endif %} bills</span>
+        </div>
+        <div class="section-body">
+          {% if report.date_range %}
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">Report date: {{ report.date_range }}</div>
+          {% endif %}
+
+          <!-- Filter Controls Bar -->
+          <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:14px;background:var(--bg-card);padding:12px 14px;border-radius:8px;border:1px solid var(--border);">
+            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);">
+                Staff:
+                <select id="bill-staff-filter" onchange="dsFilterBills()" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text);cursor:pointer;max-width:260px;">
+                  <option value="ALL">All Staff Members ({% if report.bill_rows %}{{ report.bill_rows|length }}{% else %}0{% endif %})</option>
+                  {% for s in report.summary_rows %}
+                  <option value="{{ s.staff_name }}">{{ s.staff_name }} ({{ s.bills }} bills)</option>
+                  {% endfor %}
+                </select>
+              </label>
+
+              <div style="position:relative;">
+                <input type="text" id="bill-search" oninput="dsFilterBills()" placeholder="Search Consumer, Conn #, Bill #, Locality..." style="padding:6px 12px;padding-left:28px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text);width:260px;">
+                <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:13px;height:13px;opacity:0.5;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              </div>
+
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);">
+                Per Page:
+                <select id="bill-page-size" onchange="dsChangePageSize()" style="padding:6px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg);color:var(--text);cursor:pointer;">
+                  <option value="50">50</option>
+                  <option value="100" selected>100</option>
+                  <option value="250">250</option>
+                  <option value="all">All</option>
+                </select>
+              </label>
+            </div>
+
+            <!-- Export Actions -->
+            <div class="export-bar" style="margin:0;display:flex;gap:6px;align-items:center;">
+              <button type="button" class="chip" onclick="dsExportBillsCsv()">&#11015; Download CSV</button>
+              <a class="chip" href="{{ url_for('export_daily_staff_receive', fmt_type='xlsx') }}">&#11015; Download Excel</a>
+              <button type="button" class="chip" onclick="dsPrintBills()">&#128424; Print View</button>
+            </div>
+          </div>
+
+          <!-- Quick Stats Strip -->
+          <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;padding:10px 14px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;margin-bottom:14px;font-size:12px;">
+            <span>Showing Bills: <strong id="bill-stat-count" style="color:var(--teal);">0</strong></span>
+            <span>•</span>
+            <span>Arrears Received: <strong id="bill-stat-arrears" style="color:var(--amber);">Rs. 0</strong></span>
+            <span>•</span>
+            <span>Total Amount Received: <strong id="bill-stat-amount" style="color:var(--coral);">Rs. 0</strong></span>
+          </div>
+
+          <!-- Bills Data Table -->
+          <div class="table-wrapper" style="overflow-x:auto;">
+            <table class="data-table" id="bills-detail-table">
+              <thead>
+                <tr>
+                  <th style="width:40px;text-align:center;">#</th>
+                  <th style="min-width:140px;">Staff Name</th>
+                  <th style="min-width:140px;">Consumer Name</th>
+                  <th style="min-width:90px;">Conn #</th>
+                  <th style="min-width:70px;">Old Conn</th>
+                  <th style="min-width:90px;">Sector</th>
+                  <th style="min-width:110px;">Locality</th>
+                  <th style="min-width:80px;">Bill #</th>
+                  <th style="min-width:100px;">Conn Type</th>
+                  <th style="min-width:80px;text-align:right;">Arrears</th>
+                  <th style="min-width:90px;text-align:right;">Amount Rec.</th>
+                  <th style="min-width:80px;text-align:center;">Date</th>
+                  <th style="min-width:70px;text-align:center;">Method</th>
+                </tr>
+              </thead>
+              <tbody id="bills-detail-tbody">
+                <!-- Rendered by JavaScript -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Footer -->
+          <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;font-size:12px;color:var(--text-muted);">
+            <div>Showing <span id="bill-page-range">0</span> of <span id="bill-total-count">0</span> bills</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button type="button" id="bill-prev-page" onclick="dsPrevPage()" class="mini-btn" style="padding:4px 10px;cursor:pointer;">&larr; Previous</button>
+              <span id="bill-page-indicator" style="font-weight:600;color:var(--text);">Page 1 of 1</span>
+              <button type="button" id="bill-next-page" onclick="dsNextPage()" class="mini-btn" style="padding:4px 10px;cursor:pointer;">Next &rarr;</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script id="daily-bills-data" type="application/json">{{ (report.bill_rows or []) | tojson }}</script>
     {% endif %}
   </div>
 </div>
@@ -423,5 +546,288 @@
     dsUpdateWebPreview(configId);
     dsRefreshExportLinks();
   });
+
+  // ── DAILY SUB-TABS SWITCHING ──
+  function switchDailyTab(tab) {
+    var btnProgress = document.getElementById('tab-btn-progress');
+    var btnBills = document.getElementById('tab-btn-bills');
+    var panelProgress = document.getElementById('tab-panel-progress');
+    var panelBills = document.getElementById('tab-panel-bills');
+    if (!btnProgress || !btnBills || !panelProgress || !panelBills) return;
+
+    if (tab === 'bills') {
+      btnBills.classList.add('active');
+      btnBills.style.borderBottom = '2px solid var(--teal)';
+      btnBills.style.color = 'var(--text-primary)';
+      btnProgress.classList.remove('active');
+      btnProgress.style.borderBottom = '2px solid transparent';
+      btnProgress.style.color = 'var(--text-muted)';
+      panelProgress.style.display = 'none';
+      panelBills.style.display = '';
+      dsRenderBills();
+    } else {
+      btnProgress.classList.add('active');
+      btnProgress.style.borderBottom = '2px solid var(--teal)';
+      btnProgress.style.color = 'var(--text-primary)';
+      btnBills.classList.remove('active');
+      btnBills.style.borderBottom = '2px solid transparent';
+      btnBills.style.color = 'var(--text-muted)';
+      panelProgress.style.display = '';
+      panelBills.style.display = 'none';
+    }
+  }
+
+  function viewStaffBills(staffName) {
+    switchDailyTab('bills');
+    var select = document.getElementById('bill-staff-filter');
+    if (select) {
+      var target = (staffName || '').trim().toLowerCase();
+      var found = false;
+      for (var i = 0; i < select.options.length; i++) {
+        var optVal = select.options[i].value.trim().toLowerCase();
+        if (optVal === target || select.options[i].text.toLowerCase().indexOf(target) !== -1) {
+          select.selectedIndex = i;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        select.value = 'ALL';
+      }
+      dsFilterBills();
+    }
+  }
+
+  // ── RECEIVED BILLS DATA & FILTERING ──
+  var allDailyBills = [];
+  try {
+    var billsDataEl = document.getElementById('daily-bills-data');
+    if (billsDataEl && billsDataEl.textContent) {
+      allDailyBills = JSON.parse(billsDataEl.textContent) || [];
+    }
+  } catch (err) {
+    console.error('Failed to parse daily bills data:', err);
+  }
+
+  var currentFilteredBills = allDailyBills.slice();
+  var billsCurrentPage = 1;
+  var billsPageSize = 100;
+
+  function dsFilterBills() {
+    var staffFilter = (document.getElementById('bill-staff-filter') ? document.getElementById('bill-staff-filter').value : 'ALL').trim().toLowerCase();
+    var query = (document.getElementById('bill-search') ? document.getElementById('bill-search').value : '').trim().toLowerCase();
+
+    currentFilteredBills = allDailyBills.filter(function(b) {
+      if (staffFilter !== 'all') {
+        var sName = (b.staff_name || '').toLowerCase();
+        if (sName !== staffFilter && sName.indexOf(staffFilter) === -1 && staffFilter.indexOf(sName) === -1) {
+          return false;
+        }
+      }
+      if (query) {
+        var matchStr = (
+          (b.consumer_name || '') + ' ' +
+          (b.connection_no || '') + ' ' +
+          (b.old_connection || '') + ' ' +
+          (b.bill_no || '') + ' ' +
+          (b.sector || '') + ' ' +
+          (b.locality || '') + ' ' +
+          (b.staff_name || '') + ' ' +
+          (b.payment_method || '')
+        ).toLowerCase();
+        if (matchStr.indexOf(query) === -1) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    billsCurrentPage = 1;
+    dsRenderBills();
+  }
+
+  function dsChangePageSize() {
+    var sel = document.getElementById('bill-page-size');
+    if (!sel) return;
+    var val = sel.value;
+    billsPageSize = (val === 'all') ? 9999999 : (parseInt(val, 10) || 100);
+    billsCurrentPage = 1;
+    dsRenderBills();
+  }
+
+  function dsRenderBills() {
+    var tbody = document.getElementById('bills-detail-tbody');
+    if (!tbody) return;
+
+    var total = currentFilteredBills.length;
+    var totalArrears = 0;
+    var totalAmount = 0;
+    currentFilteredBills.forEach(function(b) {
+      totalArrears += (parseFloat(b.arrears) || 0);
+      totalAmount += (parseFloat(b.amount) || 0);
+    });
+
+    var statCountEl = document.getElementById('bill-stat-count');
+    var statArrearsEl = document.getElementById('bill-stat-arrears');
+    var statAmountEl = document.getElementById('bill-stat-amount');
+    if (statCountEl) statCountEl.textContent = total.toLocaleString();
+    if (statArrearsEl) statArrearsEl.textContent = 'Rs. ' + Math.round(totalArrears).toLocaleString();
+    if (statAmountEl) statAmountEl.textContent = 'Rs. ' + Math.round(totalAmount).toLocaleString();
+
+    if (total === 0) {
+      tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:30px;color:var(--text-muted);">No received bills match the selected filter.</td></tr>';
+      dsUpdatePagination(0, 0, 0);
+      return;
+    }
+
+    var startIndex = (billsCurrentPage - 1) * billsPageSize;
+    var endIndex = Math.min(startIndex + billsPageSize, total);
+    var pageRows = currentFilteredBills.slice(startIndex, endIndex);
+
+    var html = '';
+    pageRows.forEach(function(b, idx) {
+      var rowSr = startIndex + idx + 1;
+      var staffDisplay = (b.staff_name || 'Unassigned').replace(/\s*\/\s*/g, ' / ');
+      html += '<tr>' +
+        '<td style="text-align:center;color:var(--text-muted);font-family:var(--font-mono);">' + rowSr + '</td>' +
+        '<td style="font-weight:600;color:var(--text-primary);">' + escapeHtml(staffDisplay) + '</td>' +
+        '<td>' + escapeHtml(b.consumer_name || '-') + '</td>' +
+        '<td class="mono" style="font-weight:600;">' + escapeHtml(b.connection_no || '-') + '</td>' +
+        '<td class="mono" style="color:var(--text-muted);">' + escapeHtml(b.old_connection || '-') + '</td>' +
+        '<td>' + escapeHtml(b.sector || '-') + '</td>' +
+        '<td>' + escapeHtml(b.locality || '-') + '</td>' +
+        '<td class="mono">' + escapeHtml(b.bill_no || '-') + '</td>' +
+        '<td style="font-size:11px;color:var(--text-muted);">' + escapeHtml(b.connection_type || b.bill_type || '-') + '</td>' +
+        '<td class="mono accent-amber" style="text-align:right;">' + (parseFloat(b.arrears) || 0).toLocaleString() + '</td>' +
+        '<td class="mono accent-teal" style="text-align:right;font-weight:600;">' + (parseFloat(b.amount) || 0).toLocaleString() + '</td>' +
+        '<td style="text-align:center;font-size:11px;color:var(--text-muted);">' + escapeHtml(b.date || '-') + '</td>' +
+        '<td style="text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;background:rgba(255,255,255,0.06);color:var(--text);">' + escapeHtml(b.payment_method || '-') + '</span></td>' +
+      '</tr>';
+    });
+
+    tbody.innerHTML = html;
+    dsUpdatePagination(startIndex + 1, endIndex, total);
+  }
+
+  function dsUpdatePagination(start, end, total) {
+    var rangeEl = document.getElementById('bill-page-range');
+    var totalEl = document.getElementById('bill-total-count');
+    var pageInd = document.getElementById('bill-page-indicator');
+    var prevBtn = document.getElementById('bill-prev-page');
+    var nextBtn = document.getElementById('bill-next-page');
+
+    if (rangeEl) rangeEl.textContent = total > 0 ? (start + '–' + end) : '0';
+    if (totalEl) totalEl.textContent = total.toLocaleString();
+
+    var totalPages = Math.max(1, Math.ceil(total / billsPageSize));
+    if (pageInd) pageInd.textContent = 'Page ' + billsCurrentPage + ' of ' + totalPages;
+    if (prevBtn) prevBtn.disabled = billsCurrentPage <= 1;
+    if (nextBtn) nextBtn.disabled = billsCurrentPage >= totalPages;
+  }
+
+  function dsPrevPage() {
+    if (billsCurrentPage > 1) {
+      billsCurrentPage--;
+      dsRenderBills();
+    }
+  }
+
+  function dsNextPage() {
+    var totalPages = Math.ceil(currentFilteredBills.length / billsPageSize);
+    if (billsCurrentPage < totalPages) {
+      billsCurrentPage++;
+      dsRenderBills();
+    }
+  }
+
+  function dsExportBillsCsv() {
+    if (!currentFilteredBills || !currentFilteredBills.length) {
+      alert('No bills to export.');
+      return;
+    }
+    var headers = ['Sr', 'Staff Name', 'Zone', 'Sector', 'Locality', 'Consumer Name', 'Connection No', 'Old Connection', 'Bill No', 'Connection Type', 'Arrears Received', 'Amount Received', 'Received Date', 'Payment Method'];
+    var csvLines = [headers.join(',')];
+    currentFilteredBills.forEach(function(b, idx) {
+      var row = [
+        idx + 1,
+        '"' + (b.staff_name || '').replace(/"/g, '""') + '"',
+        '"' + (b.zone || '').replace(/"/g, '""') + '"',
+        '"' + (b.sector || '').replace(/"/g, '""') + '"',
+        '"' + (b.locality || '').replace(/"/g, '""') + '"',
+        '"' + (b.consumer_name || '').replace(/"/g, '""') + '"',
+        '"' + (b.connection_no || '').replace(/"/g, '""') + '"',
+        '"' + (b.old_connection || '').replace(/"/g, '""') + '"',
+        '"' + (b.bill_no || '').replace(/"/g, '""') + '"',
+        '"' + (b.connection_type || b.bill_type || '').replace(/"/g, '""') + '"',
+        b.arrears || 0,
+        b.amount || 0,
+        '"' + (b.date || '').replace(/"/g, '""') + '"',
+        '"' + (b.payment_method || '').replace(/"/g, '""') + '"'
+      ];
+      csvLines.push(row.join(','));
+    });
+    var blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'received_bills.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function dsPrintBills() {
+    var printWin = window.open('', '_blank');
+    var staffFilterVal = document.getElementById('bill-staff-filter') ? document.getElementById('bill-staff-filter').value : 'ALL';
+    var staffTitle = (staffFilterVal === 'ALL') ? 'All Staff Members' : staffFilterVal;
+    var html = '<!DOCTYPE html><html><head><title>Received Bills - ' + escapeHtml(staffTitle) + '</title>' +
+      '<style>' +
+      'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 20px; color: #111; }' +
+      'h2 { margin: 0 0 6px 0; }' +
+      '.meta { font-size: 12px; color: #555; margin-bottom: 16px; }' +
+      'table { width: 100%; border-collapse: collapse; font-size: 11px; }' +
+      'th, td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; }' +
+      'th { background: #f3f4f6; font-weight: bold; }' +
+      '.r { text-align: right; }' +
+      '.c { text-align: center; }' +
+      '</style></head><body>' +
+      '<h2>Received Bills Report</h2>' +
+      '<div class="meta"><strong>Staff:</strong> ' + escapeHtml(staffTitle) + ' &nbsp;|&nbsp; <strong>Total Bills:</strong> ' + currentFilteredBills.length + '</div>' +
+      '<table><thead><tr>' +
+      '<th>#</th><th>Staff</th><th>Consumer Name</th><th>Connection No</th><th>Sector</th><th>Locality</th><th>Bill No</th><th class="r">Arrears</th><th class="r">Amount</th><th class="c">Date</th><th class="c">Payment</th>' +
+      '</tr></thead><tbody>';
+
+    var totalArrears = 0, totalAmount = 0;
+    currentFilteredBills.forEach(function(b, idx) {
+      totalArrears += (parseFloat(b.arrears) || 0);
+      totalAmount += (parseFloat(b.amount) || 0);
+      html += '<tr>' +
+        '<td class="c">' + (idx + 1) + '</td>' +
+        '<td>' + escapeHtml(b.staff_name || '') + '</td>' +
+        '<td>' + escapeHtml(b.consumer_name || '') + '</td>' +
+        '<td>' + escapeHtml(b.connection_no || '') + '</td>' +
+        '<td>' + escapeHtml(b.sector || '') + '</td>' +
+        '<td>' + escapeHtml(b.locality || '') + '</td>' +
+        '<td>' + escapeHtml(b.bill_no || '') + '</td>' +
+        '<td class="r">' + (parseFloat(b.arrears) || 0).toLocaleString() + '</td>' +
+        '<td class="r">' + (parseFloat(b.amount) || 0).toLocaleString() + '</td>' +
+        '<td class="c">' + escapeHtml(b.date || '') + '</td>' +
+        '<td class="c">' + escapeHtml(b.payment_method || '') + '</td>' +
+      '</tr>';
+    });
+
+    html += '</tbody><tfoot><tr style="font-weight:bold;background:#fafafa;"><td colspan="7" class="r">Total</td><td class="r">' + Math.round(totalArrears).toLocaleString() + '</td><td class="r">' + Math.round(totalAmount).toLocaleString() + '</td><td colspan="2"></td></tr></tfoot></table>';
+    html += '<script>window.onload = function() { window.print(); };<\/script></body></html>';
+    printWin.document.write(html);
+    printWin.document.close();
+  }
+
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // Initial render of bills
+  dsRenderBills();
 </script>
 {% endblock %}

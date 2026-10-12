@@ -1245,11 +1245,18 @@ def build_daily_staff_receive_report(
     sector_col = pick_column(columns, ["sector"])
     locality_col = pick_column(columns, ["locality"])
     if not sector_col or not locality_col:
-        return {"summary_rows": [], "detail_rows": [], "metric_label": "Area Received", "date_range": ""}
+        return {"summary_rows": [], "detail_rows": [], "bill_rows": [], "metric_label": "Area Received", "date_range": ""}
 
     clear_unmatched_log()
     metric_col = arrears_col or areas_col
     connection_no_col = pick_column(columns, ["connection no", "connection number", "old connection no", "consumer no", "customer no", "connection id", "conn id"])
+    consumer_name_col = pick_column(columns, ["consumer name / f/h name", "consumer name", "name", "consumer"])
+    bill_no_col = pick_column(columns, ["bill no", "bill number", "bill #", "billno"])
+    old_conn_col = pick_column(columns, ["old connection", "old connection no", "old conn", "old conn no"])
+    conn_type_col = pick_column(columns, ["connection type", "conn type", "category", "type"])
+    bill_type_col = pick_column(columns, ["bill type", "billing type"])
+    pm_col = pick_column(columns, ["payment method", "payment mode", "mode", "method"])
+    all_bill_rows: list[dict] = []
     staff, assignments = load_staff_assignment_rows()
     with get_db() as conn:
         locality_zones = {
@@ -1305,7 +1312,6 @@ def build_daily_staff_receive_report(
             unmatched_after = len(get_unmatched_log())
             if unmatched_after > unmatched_before:
                 for entry in get_unmatched_log()[unmatched_before:]:
-                    consumer_name_col = pick_column(columns, ["consumer name / f/h name", "consumer name", "name"])
                     entry["consumer_name"] = clean_cell(row.get(consumer_name_col)) if consumer_name_col else ""
                     entry["amount_received"] = amount_received
                     entry["metric_total"] = metric_total
@@ -1357,6 +1363,7 @@ def build_daily_staff_receive_report(
                 "metric_total": 0.0,
                 "amount_total": 0.0,
                 "sub_rows": {},
+                "bill_rows": [],
             },
         )
         group["zone"] = group["zone"] or assigned_zone
@@ -1379,6 +1386,36 @@ def build_daily_staff_receive_report(
         sub["metric_total"] += metric_total
         sub["amount_total"] += amount_received
 
+        consumer_name = clean_cell(row.get(consumer_name_col)) if consumer_name_col else ""
+        bill_no = clean_cell(row.get(bill_no_col)) if bill_no_col else ""
+        old_conn = clean_cell(row.get(old_conn_col)) if old_conn_col else ""
+        conn_type = clean_cell(row.get(conn_type_col)) if conn_type_col else ""
+        bill_type = clean_cell(row.get(bill_type_col)) if bill_type_col else ""
+        payment_method = clean_cell(row.get(pm_col)) if pm_col else ""
+        date_val = valid_dates.loc[idx]
+        date_str = date_val.strftime("%d-%m-%Y") if hasattr(date_val, "strftime") else clean_cell(date_val)
+
+        bill_item = {
+            "sr": len(all_bill_rows) + 1,
+            "staff_id": staff_id,
+            "staff_name": staff_name,
+            "zone": assigned_zone or zone or "",
+            "sector": sector,
+            "locality": locality,
+            "consumer_name": consumer_name,
+            "connection_no": connection_no or "",
+            "old_connection": old_conn,
+            "bill_no": bill_no,
+            "connection_type": conn_type,
+            "bill_type": bill_type,
+            "arrears": metric_total,
+            "amount": amount_received,
+            "date": date_str,
+            "payment_method": payment_method,
+        }
+        all_bill_rows.append(bill_item)
+        group["bill_rows"].append(bill_item)
+
     summary_rows = sorted(staff_totals.values(), key=lambda item: (item["zone"] or "ZZZ", item["staff_name"]))
     grouped_detail = sorted(
         (
@@ -1390,6 +1427,7 @@ def build_daily_staff_receive_report(
                 "metric_total": g["metric_total"],
                 "amount_total": g["amount_total"],
                 "sub_rows": sorted(g["sub_rows"].values(), key=lambda s: (s["zone"], s["sector"], s["locality"])),
+                "bill_rows": g.get("bill_rows", []),
             }
             for g in detail_groups.values()
         ),
@@ -1416,6 +1454,7 @@ def build_daily_staff_receive_report(
         "summary_rows": summary_rows,
         "detail_rows": detail_rows,
         "grouped_detail": grouped_detail,
+        "bill_rows": all_bill_rows,
         "metric_label": "Area Received",
         "date_range": date_range,
         "unmatched_log": get_unmatched_log(),
@@ -8185,7 +8224,6 @@ def generate_daily_staff_receive_pdf(results: dict, sort_order: str = "default",
 
     elements = [
         Paragraph("Daily Receive Amount of Staff", title_style),
-        Paragraph(f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}", summary_style),
     ]
     if report.get("date_range"):
         elements.append(Paragraph(f"<b>Report Date:</b> {report['date_range']}", summary_style))
@@ -8453,6 +8491,28 @@ def daily_staff_receive_export_response(fmt_type: str, results: dict, cols: str 
         writer.writerow(["Details", *detail_headers])
         for row in detail_rows:
             writer.writerow(["Details", *row])
+        bill_rows = (results.get("daily_staff_receive") or {}).get("bill_rows") or []
+        if bill_rows:
+            writer.writerow([])
+            writer.writerow(["Received Bills", "Sr", "Staff Name", "Zone", "Sector", "Locality", "Consumer Name", "Connection No", "Old Connection", "Bill No", "Connection Type", "Arrears Received", "Amount Received", "Received Date", "Payment Method"])
+            for b in bill_rows:
+                writer.writerow([
+                    "Received Bills",
+                    b.get("sr"),
+                    fmt_staff_name(b.get("staff_name", "")),
+                    b.get("zone", ""),
+                    b.get("sector", ""),
+                    b.get("locality", ""),
+                    b.get("consumer_name", ""),
+                    b.get("connection_no", ""),
+                    b.get("old_connection", ""),
+                    b.get("bill_no", ""),
+                    b.get("connection_type", ""),
+                    b.get("arrears", 0),
+                    b.get("amount", 0),
+                    b.get("date", ""),
+                    b.get("payment_method", ""),
+                ])
         return Response(
             out.getvalue(),
             mimetype="text/csv",
@@ -8463,6 +8523,27 @@ def daily_staff_receive_export_response(fmt_type: str, results: dict, cols: str 
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             pd.DataFrame(summary_rows + ([summary_grand] if summary_grand else []), columns=summary_headers).to_excel(writer, sheet_name="Summary", index=False)
             pd.DataFrame(detail_rows, columns=detail_headers).to_excel(writer, sheet_name="Details", index=False)
+            bill_rows = (results.get("daily_staff_receive") or {}).get("bill_rows") or []
+            if bill_rows:
+                bill_records = []
+                for b in bill_rows:
+                    bill_records.append({
+                        "Sr #": b.get("sr"),
+                        "Staff Name": fmt_staff_name(b.get("staff_name", "")),
+                        "Zone": b.get("zone", ""),
+                        "Sector": b.get("sector", ""),
+                        "Locality": b.get("locality", ""),
+                        "Consumer Name": b.get("consumer_name", ""),
+                        "Connection No": b.get("connection_no", ""),
+                        "Old Connection": b.get("old_connection", ""),
+                        "Bill No": b.get("bill_no", ""),
+                        "Connection Type": b.get("connection_type", ""),
+                        "Arrears Received": b.get("arrears", 0),
+                        "Amount Received": b.get("amount", 0),
+                        "Received Date": b.get("date", ""),
+                        "Payment Method": b.get("payment_method", ""),
+                    })
+                pd.DataFrame(bill_records).to_excel(writer, sheet_name="Received Bills", index=False)
         buf.seek(0)
         return Response(
             buf.getvalue(),
@@ -9132,7 +9213,6 @@ def generate_daily_staff_receive_summary_pdf(results: dict, sort_order: str = "d
 
     elements = [
         Paragraph("Daily Receive Amount of Staff", title_style),
-        Paragraph(f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}", summary_style),
     ]
     if report.get("date_range"):
         elements.append(Paragraph(f"<b>Report Date:</b> {report['date_range']}", summary_style))
