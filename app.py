@@ -9355,6 +9355,181 @@ def export_daily_staff_receive(fmt_type: str):
     return daily_staff_receive_export_response(fmt_type, _last_daily_staff_results, cols=cols, detail_cols=detail_cols, sort_order=sort_order)
 
 
+def generate_daily_received_bills_pdf(report: dict, bill_rows: list[dict], staff_filter: str = "") -> bytes:
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=landscape(A4),
+        topMargin=8 * mm,
+        bottomMargin=8 * mm,
+        leftMargin=8 * mm,
+        rightMargin=8 * mm,
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "BillsTitle",
+        parent=styles["Heading1"],
+        fontSize=16,
+        textColor=ACCENT,
+        alignment=1,
+        spaceAfter=3 * mm,
+        fontName="Helvetica-Bold",
+    )
+    sub_style = ParagraphStyle(
+        "BillsSub",
+        parent=styles["Normal"],
+        fontSize=9,
+        leading=13,
+        alignment=1,
+        spaceAfter=4 * mm,
+    )
+    th_style = ParagraphStyle(
+        "BillsTh",
+        parent=styles["Normal"],
+        fontSize=8,
+        fontName="Helvetica-Bold",
+        textColor=colors.white,
+        alignment=1,
+    )
+    td_style = ParagraphStyle(
+        "BillsTd",
+        parent=styles["Normal"],
+        fontSize=7.5,
+        leading=10,
+        fontName="Helvetica",
+        alignment=0,
+    )
+    td_c_style = ParagraphStyle(
+        "BillsTdC",
+        parent=styles["Normal"],
+        fontSize=7.5,
+        leading=10,
+        fontName="Helvetica",
+        alignment=1,
+    )
+    td_r_style = ParagraphStyle(
+        "BillsTdR",
+        parent=styles["Normal"],
+        fontSize=7.5,
+        leading=10,
+        fontName="Helvetica",
+        alignment=2,
+    )
+
+    staff_title = f" — {fmt_staff_name(staff_filter).replace(chr(10), ' / ')}" if staff_filter and staff_filter != "ALL" else ""
+    date_range = report.get("date_range") or ""
+    total_bills = len(bill_rows)
+    total_arrears = sum(b.get("arrears", 0) for b in bill_rows)
+    total_amount = sum(b.get("amount", 0) for b in bill_rows)
+
+    elements = [
+        Paragraph(f"Daily Received Bills Report{staff_title}", title_style),
+        Paragraph(
+            f"<b>Report Date:</b> {date_range or 'N/A'} &nbsp;&nbsp;&nbsp; "
+            f"<b>Total Received Bills:</b> {fmt(total_bills)} &nbsp;&nbsp;&nbsp; "
+            f"<b>Arrears:</b> Rs. {fmt(total_arrears)} &nbsp;&nbsp;&nbsp; "
+            f"<b>Total Amount:</b> Rs. {fmt(total_amount)}",
+            sub_style,
+        ),
+        Spacer(1, 2 * mm),
+    ]
+
+    headers = ["Sr", "Staff Name", "Consumer Name", "Conn #", "Sector", "Locality", "Bill #", "Conn Type", "Arrears", "Amount", "Date", "Method"]
+    th_cells = [Paragraph(f"<b>{h}</b>", th_style) for h in headers]
+    data_rows = [th_cells]
+
+    for idx, b in enumerate(bill_rows, start=1):
+        s_name = fmt_staff_name(b.get("staff_name", "")).replace("\n", " / ")
+        data_rows.append([
+            Paragraph(str(idx), td_c_style),
+            Paragraph(s_name, td_style),
+            Paragraph(b.get("consumer_name") or "-", td_style),
+            Paragraph(str(b.get("connection_no") or "-"), td_c_style),
+            Paragraph(b.get("sector") or "-", td_style),
+            Paragraph(b.get("locality") or "-", td_style),
+            Paragraph(str(b.get("bill_no") or "-"), td_c_style),
+            Paragraph(b.get("connection_type") or b.get("bill_type") or "-", td_c_style),
+            Paragraph(fmt(b.get("arrears", 0)), td_r_style),
+            Paragraph(fmt(b.get("amount", 0)), td_r_style),
+            Paragraph(b.get("date") or "-", td_c_style),
+            Paragraph(b.get("payment_method") or "-", td_c_style),
+        ])
+
+    grand_th_cells = [
+        Paragraph("", td_c_style),
+        Paragraph("<b>Total</b>", td_style),
+        Paragraph("", td_style),
+        Paragraph("", td_c_style),
+        Paragraph("", td_style),
+        Paragraph("", td_style),
+        Paragraph("", td_c_style),
+        Paragraph(f"<b>{fmt(total_bills)}</b>", td_c_style),
+        Paragraph(f"<b>{fmt(total_arrears)}</b>", td_r_style),
+        Paragraph(f"<b>{fmt(total_amount)}</b>", td_r_style),
+        Paragraph("", td_c_style),
+        Paragraph("", td_c_style),
+    ]
+    data_rows.append(grand_th_cells)
+
+    page_w = landscape(A4)[0] - 16 * mm
+    col_widths = [
+        page_w * 0.04,  # Sr
+        page_w * 0.15,  # Staff
+        page_w * 0.15,  # Consumer
+        page_w * 0.09,  # Conn
+        page_w * 0.09,  # Sector
+        page_w * 0.11,  # Locality
+        page_w * 0.07,  # Bill #
+        page_w * 0.08,  # Conn Type
+        page_w * 0.07,  # Arrears
+        page_w * 0.07,  # Amount
+        page_w * 0.05,  # Date
+        page_w * 0.03,  # Method
+    ]
+
+    t = Table(data_rows, colWidths=col_widths, repeatRows=1)
+    t_style = [
+        ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
+        ("GRID", (0, 0), (-1, -1), 0.4, BORDER_CLR),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2.5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2.5),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#e6d8c8")),
+    ]
+    for r_idx in range(1, len(data_rows) - 1):
+        if r_idx % 2 == 0:
+            t_style.append(("BACKGROUND", (0, r_idx), (-1, r_idx), ALT_ROW))
+    t.setStyle(TableStyle(t_style))
+    elements.append(t)
+    doc.build(elements)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+@app.route("/daily-staff-receive/export/bills-pdf")
+def export_daily_staff_receive_bills_pdf():
+    if not _last_daily_staff_results:
+        flash("No daily staff report is available. Please upload files first.")
+        return redirect(url_for("daily_staff_receive"))
+    report = _last_daily_staff_results.get("daily_staff_receive") or {}
+    bill_rows = report.get("bill_rows") or []
+    staff_filter = request.args.get("staff", "").strip()
+    if staff_filter and staff_filter != "ALL":
+        bill_rows = [b for b in bill_rows if _normalize_staff_name(b.get("staff_name", "")) == _normalize_staff_name(staff_filter)]
+    pdf_bytes = generate_daily_received_bills_pdf(report, bill_rows, staff_filter=staff_filter)
+    filename = "received_bills_report"
+    if staff_filter and staff_filter != "ALL":
+        clean_name = re.sub(r"[^a-zA-Z0-9]+", "_", staff_filter).strip("_")
+        filename += f"_{clean_name}"
+    return Response(
+        pdf_bytes,
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}.pdf"},
+    )
+
+
 # ---------------------------------------------------------------------------
 # Consumer Report — Sector-based connection summary from uploaded CSV
 # ---------------------------------------------------------------------------

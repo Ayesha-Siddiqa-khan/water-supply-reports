@@ -280,7 +280,10 @@
             </div>
 
             <!-- Export Actions -->
-            <div class="export-bar" style="margin:0;display:flex;gap:6px;align-items:center;">
+            <div class="export-bar" style="margin:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+              <a class="chip" id="bills-pdf-btn" href="{{ url_for('export_daily_staff_receive_bills_pdf') }}" style="background:var(--teal);color:#0a192f;font-weight:700;">&#11015; Download Bills PDF</a>
+              <a class="chip" href="{{ url_for('export_daily_staff_receive_summary_pdf') }}">&#11015; Staff Summary PDF</a>
+              <a class="chip" href="{{ url_for('export_daily_staff_receive', fmt_type='pdf') }}">&#11015; Staff Full PDF</a>
               <button type="button" class="chip" onclick="dsExportBillsCsv()">&#11015; Download CSV</button>
               <a class="chip" href="{{ url_for('export_daily_staff_receive', fmt_type='xlsx') }}">&#11015; Download Excel</a>
               <button type="button" class="chip" onclick="dsPrintBills()">&#128424; Print View</button>
@@ -643,6 +646,12 @@
     });
 
     billsCurrentPage = 1;
+    var pdfBtn = document.getElementById('bills-pdf-btn');
+    if (pdfBtn) {
+      var staffSelectVal = document.getElementById('bill-staff-filter') ? document.getElementById('bill-staff-filter').value : 'ALL';
+      var baseUrl = "{{ url_for('export_daily_staff_receive_bills_pdf') }}";
+      pdfBtn.href = (staffSelectVal && staffSelectVal !== 'ALL') ? (baseUrl + '?staff=' + encodeURIComponent(staffSelectVal)) : baseUrl;
+    }
     dsRenderBills();
   }
 
