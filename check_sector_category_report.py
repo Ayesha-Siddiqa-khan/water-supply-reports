@@ -105,6 +105,36 @@ def main():
     assert pdf_export.status_code == 200
     assert pdf_export.mimetype == "application/pdf"
 
+    # Sector-wise Details tabs: one per category, each with its own PDF/CSV.
+    for group in categories:
+        slug = group["name"].lower().replace(" ", "-")
+        tab_csv = client.get(f"/bill-list/export/sector/{slug}/csv")
+        assert tab_csv.status_code == 200, tab_csv.status_code
+        tab_rows = list(csv.reader(io.StringIO(tab_csv.get_data(as_text=True))))
+        assert tab_rows[0][:2] == ["Sr", "Sector"], tab_rows[0]
+        expected_rows = len(group["rows"]) + sum(len(row.get("localities") or []) for row in group["rows"])
+        assert len(tab_rows) == expected_rows + 1
+        assert {row[1] for row in tab_rows[1:]} == {row["sector"] for row in group["rows"]}
+
+        tab_pdf = client.get(f"/bill-list/export/sector/{slug}/pdf")
+        assert tab_pdf.status_code == 200
+        assert tab_pdf.mimetype == "application/pdf"
+
+    # The Commercial tab carries the locality break-up under its sector.
+    commercial = next((g for g in categories if g["name"] == "Commercial"), None)
+    if commercial:
+        for row in commercial["rows"]:
+            localities = row.get("localities") or []
+            assert localities, row
+            assert sum(loc["total_bills"] for loc in localities) == row["total_bills"]
+            assert sum(loc["received_bills"] for loc in localities) == row["received_bills"]
+            assert abs(sum(loc["total_received_amount"] for loc in localities) - row["total_received_amount"]) < 0.5
+        tab_rows = list(csv.reader(io.StringIO(
+            client.get("/bill-list/export/sector/commercial/csv").get_data(as_text=True)
+        )))
+        assert tab_rows[0] == ["Sr", "Sector", "Locality", "Total Bills", "Received Bills", "Remaining Bills", "Total Received Amount", "Pending Amount"]
+        assert len(tab_rows) > len(commercial["rows"]) + 1
+
     print("Sector category report and connection list checks passed.")
 
 

@@ -484,36 +484,55 @@
           </div>
           <details class="dropdown-panel" style="margin-top:12px;" open>
             <summary style="cursor:pointer;padding:8px 0;color:var(--text-secondary);font-size:13px;font-weight:600;list-style:none;">Sector-wise Details</summary>
-            <div class="table-wrapper">
-              <table class="data-table" data-select-scope="general-sector">
-                <thead>
-                  <tr><th>Sr</th><th>Sector</th><th>Total Bills</th><th>Received Bills</th><th>Remaining Bills</th><th>Total Received Amount</th><th>Pending Amount</th></tr>
-                </thead>
-                <tbody>
-                  {% for group in report_categories %}
-                    <tr class="category-row">
-                      <td class="row-select-cell" style="text-align:center;">
-                        <input type="checkbox" class="category-select" data-category="{{ group.name }}" checked title="Select or deselect every {{ group.name }} sector">
-                      </td>
-                      <td colspan="6" style="text-align:left;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">{{ group.name }} <span style="font-weight:400;letter-spacing:0;text-transform:none;color:var(--text-muted);">({{ group.rows|length }} sectors)</span></td>
-                    </tr>
-                    {% for row in group.rows %}
-                      <tr data-row-key="{{ row.sector }}" data-category="{{ group.name }}">
-                        <td style="text-align:center;color:var(--text-muted)">{{ row.sr }}</td>
-                        <td>{{ row.sector }}</td>
-                        <td class="mono">{{ "{:,}".format(row.total_bills) }}</td>
-                        <td class="mono">{{ "{:,}".format(row.received_bills) }}</td>
-                        <td class="mono">{{ "{:,}".format(row.remaining_bills) }}</td>
-                        <td class="mono accent-teal">{{ "{:,.0f}".format(row.total_received_amount) }}</td>
-                        <td class="mono accent-coral">{{ "{:,.0f}".format(row.remaining_amount) }}</td>
-                      </tr>
-                    {% endfor %}
-                  {% else %}
-                    <tr><td colspan="7">No bill data uploaded yet.</td></tr>
-                  {% endfor %}
-                </tbody>
-              </table>
+            <div class="sector-detail-tabs" role="tablist">
+              {% for group in report_categories %}
+                <button type="button" class="sector-detail-tab{% if loop.first %} active{% endif %}" role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}" aria-controls="sector-tab-{{ loop.index }}" data-sector-tab="sector-tab-{{ loop.index }}">{{ group.name }} <span class="sector-detail-tab-count">{{ group.rows|length }} sectors</span></button>
+              {% endfor %}
             </div>
+            {% for group in report_categories %}
+              {% set category_slug = group.name|lower|replace(' ', '-') %}
+              <div class="sector-detail-panel" id="sector-tab-{{ loop.index }}" role="tabpanel"{% if not loop.first %} style="display:none;"{% endif %}>
+                <div class="table-wrapper">
+                  <table class="data-table" data-select-scope="general-sector">
+                    <thead>
+                      <tr><th>Sr</th><th>Sector</th><th>Total Bills</th><th>Received Bills</th><th>Remaining Bills</th><th>Total Received Amount</th><th>Pending Amount</th></tr>
+                    </thead>
+                    <tbody>
+                      {% for row in group.rows %}
+                        <tr data-row-key="{{ row.sector }}">
+                          <td style="text-align:center;color:var(--text-muted)">{{ row.sr }}</td>
+                          <td>{{ row.sector }}</td>
+                          <td class="mono">{{ "{:,}".format(row.total_bills) }}</td>
+                          <td class="mono">{{ "{:,}".format(row.received_bills) }}</td>
+                          <td class="mono">{{ "{:,}".format(row.remaining_bills) }}</td>
+                          <td class="mono accent-teal">{{ "{:,.0f}".format(row.total_received_amount) }}</td>
+                          <td class="mono accent-coral">{{ "{:,.0f}".format(row.remaining_amount) }}</td>
+                        </tr>
+                        {% for loc in row.localities|default([]) %}
+                          <tr class="locality-row" data-no-select>
+                            <td></td>
+                            <td>{{ loc.locality }}</td>
+                            <td class="mono">{{ "{:,}".format(loc.total_bills) }}</td>
+                            <td class="mono">{{ "{:,}".format(loc.received_bills) }}</td>
+                            <td class="mono">{{ "{:,}".format(loc.remaining_bills) }}</td>
+                            <td class="mono accent-teal">{{ "{:,.0f}".format(loc.total_received_amount) }}</td>
+                            <td class="mono accent-coral">{{ "{:,.0f}".format(loc.remaining_amount) }}</td>
+                          </tr>
+                        {% endfor %}
+                      {% else %}
+                        <tr><td colspan="7">No bill data uploaded yet.</td></tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                <div class="export-bar" data-row-scope="general-sector" style="margin-top:12px;">
+                  <span style="font-size:11px;color:var(--text-muted);align-self:center;">{{ group.name }} report:</span>
+                  <a class="chip" href="{{ url_for('export_bill_list_sector_category', category=category_slug, fmt_type='pdf') }}">&#11015; PDF</a>
+                  <a class="chip" href="{{ url_for('export_bill_list_sector_category', category=category_slug, fmt_type='csv') }}">&#11015; CSV</a>
+                  <a class="chip" href="{{ url_for('export_bill_list_sector_category', category=category_slug, fmt_type='xlsx') }}">&#11015; Excel</a>
+                </div>
+              </div>
+            {% endfor %}
             <div class="export-bar" data-col-config="connectionList" data-row-scope="general-sector" style="margin-top:12px;">
               <span style="font-size:11px;color:var(--text-muted);align-self:center;">Connection lists (checked sectors only):</span>
               <a class="chip" href="{{ url_for('export_bill_list_connections', fmt_type='pdf', status='paid') }}">&#11015; Paid Connections PDF</a>
@@ -947,7 +966,7 @@
     document.querySelectorAll('table[data-select-scope]').forEach(function(table) {
       if (table.dataset.rowSelectReady === '1') return;
       var scope = table.getAttribute('data-select-scope');
-      var bodyRows = Array.from(table.querySelectorAll('tbody tr[data-row-key]'));
+      var bodyRows = Array.from(table.querySelectorAll('tbody tr[data-row-key], tbody tr[data-no-select]'));
       var headRow = table.querySelector('thead tr');
       if (!scope || !headRow || !bodyRows.length) return;
       table.dataset.rowSelectReady = '1';
@@ -968,14 +987,18 @@
         var cell = document.createElement('td');
         cell.className = 'row-select-cell';
         cell.style.textAlign = 'center';
-        var cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.className = 'bill-row-select';
-        cb.checked = true;
-        cb.dataset.scope = scope;
-        cb.dataset.rowKey = row.getAttribute('data-row-key') || '';
-        cb.title = 'Include this row in PDF, CSV, and Excel exports';
-        cell.appendChild(cb);
+        // Detail rows (locality break-up) keep the column alignment but are
+        // selected through their parent sector.
+        if (!row.hasAttribute('data-no-select')) {
+          var cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.className = 'bill-row-select';
+          cb.checked = true;
+          cb.dataset.scope = scope;
+          cb.dataset.rowKey = row.getAttribute('data-row-key') || '';
+          cb.title = 'Include this row in PDF, CSV, and Excel exports';
+          cell.appendChild(cb);
+        }
         row.insertBefore(cell, row.firstChild);
       });
 
@@ -988,14 +1011,12 @@
 
       master.addEventListener('change', function() {
         table.querySelectorAll('tbody .bill-row-select').forEach(function(cb) { cb.checked = master.checked; });
-        syncCategoryMasters();
         refreshAllExportLinks();
       });
 
       table.addEventListener('change', function(e) {
         if (!e.target.classList.contains('bill-row-select')) return;
         syncMaster();
-        syncCategoryMasters();
         refreshAllExportLinks();
       });
 
@@ -1003,42 +1024,23 @@
     });
   }
 
-  // ── CATEGORY-WISE SELECTION (Domestic / Commercial / Private Societies) ──
-  function categoryRows(category) {
-    return Array.from(document.querySelectorAll('table[data-select-scope="general-sector"] tbody tr[data-category="' + category + '"]'));
-  }
-
-  function syncCategoryMasters() {
-    document.querySelectorAll('.category-select').forEach(function(cb) {
-      var checks = categoryRows(cb.dataset.category)
-        .map(function(row) { return row.querySelector('.bill-row-select'); })
-        .filter(Boolean);
-      var checkedCount = checks.filter(function(x) { return x.checked; }).length;
-      cb.checked = checks.length > 0 && checkedCount === checks.length;
-      cb.indeterminate = checkedCount > 0 && checkedCount < checks.length;
-    });
-  }
-
-  function initCategorySelection() {
-    document.querySelectorAll('.category-select').forEach(function(cb) {
-      cb.addEventListener('change', function() {
-        categoryRows(cb.dataset.category).forEach(function(row) {
-          var rowCb = row.querySelector('.bill-row-select');
-          if (rowCb) rowCb.checked = cb.checked;
+  // ── SECTOR-WISE DETAIL TABS (Domestic / Commercial / Private Societies) ──
+  function initSectorDetailTabs() {
+    var buttons = Array.from(document.querySelectorAll('.sector-detail-tab'));
+    if (!buttons.length) return;
+    buttons.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var target = btn.getAttribute('data-sector-tab');
+        buttons.forEach(function(other) {
+          var isActive = other === btn;
+          other.classList.toggle('active', isActive);
+          other.setAttribute('aria-selected', isActive ? 'true' : 'false');
         });
-        var table = cb.closest('table');
-        var master = table ? table.querySelector('.bill-row-select-master') : null;
-        if (master) {
-          var all = Array.from(table.querySelectorAll('tbody .bill-row-select'));
-          var checkedCount = all.filter(function(x) { return x.checked; }).length;
-          master.checked = checkedCount === all.length;
-          master.indeterminate = checkedCount > 0 && checkedCount < all.length;
-        }
-        syncCategoryMasters();
-        refreshAllExportLinks();
+        document.querySelectorAll('.sector-detail-panel').forEach(function(panel) {
+          panel.style.display = panel.id === target ? '' : 'none';
+        });
       });
     });
-    syncCategoryMasters();
   }
 
   function applyRowSelectionParams(url, scope) {
@@ -1684,7 +1686,7 @@
   }
 
   initRowSelectionTables();
-  initCategorySelection();
+  initSectorDetailTabs();
   refreshAllExportLinks();
 </script>
 {% endblock %}

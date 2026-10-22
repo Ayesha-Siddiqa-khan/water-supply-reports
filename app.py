@@ -4815,6 +4815,39 @@ def get_bill_list_context():
             GROUP BY sector
             """
         ).fetchall()
+        # Commercial sectors carry their locality split (printed under the sector row).
+        commercial_sectors = [row["sector"] for row in rows if "COMMERCIAL" in (row["sector"] or "").upper()]
+        localities_by_sector = {}
+        if commercial_sectors:
+            placeholders = ",".join("?" * len(commercial_sectors))
+            for loc in conn.execute(
+                f"""
+                SELECT
+                    sector,
+                    locality,
+                    COUNT(*) AS total_bills,
+                    SUM(CASE WHEN amount_received > 0 THEN 1 ELSE 0 END) AS received_bills,
+                    SUM(amount_received) AS total_received_amount,
+                    SUM(CASE WHEN total_bill > amount_received THEN total_bill - amount_received ELSE 0 END) AS remaining_amount
+                FROM bills
+                WHERE sector IN ({placeholders})
+                GROUP BY sector, locality
+                ORDER BY locality
+                """,
+                commercial_sectors,
+            ).fetchall():
+                total_bills = int(loc["total_bills"] or 0)
+                received_bills = int(loc["received_bills"] or 0)
+                localities_by_sector.setdefault(loc["sector"], []).append(
+                    {
+                        "locality": loc["locality"] or "Unknown",
+                        "total_bills": total_bills,
+                        "received_bills": received_bills,
+                        "remaining_bills": total_bills - received_bills,
+                        "total_received_amount": float(loc["total_received_amount"] or 0),
+                        "remaining_amount": float(loc["remaining_amount"] or 0),
+                    }
+                )
         # Category-wise view (Domestic / Commercial / Private Societies) reusing the
         # same classifier the DNC register and Consumer Sector Report use.
         categorized = [(row, _dnc_classification(row["sector"], "")) for row in rows]
@@ -4840,6 +4873,9 @@ def get_bill_list_context():
                     "remaining_amount": float(row["remaining_amount"] or 0),
                 }
             )
+        for row in report_rows:
+            if row["category"] == "Commercial":
+                row["localities"] = localities_by_sector.get(row["sector"], [])
         report_categories = []
         for category in SECTOR_CATEGORY_ORDER:
             category_rows = [r for r in report_rows if r["category"] == category]
@@ -5023,6 +5059,54 @@ def bill_list_export_rows():
         for row in context["report_rows"]
     ]
     return headers, rows, context["summary"]
+
+
+def bill_list_sector_category_export_rows(category: str):
+    """Rows for one Sector-wise Details tab (Domestic / Commercial / Private Societies).
+
+    The Commercial tab also carries the locality split, so the printed report
+    matches the breakdown shown on the page.
+    """
+    context = get_bill_list_context()
+    group = next((g for g in context["report_categories"] if g["name"] == category), None)
+    data = list(group["rows"]) if group else []
+    mode, keys = _export_row_selection()
+    if mode == "include":
+        data = [row for row in data if str(row["sector"]) in keys]
+    elif mode == "exclude":
+        data = [row for row in data if str(row["sector"]) not in keys]
+
+    show_locality = category == "Commercial"
+
+    def amounts(row):
+        return [
+            fmt(row["total_bills"]),
+            fmt(row["received_bills"]),
+            fmt(row["remaining_bills"]),
+            fmt(row["total_received_amount"]),
+            fmt(row["remaining_amount"]),
+        ]
+
+    headers = ["Sr", "Sector"] + (["Locality"] if show_locality else []) + [
+        "Total Bills",
+        "Received Bills",
+        "Remaining Bills",
+        "Total Received Amount",
+        "Pending Amount",
+    ]
+    rows = []
+    for row in data:
+        rows.append([row["sr"], row["sector"]] + ([""] if show_locality else []) + amounts(row))
+        for loc in row.get("localities", []):
+            rows.append(["", row["sector"], loc["locality"]] + amounts(loc))
+    summary = {
+        "total_bills": sum(row["total_bills"] for row in data),
+        "received_bills": sum(row["received_bills"] for row in data),
+        "remaining_bills": sum(row["remaining_bills"] for row in data),
+        "total_received_amount": sum(row["total_received_amount"] for row in data),
+        "remaining_amount": sum(row["remaining_amount"] for row in data),
+    }
+    return headers, rows, summary
 
 
 def _bill_list_summary_from_rows(rows: list[list]) -> dict:
@@ -6479,6 +6563,71 @@ def export_bill_list(fmt_type: str):
             buf.getvalue(),
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": "attachment; filename=bill_list_sector_report.xlsx"},
+        )
+    flash("Unknown export format.")
+    return redirect(url_for("bill_list"))
+
+
+@app.route("/bill-list/export/sector/<category>/<fmt_type>")
+def export_bill_list_sector_category(category: str, fmt_type: str):
+    """Export one Sector-wise Details tab so it can be printed on its own."""
+    category_name = next(
+        (name for name in SECTOR_CATEGORY_ORDER if name.lower().replace(" ", "-") == category.strip().lower()),
+        None,
+    )
+    if category_name is None:
+        flash("Unknown sector category.")
+        return redirect(url_for("bill_list"))
+
+    headers, rows, summary = bill_list_sector_category_export_rows(category_name)
+    slug = category_name.lower().replace(" ", "-")
+    filename = f"bill_list_sector_report_{slug}"
+
+    if fmt_type == "pdf":
+        summary_lines = [
+            f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}",
+            f"<b>Category:</b> {category_name}",
+            f"<b>Total Bills:</b> {fmt(summary['total_bills'])}",
+            f"<b>Received Bills:</b> {fmt(summary['received_bills'])}",
+            f"<b>Remaining Bills:</b> {fmt(summary['remaining_bills'])}",
+            f"<b>Amount Received:</b> Rs. {fmt(summary['total_received_amount'])}",
+            f"<b>Pending Amount:</b> Rs. {fmt(summary['remaining_amount'])}",
+        ]
+        left_cols = [i for i, h in enumerate(headers) if h.lower() in ("sector", "locality")]
+        page_w = landscape(A4)[0] - 20 * mm
+        pdf_bytes = generate_card_pdf(
+            f"Sector-wise Report - {category_name}",
+            summary_lines,
+            headers,
+            wrap_pdf_body_cells(rows, font_size=10, left_columns=set(left_cols)),
+            pagesize=landscape(A4),
+            col_widths=[page_w / len(headers)] * len(headers),
+            left_cols=left_cols,
+            header_font_size=10,
+            body_font_size=10,
+            cell_padding=5,
+            margins=(10 * mm, 10 * mm, 10 * mm, 8 * mm),
+        )
+        return Response(
+            pdf_bytes,
+            mimetype="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={filename}.pdf"},
+        )
+    if fmt_type == "csv":
+        csv_data = pd.DataFrame(rows, columns=headers).to_csv(index=False)
+        return Response(
+            csv_data,
+            mimetype="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}.csv"},
+        )
+    if fmt_type == "xlsx":
+        buf = io.BytesIO()
+        pd.DataFrame(rows, columns=headers).to_excel(buf, index=False)
+        buf.seek(0)
+        return Response(
+            buf.getvalue(),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}.xlsx"},
         )
     flash("Unknown export format.")
     return redirect(url_for("bill_list"))
