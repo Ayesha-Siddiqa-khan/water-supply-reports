@@ -21,14 +21,17 @@
   {% if report %}
   <form class="ncd-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='csv') }}" style="margin:0;">
     <input type="hidden" name="rows_json">
+    <input type="hidden" name="detail_cols">
     <button class="topbar-btn" type="submit">CSV</button>
   </form>
   <form class="ncd-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='xlsx') }}" style="margin:0;">
     <input type="hidden" name="rows_json">
+    <input type="hidden" name="detail_cols">
     <button class="topbar-btn" type="submit">Excel</button>
   </form>
   <form class="ncd-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='detailed-pdf') }}" style="margin:0;">
     <input type="hidden" name="rows_json">
+    <input type="hidden" name="detail_cols">
     <button class="topbar-btn" type="submit">Detailed PDF</button>
   </form>
   {% endif %}
@@ -54,7 +57,7 @@
       </div>
       <div class="upload-text">
         <strong>Choose New Connection Detail files</strong>
-        <span>CSV or XLSX &mdash; single or multiple files supported.</span>
+        <span>CSV or XLSX &mdash; new-connection registers or payment lists. Payment lists use Bill Type = New Connection and Amount Received.</span>
       </div>
       <input type="file" name="new_connection_files" accept=".csv,.xlsx" multiple style="display:none" onchange="this.form.submit();">
     </div>
@@ -80,6 +83,13 @@
     <div class="ncd-stat"><span>Commercial connections</span><strong>{{ "{:,.0f}".format(report.summary.commercial) }}</strong></div>
     <div class="ncd-stat"><span>Unclassified records</span><strong>{{ "{:,.0f}".format(report.summary.unclassified) }}</strong></div>
   </div>
+
+  {% if report.skipped_records %}
+  <p style="color:var(--text-muted);">{{ "{:,.0f}".format(report.skipped_records) }} other payment records excluded. Payment-list classifications use connection type and sector/locality; security deposits are not supplied by these files.</p>
+  {% endif %}
+  {% if report.review_rows %}
+  <p style="color:var(--coral);">{{ "{:,.0f}".format(report.review_rows|length) }} records could not be included. Open Needs Review for the validation details.</p>
+  {% endif %}
 
   <div class="section" id="ncd-report">
     <div class="ncd-tabs">
@@ -165,15 +175,14 @@
         <form class="ncd-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='csv') }}"><input type="hidden" name="rows_json"><input type="hidden" name="detail_cols"><button class="chip" type="submit">Download CSV</button></form>
         <form class="ncd-export-form" method="post" action="{{ url_for('export_new_connection_detail', fmt_type='xlsx') }}"><input type="hidden" name="rows_json"><input type="hidden" name="detail_cols"><button class="chip" type="submit">Download Excel</button></form>
       </div>
-      {% set detail_default_hidden = ['Sr #', 'Connection Fee', 'Re-connection Fee', 'Transfer Connection Fee', 'Road Cut Charges', 'Sanitation Fee', 'Sewerage / Drainage Fee', 'Source File'] %}
       <div class="export-bar" style="gap:12px;flex-wrap:wrap;margin-bottom:10px;">
         <strong style="color:var(--text-muted);font-size:12px;">Detail Columns:</strong>
         <label><input type="checkbox" class="ncd-detail-col" value="Sr No." checked> SR</label>
-        {% for col in report.original_columns %}
-          <label><input type="checkbox" class="ncd-detail-col" value="{{ col }}" {% if col not in detail_default_hidden %}checked{% endif %}> {{ col }}</label>
-        {% endfor %}
         <label><input type="checkbox" class="ncd-detail-col" value="Financial Year" checked> Financial Year</label>
-        <label><input type="checkbox" class="ncd-detail-col" value="Connection Classification" checked> Classification</label>
+        {% for col in report.original_columns %}
+          <label><input type="checkbox" class="ncd-detail-col" value="{{ col }}" {% if col in report.detail_default_columns %}checked{% endif %}> {{ col }}</label>
+        {% endfor %}
+        <label><input type="checkbox" class="ncd-detail-col" value="Connection Classification"> Classification</label>
         <label><input type="checkbox" class="ncd-detail-col" value="Source File"> Source File</label>
       </div>
       <div class="table-wrapper">
@@ -182,8 +191,9 @@
             <tr>
               <th><input type="checkbox" id="select-filtered" checked title="Select all filtered rows"></th>
               <th data-detail-col="Sr No.">Sr No.</th>
+              <th data-detail-col="Financial Year">Financial Year</th>
               {% for col in report.original_columns %}<th data-detail-col="{{ col }}">{{ col }}</th>{% endfor %}
-              <th data-detail-col="Financial Year">Financial Year</th><th data-detail-col="Connection Classification">Connection Classification</th><th data-detail-col="Source File">Source File</th>
+              <th data-detail-col="Connection Classification">Connection Classification</th><th data-detail-col="Source File">Source File</th>
             </tr>
           </thead>
           <tbody>
@@ -191,8 +201,9 @@
             <tr data-fy="{{ row.financial_year }}" data-class="{{ row.classification }}" data-source="{{ row.source_file }}" data-date="{{ row.received_date_iso }}" data-amount="{{ row.amount }}" data-search="{{ (row.original.values()|join(' ') ~ ' ' ~ row.financial_year ~ ' ' ~ row.classification ~ ' ' ~ row.source_file)|lower }}" data-row="{{ row|tojson|forceescape }}">
               <td><input type="checkbox" class="ncd-row-check" checked></td>
               <td data-detail-col="Sr No.">{{ loop.index }}</td>
+              <td data-detail-col="Financial Year">{{ row.financial_year }}</td>
               {% for col in report.original_columns %}<td data-detail-col="{{ col }}">{{ row.original.get(col, '') }}</td>{% endfor %}
-              <td data-detail-col="Financial Year">{{ row.financial_year }}</td><td data-detail-col="Connection Classification">{{ row.classification }}</td><td data-detail-col="Source File">{{ row.source_file }}</td>
+              <td data-detail-col="Connection Classification">{{ row.classification }}</td><td data-detail-col="Source File">{{ row.source_file }}</td>
             </tr>
             {% endfor %}
           </tbody>

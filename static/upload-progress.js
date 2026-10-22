@@ -170,7 +170,7 @@
     }
 
     var xhr = new XMLHttpRequest();
-    xhr.open('POST', form.action || window.location.href, true);
+    xhr.open('POST', form.getAttribute('action') || window.location.href, true);
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
 
     xhr.upload.onprogress = function (e) {

@@ -9663,7 +9663,7 @@ def _clear_consumer_summary_cache() -> None:
 # ---------------------------------------------------------------------------
 
 _new_connection_detail_report: dict | None = None
-_NCD_REPORT_VERSION = 2
+_NCD_REPORT_VERSION = 3
 
 _NCD_REQUIRED_ALIASES = {
     "received_date": ["received date", "receive date", "receipt date", "date received", "date"],
@@ -9742,14 +9742,12 @@ def _ncd_financial_year(dt: datetime) -> str:
 
 
 def _ncd_year_from_source(source: str) -> str | None:
-    match = re.search(r"(?<!\d)(\d{2})\s*-\s*(\d{2})(?!\d)", str(source or ""))
+    match = re.search(r"(?<![\d-])(\d{2})\s*-\s*(\d{2})(?![\d-])", str(source or ""))
     if not match:
         return None
     start = 2000 + int(match.group(1))
     end = 2000 + int(match.group(2))
-    if end < start:
-        end += 100
-    return f"{start}-{end}"
+    return f"{start}-{end}" if end == start + 1 else None
 
 
 def _ncd_classification(security: Decimal) -> str:
@@ -9804,6 +9802,12 @@ def _ncd_recalculate(report: dict) -> dict:
     report["category_summary"] = sorted(category.values(), key=lambda x: (x["financial_year"], x["classification"]))
     report["financial_years"] = sorted(annual)
     report["classifications"] = sorted({r["classification"] for r in rows})
+    report["detail_default_columns"] = ["Sr No.", "Financial Year"]
+    for aliases in (["connection no", "connection number"] + _NCD_REQUIRED_ALIASES["connections"],
+                    ["amount received"] + _NCD_REQUIRED_ALIASES["amount"]):
+        column = _ncd_pick_column(report.get("original_columns", []), aliases)
+        if column:
+            report["detail_default_columns"].append(column)
     report["version"] = _NCD_REPORT_VERSION
     return report
 
@@ -9817,6 +9821,7 @@ def _build_new_connection_detail_report(files) -> dict:
     seen_columns: set[str] = set()
     seen_records: set[str] = set()
     uploaded_records = 0
+    skipped_records = 0
 
     for file in files:
         if not file or not file.filename:
@@ -9833,9 +9838,27 @@ def _build_new_connection_detail_report(files) -> dict:
                 original_columns.append(col)
 
         colmap = {key: _ncd_pick_column(list(df.columns), aliases) for key, aliases in _NCD_REQUIRED_ALIASES.items()}
+        bill_type_col = _ncd_pick_column(list(df.columns), ["bill type"])
+        connection_no_col = _ncd_pick_column(list(df.columns), ["connection no", "connection number"])
+        payment_list = bool(bill_type_col and connection_no_col and not colmap["connections"])
+        if payment_list:
+            colmap["connections"] = connection_no_col
+            colmap["amount"] = _ncd_pick_column(list(df.columns), ["amount received"])
+            colmap.pop("security")
+            colmap["connection_type"] = _ncd_pick_column(list(df.columns), ["connection type"])
+            payment_classes = pd.Series("", index=df.index)
+            if colmap["connection_type"]:
+                domestic = df[colmap["connection_type"]].str.lower().str.contains("domestic", na=False)
+                payment_classes.loc[domestic] = "Domestic"
+            payment_df = df.rename(columns=lambda col: _ncd_norm(col))
+            payment_classes.loc[build_private_society_mask(payment_df)] = "Domestic - Private Society"
+            payment_classes.loc[build_commercial_mask(payment_df)] = "Commercial"
         missing_cols = [key for key, col in colmap.items() if not col]
         for idx, rec in enumerate(df.to_dict(orient="records"), start=2):
             uploaded_records += 1
+            if payment_list and _ncd_norm(rec.get(bill_type_col)) != "new connection":
+                skipped_records += 1
+                continue
             original = {col: ("" if pd.isna(rec.get(col)) else str(rec.get(col, "")).strip()) for col in df.columns}
             if missing_cols:
                 review_rows.append({"source_file": source, "source_row": idx, "issue": "Missing required column: " + ", ".join(missing_cols), "original": original})
@@ -9843,25 +9866,29 @@ def _build_new_connection_detail_report(files) -> dict:
 
             issue = []
             dt = _ncd_parse_date(original.get(colmap["received_date"]))
-            connections = _ncd_int(original.get(colmap["connections"]))
+            connections = 1 if payment_list else _ncd_int(original.get(colmap["connections"]))
             amount_dec = _ncd_decimal(original.get(colmap["amount"]))
-            security_dec = _ncd_decimal(original.get(colmap["security"]))
+            security_dec = None if payment_list else _ncd_decimal(original.get(colmap["security"]))
             if not str(original.get(colmap["received_date"], "")).strip():
                 issue.append("Missing Received Date")
             elif dt is None:
                 issue.append("Invalid Received Date")
             if not str(original.get(colmap["connections"], "")).strip():
-                issue.append("Missing No of Connection")
+                issue.append("Missing Connection No" if payment_list else "Missing No of Connection")
             elif connections is None:
                 issue.append("Invalid No of Connection")
             if not str(original.get(colmap["amount"], "")).strip():
-                issue.append("Missing Total Receivable")
+                issue.append("Missing Amount Received" if payment_list else "Missing Total Receivable")
             elif amount_dec is None:
-                issue.append("Invalid Total Receivable")
-            if not str(original.get(colmap["security"], "")).strip():
-                issue.append("Missing or unsupported Security value")
+                issue.append("Invalid Amount Received" if payment_list else "Invalid Total Receivable")
+            if payment_list:
+                classification = payment_classes.iloc[idx - 2]
+                if not classification or not original.get(colmap["connection_type"]):
+                    issue.append("Missing or unsupported Connection Type")
             elif security_dec is None:
                 issue.append("Missing or unsupported Security value")
+            else:
+                classification = _ncd_classification(security_dec)
 
             if issue:
                 review_rows.append({"source_file": source, "source_row": idx, "issue": "; ".join(issue), "original": original})
@@ -9872,7 +9899,7 @@ def _build_new_connection_detail_report(files) -> dict:
                 continue
             seen_records.add(record_key)
             amount_int = int(amount_dec)
-            security_int = int(security_dec)
+            security_int = int(security_dec) if security_dec is not None else None
             row_id = len(rows) + 1
             rows.append({
                 "_id": row_id,
@@ -9883,8 +9910,8 @@ def _build_new_connection_detail_report(files) -> dict:
                 "received_date_display": dt.strftime("%d-%m-%Y"),
                 # Year-named uploads such as 24-25.csv are treated as the
                 # authority for this report; otherwise fall back to Received Date.
-                "financial_year": _ncd_year_from_source(source) or _ncd_financial_year(dt),
-                "classification": _ncd_classification(security_dec),
+                "financial_year": (_ncd_year_from_source(source) if not payment_list else None) or _ncd_financial_year(dt),
+                "classification": classification,
                 "connections": connections,
                 "amount": amount_int,
                 "security": security_int,
@@ -9897,6 +9924,7 @@ def _build_new_connection_detail_report(files) -> dict:
         "source_files": source_files,
         "original_columns": original_columns,
         "uploaded_records": uploaded_records,
+        "skipped_records": skipped_records,
         "generated_at": datetime.now().strftime("%d-%m-%Y %H:%M"),
     }
     return _ncd_recalculate(report)
@@ -9934,7 +9962,7 @@ def _clear_new_connection_detail_cache() -> None:
 
 
 def _ncd_export_rows(rows: list[dict], original_columns: list[str], selected_columns: list[str] | None = None) -> tuple[list[str], list[list]]:
-    all_headers = ["Sr No."] + original_columns + ["Financial Year", "Connection Classification", "Source File"]
+    all_headers = ["Sr No.", "Financial Year"] + original_columns + ["Connection Classification", "Source File"]
     headers = [h for h in all_headers if not selected_columns or h in selected_columns]
     data = []
     for sr, r in enumerate(rows, start=1):
@@ -11436,7 +11464,7 @@ def export_new_connection_detail(fmt_type: str):
             detail_cols = loaded_cols if isinstance(loaded_cols, list) else []
         except Exception:
             detail_cols = []
-    headers, data_rows = _ncd_export_rows(rows, original_columns, detail_cols or None)
+    headers, data_rows = _ncd_export_rows(rows, original_columns, detail_cols or report.get("detail_default_columns"))
     subtotals: dict[str, dict] = {}
     for r in rows:
         cls = r.get("classification", "")
