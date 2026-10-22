@@ -1,8 +1,8 @@
 {
   "app.py": {
-    "mtime": 1792660966.843147,
-    "seen": 1792661030.9546542,
-    "ast_hash": "5e89ede9f860b70be80b199b54ee6fff",
+    "mtime": 1792678275.531145,
+    "seen": 1792679250.0646794,
+    "ast_hash": "b7f5c20c9545f7276cda16ac83195e01",
     "semantic_hash": ""
   },
   "arrears_analysis.py": {
@@ -162,9 +162,9 @@
     "semantic_hash": ""
   },
   "templates/bill_list.html": {
-    "mtime": 1790965651.7000382,
-    "seen": 1790966082.5983942,
-    "ast_hash": "b83b9b6de7e4ebd92e3beee0d1b23feb",
+    "mtime": 1792679111.3468373,
+    "seen": 1792679250.0739686,
+    "ast_hash": "951e46cb0326d53f4b1f6884b36a3f92",
     "semantic_hash": ""
   },
   "templates/consumer_report.html": {
@@ -369,6 +369,12 @@
     "mtime": 1791813138.0553582,
     "seen": 1792660852.9748523,
     "ast_hash": "06a0f484eb111cf4671ed131ba5e6c73",
+    "semantic_hash": ""
+  },
+  "check_sector_category_report.py": {
+    "mtime": 1792678534.829766,
+    "seen": 1792679250.0684178,
+    "ast_hash": "ff05ac810837f5d5e3db6ab446448dc0",
     "semantic_hash": ""
   }
 }
