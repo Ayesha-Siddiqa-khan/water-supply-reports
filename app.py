@@ -30,6 +30,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus import (
     BaseDocTemplate,
     KeepTogether,
@@ -5095,8 +5096,8 @@ def bill_list_sector_category_export_rows(category: str):
         "Pending Amount",
     ]
     rows = []
-    for row in data:
-        rows.append([row["sr"], row["sector"]] + ([""] if show_locality else []) + amounts(row))
+    for sr, row in enumerate(data, start=1):
+        rows.append([sr, row["sector"]] + ([""] if show_locality else []) + amounts(row))
         for loc in row.get("localities", []):
             rows.append(["", row["sector"], loc["locality"]] + amounts(loc))
     summary = {
@@ -6597,13 +6598,45 @@ def export_bill_list_sector_category(category: str, fmt_type: str):
         summary_lines = [f'<font size="8.5">{summary_line}</font>']
         left_cols = [i for i, h in enumerate(headers) if h.lower() in ("sector", "locality")]
         page_w = landscape(A4)[0] - 20 * mm
+        # Size each column to its text: headers may wrap at word breaks, while
+        # Sector/Locality take the spare width so long names stay readable.
+        side_padding = 3
+        col_widths = []
+        for i, header in enumerate(headers):
+            body_width = max((stringWidth(str(row[i]), "Helvetica", 10) for row in rows), default=0)
+            if i in left_cols:
+                natural_width = max(stringWidth(str(header), "Helvetica-Bold", 10), body_width)
+            else:
+                header_width = max(stringWidth(word, "Helvetica-Bold", 10) for word in str(header).split())
+                natural_width = max(header_width, body_width)
+            col_widths.append(natural_width + 2 * side_padding + 8)
+        total_width = sum(col_widths)
+        if total_width < page_w:
+            col_widths = [width * page_w / total_width for width in col_widths]
+        elif total_width > page_w:
+            text_total = sum(col_widths[i] for i in left_cols)
+            fixed_total = total_width - text_total
+            spare = page_w - fixed_total
+            if spare > 0 and text_total:
+                for i in left_cols:
+                    col_widths[i] = spare * col_widths[i] / text_total
+            else:
+                col_widths = [page_w / len(headers)] * len(headers)
+        grand_total_row = ["", "Grand Total"] + ([""] if "Locality" in headers else []) + [
+            fmt(summary["total_bills"]),
+            fmt(summary["received_bills"]),
+            fmt(summary["remaining_bills"]),
+            fmt(summary["total_received_amount"]),
+            fmt(summary["remaining_amount"]),
+        ]
         pdf_bytes = generate_card_pdf(
             f"Sector-wise Report - {category_name}",
             summary_lines,
             headers,
             wrap_pdf_body_cells(rows, font_size=10, left_columns=set(left_cols)),
+            grand_total_row=grand_total_row,
             pagesize=landscape(A4),
-            col_widths=[page_w / len(headers)] * len(headers),
+            col_widths=col_widths,
             left_cols=left_cols,
             header_font_size=10,
             body_font_size=10,

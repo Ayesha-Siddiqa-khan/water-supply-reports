@@ -114,6 +114,7 @@ def main():
         assert tab_rows[0][:2] == ["Sr", "Sector"], tab_rows[0]
         expected_rows = len(group["rows"]) + sum(len(row.get("localities") or []) for row in group["rows"])
         assert len(tab_rows) == expected_rows + 1
+        assert tab_rows[1][0] == "1"  # each tab is its own report, so Sr restarts at 1
         assert {row[1] for row in tab_rows[1:]} == {row["sector"] for row in group["rows"]}
 
         tab_pdf = client.get(f"/bill-list/export/sector/{slug}/pdf")

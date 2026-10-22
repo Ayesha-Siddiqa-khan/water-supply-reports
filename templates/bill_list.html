@@ -500,7 +500,7 @@
                     <tbody>
                       {% for row in group.rows %}
                         <tr data-row-key="{{ row.sector }}">
-                          <td style="text-align:center;color:var(--text-muted)">{{ row.sr }}</td>
+                          <td style="text-align:center;color:var(--text-muted)">{{ loop.index }}</td>
                           <td>{{ row.sector }}</td>
                           <td class="mono">{{ "{:,}".format(row.total_bills) }}</td>
                           <td class="mono">{{ "{:,}".format(row.received_bills) }}</td>
