@@ -669,6 +669,21 @@ body {
   background: var(--teal-dim) !important;
   border-top: 2px solid var(--teal) !important;
 }
+/* Category group rows (Domestic / Commercial / Private Societies) */
+.table-wrapper tbody tr.category-row td, .data-table tbody tr.category-row td {
+  background: var(--surface);
+  color: var(--teal);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-top: 1px solid var(--border-bright);
+}
+.table-wrapper tbody tr.category-row td:first-child, .data-table tbody tr.category-row td:first-child {
+  text-align: center;
+}
+/* The row-checkbox column shifts the generic nth-child alignment by one */
+.table-wrapper table[data-select-scope="general-sector"] tbody td:nth-child(3),
+.table-wrapper table[data-select-scope="general-sector"] thead th:nth-child(3) { text-align: left; }
 /* Right-align money columns */
 .table-wrapper td:nth-child(3), .data-table td:nth-child(3),
 .table-wrapper td:nth-child(4), .data-table td:nth-child(4),

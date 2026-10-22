@@ -482,7 +482,7 @@
               </details>
             {% endfor %}
           </div>
-          <details class="dropdown-panel" style="margin-top:12px;">
+          <details class="dropdown-panel" style="margin-top:12px;" open>
             <summary style="cursor:pointer;padding:8px 0;color:var(--text-secondary);font-size:13px;font-weight:600;list-style:none;">Sector-wise Details</summary>
             <div class="table-wrapper">
               <table class="data-table" data-select-scope="general-sector">
@@ -490,13 +490,42 @@
                   <tr><th>Sr</th><th>Sector</th><th>Total Bills</th><th>Received Bills</th><th>Remaining Bills</th><th>Total Received Amount</th><th>Pending Amount</th></tr>
                 </thead>
                 <tbody>
-                  {% for row in report_rows %}
-                    <tr data-row-key="{{ row.sector }}"><td>{{ row.sr }}</td><td>{{ row.sector }}</td><td class="mono">{{ "{:,}".format(row.total_bills) }}</td><td class="mono">{{ "{:,}".format(row.received_bills) }}</td><td class="mono">{{ "{:,}".format(row.remaining_bills) }}</td><td class="mono accent-teal">{{ "{:,.0f}".format(row.total_received_amount) }}</td><td class="mono accent-coral">{{ "{:,.0f}".format(row.remaining_amount) }}</td></tr>
+                  {% for group in report_categories %}
+                    <tr class="category-row">
+                      <td class="row-select-cell" style="text-align:center;">
+                        <input type="checkbox" class="category-select" data-category="{{ group.name }}" checked title="Select or deselect every {{ group.name }} sector">
+                      </td>
+                      <td colspan="6" style="text-align:left;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">{{ group.name }} <span style="font-weight:400;letter-spacing:0;text-transform:none;color:var(--text-muted);">({{ group.rows|length }} sectors)</span></td>
+                    </tr>
+                    {% for row in group.rows %}
+                      <tr data-row-key="{{ row.sector }}" data-category="{{ group.name }}">
+                        <td style="text-align:center;color:var(--text-muted)">{{ row.sr }}</td>
+                        <td>{{ row.sector }}</td>
+                        <td class="mono">{{ "{:,}".format(row.total_bills) }}</td>
+                        <td class="mono">{{ "{:,}".format(row.received_bills) }}</td>
+                        <td class="mono">{{ "{:,}".format(row.remaining_bills) }}</td>
+                        <td class="mono accent-teal">{{ "{:,.0f}".format(row.total_received_amount) }}</td>
+                        <td class="mono accent-coral">{{ "{:,.0f}".format(row.remaining_amount) }}</td>
+                      </tr>
+                    {% endfor %}
                   {% else %}
                     <tr><td colspan="7">No bill data uploaded yet.</td></tr>
                   {% endfor %}
                 </tbody>
               </table>
+            </div>
+            <div class="export-bar" data-col-config="connectionList" data-row-scope="general-sector" style="margin-top:12px;">
+              <span style="font-size:11px;color:var(--text-muted);align-self:center;">Connection lists (checked sectors only):</span>
+              <a class="chip" href="{{ url_for('export_bill_list_connections', fmt_type='pdf', status='paid') }}">&#11015; Paid Connections PDF</a>
+              <a class="chip" href="{{ url_for('export_bill_list_connections', fmt_type='csv', status='paid') }}">&#11015; Paid Connections CSV</a>
+              <a class="chip" href="{{ url_for('export_bill_list_connections', fmt_type='xlsx', status='paid') }}">&#11015; Paid Connections Excel</a>
+              <a class="chip" href="{{ url_for('export_bill_list_connections', fmt_type='pdf', status='unpaid') }}">&#11015; Unpaid Connections PDF</a>
+              <a class="chip" href="{{ url_for('export_bill_list_connections', fmt_type='csv', status='unpaid') }}">&#11015; Unpaid Connections CSV</a>
+              <a class="chip" href="{{ url_for('export_bill_list_connections', fmt_type='xlsx', status='unpaid') }}">&#11015; Unpaid Connections Excel</a>
+            </div>
+            <div class="col-select-area" style="margin-top:8px;">
+              <div class="col-select-label">Select Columns for Connection Lists</div>
+              <div class="col-chips" id="col-chips-connectionList"></div>
             </div>
           </details>
         </div>
@@ -959,17 +988,57 @@
 
       master.addEventListener('change', function() {
         table.querySelectorAll('tbody .bill-row-select').forEach(function(cb) { cb.checked = master.checked; });
+        syncCategoryMasters();
         refreshAllExportLinks();
       });
 
       table.addEventListener('change', function(e) {
         if (!e.target.classList.contains('bill-row-select')) return;
         syncMaster();
+        syncCategoryMasters();
         refreshAllExportLinks();
       });
 
       syncMaster();
     });
+  }
+
+  // ── CATEGORY-WISE SELECTION (Domestic / Commercial / Private Societies) ──
+  function categoryRows(category) {
+    return Array.from(document.querySelectorAll('table[data-select-scope="general-sector"] tbody tr[data-category="' + category + '"]'));
+  }
+
+  function syncCategoryMasters() {
+    document.querySelectorAll('.category-select').forEach(function(cb) {
+      var checks = categoryRows(cb.dataset.category)
+        .map(function(row) { return row.querySelector('.bill-row-select'); })
+        .filter(Boolean);
+      var checkedCount = checks.filter(function(x) { return x.checked; }).length;
+      cb.checked = checks.length > 0 && checkedCount === checks.length;
+      cb.indeterminate = checkedCount > 0 && checkedCount < checks.length;
+    });
+  }
+
+  function initCategorySelection() {
+    document.querySelectorAll('.category-select').forEach(function(cb) {
+      cb.addEventListener('change', function() {
+        categoryRows(cb.dataset.category).forEach(function(row) {
+          var rowCb = row.querySelector('.bill-row-select');
+          if (rowCb) rowCb.checked = cb.checked;
+        });
+        var table = cb.closest('table');
+        var master = table ? table.querySelector('.bill-row-select-master') : null;
+        if (master) {
+          var all = Array.from(table.querySelectorAll('tbody .bill-row-select'));
+          var checkedCount = all.filter(function(x) { return x.checked; }).length;
+          master.checked = checkedCount === all.length;
+          master.indeterminate = checkedCount > 0 && checkedCount < all.length;
+        }
+        syncCategoryMasters();
+        refreshAllExportLinks();
+      });
+    });
+    syncCategoryMasters();
   }
 
   function applyRowSelectionParams(url, scope) {
@@ -1351,7 +1420,22 @@
   // ── COLUMN SELECTION CONFIGS ──
   const reportColumnConfigs = {
     generalReport: [
-      { key: "sr", label: "Sr", checked: true }, { key: "sector", label: "Sector", checked: true }, { key: "totalBills", label: "Total Bills", checked: true }, { key: "receivedBills", label: "Received Bills", checked: true }, { key: "remainingBills", label: "Remaining Bills", checked: true }, { key: "totalReceivedAmount", label: "Total Received Amount", checked: true }, { key: "pendingAmount", label: "Pending Amount", checked: true }
+      { key: "sr", label: "Sr", checked: true }, { key: "sector", label: "Sector", checked: true }, { key: "category", label: "Category", checked: false }, { key: "totalBills", label: "Total Bills", checked: true }, { key: "receivedBills", label: "Received Bills", checked: true }, { key: "remainingBills", label: "Remaining Bills", checked: true }, { key: "totalReceivedAmount", label: "Total Received Amount", checked: true }, { key: "pendingAmount", label: "Pending Amount", checked: true }
+    ],
+    connectionList: [
+      { key: "sr", label: "Sr", checked: true },
+      { key: "consumerName", label: "Consumer Name", checked: true },
+      { key: "connectionNo", label: "Connection No", checked: true },
+      { key: "mobileNo", label: "Mobile No", checked: true },
+      { key: "referenceNo", label: "Reference No", checked: true },
+      { key: "sector", label: "Sector", checked: true },
+      { key: "locality", label: "Locality", checked: false },
+      { key: "zone", label: "Zone", checked: false },
+      { key: "arrearsReceived", label: "Arrears", checked: true },
+      { key: "totalBills", label: "Total Bill", checked: true },
+      { key: "totalReceivedAmount", label: "Amount Received", checked: true },
+      { key: "outstanding", label: "Outstanding", checked: true },
+      { key: "status", label: "Status", checked: true }
     ],
     unpaidExpired: [
       { key: "sr", label: "Sr", checked: true }, { key: "name", label: "Name", checked: true }, { key: "bills", label: "Bills", checked: true }, { key: "totalBillAmount", label: "Total Bill Amount", checked: true }, { key: "totalArrearsAmount", label: "Total Arrears Amount", checked: true }, { key: "currentBillAmount", label: "Current Bill Amount", checked: true }
@@ -1600,6 +1684,7 @@
   }
 
   initRowSelectionTables();
+  initCategorySelection();
   refreshAllExportLinks();
 </script>
 {% endblock %}

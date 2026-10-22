@@ -1982,7 +1982,8 @@ def _filter_card_export(cols_param, col_map, headers, rows, grand=None):
 
 # Column key maps for each export route
 # Sector-wise report: Sr, Sector, Total Bills, Received Bills, Remaining Bills, Total Received Amount, Pending Amount
-SECTOR_COL_MAP = {"sr": 0, "sector": 1, "totalBills": 2, "receivedBills": 3, "remainingBills": 4, "totalReceivedAmount": 5, "pendingAmount": 6}
+# Category is an optional extra column (index 7) shown when the user ticks it.
+SECTOR_COL_MAP = {"sr": 0, "sector": 1, "category": 7, "totalBills": 2, "receivedBills": 3, "remainingBills": 4, "totalReceivedAmount": 5, "pendingAmount": 6}
 
 # Zone report (CSV/Excel): Sr, Zone, Sector, Total Bills, Received Bills, Remaining Bills, Amount Received, Pending Amount
 ZONE_COL_MAP = {"sr": 0, "zone": 1, "sector": 2, "totalBills": 3, "receivedBills": 4, "remainingBills": 5, "totalReceivedAmount": 6, "pendingAmount": 7}
@@ -3546,6 +3547,8 @@ def get_filtered_bills(
     zone: str | None = None,
     staff_id: int | None = None,
     sort_amount: str = "",
+    sectors: list[str] | None = None,
+    exclude_sectors: list[str] | None = None,
 ):
     init_bill_list_db()
     with get_db() as conn:
@@ -3586,6 +3589,17 @@ def get_filtered_bills(
         if sector:
             base_query += " AND b.sector = ?"
             params.append(sector)
+
+        # Multi-sector filter (sector checkboxes on the Sector Wise Report).
+        if sectors:
+            placeholders = ",".join("?" for _ in sectors)
+            base_query += f" AND b.sector IN ({placeholders})"
+            params.extend(sectors)
+
+        if exclude_sectors:
+            placeholders = ",".join("?" for _ in exclude_sectors)
+            base_query += f" AND b.sector NOT IN ({placeholders})"
+            params.extend(exclude_sectors)
 
         if locality:
             base_query += " AND b.locality = ?"
@@ -4542,7 +4556,7 @@ def generate_advanced_filtered_pdf(bills: list[dict], filters_applied: str, show
     )
 
 
-def export_advanced_bills_response(fmt_type: str, bills: list[dict], filters_applied: str, show_summary: bool = True, cols_param: str = None, group_by: str = "normal", sort_amount: str = "", bill_status: str = "", sector: str = "", locality: str = ""):
+def export_advanced_bills_response(fmt_type: str, bills: list[dict], filters_applied: str, show_summary: bool = True, cols_param: str = None, group_by: str = "normal", sort_amount: str = "", bill_status: str = "", sector: str = "", locality: str = "", filename_prefix: str = ""):
     if not bills:
         flash("No bills match the selected filters.")
         return redirect(url_for("bill_list"))
@@ -4591,7 +4605,8 @@ def export_advanced_bills_response(fmt_type: str, bills: list[dict], filters_app
             mobile_col_idx = ci
             break
 
-    filename = f"advanced_bills_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    filename = f"{filename_prefix}_{stamp}" if filename_prefix else f"advanced_bills_{stamp}"
 
     if fmt_type == "pdf":
         if group_by in ("sector", "zone", "staff"):
@@ -4779,6 +4794,9 @@ def build_unpaid_amount_summary(conn, bill_ids: set[int] | None = None) -> dict:
     }
 
 
+SECTOR_CATEGORY_ORDER = ("Domestic", "Commercial", "Private Societies")
+
+
 def get_bill_list_context():
     init_bill_list_db()
     with get_db() as conn:
@@ -4795,17 +4813,26 @@ def get_bill_list_context():
                 SUM(CASE WHEN total_bill > amount_received THEN total_bill - amount_received ELSE 0 END) AS remaining_amount
             FROM bills
             GROUP BY sector
-            ORDER BY sector
             """
         ).fetchall()
+        # Category-wise view (Domestic / Commercial / Private Societies) reusing the
+        # same classifier the DNC register and Consumer Sector Report use.
+        categorized = [(row, _dnc_classification(row["sector"], "")) for row in rows]
+        categorized.sort(
+            key=lambda item: (
+                SECTOR_CATEGORY_ORDER.index(item[1]) if item[1] in SECTOR_CATEGORY_ORDER else len(SECTOR_CATEGORY_ORDER),
+                (item[0]["sector"] or ""),
+            )
+        )
         report_rows = []
-        for idx, row in enumerate(rows, start=1):
+        for idx, (row, category) in enumerate(categorized, start=1):
             total_bills = int(row["total_bills"] or 0)
             received_bills = int(row["received_bills"] or 0)
             report_rows.append(
                 {
                     "sr": idx,
                     "sector": row["sector"],
+                    "category": category,
                     "total_bills": total_bills,
                     "received_bills": received_bills,
                     "remaining_bills": total_bills - received_bills,
@@ -4813,6 +4840,11 @@ def get_bill_list_context():
                     "remaining_amount": float(row["remaining_amount"] or 0),
                 }
             )
+        report_categories = []
+        for category in SECTOR_CATEGORY_ORDER:
+            category_rows = [r for r in report_rows if r["category"] == category]
+            if category_rows:
+                report_categories.append({"name": category, "rows": category_rows})
 
         summary = conn.execute(
             """
@@ -4947,6 +4979,7 @@ def get_bill_list_context():
             "remaining_amount": float(summary["remaining_amount"] or 0),
         },
         "report_rows": report_rows,
+        "report_categories": report_categories,
         "zones": [dict(row) for row in zones],
         "localities": locality_rows,
         "staff": [dict(row) for row in staff],
@@ -4974,6 +5007,7 @@ def bill_list_export_rows():
         "Remaining Bills",
         "Total Received Amount",
         "Pending Amount",
+        "Category",
     ]
     rows = [
         [
@@ -4984,6 +5018,7 @@ def bill_list_export_rows():
             fmt(row["remaining_bills"]),
             fmt(row["total_received_amount"]),
             fmt(row["remaining_amount"]),
+            row["category"],
         ]
         for row in context["report_rows"]
     ]
@@ -6447,6 +6482,46 @@ def export_bill_list(fmt_type: str):
         )
     flash("Unknown export format.")
     return redirect(url_for("bill_list"))
+
+
+@app.route("/bill-list/export/connections/<fmt_type>")
+def export_bill_list_connections(fmt_type: str):
+    """Paid / unpaid connection list for the sectors checked in the Sector Wise Report.
+
+    The sector checkboxes reuse the shared row-selection params (row_mode/row_key),
+    where every key is a sector name.
+    """
+    bill_status = (request.args.get("status") or "").strip().lower()
+    if bill_status not in ("paid", "unpaid"):
+        flash("Unknown connection list status.")
+        return redirect(url_for("bill_list"))
+
+    mode, keys = _export_row_selection()
+    include_sectors = sorted(keys) if mode == "include" else None
+    exclude_sectors = sorted(keys) if mode == "exclude" else None
+
+    bills = get_filtered_bills(
+        bill_status=bill_status,
+        sectors=include_sectors,
+        exclude_sectors=exclude_sectors,
+    )
+
+    filters_applied = "Paid" if bill_status == "paid" else "Unpaid"
+    if include_sectors is not None:
+        filters_applied += f", Sectors: {len(include_sectors)} selected"
+    elif exclude_sectors is not None:
+        filters_applied += f", Sectors: {len(exclude_sectors)} excluded"
+
+    return export_advanced_bills_response(
+        fmt_type,
+        bills,
+        filters_applied,
+        show_summary=request.args.get("show_summary", "0") == "1",
+        cols_param=request.args.get("cols"),
+        group_by="sector",
+        bill_status=bill_status,
+        filename_prefix=f"{bill_status}_connections",
+    )
 
 
 @app.route("/bill-list/export/unpaid-amounts/<fmt_type>")
