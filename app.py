@@ -6584,7 +6584,8 @@ def export_bill_list_sector_category(category: str, fmt_type: str):
     filename = f"bill_list_sector_report_{slug}"
 
     if fmt_type == "pdf":
-        summary_lines = [
+        # Keep the summary compact on a single line so the table gets more room.
+        summary_line = " &nbsp;|&nbsp; ".join([
             f"<b>Generated:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}",
             f"<b>Category:</b> {category_name}",
             f"<b>Total Bills:</b> {fmt(summary['total_bills'])}",
@@ -6592,7 +6593,8 @@ def export_bill_list_sector_category(category: str, fmt_type: str):
             f"<b>Remaining Bills:</b> {fmt(summary['remaining_bills'])}",
             f"<b>Amount Received:</b> Rs. {fmt(summary['total_received_amount'])}",
             f"<b>Pending Amount:</b> Rs. {fmt(summary['remaining_amount'])}",
-        ]
+        ])
+        summary_lines = [f'<font size="8.5">{summary_line}</font>']
         left_cols = [i for i, h in enumerate(headers) if h.lower() in ("sector", "locality")]
         page_w = landscape(A4)[0] - 20 * mm
         pdf_bytes = generate_card_pdf(
